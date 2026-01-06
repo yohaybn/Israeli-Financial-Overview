@@ -1,0 +1,32 @@
+# User Data - DO NOT COMMIT
+profiles.json
+oauth-credentials.json
+service-account.json
+.env
+server.log
+
+# Results directory
+results/
+
+# Test Data (anonymized test files)
+src/testData/*.json
+!src/testData/README.md
+
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+scrape_result_isracard_1767692893676.json
+categories-cache.json
+app/categories-cache.json
+app/settings.json

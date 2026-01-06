@@ -1,0 +1,92 @@
+[
+    {
+        "txns": [
+            {
+                "identifier": "41199048113",
+                "type": "normal",
+                "status": "completed",
+                "date": "2025-11-28T19:45:12.000Z",
+                "processedDate": "2025-12-01T21:00:00.000Z",
+                "originalAmount": -345,
+                "originalCurrency": "₪",
+                "chargedAmount": 0,
+                "chargedCurrency": "₪",
+                "description": "RIVER תל אביב",
+                "memo": "345 ₪ חויבו מתקציב ביטחון נופשים"
+            },
+            {
+                "identifier": "41183302911",
+                "type": "normal",
+                "status": "completed",
+                "date": "2025-11-25T11:15:04.000Z",
+                "processedDate": "2025-12-01T21:00:00.000Z",
+                "originalAmount": -42,
+                "originalCurrency": "₪",
+                "chargedAmount": 0,
+                "chargedCurrency": "₪",
+                "description": "חומוס יוסף ירושלים",
+                "memo": "42 ₪ חויבו מתקציב ביטחון נופשים"
+            },
+            {
+                "identifier": "41166934431",
+                "type": "normal",
+                "status": "completed",
+                "date": "2025-11-22T08:30:17.000Z",
+                "processedDate": "2025-12-01T21:00:00.000Z",
+                "originalAmount": -51,
+                "originalCurrency": "₪",
+                "chargedAmount": 0,
+                "chargedCurrency": "₪",
+                "description": "רולדין תל אביב",
+                "memo": "51 ₪ חויבו מתקציב ביטחון נופשים"
+            },
+            {
+                "identifier": "41107332086",
+                "type": "normal",
+                "status": "completed",
+                "date": "2025-11-18T09:20:52.000Z",
+                "processedDate": "2025-12-01T21:00:00.000Z",
+                "originalAmount": -68,
+                "originalCurrency": "₪",
+                "chargedAmount": 0,
+                "chargedCurrency": "₪",
+                "description": "ארומה ירושלים",
+                "memo": "68 ₪ חויבו מתקציב ביטחון נופשים"
+            },
+            {
+                "identifier": "41101605156",
+                "type": "normal",
+                "status": "completed",
+                "date": "2025-11-10T11:00:42.000Z",
+                "processedDate": "2025-12-01T21:00:00.000Z",
+                "originalAmount": -42,
+                "originalCurrency": "₪",
+                "chargedAmount": 0,
+                "chargedCurrency": "₪",
+                "description": "חומוס יוסף תל אביב",
+                "memo": "42 ₪ חויבו מתקציב ביטחון נופשים"
+            }
+        ],
+        "accountNumber": "5582"
+    },
+    {
+        "txns": [],
+        "accountNumber": "6619"
+    },
+    {
+        "txns": [],
+        "accountNumber": "4430"
+    },
+    {
+        "txns": [],
+        "accountNumber": "3128"
+    },
+    {
+        "txns": [],
+        "accountNumber": "7721"
+    },
+    {
+        "txns": [],
+        "accountNumber": "1094"
+    }
+]

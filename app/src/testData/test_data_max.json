@@ -1,0 +1,102 @@
+[
+  {
+    "accountNumber": "4452",
+    "txns": [
+      {
+        "type": "installments",
+        "identifier": 810293847,
+        "date": "2025-12-15T18:30:00.000Z",
+        "processedDate": "2026-01-01T22:00:00.000Z",
+        "originalAmount": -2400.0,
+        "originalCurrency": "ILS",
+        "chargedAmount": -200.0,
+        "chargedCurrency": "ILS",
+        "description": "מחסני חשמל ירושלים",
+        "memo": "תשלום 2 מתוך 12",
+        "installments": {
+          "number": 2,
+          "total": 12
+        },
+        "status": "completed"
+      },
+      {
+        "type": "normal",
+        "identifier": 774839201,
+        "date": "2025-12-18T12:45:00.000Z",
+        "processedDate": "2026-01-01T22:00:00.000Z",
+        "originalAmount": -55.9,
+        "originalCurrency": "ILS",
+        "chargedAmount": -55.9,
+        "chargedCurrency": "ILS",
+        "description": "וולט תל אביב",
+        "memo": "",
+        "status": "completed"
+      },
+      {
+        "type": "normal",
+        "identifier": 112233445,
+        "date": "2025-12-22T08:15:00.000Z",
+        "processedDate": "2026-01-01T22:00:00.000Z",
+        "originalAmount": -120.0,
+        "originalCurrency": "ILS",
+        "chargedAmount": -120.0,
+        "chargedCurrency": "ILS",
+        "description": "פנגו חניה ירושלים",
+        "memo": "",
+        "status": "completed"
+      },
+      {
+        "type": "normal",
+        "identifier": 556677889,
+        "date": "2025-12-24T16:20:00.000Z",
+        "processedDate": "2026-01-01T22:00:00.000Z",
+        "originalAmount": -312.4,
+        "originalCurrency": "ILS",
+        "chargedAmount": -312.4,
+        "chargedCurrency": "ILS",
+        "description": "שופרסל דיל תל אביב",
+        "memo": "",
+        "status": "completed"
+      },
+      {
+        "type": "normal",
+        "identifier": 990011223,
+        "date": "2025-12-28T20:10:00.000Z",
+        "processedDate": "2026-01-01T22:00:00.000Z",
+        "originalAmount": -45.0,
+        "originalCurrency": "ILS",
+        "chargedAmount": -45.0,
+        "chargedCurrency": "ILS",
+        "description": "קולנוע לב תל אביב",
+        "memo": "",
+        "status": "completed"
+      },
+      {
+        "type": "normal",
+        "identifier": 334455667,
+        "date": "2026-01-02T09:00:00.000Z",
+        "processedDate": "2026-02-01T22:00:00.000Z",
+        "originalAmount": -18.5,
+        "originalCurrency": "ILS",
+        "chargedAmount": -18.5,
+        "chargedCurrency": "ILS",
+        "description": "מאפה נאמן ירושלים",
+        "memo": "",
+        "status": "completed"
+      },
+      {
+        "type": "normal",
+        "identifier": 887766554,
+        "date": "2026-01-04T11:30:00.000Z",
+        "processedDate": "2026-02-01T22:00:00.000Z",
+        "originalAmount": -210.0,
+        "originalCurrency": "ILS",
+        "chargedAmount": -210.0,
+        "chargedCurrency": "ILS",
+        "description": "דלק פז תל אביב",
+        "memo": "",
+        "status": "completed"
+      }
+    ]
+  }
+]

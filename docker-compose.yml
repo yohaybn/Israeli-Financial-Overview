@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  scraper:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount results directory to persist data
+      - ./app/results:/usr/src/app/results
+      # Mount config files if used (optional, env vars preferred)
+      - ./app/settings.json:/usr/src/app/settings.json
+      - ./app/service-account.json:/usr/src/app/service-account.json
+    environment:
+      - PORT=3000
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - DRIVE_FOLDER_ID=${DRIVE_FOLDER_ID}

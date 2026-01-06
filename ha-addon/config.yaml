@@ -1,0 +1,25 @@
+name: "Israeli Bank Scraper"
+version: "1.0.0"
+slug: "bank_scraper"
+description: "Scrape financial data from Israeli banks and upload to Google Drive"
+url: "https://github.com/yohaybn/bank-scraper-docker"
+startup: application
+arch:
+  - aarch64
+  - amd64
+  - armv7
+image: "ghcr.io/yohaybn/bank-scraper-docker-addon-{arch}"
+panel: true
+ingress: true
+ingress_port: 3056
+ingress_entry: /
+options:
+  oauth_client_id: ""
+  oauth_client_secret: ""
+  drive_folder_id: ""
+schema:
+  oauth_client_id: str
+  oauth_client_secret: str
+  drive_folder_id: str
+  oauth_redirect_uri: str?
+  app_secret: str?
