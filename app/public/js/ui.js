@@ -18,7 +18,7 @@ export function showToast(message, type = 'info') {
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 5000);
 }
 
 export async function setLanguage(lang) {
@@ -521,15 +521,16 @@ export function getComputedFilename(customCompanyId, customProfileName, dateOver
     const dd = String(now.getDate()).padStart(2, '0');
     const dateStr = `${yyyy}-${mm}-${dd}`;
 
-    let name = pattern || '{profile}_{date}';
+    let name = pattern || '{bank}_{profile}_{date}';
     name = name
         .replace(/{date}/g, dateStr)
-        .replace(/{bank}/g, companyId || '[Bank]')
+        .replace(/{bank}/g, companyId || '')
         .replace(/{profile}/g, profileName || '')
         .replace(/{timestamp}/g, now.toISOString().replace(/[:.]/g, '-'))
-        .replace(/__+/g, '_').replace(/_$/, '');
+        .replace(/__+/g, '_').replace(/^_|_$/g, '');
     return name;
 }
+
 
 export function updateExpectedFilename() {
     const preview = getComputedFilename();

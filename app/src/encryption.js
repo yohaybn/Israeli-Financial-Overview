@@ -6,16 +6,27 @@ const ALGORITHM = 'aes-256-cbc';
 
 export function encrypt(text, password) {
     const iv = crypto.randomBytes(16);
-    const key = crypto.scryptSync(password, 'salt', 32);
+    const salt = crypto.randomBytes(16);
+    const key = crypto.scryptSync(password, salt, 32);
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    return { iv: iv.toString('hex'), content: encrypted };
+    return {
+        iv: iv.toString('hex'),
+        salt: salt.toString('hex'),
+        content: encrypted
+    };
 }
 
 export function decrypt(encryptedData, password) {
     const iv = Buffer.from(encryptedData.iv, 'hex');
-    const key = crypto.scryptSync(password, 'salt', 32);
+    // Salt is required now.
+    // Backward compatibility check could be done but we decided on BREAKING CHANGE.
+    if (!encryptedData.salt) {
+        throw new Error('Missing salt in encrypted data. Data might be from an older version. Please re-encrypt your credentials.');
+    }
+    const salt = Buffer.from(encryptedData.salt, 'hex');
+    const key = crypto.scryptSync(password, salt, 32);
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     let decrypted = decipher.update(encryptedData.content, 'hex', 'utf8');
     decrypted += decipher.final('utf8');

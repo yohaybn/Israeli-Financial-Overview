@@ -17,18 +17,7 @@ if (!fs.existsSync(RESULTS_DIR)) {
 }
 
 export function getAuthConfig() {
-    // 1. Try Environment Variables
-    if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_CLIENT_SECRET) {
-        return {
-            installed: {
-                client_id: process.env.OAUTH_CLIENT_ID,
-                client_secret: process.env.OAUTH_CLIENT_SECRET,
-                redirect_uris: process.env.OAUTH_REDIRECT_URI ? [process.env.OAUTH_REDIRECT_URI] : ["http://localhost:3000/oauth2callback"]
-            }
-        };
-    }
-
-    // 2. Try File
+    // Read OAuth credentials from file
     if (fs.existsSync(OAUTH_CREDENTIALS_PATH)) {
         try {
             return JSON.parse(fs.readFileSync(OAUTH_CREDENTIALS_PATH, 'utf8'));
@@ -38,6 +27,8 @@ export function getAuthConfig() {
     }
     return null;
 }
+
+
 
 export function getSettings() {
     // 1. Try Environment Variables (as JSON string)
@@ -79,8 +70,29 @@ export function saveSettings(settings) {
 // AI Config
 import { encrypt, decrypt } from './encryption.js';
 
-// Fallback secret if env var not set
-const APP_SECRET = process.env.APP_SECRET || 'bank-scraper-secret-key-change-me';
+// Fallback secret if env var not set - STRICTLY WARN if using fallback
+let _cachedSecret = null;
+
+export function getAppSecret() {
+    if (_cachedSecret) return _cachedSecret;
+
+    // Use process.env.APP_SECRET directly here, lazily
+    let secret = process.env.APP_SECRET;
+
+    if (!secret) {
+        console.error(`
+    ################################################################################
+    #  CRITICAL SECURITY WARNING: APP_SECRET is not set!                           #
+    #  Using a temporary random secret. Encrypted data will be LOST on restart.    #
+    #  Please set APP_SECRET in your environment variables or .env file.           #
+    ################################################################################
+        `);
+        secret = 'TEMP_SECRET_' + Math.random().toString(36).slice(2) + Date.now();
+    }
+
+    _cachedSecret = secret;
+    return secret;
+}
 
 export function getAiConfig() {
     const settings = getSettings();
@@ -96,7 +108,8 @@ export function saveAiConfig(config) {
 
     // Encrypt key if it's being updated and is not already masked/encrypted
     if (config.apiKey && !config.apiKey.startsWith('iv:')) {
-        const encrypted = encrypt(config.apiKey, APP_SECRET);
+        const secret = getAppSecret();
+        const encrypted = encrypt(config.apiKey, secret);
         newAi.apiKey = JSON.stringify(encrypted);
     }
 

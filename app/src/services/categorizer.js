@@ -6,7 +6,6 @@ import { getAiConfig } from '../config.js';
 import { decrypt } from '../encryption.js';
 
 const CACHE_PATH = path.resolve('./categories-cache.json');
-const APP_SECRET = process.env.APP_SECRET || 'bank-scraper-secret-key-change-me';
 
 // Load Cache
 function loadCache() {
@@ -62,12 +61,14 @@ export async function categorize(inputData) {
     if (missing.length > 0) {
         console.log(`[Categorizer] Found ${missing.length} new descriptions to categorize.`);
 
+        // Use process.env.APP_SECRET directly here, lazily
+        let secret = process.env.APP_SECRET;
         // Get Decrypted Key
         let apiKey = aiConfig.apiKey;
         try {
             const encryptedObj = JSON.parse(apiKey);
             if (encryptedObj.iv && encryptedObj.content) {
-                apiKey = decrypt(encryptedObj, APP_SECRET);
+                apiKey = decrypt(encryptedObj, secret);
             }
         } catch (e) {
             // assume plain text if parse fails or not encrypted structure

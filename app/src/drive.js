@@ -24,24 +24,47 @@ function getAuth(authConfig) {
     });
   }
 
-  // 2. OAuth2 Client (Config object with tokens)
-  if (authConfig.client_id && authConfig.tokens) {
-    const { client_id, client_secret, redirect_uri, tokens } = authConfig;
+  // Normalize: Handle nested 'installed' structure from Google OAuth JSON files
+  let normalizedConfig = authConfig;
+  if (authConfig.installed) {
+    normalizedConfig = {
+      client_id: authConfig.installed.client_id,
+      client_secret: authConfig.installed.client_secret,
+      redirect_uri: authConfig.installed.redirect_uris?.[0] || 'http://localhost:3000/oauth2callback',
+      tokens: authConfig.tokens
+    };
+  } else if (authConfig.redirect_uris) {
+    // Flat structure but with redirect_uris array
+    normalizedConfig = {
+      ...authConfig,
+      redirect_uri: authConfig.redirect_uris[0] || 'http://localhost:3000/oauth2callback'
+    };
+  }
+
+  // 2. OAuth2 Client (Config object with client_id and tokens)
+  if (normalizedConfig.client_id && normalizedConfig.tokens) {
+    const { client_id, client_secret, redirect_uri, tokens } = normalizedConfig;
     const oAuth2Client = new google.auth.OAuth2(
       client_id,
       client_secret,
-      redirect_uri || 'http://localhost:3000/oauth2callback' // standard local callback
+      redirect_uri || 'http://localhost:3000/oauth2callback'
     );
     oAuth2Client.setCredentials(tokens);
     return oAuth2Client;
   }
 
-  // 3. Service Account (Credentials object)
-  return new google.auth.GoogleAuth({
-    credentials: authConfig,
-    scopes: SCOPES,
-  });
+  // 3. Service Account (Credentials object - must have client_email)
+  if (authConfig.client_email) {
+    return new google.auth.GoogleAuth({
+      credentials: authConfig,
+      scopes: SCOPES,
+    });
+  }
+
+  // Fallback error - no valid auth method found
+  throw new Error('Invalid auth config: missing tokens for OAuth or client_email for Service Account');
 }
+
 
 // --- OAuth Helpers ---
 export function generateAuthUrl(clientId, clientSecret, redirectUri) {

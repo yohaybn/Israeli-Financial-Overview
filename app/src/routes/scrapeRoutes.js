@@ -160,9 +160,16 @@ router.post('/upload-result', async (req, res) => {
     const folderId = process.env.DRIVE_FOLDER_ID || settings.folderId;
 
     const authConfig = getAuthConfig();
-    if (!folderId || !authConfig) {
-        return res.status(400).json({ success: false, error: 'Drive not configured (Missing folderId or auth).' });
+    if (!folderId) {
+        return res.status(400).json({ success: false, error: 'Drive folder ID not configured. Set DRIVE_FOLDER_ID in .env or configure in Settings.' });
     }
+    if (!authConfig) {
+        return res.status(400).json({ success: false, error: 'Google auth not configured. Set OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET in .env, or use Service Account.' });
+    }
+    if (!authConfig.tokens && !authConfig.client_email) {
+        return res.status(400).json({ success: false, error: 'OAuth not authorized. Please complete the OAuth flow in the Google Sheets section to get access tokens.' });
+    }
+
 
 
     try {

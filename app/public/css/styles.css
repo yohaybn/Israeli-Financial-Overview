@@ -164,6 +164,12 @@ button.danger:hover {
     color: #991b1b;
 }
 
+.result-box.success {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+}
+
 /* Panels */
 .panels-container {
     display: flex;

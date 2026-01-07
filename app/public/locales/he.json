@@ -1,7 +1,7 @@
 {
     "app_title": "סורק בנקים ישראלי",
     "nav_run": "הפעלת סורק",
-    "nav_config": "Google Drive",
+    "nav_config": "חיבורים ו-AI",
     "nav_docs": "תיעוד",
     "title_run": "הפעלה",
     "debug_mode": "מצב דיבאג ⓘ",
@@ -29,7 +29,7 @@
     "title_explorer": "סייר תוצאות",
     "btn_download": "הורד CSV",
     "btn_upload": "העלה ל-Google Sheets",
-    "title_drive": "הגדרות Google Drive",
+    "title_drive": "הגדרות Google Sheets",
     "drive_setup": "הוראות חיבור:",
     "label_client_id": "Client ID:",
     "label_client_secret": "Client Secret:",

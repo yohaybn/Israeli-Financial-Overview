@@ -1,7 +1,8 @@
+import './loadEnv.js'; // MUST BE FIRST
 import express from 'express';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import dotenv from 'dotenv';
+// dotenv handled in loadEnv.js
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
@@ -20,10 +21,12 @@ import scrapeRoutes from './src/routes/scrapeRoutes.js';
 import docsRoutes from './src/routes/docsRoutes.js';
 import categorizeRoutes from './src/routes/categorizeRoutes.js';
 
-dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PORT = process.env.PORT || 3000;
+
+// .env loaded via import './loadEnv.js' at top
+
+
 
 // Initialize Logger
 initLogger();
@@ -91,7 +94,9 @@ if (argv._.includes('scrape')) {
     // Middleware
     function maskSensitiveData(obj) {
         if (!obj || typeof obj !== 'object') return obj;
-        if (Array.isArray(obj)) return obj.map(maskSensitiveData);
+        if (Array.isArray(obj)) {
+            return obj.map(maskSensitiveData);
+        }
 
         const masked = {};
         const sensitiveKeys = ['key', 'password', 'credentials', 'clientSecret', 'tokens', 'authCode', 'client_secret'];
@@ -99,6 +104,8 @@ if (argv._.includes('scrape')) {
         for (const [key, value] of Object.entries(obj)) {
             if (sensitiveKeys.includes(key)) {
                 masked[key] = '***MASKED***';
+            } else if (key === 'data' && Array.isArray(value) && value.length > 5) {
+                masked[key] = `[${value.length} rows]`;
             } else if (typeof value === 'object') {
                 masked[key] = maskSensitiveData(value);
             } else {
@@ -110,7 +117,9 @@ if (argv._.includes('scrape')) {
 
     app.use((req, res, next) => {
         const safeUrl = req.url.replace(/([?&](key|password)=)[^&]+/gi, '$1***MASKED***');
-        console.log(`[Incoming] ${req.method} ${safeUrl}`);
+        res.on('finish', () => {
+            console.log(`[Incoming] ${res.statusCode} ${req.method} ${safeUrl}`);
+        });
         next();
     });
 
@@ -124,6 +133,7 @@ if (argv._.includes('scrape')) {
         }
         next();
     });
+
 
     app.use(express.static(path.join(__dirname, 'public')));
 
@@ -158,7 +168,7 @@ if (argv._.includes('scrape')) {
             res.status(400).send('No code received. Please try again.');
         }
     });
-
+    const PORT = process.env.PORT || 3000;
     httpServer.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
         console.log(`Access UI at http://localhost:${PORT}`);

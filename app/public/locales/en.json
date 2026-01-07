@@ -1,7 +1,7 @@
 {
     "app_title": "Israeli Bank Scraper",
     "nav_run": "Run Scraper",
-    "nav_config": "Google Drive",
+    "nav_config": "Integrations & AI",
     "nav_docs": "Documentation",
     "title_run": "Run Scrape",
     "debug_mode": "Debug Mode ⓘ",
@@ -29,7 +29,7 @@
     "title_explorer": "Results Explorer",
     "btn_download": "Download CSV",
     "btn_upload": "Upload to Google Sheets",
-    "title_drive": "Google Drive Configuration",
+    "title_drive": "Google Sheets Setup",
     "drive_setup": "Setup Instructions:",
     "label_client_id": "Client ID:",
     "label_client_secret": "Client Secret:",

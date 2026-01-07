@@ -625,21 +625,16 @@ export async function uploadPostRun(type) {
     btn.textContent = 'Uploading...';
     btn.disabled = true;
 
-    // Use name from result or fallback
+    // Use the same filename pattern as the flow
     const res = state.currentResult;
-    const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `${res.companyId || 'bank'}_${res.name || 'profile'}_${dateStr}`;
-
-    const customName = ui.getComputedFilename(res.companyId, res.name, null);
+    const filename = ui.getComputedFilename(res.companyId, res.name || res.profileName, null);
 
     try {
         const body = {
-            filename, // Still send a filename for naming the sheet
+            filename,
             type,
-            data: res.data // Send actual data
+            data: res.data
         };
-        //const data = await api.uploadResultApi(body);
-        if (customName) body.filename = customName;
         const data = await api.uploadResultApi(body);
         if (data.success) {
             ui.showToast('toast_upload_success', 'success');
@@ -654,6 +649,7 @@ export async function uploadPostRun(type) {
         btn.disabled = false;
     }
 }
+
 
 export function downloadCsv() {
     // Determine format
