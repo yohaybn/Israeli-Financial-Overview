@@ -549,3 +549,4 @@ export function updateExpectedFilename() {
 
 // Expose to window for onclick
 window.editCategory = editCategory;
+window.showTab = showTab;

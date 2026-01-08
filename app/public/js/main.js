@@ -4,6 +4,7 @@ import * as ui from './ui.js';
 import * as auth from './auth.js';
 import { arrayToCsv, flattenMultiAccountData } from './utils.js';
 import { convertToFirefly, convertToYnab } from './export.js';
+import { initAnalytics } from './analytics.js';
 
 let currentResultDiv = null;
 const socket = io();
@@ -96,6 +97,7 @@ export async function init() {
         await loadAppSettings(); // Make sure this completes first
         ui.refreshBankNames(); // Now translations are loaded
         ui.updateExpectedFilename();
+        await initAnalytics();
     } catch (err) {
         console.error(err);
     }
@@ -211,7 +213,7 @@ export function removeCategory(index) {
 
 async function loadModels() {
     try {
-        const response = await fetch('/config/models.json');
+        const response = await fetch('/config/models');
         const models = await response.json();
         const select = document.getElementById('aiModel');
         if (select) {

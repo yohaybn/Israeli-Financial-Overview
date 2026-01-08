@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 // Update import to include AI helpers
 import { getSettings, saveSettings, getAuthConfig, OAUTH_CREDENTIALS_PATH, getAiConfig, saveAiConfig } from '../config.js';
+import { getAvailableModels } from '../services/aiQueryService.js';
 import { testConnection } from '../drive.js';
 
 const router = express.Router();
@@ -39,6 +40,15 @@ router.post('/settings', (req, res) => {
     if (finalSettings.ai && finalSettings.ai.apiKey) finalSettings.ai.apiKey = '********';
 
     res.json({ success: true, settings: finalSettings });
+});
+
+router.get('/models', async (req, res) => {
+    try {
+        const models = await getAvailableModels();
+        res.json(models);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 router.post('/drive', (req, res) => {

@@ -171,3 +171,48 @@ export async function updateCategoryMap(data) {
     });
     return res.json();
 }
+
+// --- Analytics ---
+
+export async function getAnalyzers() {
+    const res = await fetch('/analytics/analyzers');
+    return res.json();
+}
+
+export async function getAnalyticsSources() {
+    const res = await fetch('/analytics/sources');
+    return res.json();
+}
+
+export async function getLocalFiles() {
+    const res = await fetch('/analytics/local-files');
+    return res.json();
+}
+
+export async function loadAnalyticsData(source, options) {
+    const res = await fetch('/analytics/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, options })
+    });
+    return res.json();
+}
+
+export async function runAnalysis(analyzers, source, options, data) {
+    const res = await fetch('/analytics/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analyzers, source, options, data })
+    });
+    return res.json();
+}
+
+export async function queryAI(question, source, options, data) {
+    const res = await fetch('/analytics/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, source, options, data })
+    });
+    return res.json();
+}
+

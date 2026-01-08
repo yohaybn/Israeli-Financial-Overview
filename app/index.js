@@ -20,6 +20,7 @@ import profileRoutes from './src/routes/profileRoutes.js';
 import scrapeRoutes from './src/routes/scrapeRoutes.js';
 import docsRoutes from './src/routes/docsRoutes.js';
 import categorizeRoutes from './src/routes/categorizeRoutes.js';
+import analyticsRoutes from './src/routes/analyticsRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -142,6 +143,7 @@ if (argv._.includes('scrape')) {
     app.use('/config', configRoutes);
     app.use('/profiles', profileRoutes);
     app.use('/categorize', categorizeRoutes);
+    app.use('/analytics', analyticsRoutes);
     app.use('/', scrapeRoutes); // Contains /scrape, /scrape-all, /upload-result, /definitions
     app.use('/', docsRoutes); // Contains /docs, /readme, /readme-content
 

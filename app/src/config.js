@@ -101,6 +101,21 @@ export function getAiConfig() {
     }
     return {};
 }
+export function getAiKey() {
+    // Use process.env.APP_SECRET directly here, lazily
+    let secret = process.env.APP_SECRET;
+    // Get Decrypted Key
+    let apiKey = getAiConfig().apiKey;
+    try {
+        const encryptedObj = JSON.parse(apiKey);
+        if (encryptedObj.iv && encryptedObj.content) {
+            apiKey = decrypt(encryptedObj, secret);
+        }
+    } catch (e) {
+        // assume plain text if parse fails or not encrypted structure
+    }
+    return apiKey;
+}
 
 export function saveAiConfig(config) {
     const current = getSettings();

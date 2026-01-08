@@ -15,7 +15,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets'
 ];
 
-function getAuth(authConfig) {
+export function getAuth(authConfig) {
   // 1. Service Account (Path to file)
   if (typeof authConfig === 'string') {
     return new google.auth.GoogleAuth({

@@ -75,7 +75,7 @@ export async function categorize(inputData) {
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const modelName = aiConfig.model || 'gemini-2.5-flash';
+        const modelName = aiConfig.model || 'gemini-2.5-flash-lite';
         console.log(`[Categorizer] Using model: ${modelName}`);
         const model = genAI.getGenerativeModel({ model: modelName });
 

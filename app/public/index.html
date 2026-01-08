@@ -7,10 +7,12 @@
     <title>Israeli Bank Scraper</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
+    <link <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Heebo:wght@400;500;700;800&display=swap"
         rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 
@@ -39,6 +41,7 @@
     </header>
     <nav>
         <a onclick="showTab('scrape')" class="active" data-i18n="nav_run">Run Scraper</a>
+        <a onclick="showTab('analytics-tab')" data-i18n="nav_analytics">Analytics</a>
         <a onclick="showTab('config')" data-i18n="nav_config">External Services</a>
         <a onclick="showTab('filters-tab')" data-i18n="nav_filters">Filters</a>
         <a href="/docs" target="_blank" data-i18n="nav_docs">Documentation</a>
@@ -292,7 +295,71 @@
             </div>
         </div>
     </div>
-    <!-- TAB: Google Drive -->
+    </div>
+    <!-- TAB: Analytics -->
+    <div id="analytics-tab" class="tab-content">
+        <h2 style="margin-bottom: 20px;" data-i18n="analytics_title">Data Analytics & Details</h2>
+
+        <div class="panels-container">
+            <div class="left-panel">
+                <!-- Data Source -->
+                <div class="card">
+                    <h3 data-i18n="section_source">1. Data Source</h3>
+                    <div class="form-group">
+                        <label data-i18n="label_source_select">Select Source:</label>
+                        <select id="analytics-source-select" class="form-control">
+                            <option value="memory" data-i18n="source_memory">Current Results</option>
+                            <option value="local" data-i18n="source_local">Local Files</option>
+                            <option value="sheets" data-i18n="source_sheets">Google Sheets</option>
+                        </select>
+                    </div>
+                    <div id="source-params" class="form-group"></div>
+                    <button id="load-data-btn" class="primary-btn" style="width:100%" data-i18n="btn_load_data">Load
+                        Data</button>
+                    <div id="data-load-status" style="margin-top:10px; font-size:0.9em;"></div>
+                </div>
+
+                <!-- AI Query -->
+                <div id="analytics-actions" style="display:none;">
+                    <div class="card" style="margin-top:20px;">
+                        <h3 data-i18n="section_ai">2. Ask AI (Insights)</h3>
+                        <div style="margin-bottom:10px;">
+                            <label for="analytics-ai-model" style="display:block; font-size:0.9em; margin-bottom:5px;"
+                                data-i18n="model_select_label">Select Model:</label>
+                            <select id="analytics-ai-model" class="form-control"
+                                style="width:100%; font-size:0.9em; padding:6px;"></select>
+                        </div>
+                        <div id="ai-chat-container" class="chat-container">
+                            <div id="ai-chat-output" class="chat-output"></div>
+                            <div class="chat-input-area">
+                                <input type="text" id="ai-question" data-i18n-placeholder="placeholder_ai"
+                                    placeholder="Ask about your spending..." style="flex:1;">
+                                <button id="ask-ai-btn" data-i18n="btn_ask_ai">Send</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analyzers -->
+                    <div class="card" style="margin-top:20px;">
+                        <h3 data-i18n="section_run">3. Run Analyzers</h3>
+                        <div id="analyzer-options" class="analyzer-grid"></div>
+                        <button id="run-analysis-btn" class="secondary-btn" style="width:100%; margin-top:15px;"
+                            data-i18n="btn_run_analysis">Run
+                            Analysis</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <!-- Results -->
+                <div id="analysis-results" class="results-container">
+                    <div class="placeholder-text">
+                        Load data and run analysis to see insights here.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="config" class="tab-content">
         <h2 style="margin-bottom: 24px;" data-i18n="title_drive">Google Drive Configuration</h2>
 
@@ -306,8 +373,10 @@
                                 style="color: #0284c7; font-weight: 600;">Google
                                 Cloud Console > APIs & Services > Credentials</a>.</li>
                         <li>Create "OAuth Client ID" (Type: Web Application).</li>
-                        <li>Add <code>http://localhost:3000/oauth2callback</code> to "Authorized redirect URIs".</li>
-                        <li><strong>Important:</strong> Under "OAuth Consent Screen", add your email as a "Test User".
+                        <li>Add <code>http://localhost:3000/oauth2callback</code> to "Authorized redirect URIs".
+                        </li>
+                        <li><strong>Important:</strong> Under "OAuth Consent Screen", add your email as a "Test
+                            User".
                         </li>
                         <li>Copy Client ID and Secret below.</li>
                     </ol>
@@ -328,14 +397,16 @@
                 </div>
 
                 <div style="display:flex; align-items:center; gap:15px; margin:24px 0;">
-                    <button onclick="startOAuthFlow()" style="background:#4285F4;" data-i18n="btn_oauth_step1">1. Get
+                    <button onclick="startOAuthFlow()" style="background:#4285F4;" data-i18n="btn_oauth_step1">1.
+                        Get
                         Authorization Code</button>
                     <span style="color:var(--text-light); font-size: 0.9rem;" data-i18n="help_google_login">(Opens
                         Google Login)</span>
                 </div>
 
                 <div class="form-group">
-                    <label for="authCode" data-i18n="label_auth_code">Authorization Code (Paste result here):</label>
+                    <label for="authCode" data-i18n="label_auth_code">Authorization Code (Paste result
+                        here):</label>
                     <input type="text" id="authCode" placeholder="Paste code starting with 4/...">
                 </div>
                 <button onclick="exchangeAndSaveOAuth()" style="background:#10b981; width: 100%;"
@@ -346,8 +417,10 @@
             <!-- Connected State -->
             <div id="oauth-connected-state"
                 style="display:none; text-align:center; padding:30px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:var(--radius);">
-                <h3 style="color:#15803d; margin-top:0;" data-i18n="title_auth_success">✅ Google Account Connected</h3>
-                <p style="color:#166534;" data-i18n="text_auth_success">You are authenticated and ready to upload files.
+                <h3 style="color:#15803d; margin-top:0;" data-i18n="title_auth_success">✅ Google Account Connected
+                </h3>
+                <p style="color:#166534;" data-i18n="text_auth_success">You are authenticated and ready to upload
+                    files.
                 </p>
                 <button onclick="disconnectAuth()" class="danger" style="margin-top:15px;"
                     data-i18n="btn_disconnect">Disconnect Account</button>
@@ -413,7 +486,8 @@
     <!-- TAB: Filters -->
     <div id="filters-tab" class="tab-content">
         <h2 data-i18n="filters_title">Exclusion Filters</h2>
-        <p class="section-desc" data-i18n="filters_desc">Define rules to exclude transactions from results, exports, and
+        <p class="section-desc" data-i18n="filters_desc">Define rules to exclude transactions from results, exports,
+            and
             Google Sheets.</p>
 
         <div class="card">
