@@ -5,7 +5,6 @@ WORKDIR /usr/src/app
 
 # Copy root configurations
 COPY package*.json ./
-COPY tsconfig.json ./
 
 # Copy packages
 COPY shared ./shared
