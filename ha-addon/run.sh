@@ -23,11 +23,11 @@ if [ -f "$CONFIG_PATH" ]; then
     export_json_key "oauth_redirect_uri" "OAUTH_REDIRECT_URI"
     export_json_key "drive_folder_id" "DRIVE_FOLDER_ID"
     export_json_key "app_secret" "APP_SECRET"
+    export_json_key "google_api_key" "GEMINI_API_KEY"
     
-    # Handle nested or complex objects if necessary, or just rely on simple keys
-    # For settings.json, we can allow passing it as a raw string or construct it
 fi
 
 # Start the application
+# DATA_DIR is /data by default in Dockerfile, which is the HA persistent partition
 cd /usr/src/app
-npm start
+node server/dist/index.js

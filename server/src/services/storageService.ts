@@ -1,0 +1,530 @@
+import fs from 'fs-extra';
+import path from 'path';
+import { ScrapeResult, Transaction } from '@app/shared';
+import { AiService } from './aiService';
+import { DbService } from './dbService';
+import { serverLogger } from '../utils/logger';
+
+const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
+const RESULTS_DIR = path.join(DATA_DIR, 'results');
+const CONFIG_DIR = path.join(DATA_DIR, 'config');
+
+export class StorageService {
+    private aiService: AiService;
+    private dbService: DbService;
+    private dbSynced = false;
+
+    constructor() {
+        this.aiService = new AiService();
+        this.dbService = new DbService();
+        this.ensureDataDir();
+    }
+
+    private async ensureDataDir() {
+        await fs.ensureDir(DATA_DIR);
+        await fs.ensureDir(CONFIG_DIR);
+        await fs.ensureDir(RESULTS_DIR);
+        await this.migrateLegacyResults();
+        if (!this.dbSynced) {
+            await this.syncFilesToDb();
+            this.dbSynced = true;
+        }
+    }
+
+    private async migrateLegacyResults() {
+        const files = await fs.readdir(DATA_DIR);
+        const internalFiles = [
+            'config',
+            'profiles',
+            'logs',
+            'results',
+            'app.db',
+            'app.db-shm',
+            'app.db-wal'
+        ];
+
+        for (const file of files) {
+            if (!internalFiles.includes(file) && file.endsWith('.json')) {
+                const oldPath = path.join(DATA_DIR, file);
+                const newPath = path.join(RESULTS_DIR, file);
+                try {
+                    await fs.move(oldPath, newPath, { overwrite: true });
+                } catch (error) {
+                    // Ignore move errors for now
+                }
+            }
+        }
+    }
+
+    private async syncFilesToDb() {
+        // One-time sync or on startup: read all JSONs and push to DB
+        // To avoid re-processing everything every time, maybe check if DB is empty or just rely on INSERT OR IGNORE
+        serverLogger.info('Syncing JSON files to DB...');
+        const files = await fs.readdir(RESULTS_DIR);
+        for (const file of files) {
+            if (!file.endsWith('.json')) continue;
+            try {
+                const result = await this.getScrapeResult(file);
+                if (result && result.transactions) {
+                    for (const txn of result.transactions) {
+                        this.dbService.addTransaction(txn);
+                    }
+                }
+            } catch (error) {
+                serverLogger.warn(`Failed to sync file ${file} to DB:`, error);
+            }
+        }
+        serverLogger.info('DB Sync complete');
+    }
+
+    async saveScrapeResult(result: ScrapeResult, provider: string) {
+        // Do not save empty results
+        const hasTransactions = result.transactions && result.transactions.length > 0;
+        const hasAccounts = result.accounts && result.accounts.length > 0;
+
+        if (!hasTransactions && !hasAccounts) {
+            throw new Error('Cannot save empty result - no transactions or accounts found');
+        }
+
+        let accountNumber = 'unknown';
+        let dateRange = '';
+
+        if (result.accounts && result.accounts.length > 0) {
+            accountNumber = result.accounts[0].accountNumber;
+        }
+
+        if (result.transactions && result.transactions.length > 0) {
+            const dates = result.transactions
+                .map(t => new Date(t.date).getTime())
+                .filter(d => !isNaN(d));
+
+            if (dates.length > 0) {
+                const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
+                dateRange = `_${minDate}`;
+            }
+
+            // Save to DB
+            for (const txn of result.transactions) {
+                this.dbService.addTransaction(txn);
+            }
+        }
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[1].substring(0, 8);
+        const filename = `${provider}_${accountNumber}${dateRange}.json`.replace(/[^a-z0-9._-]/gi, '_');
+        const filePath = path.join(RESULTS_DIR, filename);
+
+        // Save in legacy format (array of accounts) as requested by user for consistency
+        const legacyData = this.serializeToLegacyFormat(result);
+        await fs.writeJson(filePath, legacyData, { spaces: 2 });
+        return filename;
+    }
+
+    async deleteScrapeResult(filename: string): Promise<boolean> {
+        const filePath = path.join(RESULTS_DIR, filename);
+        const resolvedPath = path.resolve(RESULTS_DIR, filename);
+
+        if (!resolvedPath.startsWith(RESULTS_DIR)) {
+            throw new Error('Invalid filename - security violation');
+        }
+
+        if (await fs.pathExists(resolvedPath)) {
+            await fs.remove(resolvedPath);
+            // Rebuild DB to remove transactions from deleted file
+            await this.reloadTransactionsFromFiles();
+            return true;
+        }
+        return false;
+    }
+
+    async updateScrapeResult(filename: string, result: ScrapeResult) {
+        const filePath = path.join(RESULTS_DIR, filename);
+        const resolvedPath = path.resolve(RESULTS_DIR, filename);
+        if (!resolvedPath.startsWith(RESULTS_DIR)) {
+            throw new Error('Invalid filename');
+        }
+
+        // Update file
+        const legacyData = this.serializeToLegacyFormat(result);
+        await fs.writeJson(resolvedPath, legacyData, { spaces: 2 });
+
+        // Reload DB to reflect file changes (categories, etc.)
+        await this.reloadTransactionsFromFiles();
+    }
+
+    async listScrapeResults() {
+        await this.ensureDataDir();
+        const files = await fs.readdir(RESULTS_DIR);
+        const fileMetadata = [];
+
+        for (const file of files) {
+            if (!file.endsWith('.json')) continue;
+            try {
+                const result = await this.getScrapeResult(file);
+                const transactionCount = result?.transactions?.length || 0;
+                if (transactionCount > 0) {
+                    fileMetadata.push({
+                        filename: file,
+                        transactionCount,
+                        accountCount: result?.accounts?.length || 0
+                    });
+                }
+            } catch (error) {
+                continue;
+            }
+        }
+        return fileMetadata;
+    }
+
+    async renameFile(oldFilename: string, newFilename: string): Promise<boolean> {
+        if (!oldFilename.endsWith('.json') || !newFilename.endsWith('.json')) {
+            throw new Error('Filenames must end with .json');
+        }
+
+        const oldPath = path.join(RESULTS_DIR, oldFilename);
+        const newPath = path.join(RESULTS_DIR, newFilename);
+        const resolvedOldPath = path.resolve(oldPath);
+        const resolvedNewPath = path.resolve(newPath);
+
+        if (!resolvedOldPath.startsWith(RESULTS_DIR) || !resolvedNewPath.startsWith(RESULTS_DIR)) {
+            throw new Error('Invalid filename path');
+        }
+
+        if (!await fs.pathExists(resolvedOldPath)) {
+            throw new Error('Source file does not exist');
+        }
+
+        if (await fs.pathExists(resolvedNewPath)) {
+            throw new Error('Target filename already exists');
+        }
+
+        await fs.move(resolvedOldPath, resolvedNewPath);
+        return true;
+    }
+
+    async getScrapeResult(filename: string): Promise<ScrapeResult | null> {
+        const filePath = path.join(RESULTS_DIR, filename);
+        if (!await fs.pathExists(filePath)) return null;
+
+        const rawData = await fs.readJson(filePath);
+
+        if (Array.isArray(rawData)) {
+            return this.normalizeLegacyData(rawData, filename);
+        }
+
+        return rawData;
+    }
+
+    private normalizeLegacyData(data: any[], filename: string): ScrapeResult {
+        const transactions: any[] = [];
+        const accounts: any[] = [];
+
+        const providerMatch = filename.match(/^([^_]+)/);
+        const provider = providerMatch ? providerMatch[1] : 'unknown';
+
+        data.forEach(account => {
+            accounts.push({
+                accountNumber: account.accountNumber,
+                provider: provider,
+                balance: account.balance || 0,
+                currency: 'ILS'
+            });
+
+            if (account.txns) {
+                account.txns.forEach((txn: any) => {
+                    transactions.push({
+                        id: txn.identifier?.toString() || Math.random().toString(36).substr(2, 9),
+                        date: txn.date,
+                        processedDate: txn.processedDate,
+                        description: txn.description,
+                        memo: txn.memo,
+                        amount: txn.chargedAmount,
+                        originalAmount: txn.originalAmount,
+                        originalCurrency: txn.originalCurrency,
+                        chargedAmount: txn.chargedAmount,
+                        status: txn.status || 'completed',
+                        category: txn.category,
+                        provider: provider,
+                        accountNumber: account.accountNumber,
+                        txnType: txn.txnType || txn.type
+                    });
+                });
+            }
+        });
+
+        return {
+            success: true,
+            accounts,
+            transactions,
+            executionTimeMs: 0
+        };
+    }
+
+    private serializeToLegacyFormat(result: ScrapeResult): any[] {
+        if (!result.accounts) return [];
+
+        return result.accounts.map(acc => {
+            const accTxns = result.transactions?.filter(t => t.accountNumber === acc.accountNumber) || [];
+            return {
+                accountNumber: acc.accountNumber,
+                txns: accTxns.map(t => ({
+                    type: (t as any).type || 'normal',
+                    identifier: isNaN(Number(t.id)) ? t.id : Number(t.id),
+                    date: t.date,
+                    processedDate: t.processedDate,
+                    originalAmount: t.originalAmount,
+                    originalCurrency: t.originalCurrency,
+                    chargedAmount: t.chargedAmount,
+                    chargedCurrency: t.originalCurrency,
+                    description: t.description,
+                    memo: t.memo || '',
+                    status: t.status,
+                    category: t.category,
+                    installments: (t as any).installments,
+                    txnType: (t as any).txnType
+                }))
+            };
+        });
+    }
+
+    async updateTransactionCategory(filename: string, transactionId: string, category: string): Promise<boolean> {
+        // Update DB
+        this.dbService.updateTransactionCategory(transactionId, category);
+
+        // Also update the file for consistency
+        const filePath = path.join(RESULTS_DIR, filename);
+        if (!await fs.pathExists(filePath)) return false;
+
+        const rawData = await fs.readJson(filePath);
+        let description: string | null = null;
+
+        if (Array.isArray(rawData)) {
+            let found = false;
+            for (const account of rawData) {
+                if (account.txns) {
+                    const txnIndex = account.txns.findIndex((t: any) => t.identifier?.toString() === transactionId || t.id === transactionId);
+                    if (txnIndex !== -1) {
+                        description = account.txns[txnIndex].description;
+                        account.txns[txnIndex].category = category;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) return false;
+            await fs.writeJson(filePath, rawData, { spaces: 2 });
+        } else {
+            const result: ScrapeResult = rawData;
+            if (!result.transactions) return false;
+
+            const txnIndex = result.transactions.findIndex(t => t.id === transactionId);
+            if (txnIndex === -1) return false;
+
+            description = result.transactions[txnIndex].description;
+            result.transactions[txnIndex].category = category;
+
+            await fs.writeJson(filePath, result, { spaces: 2 });
+        }
+
+        if (description) {
+            await this.aiService.updateCategoryInCache(description, category);
+        }
+
+        return true;
+    }
+
+    // New method for toggling ignore status
+    async toggleTransactionIgnore(transactionId: string, isIgnored: boolean): Promise<boolean> {
+        return this.dbService.toggleTransactionIgnore(transactionId, isIgnored);
+    }
+
+    async updateTransactionCategoryUnified(transactionId: string, category: string): Promise<boolean> {
+        // Update DB
+        this.dbService.updateTransactionCategory(transactionId, category);
+
+        // Get description for AI cache update
+        const transactions = await this.dbService.getAllTransactions(true); // Get all including ignored
+        const txn = transactions.find(t => t.id === transactionId);
+
+        if (txn && txn.description) {
+            await this.aiService.updateCategoryInCache(txn.description, category);
+        }
+
+        return true;
+    }
+
+    async updateTransactionTypeUnified(transactionId: string, txnType: string): Promise<boolean> {
+        // Update DB
+        const success = this.dbService.updateTransactionType(transactionId, txnType);
+        if (!success) return false;
+
+        // Get the transaction to find which file it belongs to
+        const transactions = await this.dbService.getAllTransactions(true);
+        const txn = transactions.find(t => t.id === transactionId);
+
+        // Try to update all files just in case it's in multiple files (like category update)
+        if (txn) {
+            const files = await fs.readdir(RESULTS_DIR);
+            for (const file of files) {
+                if (!file.endsWith('.json')) continue;
+
+                const filePath = path.join(RESULTS_DIR, file);
+                try {
+                    const rawData = await fs.readJson(filePath);
+                    let found = false;
+
+                    if (Array.isArray(rawData)) {
+                        for (const account of rawData) {
+                            if (account.txns) {
+                                const txnIndex = account.txns.findIndex((t: any) => t.identifier?.toString() === transactionId || t.id === transactionId);
+                                if (txnIndex !== -1) {
+                                    account.txns[txnIndex].txnType = txnType;
+                                    account.txns[txnIndex].type = txnType; // also update legacy type
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (found) await fs.writeJson(filePath, rawData, { spaces: 2 });
+                    } else {
+                        const result: ScrapeResult = rawData;
+                        if (result.transactions) {
+                            const txnIndex = result.transactions.findIndex(t => t.id === transactionId);
+                            if (txnIndex !== -1) {
+                                result.transactions[txnIndex].txnType = txnType as any;
+                                result.transactions[txnIndex].type = txnType;
+                                await fs.writeJson(filePath, result, { spaces: 2 });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Ignore read/write errors for individual files
+                    console.error(`Error updating file ${file}:`, e);
+                }
+            }
+        }
+
+        return true;
+    }
+
+
+    async mergeResults(filenames: string[], outputName: string, deleteOriginals: boolean = false): Promise<string> {
+        if (filenames.length < 2) {
+            throw new Error('Must provide at least 2 files to merge');
+        }
+
+        const results: ScrapeResult[] = [];
+        for (const filename of filenames) {
+            const result = await this.getScrapeResult(filename);
+            if (result) {
+                results.push(result);
+            }
+        }
+
+        if (results.length === 0) {
+            throw new Error('No valid results to merge');
+        }
+
+        // Validate all files belong to the same account(s)
+        const allAccountNumbers = new Set<string>();
+        for (const result of results) {
+            if (result.accounts) {
+                for (const account of result.accounts) {
+                    allAccountNumbers.add(account.accountNumber);
+                }
+            }
+        }
+        // Check that each file shares at least one account with the others
+        const firstResult = results[0];
+        const firstAccounts = new Set(firstResult.accounts?.map(a => a.accountNumber) || []);
+        for (let i = 1; i < results.length; i++) {
+            const resultAccounts = results[i].accounts?.map(a => a.accountNumber) || [];
+            const hasCommon = resultAccounts.some(acc => firstAccounts.has(acc));
+            if (!hasCommon) {
+                throw new Error(`Cannot merge files with different accounts. File "${filenames[0]}" has account(s) ${[...firstAccounts].join(', ')} but file "${filenames[i]}" has account(s) ${resultAccounts.join(', ')}.`);
+            }
+        }
+
+        const mergedAccounts: any = {};
+        const seenTransactionIds = new Set<string>();
+        const seenTransactionHashes = new Set<string>();
+        const mergedTransactions: any[] = [];
+
+        for (const result of results) {
+            if (result.accounts) {
+                for (const account of result.accounts) {
+                    mergedAccounts[account.accountNumber] = account;
+                }
+            }
+
+            if (result.transactions) {
+                for (const txn of result.transactions) {
+                    const idStr = String(txn.id);
+                    // Create a hash to catch duplicate transactions that got assigned different random IDs
+                    const hash = `${txn.date}_${txn.amount}_${txn.description}`;
+
+                    if (!seenTransactionIds.has(idStr) && !seenTransactionHashes.has(hash)) {
+                        seenTransactionIds.add(idStr);
+                        seenTransactionHashes.add(hash);
+                        mergedTransactions.push(txn);
+                    }
+                }
+            }
+        }
+
+        const mergedResult: ScrapeResult = {
+            success: true,
+            transactions: mergedTransactions,
+            accounts: Object.values(mergedAccounts),
+            logs: [`Merged ${filenames.length} files`]
+        };
+
+        const mergedFilename = await this.saveScrapeResult(mergedResult, 'merged');
+
+        // Delete original files after successful merge
+        if (deleteOriginals) {
+            for (const originalFile of filenames) {
+                const resolvedPath = path.resolve(RESULTS_DIR, originalFile);
+                if (resolvedPath.startsWith(RESULTS_DIR) && await fs.pathExists(resolvedPath)) {
+                    await fs.remove(resolvedPath);
+                    serverLogger.info(`Deleted original file after merge: ${originalFile}`);
+                }
+            }
+            // Reload DB to reflect the deletion of originals
+            await this.reloadTransactionsFromFiles();
+        }
+
+        return mergedFilename;
+    }
+
+    async getAllTransactions(includeIgnored = false): Promise<any[]> {
+        // Read from DB now!
+        await this.ensureDataDir();
+        return this.dbService.getAllTransactions(includeIgnored);
+    }
+
+    async reloadTransactionsFromFiles() {
+        serverLogger.info('Manual reload of transactions from files triggered');
+        this.dbService.clearTransactions();
+        await this.syncFilesToDb();
+        serverLogger.info('Manual reload complete');
+    }
+
+    async resetAllUserChanges() {
+        serverLogger.info('Resetting all user changes to defaults...');
+
+        // 1. Clear DB: transactions + categories cache
+        this.dbService.clearTransactions();
+        this.dbService.clearCategoriesCache();
+
+        // 2. Clear AI categories cache file
+        const aiCachePath = path.join(CONFIG_DIR, 'ai_categories_cache.json');
+        if (await fs.pathExists(aiCachePath)) {
+            await fs.writeJson(aiCachePath, {}, { spaces: 2 });
+        }
+
+        // 3. Re-sync transactions from raw files (original categories from files, no user overrides)
+        await this.syncFilesToDb();
+
+        serverLogger.info('All user changes have been reset to defaults');
+    }
+}

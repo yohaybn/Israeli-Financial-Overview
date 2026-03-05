@@ -4,5 +4,11 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"npx tsc": true,
+			"npm install": true,
+			"npm run build": true
+		}
+	}
 }

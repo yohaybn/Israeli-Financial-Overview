@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Documentation | Israeli Bank Scraper</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #475569;
+            --border: #e2e8f0;
+            --sidebar-width: 300px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', 'Assistant', sans-serif; background-color: var(--bg); color: var(--text-main); line-height: 1.6; }
+
+        /* Language Toggle Button */
+        .lang-switcher {
+            position: fixed; top: 1.25rem; right: 1.25rem; z-index: 1000;
+            background: var(--card-bg); border: 1px solid var(--border);
+            padding: 0.6rem 1.25rem; border-radius: 9999px; cursor: pointer;
+            font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+        }
+        .lang-switcher:hover { transform: translateY(-2px); border-color: var(--primary); }
+
+        /* Navigation Sidebar */
+        .wrapper { display: flex; min-height: 100vh; }
+        aside {
+            width: var(--sidebar-width); background: var(--card-bg);
+            border-right: 1px solid var(--border); padding: 2.5rem 1.5rem;
+            position: fixed; height: 100vh; overflow-y: auto; z-index: 50;
+        }
+        .nav-logo { font-size: 1.4rem; font-weight: 800; color: var(--primary); margin-bottom: 2.5rem; display: flex; align-items: center; gap: 10px; }
+        nav .nav-group { margin-bottom: 1.8rem; }
+        nav .nav-label { font-size: 0.7rem; font-weight: 800; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.8rem; padding-left: 0.5rem; }
+        nav ul { list-style: none; }
+        nav ul li a {
+            text-decoration: none; color: var(--text-muted); font-weight: 500;
+            padding: 0.65rem 0.8rem; border-radius: 8px; display: block; transition: 0.15s; font-size: 0.95rem;
+        }
+        nav ul li a:hover { background: #eff6ff; color: var(--primary); }
+
+        /* Main Content Area */
+        main { flex: 1; margin-left: var(--sidebar-width); padding: 4rem 8%; max-width: 1300px; }
+        header { margin-bottom: 4rem; }
+        header h1 { font-size: 2.8rem; font-weight: 800; color: #0f172a; margin-bottom: 1rem; }
+        header p { font-size: 1.2rem; color: var(--secondary); }
+
+        section { margin-bottom: 5rem; scroll-margin-top: 5rem; }
+        h2 { font-size: 2rem; margin-bottom: 1.5rem; color: #1e293b; border-bottom: 2px solid var(--border); padding-bottom: 0.8rem; }
+        h3 { font-size: 1.4rem; margin: 2rem 0 1rem; color: var(--primary-dark); font-weight: 700; }
+        h4 { font-size: 1.1rem; margin: 1.5rem 0 0.8rem; color: #334155; font-weight: 600; }
+        
+        p, li { margin-bottom: 0.9rem; font-size: 1.05rem; color: #475569; }
+        ul, ol { margin-left: 1.5rem; margin-bottom: 1.5rem; }
+
+        /* UI Components */
+        .callout { padding: 1.25rem 1.75rem; border-radius: 12px; margin: 2rem 0; border-left: 5px solid; }
+        .callout.info { background: #eff6ff; border-color: var(--primary); color: #1e40af; }
+        .callout.warning { background: #fffbeb; border-color: var(--warning); color: #92400e; }
+        .callout.success { background: #f0fdf4; border-color: var(--success); color: #166534; }
+
+        .code-block {
+            background: #1e293b; color: #f8fafc; padding: 1.5rem;
+            border-radius: 10px; font-family: 'Courier New', monospace;
+            margin: 1.5rem 0; position: relative; overflow-x: auto;
+            border: 1px solid #334155;
+        }
+        code { color: #e11d48; background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: monospace; }
+
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th { background: #f8fafc; text-align: left; padding: 1.2rem; border-bottom: 2px solid var(--border); font-weight: 700; color: #64748b; }
+        td { padding: 1.2rem; border-bottom: 1px solid var(--border); }
+
+        /* RTL Specifics */
+        [dir="rtl"] aside { border-right: none; border-left: 1px solid var(--border); right: 0; left: auto; }
+        [dir="rtl"] main { margin-left: 0; margin-right: var(--sidebar-width); }
+        [dir="rtl"] .lang-switcher { right: auto; left: 1.25rem; }
+        [dir="rtl"] .callout { border-left: none; border-right: 5px solid; }
+        [dir="rtl"] th { text-align: right; }
+
+        @media (max-width: 1100px) { aside { display: none; } main { margin: 0 !important; padding: 2rem; } }
+    </style>
+</head>
+<body>
+
+    <button class="lang-switcher" onclick="toggleLanguage()">
+        <span id="lang-label">עברית</span>
+    </button>
+
+    <div class="wrapper">
+        <aside>
+            <div class="nav-logo"><span>₪</span> Bank Scraper</div>
+            <nav id="sidebar-nav"></nav>
+        </aside>
+
+        <main id="main-content"></main>
+    </div>
+
+    <script>
+        const content = {
+            en: {
+                title: "User Guide",
+                subtitle: "The complete manual for setting up and using the Israeli Bank Scraper.",
+                nav: [
+                    { label: "Configuration", items: [{ id: "env-setup", label: ".env Setup" }, { id: "api-guides", label: "Obtaining Keys" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "Usage", items: [{ id: "getting-started", label: "Getting Started" }, { id: "scrape", label: "Running Scrapes" }, { id: "profiles", label: "Managing Profiles" }] },
+                    { label: "Features", items: [{ id: "results", label: "Results Explorer" }, { id: "ai", label: "AI Features" }, { id: "automation", label: "Automation" }] },
+                    { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "credits", label: "Credits" }] }
+                ],
+                sections: {
+                    "env-setup": {
+                        title: "⚙️ Environment Setup (.env)",
+                        html: `
+                            <p>To secure your connection and enable advanced features, create a file named <code>.env</code> in your root directory with the following content:</p>
+                            <div class="code-block">
+DRIVE_FOLDER_ID=(optional)<br>
+GEMINI_API_KEY=(optional)<br>
+ENCRYPTION_KEY=somelongkey
+                            </div>
+                            <div class="callout warning">
+                                <strong>Important:</strong> The <code>ENCRYPTION_KEY</code> is your Master Key. It encrypts your credentials locally. If you lose this key, your saved profiles cannot be decrypted or recovered.
+                            </div>
+                        `
+                    },
+                    "api-guides": {
+                        title: "🔑 Obtaining API Keys",
+                        html: `
+                            <h3>Google Gemini AI Key</h3>
+                            <p>Enables automatic categorization and the financial analyst chat.</p>
+                            <ol>
+                                <li>Go to <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
+                                <li>Sign in and click <strong>"Get API Key"</strong>.</li>
+                                <li>Paste the key into <code>GEMINI_API_KEY</code> in your <code>.env</code>.</li>
+                            </ol>
+                            <h3>Google Drive Folder ID</h3>
+                            <p>Required for cloud backups and spreadsheet synchronization.</p>
+                            <ol>
+                                <li>Create a folder in Google Drive.</li>
+                                <li>Copy the string of characters at the end of the folder's URL (after <code>/folders/</code>).</li>
+                                <li>Paste this string into <code>DRIVE_FOLDER_ID</code>.</li>
+                            </ol>
+                        `
+                    },
+                    "google-setup": {
+                        title: "🔗 Google Sheets Integration",
+                        html: `
+                            <p>Syncing to Google Sheets allows you to access data anywhere and share it with accountants.</p>
+                            <ol>
+                                <li>Create a project in the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
+                                <li>Enable the <strong>Google Drive API</strong> and <strong>Google Sheets API</strong>.</li>
+                                <li>Create <strong>OAuth 2.0 Credentials</strong> (Client ID and Secret).</li>
+                                <li>Configure these within the App Settings and authorize the connection.</li>
+                            </ol>
+                        `
+                    },
+                    "getting-started": {
+                        title: "🚀 Getting Started",
+                        html: `
+                            <h3>System Requirements</h3>
+                            <ul>
+                                <li><strong>Browser:</strong> Chrome, Firefox, Safari, or Edge.</li>
+                                <li><strong>Internet:</strong> Active connection for bank portal access.</li>
+                                <li><strong>JavaScript:</strong> Must be enabled in your browser.</li>
+                            </ul>
+                            <h3>First Launch</h3>
+                            <ol>
+                                <li>Navigate to the application URL (usually <code>localhost:3000</code>).</li>
+                                <li>Choose your preferred language.</li>
+                                <li>Set your initial <strong>Master Key</strong> (which matches the <code>ENCRYPTION_KEY</code> in your .env).</li>
+                            </ol>
+                        `
+                    },
+                    "scrape": {
+                        title: "🔄 Running a Scrape",
+                        html: `
+                            <p>Powered by the <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> library.</p>
+                            <ol>
+                                <li><strong>Select Provider:</strong> Choose your bank or credit card (Hapoalim, Leumi, Isracard, Max, etc.).</li>
+                                <li><strong>Enter Credentials:</strong> Input your username and password.</li>
+                                <li><strong>Configure Options:</strong> Select date ranges, timeout values, and headless mode settings.</li>
+                                <li><strong>Start:</strong> Click <strong>Start Scrape</strong> and wait for the results to process.</li>
+                            </ol>
+                        `
+                    },
+                    "profiles": {
+                        title: "💾 Managing Profiles",
+                        html: `
+                            <p>Profiles securely store your bank credentials encrypted with your Master Key.</p>
+                            <h4>Creating a Profile</h4>
+                            <ul>
+                                <li>Check the <strong>"Save Profile"</strong> box during a scrape session.</li>
+                                <li>Assign a name (e.g., "Personal Savings").</li>
+                                <li>The details are stored locally on your disk via AES-256 encryption.</li>
+                            </ul>
+                            <h4>Using a Profile</h4>
+                            <p>Select your saved profile from the <strong>"Start from Profile"</strong> dropdown to auto-fill all settings instantly.</p>
+                        `
+                    },
+                    "results": {
+                        title: "📊 Results Explorer",
+                        html: `
+                            <p>A comprehensive dashboard to visualize your financial data.</p>
+                            <h3>Key Features</h3>
+                            <ul>
+                                <li><strong>Sidebar:</strong> Navigate through all historical scrape sessions.</li>
+                                <li><strong>Transaction Table:</strong> View every transaction with detailed filters.</li>
+                                <li><strong>Summary Cards:</strong> Instant view of account totals, income vs. expenses, and balances.</li>
+                                <li><strong>Smart Search:</strong> Find transactions by description or company name.</li>
+                            </ul>
+                            <h3>Actions</h3>
+                            <ul>
+                                <li><strong>Rename/Delete:</strong> Organize your history by clicking the pencil or trash icons.</li>
+                                <li><strong>Export:</strong> Download data as CSV or JSON.</li>
+                                <li><strong>Cloud Sync:</strong> Upload any result directly to your Google Sheet.</li>
+                            </ul>
+                        `
+                    },
+                    "ai": {
+                        title: "🤖 AI-Powered Features",
+                        html: `
+                            <p>Leverage Google Gemini AI for advanced financial insights.</p>
+                            <ul>
+                                <li><strong>Automatic Categorization:</strong> Automatically assign labels like 'Groceries' or 'Utilities' to every transaction.</li>
+                                <li><strong>AI Analyst Chat:</strong> Ask questions like <em>"What was my highest expense last month?"</em> or <em>"Summarize my travel costs."</em></li>
+                            </ul>
+                        `
+                    },
+                    "automation": {
+                        title: "⏱️ Automation & Scheduling",
+                        html: `
+                            <p>Automate your bookkeeping so you never have to manual scrape again.</p>
+                            <h3>Scheduler Setup</h3>
+                            <ol>
+                                <li>Navigate to the <strong>Automation</strong> tab.</li>
+                                <li>Enable the <strong>Scheduler</strong>.</li>
+                                <li>Set your preferred frequency (e.g., Daily at 8 AM).</li>
+                                <li>Select which <strong>Profiles</strong> to run automatically.</li>
+                                <li>Enable <strong>"Save to Sheets"</strong> for a fully hands-off experience.</li>
+                            </ol>
+                        `
+                    },
+                    "troubleshooting": {
+                        title: "🛠️ Troubleshooting",
+                        html: `
+                            <h3>Common Issues</h3>
+                            <ul>
+                                <li><strong>Credentials Rejected:</strong> Ensure you can log in directly on the bank's official website.</li>
+                                <li><strong>Timeout Error:</strong> Increase the <code>timeout</code> setting in the scrape options for slow connections.</li>
+                                <li><strong>Cannot Decrypt:</strong> Double-check your <code>ENCRYPTION_KEY</code> in the .env file matches the one used to save the profile.</li>
+                                <li><strong>Google Sheets Failed:</strong> Verify your OAuth session hasn't expired or re-authorize the app.</li>
+                            </ul>
+                            <p>For persistent issues, check the <strong>Logs</strong> tab for technical error codes.</p>
+                        `
+                    },
+                    "credits": {
+                        title: "💝 Credits",
+                        html: `
+                            <p>This project is made possible by the incredible open-source community.</p>
+                            <h4>Core Library</h4>
+                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — The foundation of this project.</p>
+                            <div class="callout success">
+                                Version 2.1 | Professional User Documentation
+                            </div>
+                        `
+                    }
+                }
+            },
+            he: {
+                title: "מדריך למשתמש",
+                subtitle: "המדריך המלא להגדרה ושימוש ב-Israeli Bank Scraper.",
+                nav: [
+                    { label: "הגדרות", items: [{ id: "env-setup", label: "הגדרת .env" }, { id: "api-guides", label: "קבלת מפתחות" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "שימוש", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "scrape", label: "ביצוע סריקה" }, { id: "profiles", label: "ניהול פרופילים" }] },
+                    { label: "תכונות", items: [{ id: "results", label: "דפדפן תוצאות" }, { id: "ai", label: "תכונות AI" }, { id: "automation", label: "אוטומציה" }] },
+                    { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "credits", label: "קרדיטים" }] }
+                ],
+                sections: {
+                    "env-setup": {
+                        title: "⚙️ הגדרת סביבה (.env)",
+                        html: `
+                            <p>כדי לאבטח את החיבור ולהפעיל תכונות מתקדמות, צור קובץ בשם <code>.env</code> בתיקיית השורש עם התוכן הבא:</p>
+                            <div class="code-block">
+DRIVE_FOLDER_ID=(optional)<br>
+GEMINI_API_KEY=(optional)<br>
+ENCRYPTION_KEY=somelongkey
+                            </div>
+                            <div class="callout warning">
+                                <strong>חשוב:</strong> ה-<code>ENCRYPTION_KEY</code> הוא ה-Master Key שלך. הוא מצפין את הפרטים שלך מקומית. אם תאבד מפתח זה, לא ניתן יהיה לשחזר את הפרופילים.
+                            </div>
+                        `
+                    },
+                    "api-guides": {
+                        title: "🔑 קבלת מפתחות API",
+                        html: `
+                            <h3>מפתח Google Gemini AI</h3>
+                            <p>מאפשר סיווג אוטומטי וצ'אט עם מנתח פיננסי.</p>
+                            <ol>
+                                <li>עבור אל <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
+                                <li>התחבר ולחץ על <strong>"Get API Key"</strong>.</li>
+                                <li>הדבק את המפתח ב- <code>GEMINI_API_KEY</code> בקובץ ה- <code>.env</code>.</li>
+                            </ol>
+                            <h3>מזהה תיקיית Google Drive</h3>
+                            <p>נדרש לגיבוי בענן וסנכרון גיליונות.</p>
+                            <ol>
+                                <li>צור תיקייה ב-Google Drive.</li>
+                                <li>העתק את מחרוזת התווים בסוף ה-URL (אחרי <code>/folders/</code>).</li>
+                                <li>הדבק את המחרוזת ב- <code>DRIVE_FOLDER_ID</code>.</li>
+                            </ol>
+                        `
+                    },
+                    "google-setup": {
+                        title: "🔗 סנכרון Google Sheets",
+                        html: `
+                            <p>סנכרון ל-Google Sheets מאפשר לך לגשת לנתונים מכל מקום ולשתף אותם עם רואי חשבון.</p>
+                            <ol>
+                                <li>צור פרויקט ב- <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
+                                <li>הפעל את <strong>Google Drive API</strong> ו- <strong>Google Sheets API</strong>.</li>
+                                <li>צור <strong>OAuth 2.0 Credentials</strong> (מזהה לקוח וסוד).</li>
+                                <li>הגדר אותם באפליקציה ואשר את החיבור.</li>
+                            </ol>
+                        `
+                    },
+                    "getting-started": {
+                        title: "🚀 איך מתחילים",
+                        html: `
+                            <h3>דרישות מערכת</h3>
+                            <ul>
+                                <li><strong>דפדפן:</strong> Chrome, Firefox, Safari, או Edge.</li>
+                                <li><strong>אינטרנט:</strong> חיבור פעיל לגישה לאתרי הבנקים.</li>
+                                <li><strong>JavaScript:</strong> חייב להיות מופעל בדפדפן.</li>
+                            </ul>
+                            <h3>הפעלה ראשונית</h3>
+                            <ol>
+                                <li>עבור לכתובת האפליקציה (בדרך כלל <code>localhost:3000</code>).</li>
+                                <li>בחר את השפה המועדפת עליך.</li>
+                                <li>הגדר את ה- <strong>Master Key</strong> הראשוני שלך (התואם ל- <code>ENCRYPTION_KEY</code> ב-env).</li>
+                            </ol>
+                        `
+                    },
+                    "scrape": {
+                        title: "🔄 ביצוע סריקה",
+                        html: `
+                            <p>מופעל על ידי ספריית <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a>.</p>
+                            <ol>
+                                <li><strong>בחר ספק:</strong> בחר בנק או כרטיס אשראי (הפועלים, לאומי, ישראכרט וכו').</li>
+                                <li><strong>הזן פרטים:</strong> שם משתמש וסיסמה.</li>
+                                <li><strong>הגדרות:</strong> בחר טווחי תאריכים וזמן המתנה.</li>
+                                <li><strong>הפעלה:</strong> לחץ על <strong>Start Scrape</strong> והמתן לתוצאות.</li>
+                            </ol>
+                        `
+                    },
+                    "profiles": {
+                        title: "💾 ניהול פרופילים",
+                        html: `
+                            <p>פרופילים מאחסנים בבטחה את פרטי הבנק שלך מוצפנים עם ה-Master Key שלך.</p>
+                            <h4>יצירת פרופיל</h4>
+                            <ul>
+                                <li>סמן את <strong>"Save Profile"</strong> במהלך הסריקה.</li>
+                                <li>תן שם לפרופיל (למשל "חשבון אישי").</li>
+                                <li>הפרטים נשמרים מקומית בהצפנת AES-256.</li>
+                            </ul>
+                            <h4>שימוש בפרופיל</h4>
+                            <p>בחר את הפרופיל מרשימת <strong>"Start from Profile"</strong> למילוי אוטומטי מיידי.</p>
+                        `
+                    },
+                    "results": {
+                        title: "📊 דפדפן תוצאות",
+                        html: `
+                            <p>לוח בקרה מקיף לצפייה בנתונים הפיננסיים שלך.</p>
+                            <h3>תכונות עיקריות</h3>
+                            <ul>
+                                <li><strong>סרגל צד:</strong> ניווט בין כל סריקות העבר.</li>
+                                <li><strong>טבלת עסקאות:</strong> צפייה בכל עסקה עם מסננים מתקדמים.</li>
+                                <li><strong>כרטיסי סיכום:</strong> מבט מיידי על יתרות, הכנסות והוצאות.</li>
+                                <li><strong>חיפוש חכם:</strong> מצא עסקאות לפי תיאור או שם בית עסק.</li>
+                            </ul>
+                            <h3>פעולות</h3>
+                            <ul>
+                                <li><strong>עריכה/מחיקה:</strong> ארגן את ההיסטוריה על ידי לחיצה על סמלי העיפרון או הפח.</li>
+                                <li><strong>ייצוא:</strong> הורד נתונים כ-CSV או JSON.</li>
+                                <li><strong>סנכרון ענן:</strong> העלה כל תוצאה ישירות ל-Google Sheet שלך.</li>
+                            </ul>
+                        `
+                    },
+                    "ai": {
+                        title: "🤖 תכונות מבוססות AI",
+                        html: `
+                            <p>שימוש ב-Google Gemini AI לתובנות פיננסיות מתקדמות.</p>
+                            <ul>
+                                <li><strong>סיווג אוטומטי:</strong> שיוך אוטומטי של קטגוריות כמו 'מזון' או 'חשבונות'.</li>
+                                <li><strong>צ'אט מנתח AI:</strong> שאל שאלות כמו <em>"כמה הוצאתי על טיולים השנה?"</em></li>
+                            </ul>
+                        `
+                    },
+                    "automation": {
+                        title: "⏱️ אוטומציה ותזמון",
+                        html: `
+                            <p>הפוך את ניהול החשבונות לאוטומטי לחלוטין.</p>
+                            <h3>הגדרת מתזמן</h3>
+                            <ol>
+                                <li>עבור ללשונית <strong>Automation</strong>.</li>
+                                <li>הפעל את ה- <strong>Scheduler</strong>.</li>
+                                <li>קבע תדירות (למשל, יומי ב-8 בבוקר).</li>
+                                <li>בחר אילו פרופילים להריץ אוטומטית.</li>
+                                <li>הפעל <strong>"Save to Sheets"</strong> לסנכרון מלא ללא התערבות ידנית.</li>
+                            </ol>
+                        `
+                    },
+                    "troubleshooting": {
+                        title: "🛠️ פתרון בעיות",
+                        html: `
+                            <h3>בעיות נפוצות</h3>
+                            <ul>
+                                <li><strong>פרטים נדחו:</strong> ודא שאתה יכול להתחבר לאתר הבנק ישירות.</li>
+                                <li><strong>שגיאת זמן (Timeout):</strong> הגדל את ערך ה-timeout בהגדרות הסריקה.</li>
+                                <li><strong>שגיאת פענוח:</strong> ודא שה- <code>ENCRYPTION_KEY</code> ב-env תואם למפתח איתו נשמר הפרופיל.</li>
+                            </ul>
+                            <p>לבעיות מתקדמות, בדוק את לשונית ה- <strong>Logs</strong> לקבלת קודי שגיאה.</p>
+                        `
+                    },
+                    "credits": {
+                        title: "💝 קרדיטים",
+                        html: `
+                            <p>פרויקט זה מתאפשר בזכות קהילת הקוד הפתוח.</p>
+                            <h4>ספריית ליבה</h4>
+                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — הבסיס של הפרויקט.</p>
+                        `
+                    }
+                }
+            }
+        };
+
+        let currentLang = localStorage.getItem('guideLang') || 'en';
+
+        function render() {
+            const data = content[currentLang];
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'he' ? 'rtl' : 'ltr';
+            document.getElementById('lang-label').textContent = currentLang === 'en' ? 'עברית' : 'English';
+
+            // Render Nav
+            const navHtml = data.nav.map(group => `
+                <div class="nav-group">
+                    <div class="nav-label">${group.label}</div>
+                    <ul>
+                        ${group.items.map(item => `<li><a href="#${item.id}">${item.label}</a></li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+            document.getElementById('sidebar-nav').innerHTML = navHtml;
+
+            // Render Sections
+            let mainHtml = `<header><h1>${data.title}</h1><p>${data.subtitle}</p></header>`;
+            Object.keys(data.sections).forEach(key => {
+                const sec = data.sections[key];
+                mainHtml += `<section id="${key}"><h2>${sec.title}</h2>${sec.html}</section>`;
+            });
+            document.getElementById('main-content').innerHTML = mainHtml;
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'he' : 'en';
+            localStorage.setItem('guideLang', currentLang);
+            render();
+        }
+
+        render();
+        document.addEventListener('click', e => {
+            if (e.target.tagName === 'A' && e.target.hash) {
+                e.preventDefault();
+                const target = document.querySelector(e.target.hash);
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    </script>
+</body>
+</html>

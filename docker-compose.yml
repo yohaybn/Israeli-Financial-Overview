@@ -13,6 +13,7 @@ services:
       # Mount config files if used (optional, env vars preferred)
       - ./app/settings.json:/usr/src/app/settings.json
       - ./app/service-account.json:/usr/src/app/service-account.json
+      - ./app/profiles.json:/usr/src/app/profiles.json
     environment:
       - PORT=3000
       - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}

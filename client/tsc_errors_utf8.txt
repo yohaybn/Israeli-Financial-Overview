@@ -1,0 +1,2 @@
+﻿src/components/ResultsExplorer.tsx(1,29): error TS6133: 'useEffect' is declared but its value is never read.
+src/utils/logger.ts(3,7): error TS6133: 'LOG_ENDPOINT' is declared but its value is never read.

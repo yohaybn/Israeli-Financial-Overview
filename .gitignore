@@ -1,32 +1,18 @@
-# User Data - DO NOT COMMIT
-profiles.json
-oauth-credentials.json
-service-account.json
+node_modules
+dist
 .env
-server.log
-
-# Results directory
-results/
-
-# Test Data (anonymized test files)
-src/testData/*.json
-!src/testData/README.md
-
-# Dependencies
-node_modules/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
 .DS_Store
-Thumbs.db
-
-# Logs
+coverage
 *.log
-npm-debug.log*
-scrape_result_isracard_1767692893676.json
-categories-cache.json
-app/categories-cache.json
-app/settings.json
+.agent
+.vscode
+*.pdf
+*.xlsx
+*.xls
+mizrhai2025.json
+ישראכרט יוחאי_2026-02-01.json
+server/data/
+git_files*.txt
+client/dist/
+server/dist/
+node_modules/

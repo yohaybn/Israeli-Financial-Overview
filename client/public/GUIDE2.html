@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Israeli Bank Scraper - Comprehensive User Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html[dir="rtl"], body[dir="rtl"] {
+            direction: rtl;
+            text-align: right;
+        }
+        
+        html[dir="ltr"], body[dir="ltr"] {
+            direction: ltr;
+            text-align: left;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Noto Sans Hebrew', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .lang-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            font-weight: 700;
+            border: none;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .lang-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+        
+        .lang-toggle.en {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            color: white;
+        }
+        
+        .lang-toggle.he {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 900;
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        nav {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 20px 40px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        nav a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-size: 0.9em;
+        }
+        
+        nav a:hover {
+            background: #e0e7ff;
+            color: #1e40af;
+        }
+        
+        .content {
+            padding: 40px;
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+        
+        section {
+            margin-bottom: 40px;
+            scroll-margin-top: 100px;
+        }
+        
+        h2 {
+            color: #2563eb;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #dbeafe;
+        }
+        
+        h3 {
+            color: #1e40af;
+            font-size: 1.3em;
+            margin-top: 25px;
+            margin-bottom: 12px;
+        }
+        
+        h4 {
+            color: #1e40af;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        
+        p {
+            margin-bottom: 12px;
+        }
+        
+        ul, ol {
+            margin-bottom: 15px;
+        }
+        
+        html[dir="ltr"] ul, html[dir="ltr"] ol {
+            margin-left: 25px;
+        }
+        
+        html[dir="rtl"] ul, html[dir="rtl"] ol {
+            margin-right: 25px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .step-box {
+            background: #eff6ff;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border-left: 4px solid #2563eb;
+        }
+        
+        html[dir="rtl"] .step-box {
+            border-left: none;
+            border-right: 4px solid #2563eb;
+        }
+        
+        .warning {
+            background: #fef3c7;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        html[dir="rtl"] .warning {
+            border-left: none;
+            border-right: 4px solid #f59e0b;
+        }
+        
+        .success {
+            background: #dcfce7;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border-left: 4px solid #16a34a;
+        }
+        
+        html[dir="rtl"] .success {
+            border-left: none;
+            border-right: 4px solid #16a34a;
+        }
+        
+        .code-block {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        table thead {
+            background: #f3f4f6;
+        }
+        
+        table th, table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        html[dir="ltr"] table th, html[dir="ltr"] table td {
+            text-align: left;
+        }
+        
+        html[dir="rtl"] table th, html[dir="rtl"] table td {
+            text-align: right;
+        }
+        
+        table th {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        a {
+            color: #2563eb;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        a:hover {
+            color: #1e40af;
+            text-decoration: underline;
+        }
+        
+        .external-link::after {
+            content: ' ↗';
+            font-size: 0.8em;
+        }
+        
+        .screenshot-note {
+            background: #f0f9ff;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            color: #0c4a6e;
+            margin: 15px 0;
+        }
+        
+        footer {
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            padding: 30px 40px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .credits {
+            background: linear-gradient(135deg, #f0f9ff 0%, #dcfce7 100%);
+            border: 2px solid #2563eb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+        
+        .credits h3 {
+            color: #0c4a6e;
+            margin-top: 0;
+        }
+        
+        .button {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+            transition: background 0.3s;
+        }
+        
+        .button:hover {
+            background: #1e40af;
+        }
+        
+        .button.secondary {
+            background: #6b7280;
+        }
+        
+        .button.secondary:hover {
+            background: #4b5563;
+        }
+    </style>
+    <script>
+        function initLanguage() {
+            const savedLang = localStorage.getItem('guideLanguage') || 'en';
+            setLanguage(savedLang);
+        }
+        
+        function setLanguage(lang) {
+            localStorage.setItem('guideLanguage', lang);
+            document.documentElement.lang = lang;
+            
+            if (lang === 'he') {
+                document.documentElement.dir = 'rtl';
+                document.body.dir = 'rtl';
+                showContent('he');
+                document.getElementById('langToggle').className = 'lang-toggle he';
+                document.getElementById('langToggle').textContent = 'EN';
+            } else {
+                document.documentElement.dir = 'ltr';
+                document.body.dir = 'ltr';
+                showContent('en');
+                document.getElementById('langToggle').className = 'lang-toggle en';
+                document.getElementById('langToggle').textContent = 'עברית';
+            }
+        }
+        
+        function toggleLanguage() {
+            const currentLang = localStorage.getItem('guideLanguage') || 'en';
+            const newLang = currentLang === 'en' ? 'he' : 'en';
+            setLanguage(newLang);
+        }
+        
+        function showContent(lang) {
+            document.querySelectorAll('[data-lang]').forEach(el => {
+                el.style.display = el.dataset.lang === lang ? 'block' : 'none';
+            });
+        }
+        
+        window.addEventListener('DOMContentLoaded', initLanguage);
+    </script>
+</head>
+<body>
+    <button id="langToggle" class="lang-toggle en" onclick="toggleLanguage()" title="Toggle language / החלף שפה"></button>
+    <div class="container">
+        <header>
+            <h1>₪ Israeli Bank Scraper</h1>
+            <div data-lang="en"><p>Complete User Guide & Setup Instructions</p></div>
+            <div data-lang="he" style="display: none;"><p>מדריך משתמש מקיף והוראות התקנה</p></div>
+        </header>
+        
+        <nav>
+            <a href="#getting-started" data-lang="en">Getting Started</a>
+            <a href="#getting-started" data-lang="he" style="display:none;">כיצד להתחיל</a>
+            
+            <a href="#google-setup" data-lang="en">Google Sheets</a>
+            <a href="#google-setup" data-lang="he" style="display:none;">Google Sheets</a>
+            
+            <a href="#api-keys" data-lang="en">API Keys</a>
+            <a href="#api-keys" data-lang="he" style="display:none;">מפתחות API</a>
+            
+            <a href="#running-scrape" data-lang="en">Run Scrape</a>
+            <a href="#running-scrape" data-lang="he" style="display:none;">הפעל Scrape</a>
+            
+            <a href="#profiles" data-lang="en">Profiles</a>
+            <a href="#profiles" data-lang="he" style="display:none;">פרופילים</a>
+            
+            <a href="#results" data-lang="en">Results</a>
+            <a href="#results" data-lang="he" style="display:none;">תוצאות</a>
+            
+            <a href="#ai" data-lang="en">AI</a>
+            <a href="#ai" data-lang="he" style="display:none;">AI</a>
+            
+            <a href="#export" data-lang="en">Export</a>
+            <a href="#export" data-lang="he" style="display:none;">ייצוא</a>
+            
+            <a href="#automation" data-lang="en">Automation</a>
+            <a href="#automation" data-lang="he" style="display:none;">אוטומציה</a>
+            
+            <a href="#troubleshooting" data-lang="en">Troubleshooting</a>
+            <a href="#troubleshooting" data-lang="he" style="display:none;">פתרון בעיות</a>
+            
+            <a href="#credits" data-lang="en">Credits</a>
+            <a href="#credits" data-lang="he" style="display:none;">קרדיטים</a>
+        </nav>
+        
+        <div class="content">
+            <!-- Getting Started -->
+            <section id="getting-started">
+                <div data-lang="en">
+                    <h2>🚀 Getting Started</h2>
+                    <h3>System Requirements</h3>
+                    <ul>
+                        <li><strong>Web Browser:</strong> Chrome, Firefox, Safari, or Edge</li>
+                        <li><strong>Internet Connection:</strong> Required for bank access</li>
+                        <li><strong>JavaScript:</strong> Must be enabled</li>
+                        <li><strong>Google Account:</strong> Optional but recommended</li>
+                    </ul>
+                    <h3>First-Time Setup</h3>
+                    <ol>
+                        <li>Open the application (http://localhost:3000)</li>
+                        <li>Choose your language (English or עברית)</li>
+                        <li>Fill in bank credentials</li>
+                        <li>Start your first scrape!</li>
+                    </ol>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>🚀 כיצד להתחיל</h2>
+                    <h3>דרישות מערכת</h3>
+                    <ul>
+                        <li><strong>דפדפן:</strong> Chrome, Firefox, Safari, או Edge</li>
+                        <li><strong>חיבור לאינטרנט:</strong> נדרש לגישה לחשבון</li>
+                        <li><strong>JavaScript:</strong> חייב להיות מופעל</li>
+                        <li><strong>חשבון Google:</strong> אופציונלי אך מומלץ</li>
+                    </ul>
+                    <h3>הגדרה ראשונית</h3>
+                    <ol>
+                        <li>פתח את האפליקציה (http://localhost:3000)</li>
+                        <li>בחר את השפה שלך (English או עברית)</li>
+                        <li>הכנס את פרטי הבנק שלך</li>
+                        <li>התחל את ה-scrape הראשון שלך!</li>
+                    </ol>
+                </div>
+            </section>
+            
+            <!-- Google Sheets Setup -->
+            <section id="google-setup">
+                <div data-lang="en">
+                    <h2>🔗 Google Sheets Integration</h2>
+                    <h3>Why Use Google Sheets?</h3>
+                    <ul>
+                        <li>Automatically save results to cloud storage</li>
+                        <li>Access data from anywhere</li>
+                        <li>Easy sharing with accountants</li>
+                        <li>Built-in spreadsheet features</li>
+                    </ul>
+                    <h3>Setup Steps</h3>
+                    <ol>
+                        <li>Go to <a href="https://console.cloud.google.com/" class="external-link">Google Cloud Console</a></li>
+                        <li>Create a new project</li>
+                        <li>Enable Google Drive API</li>
+                        <li>Enable Google Sheets API</li>
+                        <li>Create OAuth 2.0 credentials</li>
+                        <li>Configure in the app settings</li>
+                        <li>Authorize and test connection</li>
+                    </ol>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>🔗 שילוב Google Sheets</h2>
+                    <h3>למה להשתמש ב-Google Sheets?</h3>
+                    <ul>
+                        <li>שמור באופן אוטומטי תוצאות לאחסון בענן</li>
+                        <li>גישה לנתונים מכל מקום</li>
+                        <li>שיתוף קל עם רואי חשבון</li>
+                        <li>תכונות גיליון אלקטרוני מובנות</li>
+                    </ul>
+                    <h3>שלבי הגדרה</h3>
+                    <ol>
+                        <li>עבור ל- <a href="https://console.cloud.google.com/" class="external-link">Google Cloud Console</a></li>
+                        <li>צור פרויקט חדש</li>
+                        <li>הפעל את Google Drive API</li>
+                        <li>הפעל את Google Sheets API</li>
+                        <li>צור אישורי OAuth 2.0</li>
+                        <li>הגדר בהגדרות האפליקציה</li>
+                        <li>אשר ובדוק חיבור</li>
+                    </ol>
+                </div>
+            </section>
+            
+            <!-- API Keys -->
+            <section id="api-keys">
+                <div data-lang="en">
+                    <h2>🔑 API Keys & OAuth</h2>
+                    <h3>Understanding the Credentials</h3>
+                    <ul>
+                        <li><strong>OAuth 2.0:</strong> Secure user authentication</li>
+                        <li><strong>Client ID:</strong> Public application identifier</li>
+                        <li><strong>Client Secret:</strong> Private key (keep it secret!)</li>
+                        <li><strong>Master Key:</strong> Local encryption password</li>
+                    </ul>
+                    <h3>Master Key Best Practices</h3>
+                    <ul>
+                        <li>Use 12+ characters with mixed case and symbols</li>
+                        <li>Store in a password manager</li>
+                        <li>Never share with anyone</li>
+                        <li>If forgotten, profiles cannot be recovered</li>
+                    </ul>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>🔑 מפתחות API ו-OAuth</h2>
+                    <h3>הבנת הפרטים</h3>
+                    <ul>
+                        <li><strong>OAuth 2.0:</strong> אימות משתמש מאובטח</li>
+                        <li><strong>Client ID:</strong> מזהה אפליקציה ציבורי</li>
+                        <li><strong>Client Secret:</strong> מפתח פרטי (שמור בסוד!)</li>
+                        <li><strong>Master Key:</strong> סיסמת הצפנה מקומית</li>
+                    </ul>
+                    <h3>שיטות טובות ל-Master Key</h3>
+                    <ul>
+                        <li>השתמש ב-12+ תווים עם אותיות גדולות וסמלים</li>
+                        <li>אחסן במנהל סיסמאות</li>
+                        <li>לא תשתף עם אף אחד</li>
+                        <li>אם שכחת, לא ניתן להחזיר פרופילים</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <!-- Running a Scrape -->
+            <section id="running-scrape">
+                <div data-lang="en">
+                    <h2>🔄 Running Your First Scrape</h2>
+                    <h3>Step-by-Step</h3>
+                    <ol>
+                        <li><strong>Select Provider:</strong> Choose your bank/credit card</li>
+                        <li><strong>Enter Credentials:</strong> Username and password</li>
+                        <li><strong>Configure Options:</strong> Date range, timeout, etc.</li>
+                        <li><strong>Optional - Save Profile:</strong> For quick access next time</li>
+                        <li><strong>Click Start Scrape:</strong> Wait for results</li>
+                        <li><strong>View Results:</strong> In Results Explorer tab</li>
+                    </ol>
+                    <h3>Supported Banks</h3>
+                    <ul>
+                        <li>Bank Hapoalim</li>
+                        <li>Bank Leumi</li>
+                        <li>Discount Bank</li>
+                        <li>Isracard</li>
+                        <li>VisaCard</li>
+                        <li>And more...</li>
+                    </ul>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>🔄 הפעלת Scrape ראשון שלך</h2>
+                    <h3>שלב אחר שלב</h3>
+                    <ol>
+                        <li><strong>בחר ספק:</strong> בחר בנק או כרטיס אשראי</li>
+                        <li><strong>הזן פרטים:</strong> שם משתמש וסיסמה</li>
+                        <li><strong>הגדר אפשרויות:</strong> טווח תאריכים, זמן חכייה וכו'</li>
+                        <li><strong>אופציונלי - שמור פרופיל:</strong> לגישה מהירה בפעם הבאה</li>
+                        <li><strong>לחץ על התחל Scrape:</strong> המתן לתוצאות</li>
+                        <li><strong>צפה בתוצאות:</strong> בכרטיסייה Results Explorer</li>
+                    </ol>
+                    <h3>בנקים נתמכים</h3>
+                    <ul>
+                        <li>בנק הפועלים</li>
+                        <li>בנק לאומי</li>
+                        <li>בנק דיסקונט</li>
+                        <li>ישראכרט</li>
+                        <li>ויזה</li>
+                        <li>ועוד...</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <!-- Profiles -->
+            <section id="profiles">
+                <div data-lang="en">
+                    <h2>💾 Working with Profiles</h2>
+                    <h3>What Are Profiles?</h3>
+                    <p>Profiles securely store your bank credentials encrypted with your Master Key.</p>
+                    <h3>Creating a Profile</h3>
+                    <ol>
+                        <li>Fill in your bank credentials</li>
+                        <li>Check "Save Profile" box</li>
+                        <li>Give it a name (e.g., "My Bank Account")</li>
+                        <li>Enter your Master Key</li>
+                        <li>Click Save</li>
+                    </ol>
+                    <h3>Using a Profile</h3>
+                    <ol>
+                        <li>Click "Start from Profile" dropdown</li>
+                        <li>Select your saved profile</li>
+                        <li>Credentials auto-fill</li>
+                        <li>Click Start Scrape</li>
+                    </ol>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>💾 עבודה עם פרופילים</h2>
+                    <h3>מה זה פרופיל?</h3>
+                    <p>פרופילים מאחסנים בצורה מאובטחת את פרטי הבנק שלך מוצפנים עם Master Key שלך.</p>
+                    <h3>יצירת פרופיל</h3>
+                    <ol>
+                        <li>הזן את פרטי הבנק שלך</li>
+                        <li>סמן את תיבת "שמור פרופיל"</li>
+                        <li>תן לו שם (למשל "חשבון הבנק שלי")</li>
+                        <li>הזן את ה-Master Key שלך</li>
+                        <li>לחץ שמור</li>
+                    </ol>
+                    <h3>שימוש בפרופיל</h3>
+                    <ol>
+                        <li>לחץ על רשימת "התחל מפרופיל"</li>
+                        <li>בחר את הפרופיל השמור שלך</li>
+                        <li>הפרטים מתמלאים באופן אוטומטי</li>
+                        <li>לחץ על התחל Scrape</li>
+                    </ol>
+                </div>
+            </section>
+            
+            <!-- Results Explorer -->
+            <section id="results">
+                <div data-lang="en">
+                    <h2>📊 Results Explorer</h2>
+                    <h3>Key Features</h3>
+                    <ul>
+                        <li><strong>Left Sidebar:</strong> List of all your scrape results</li>
+                        <li><strong>Main View:</strong> Transaction table with filters</li>
+                        <li><strong>Summary Cards:</strong> Account totals and balances</li>
+                        <li><strong>Search:</strong> Find transactions by description</li>
+                        <li><strong>Sort & Filter:</strong> Organize your data</li>
+                    </ul>
+                    <h3>Actions</h3>
+                    <ul>
+                        <li>Rename results - hover and click pencil icon</li>
+                        <li>Delete results - hover and click trash icon</li>
+                        <li>Export to CSV or JSON</li>
+                        <li>Upload to Google Sheets</li>
+                    </ul>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>📊 דפדפן תוצאות</h2>
+                    <h3>תכונות עיקריות</h3>
+                    <ul>
+                        <li><strong>סרגל צד שמאלי:</strong> רשימת כל תוצאות ה-scrape שלך</li>
+                        <li><strong>תצוגה ראשית:</strong> טבלת עסקאות עם מסננים</li>
+                        <li><strong>כרטיסיות סיכום:</strong> סכומי חשבונות ויתרות</li>
+                        <li><strong>חיפוש:</strong> מצא עסקאות לפי תיאור</li>
+                        <li><strong>מיון וסינון:</strong> ארגן את הנתונים שלך</li>
+                    </ul>
+                    <h3>פעולות</h3>
+                    <ul>
+                        <li>שנה שם תוצאות - העבר והקלק על סמל עיפרון</li>
+                        <li>מחק תוצאות - העבר והקלק על סמל פח אשפה</li>
+                        <li>ייצא ל-CSV או JSON</li>
+                        <li>העלה ל-Google Sheets</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <!-- AI Features -->
+            <section id="ai">
+                <div data-lang="en">
+                    <h2>🤖 AI-Powered Features</h2>
+                    <h3>Automatic Categorization</h3>
+                    <ul>
+                        <li>Click "Categorize with AI" button</li>
+                        <li>AI analyzes transactions</li>
+                        <li>Assigns categories automatically</li>
+                        <li>Review and adjust as needed</li>
+                    </ul>
+                    <h3>AI Analyst Chat</h3>
+                    <ul>
+                        <li>Ask questions about your spending</li>
+                        <li>Get instant insights</li>
+                        <li>Example: "What's my top spending category?"</li>
+                        <li>Uses Google Gemini AI</li>
+                    </ul>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>🤖 תכונות מופעלות על ידי AI</h2>
+                    <h3>קטגוריזציה אוטומטית</h3>
+                    <ul>
+                        <li>לחץ על כפתור "קטגוריזציה עם AI"</li>
+                        <li>AI מנתח עסקאות</li>
+                        <li>מקצה קטגוריות באופן אוטומטי</li>
+                        <li>סקור והתאים לפי הצורך</li>
+                    </ul>
+                    <h3>צ'ט מנתח AI</h3>
+                    <ul>
+                        <li>שאל שאלות על ההוצאות שלך</li>
+                        <li>קבל תובנות מיידיות</li>
+                        <li>דוגמה: "מה הקטגוריה העליונה שלי בהוצאות?"</li>
+                        <li>משתמש ב-Google Gemini AI</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <!-- Export Data -->
+            <section id="export">
+                <div data-lang="en">
+                    <h2>📥 Exporting Your Data</h2>
+                    <h3>Export Formats</h3>
+                    <ul>
+                        <li><strong>JSON:</strong> Raw data for analysis</li>
+                        <li><strong>CSV:</strong> Spreadsheet format for Excel</li>
+                        <li><strong>Google Sheets:</strong> Direct upload to cloud</li>
+                    </ul>
+                    <h3>How to Export</h3>
+                    <ol>
+                        <li>Select your results</li>
+                        <li>Click export button</li>
+                        <li>Choose format</li>
+                        <li>File downloads automatically</li>
+                    </ol>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>📥 ייצוא הנתונים שלך</h2>
+                    <h3>פורמטי ייצוא</h3>
+                    <ul>
+                        <li><strong>JSON:</strong> נתונים גולמיים לניתוח</li>
+                        <li><strong>CSV:</strong> פורמט גיליון אלקטרוני ל-Excel</li>
+                        <li><strong>Google Sheets:</strong> העלאה ישירה לענן</li>
+                    </ul>
+                    <h3>כיצד לייצא</h3>
+                    <ol>
+                        <li>בחר את התוצאות שלך</li>
+                        <li>לחץ על כפתור הייצוא</li>
+                        <li>בחר פורמט</li>
+                        <li>הקובץ מורד באופן אוטומטי</li>
+                    </ol>
+                </div>
+            </section>
+            
+            <!-- Automation -->
+            <section id="automation">
+                <div data-lang="en">
+                    <h2>⏱️ Automation & Scheduling</h2>
+                    <h3>Scheduler Setup</h3>
+                    <ol>
+                        <li>Click "Automation" tab</li>
+                        <li>Enable Scheduler</li>
+                        <li>Set time to run (e.g., 8 AM daily)</li>
+                        <li>Select profiles to scrape</li>
+                        <li>Enable "Save to Sheets"</li>
+                        <li>Save settings</li>
+                    </ol>
+                    <h3>Common Schedules</h3>
+                    <ul>
+                        <li>Daily at 8 AM - get fresh data every morning</li>
+                        <li>Weekly on Monday - weekly financial review</li>
+                        <li>Monthly on 1st - monthly summary</li>
+                    </ul>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>⏱️ אוטומציה וזמנוי</h2>
+                    <h3>הגדרת מתכנן</h3>
+                    <ol>
+                        <li>לחץ על כרטיסייה "אוטומציה"</li>
+                        <li>הפעל מתכנן</li>
+                        <li>קבע זמן הפעלה (למשל 8 בבוקר יומי)</li>
+                        <li>בחר פרופילים ל-scrape</li>
+                        <li>הפעל "שמור ל-Sheets"</li>
+                        <li>שמור הגדרות</li>
+                    </ol>
+                    <h3>לוחות זמנים נפוצים</h3>
+                    <ul>
+                        <li>יומי בשעה 8 בבוקר - קבל נתונים טריים כל בוקר</li>
+                        <li>שבועי בשני - סקירה פיננסית שבועית</li>
+                        <li>חודשי ב-1 - סיכום חודשי</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <!-- Troubleshooting -->
+            <section id="troubleshooting">
+                <div data-lang="en">
+                    <h2>🛠️ Troubleshooting</h2>
+                    <h3>Common Issues</h3>
+                    <ul>
+                        <li><strong>Credentials Rejected:</strong> Check username/password directly on bank website</li>
+                        <li><strong>Timeout Error:</strong> Increase timeout or try at different time</li>
+                        <li><strong>Cannot Decrypt Profile:</strong> Wrong Master Key - check password manager</li>
+                        <li><strong>Google Sheets Failed:</strong> Re-authorize or check API enablement</li>
+                    </ul>
+                    <h3>Getting Help</h3>
+                    <ul>
+                        <li>Check the Logs tab for error messages</li>
+                        <li>Try clearing browser cache</li>
+                        <li>Use incognito/private mode</li>
+                        <li>Check GitHub issues page</li>
+                    </ul>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>🛠️ פתרון בעיות</h2>
+                    <h3>בעיות נפוצות</h3>
+                    <ul>
+                        <li><strong>פרטים דחויים:</strong> בדוק שם משתמש/סיסמה ישירות באתר הבנק</li>
+                        <li><strong>שגיאת timeout:</strong> הגדל timeout או נסה בזמן אחר</li>
+                        <li><strong>לא יכול לפענח פרופיל:</strong> Master Key שגוי - בדוק מנהל סיסמאות</li>
+                        <li><strong>Google Sheets נכשל:</strong> אשר מחדש או בדוק הפעלת API</li>
+                    </ul>
+                    <h3>קבלת עזרה</h3>
+                    <ul>
+                        <li>בדוק את כרטיסייה Logs לקבלת הודעות שגיאה</li>
+                        <li>נסה לנקות את זיכרון מטמון של הדפדפן</li>
+                        <li>השתמש במצב incognito/פרטי</li>
+                        <li>בדוק דף GitHub issues</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <!-- Credits -->
+            <section id="credits">
+                <div data-lang="en">
+                    <h2>💝 Credits & Attribution</h2>
+                    <div class="credits">
+                        <h3>🙏 Special Thanks</h3>
+                        <h4>Core Library</h4>
+                        <p><a href="https://github.com/eshaham/israeli-bank-scrapers" class="external-link">israeli-bank-scrapers</a> - The foundation of this project</p>
+                        <h4>Technology Stack</h4>
+                        <ul>
+                            <li><strong>Frontend:</strong> React, TypeScript, Tailwind CSS</li>
+                            <li><strong>Backend:</strong> Node.js, Express</li>
+                            <li><strong>Cloud:</strong> Google APIs, Gemini AI</li>
+                            <li><strong>Browser Automation:</strong> Playwright</li>
+                        </ul>
+                        <h4>Open Source Libraries</h4>
+                        <ul>
+                            <li>React Query - Data management</li>
+                            <li>i18next - Internationalization</li>
+                            <li>Socket.io - Real-time updates</li>
+                            <li>And many more contributors...</li>
+                        </ul>
+                        <p style="margin-top: 20px;">
+                            <a href="https://github.com/eshaham/israeli-bank-scrapers" class="button">View on GitHub ↗</a>
+                        </p>
+                    </div>
+                </div>
+                <div data-lang="he" style="display:none;">
+                    <h2>💝 קרדיטים והנצחה</h2>
+                    <div class="credits">
+                        <h3>🙏 תודה מיוחדת</h3>
+                        <h4>ספריית ליבה</h4>
+                        <p><a href="https://github.com/eshaham/israeli-bank-scrapers" class="external-link">israeli-bank-scrapers</a> - הבסיס של פרויקט זה</p>
+                        <h4>ערימת טכנולוגיה</h4>
+                        <ul>
+                            <li><strong>Frontend:</strong> React, TypeScript, Tailwind CSS</li>
+                            <li><strong>Backend:</strong> Node.js, Express</li>
+                            <li><strong>Cloud:</strong> Google APIs, Gemini AI</li>
+                            <li><strong>אוטומציית דפדפן:</strong> Playwright</li>
+                        </ul>
+                        <h4>ספריות קוד פתוח</h4>
+                        <ul>
+                            <li>React Query - ניהול נתונים</li>
+                            <li>i18next - בינלאוiniization</li>
+                            <li>Socket.io - עדכונים בזמן אמת</li>
+                            <li>ותורמים רבים נוספים...</li>
+                        </ul>
+                        <p style="margin-top: 20px;">
+                            <a href="https://github.com/eshaham/israeli-bank-scrapers" class="button">צפה ב-GitHub ↗</a>
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <footer>
+            <div data-lang="en">
+                <p>Israeli Bank Scraper - Professional Guide</p>
+                <p style="font-size: 0.9em; color: #999; margin-top: 10px;">v2.1 | February 2026 | Made with ❤️</p>
+            </div>
+            <div data-lang="he" style="display:none;">
+                <p>Israeli Bank Scraper - מדריך מקצועי</p>
+                <p style="font-size: 0.9em; color: #999; margin-top: 10px;">v2.1 | February 2026 | עשוי בעם ❤️</p>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
