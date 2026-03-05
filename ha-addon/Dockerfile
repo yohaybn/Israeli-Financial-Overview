@@ -47,9 +47,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/app
 
 # Copy the entire monorepo (assuming build context is the root)
-# If HA builds within the ha-addon folder, this might need adjustment
-# But usually HA repos are structured so the addon is in a folder
-COPY .. .
+COPY . .
 
 # Build the app
 RUN npm install
