@@ -111,17 +111,46 @@ io.on('connection', (socket) => {
 });
 
 // Use httpServer instead of app.listen
-const STATIC_PATH = path.join(__dirname, '../../client/dist');
+// Use a more robust way to resolve the static path
+let STATIC_PATH = path.join(process.cwd(), 'client/dist');
+
 if (process.env.NODE_ENV === 'production') {
-    serverLogger.info(`Serving static files from: ${STATIC_PATH}`);
+    const fs = require('fs');
+    if (!fs.existsSync(STATIC_PATH)) {
+        const alternatePath = path.join(__dirname, '../../client/dist');
+        if (fs.existsSync(alternatePath)) {
+            serverLogger.info(`Primary static path not found, using alternate: ${alternatePath}`);
+            STATIC_PATH = alternatePath;
+        } else {
+            serverLogger.warn(`Static files directory NOT FOUND. Primary: ${STATIC_PATH}, Alternate: ${alternatePath}`);
+        }
+    } else {
+        serverLogger.info(`Serving static files from: ${STATIC_PATH}`);
+    }
+
     app.use(express.static(STATIC_PATH));
 
     // Handle SPA routing
     app.get('*', (req, res, next) => {
+        // Skip API and Socket.IO
         if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
             return next();
         }
-        res.sendFile(path.join(STATIC_PATH, 'index.html'));
+
+        // Don't serve index.html for missing assets or files with extensions
+        // This prevents the "Unexpected token '<'" error in browsers
+        if (req.path.includes('.') || req.path.startsWith('/assets/')) {
+            serverLogger.warn(`Asset not found: ${req.url}`);
+            return res.status(404).send('Not found');
+        }
+
+        const indexPath = path.join(STATIC_PATH, 'index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            serverLogger.error(`index.html not found at: ${indexPath}`);
+            res.status(404).send('Frontend not built. Please run build first.');
+        }
     });
 }
 
