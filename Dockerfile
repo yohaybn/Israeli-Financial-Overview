@@ -4,7 +4,7 @@ FROM node:20-slim AS builder
 WORKDIR /usr/src/app
 
 # Copy root configurations
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Copy packages
 COPY shared ./shared

@@ -7,8 +7,14 @@ ENV NODE_ENV=development
 
 WORKDIR /usr/src/app
 
-# Copy the entire monorepo
-COPY . .
+# Copy root configurations
+COPY package.json package-lock.json ./
+
+# Copy packages
+COPY shared ./shared
+COPY server ./server
+COPY client ./client
+COPY ha-addon ./ha-addon
 
 # Install all dependencies (including devDependencies)
 RUN npm install
