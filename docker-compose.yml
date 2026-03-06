@@ -3,19 +3,19 @@ version: '3.8'
 services:
   scraper:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
-      # Mount results directory to persist data
-      - ./app/results:/usr/src/app/results
-      # Mount config files if used (optional, env vars preferred)
-      - ./app/settings.json:/usr/src/app/settings.json
-      - ./app/service-account.json:/usr/src/app/service-account.json
-      - ./app/profiles.json:/usr/src/app/profiles.json
+      # Map local data directory to container /data directory
+      # This will persist settings, results, and logs
+      - ./data:/data
     environment:
       - PORT=3000
+      - DATA_DIR=/data
       - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
       - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
       - DRIVE_FOLDER_ID=${DRIVE_FOLDER_ID}
+      - APP_SECRET=${APP_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
