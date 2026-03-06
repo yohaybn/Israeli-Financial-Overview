@@ -3,6 +3,13 @@ FROM node:20-slim AS builder
 
 WORKDIR /usr/src/app
 
+# Install build tools for native dependencies (like better-sqlite3)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy root configurations
 COPY package.json package-lock.json ./
 
@@ -11,25 +18,24 @@ COPY shared ./shared
 COPY server ./server
 COPY client ./client
 
-# Install dependencies (monorepo root)
+# Install all dependencies (including devDependencies for build)
 RUN npm install
 
-# Build Shared library first
+# Build workspaces in order
 RUN npm run build -w shared
-
-# Build Client
 RUN npm run build -w client
-
-# Build Server
 RUN npm run build -w server
+
+# Prune dev dependencies before copying to production stage
+RUN npm prune --omit=dev
 
 
 # --- Production Stage ---
 FROM node:20-slim
 
-# Install system dependencies for Puppeteer/Chrome
+# Install system dependencies and Chromium
 RUN apt-get update && apt-get install -y \
-    ca-certificates \
+    chromium \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -65,31 +71,42 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     wget \
     xdg-utils \
-    # Helper tools
     jq \
+    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
+
+# Environment variables for Puppeteer and Application
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    NODE_ENV=production \
+    PORT=3000 \
+    DATA_DIR=/data
 
 WORKDIR /usr/src/app
 
-# Copy built packages from builder
+# Copy root configurations
 COPY --from=builder /usr/src/app/package*.json ./
-COPY --from=builder /usr/src/app/shared ./shared
-COPY --from=builder /usr/src/app/server ./server
-COPY --from=builder /usr/src/app/client/dist ./client/dist
 
-# Install production dependencies only
-# We install in the root to support the workspace links
-RUN npm install --omit=dev && npm cache clean --force
+# Copy pre-installed and pruned node_modules from builder
+# This ensures all native modules are correctly compiled and present
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/shared/node_modules ./shared/node_modules
+COPY --from=builder /usr/src/app/server/node_modules ./server/node_modules
 
-# Environment variables
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV DATA_DIR=/data
+# Copy build artifacts and package.json files
+COPY --from=builder /usr/src/app/shared/package.json ./shared/
+COPY --from=builder /usr/src/app/shared/dist ./shared/dist/
 
-# Create data directory if it doesn't exist
+COPY --from=builder /usr/src/app/server/package.json ./server/
+COPY --from=builder /usr/src/app/server/dist ./server/dist/
+
+COPY --from=builder /usr/src/app/client/package.json ./client/
+COPY --from=builder /usr/src/app/client/dist ./client/dist/
+
+# Create data directory
 RUN mkdir -p /data
 
 EXPOSE 3000
 
-# Default command (can be overridden by HA run.sh)
+# Default command
 CMD ["node", "server/dist/index.js"]
