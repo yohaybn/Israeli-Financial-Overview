@@ -1,9 +1,9 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { ScrapeResult, Transaction } from '@app/shared';
-import { AiService } from './aiService';
-import { DbService } from './dbService';
-import { serverLogger } from '../utils/logger';
+import { AiService } from './aiService.js';
+import { DbService } from './dbService.js';
+import { serverLogger } from '../utils/logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const RESULTS_DIR = path.join(DATA_DIR, 'results');

@@ -1,11 +1,15 @@
 import * as cron from 'node-cron';
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { SchedulerConfig, DEFAULT_SCHEDULER_CONFIG, Profile } from '@app/shared';
-import { serviceLogger as logger } from '../utils/logger';
-import { ScraperService } from './scraperService';
-import { ProfileService } from './profileService';
-import { PipelineController } from './pipelineController';
+import { serviceLogger as logger } from '../utils/logger.js';
+import { ScraperService } from './scraperService.js';
+import { ProfileService } from './profileService.js';
+import { PipelineController } from './pipelineController.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
 const SCHEDULER_CONFIG_PATH = path.join(DATA_DIR, 'scheduler_config.json');
@@ -118,7 +122,7 @@ export class SchedulerService {
             // Run sequentially
             for (const profile of profilesToRun) {
                 logger.info(`Running scheduled scrape for profile: ${profile.name} (${profile.companyId})`);
-                
+
                 const scrapeRequest = {
                     companyId: profile.companyId,
                     credentials: profile.credentials,

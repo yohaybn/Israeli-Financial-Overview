@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ProfileService } from '../services/profileService';
+import { ProfileService } from '../services/profileService.js';
 import { Profile } from '@app/shared';
 
 const router = Router();

@@ -3,7 +3,7 @@
  * Defines the interface all notification channels must implement
  */
 
-import { NotificationPayload, NotifierConfig, NotifierResult } from './types';
+import { NotificationPayload, NotifierConfig, NotifierResult } from './types.js';
 
 export abstract class BaseNotifier {
   protected channelName: string;

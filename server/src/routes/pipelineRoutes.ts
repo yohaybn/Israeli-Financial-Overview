@@ -4,8 +4,8 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PipelineController, PipelineConfig } from '../services/pipelineController';
-import { serviceLogger as logger } from '../utils/logger';
+import { PipelineController, PipelineConfig } from '../services/pipelineController.js';
+import { serviceLogger as logger } from '../utils/logger.js';
 
 export function createPipelineRoutes(
   pipelineController: PipelineController

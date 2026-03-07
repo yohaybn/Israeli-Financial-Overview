@@ -3,8 +3,8 @@
  * Sends notifications to console output
  */
 
-import { BaseNotifier } from './baseNotifier';
-import { NotificationPayload } from './types';
+import { BaseNotifier } from './baseNotifier.js';
+import { NotificationPayload } from './types.js';
 
 export class ConsoleNotifier extends BaseNotifier {
   constructor(config: any = {}) {

@@ -2,7 +2,7 @@ import winston from 'winston';
 import path from 'path';
 import fs from 'fs-extra';
 
-import { maskSensitiveData } from './masking';
+import { maskSensitiveData } from './masking.js';
 
 const LOGS_DIR = path.resolve(process.env.DATA_DIR || './data', 'logs');
 

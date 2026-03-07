@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { SheetsService } from '../services/sheetsService';
-import { StorageService } from '../services/storageService';
+import { SheetsService } from '../services/sheetsService.js';
+import { StorageService } from '../services/storageService.js';
 import { google } from 'googleapis';
-import { GoogleAuthService } from '../services/googleAuthService';
+import { GoogleAuthService } from '../services/googleAuthService.js';
 
 const router = Router();
 const sheetsService = new SheetsService();
@@ -150,8 +150,8 @@ router.get('/drive-folder-contents/:folderId', async (req, res) => {
         const folders = items.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
         const files = items.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             data: {
                 folders,
                 files,

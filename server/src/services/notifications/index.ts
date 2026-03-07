@@ -2,9 +2,9 @@
  * Notification Module Exports
  */
 
-export { BaseNotifier } from './baseNotifier';
-export { ConsoleNotifier } from './consoleNotifier';
-export { NotificationService, notificationService } from './notificationService';
+export { BaseNotifier } from './baseNotifier.js';
+export { ConsoleNotifier } from './consoleNotifier.js';
+export { NotificationService, notificationService } from './notificationService.js';
 export {
   NotificationPayload,
   NotificationStatus,
@@ -14,4 +14,4 @@ export {
   NotificationServiceConfig,
   NotifierResult,
   DEFAULT_NOTIFICATION_CONFIG,
-} from './types';
+} from './types.js';

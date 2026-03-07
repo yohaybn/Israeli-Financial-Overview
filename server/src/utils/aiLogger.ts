@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { serverLogger } from './logger';
+import { serverLogger } from './logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const AI_LOGS_DIR = path.join(DATA_DIR, 'logs');
@@ -84,11 +84,11 @@ function maskSensitiveData(text: string, config: MaskingConfig = DEFAULT_MASKING
  */
 function calculateEstimatedCost(promptTokens?: number, completionTokens?: number): number {
   if (!promptTokens || !completionTokens) return 0;
-  
+
   // Gemini 2.0 Flash rates (per 1M tokens)
   const INPUT_RATE = 0.075 / 1_000_000;  // $0.075 per 1M input tokens
   const OUTPUT_RATE = 0.3 / 1_000_000;   // $0.3 per 1M output tokens
-  
+
   return (promptTokens * INPUT_RATE) + (completionTokens * OUTPUT_RATE);
 }
 
@@ -357,7 +357,7 @@ export async function clearOldAILogs(daysToRetain: number = 30): Promise<void> {
       const logTime = new Date(log.timestamp).getTime();
       if (logTime < cutoffTime) {
         const jsonFileName = path.join(AI_LOG_JSON_DIR, `${log.id}.json`);
-        await fs.remove(jsonFileName).catch(() => {});
+        await fs.remove(jsonFileName).catch(() => { });
         deletedCount++;
       }
     }

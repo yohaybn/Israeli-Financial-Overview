@@ -1,4 +1,4 @@
-import { ProviderDefinition } from './types';
+import { ProviderDefinition } from './types.js';
 
 // Based on https://github.com/eshaham/israeli-bank-scrapers/blob/master/src/definitions.ts
 export const PROVIDERS: ProviderDefinition[] = [

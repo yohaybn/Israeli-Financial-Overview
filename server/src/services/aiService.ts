@@ -4,11 +4,11 @@ import fs from 'fs-extra';
 import path from 'path';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { generateTransactionId } from '../utils/idGenerator';
-import { serverLogger } from '../utils/logger';
-import { maskSensitiveData } from '../utils/masking';
-import { logAICall, logAIError, withAILogging } from '../utils/aiLogger';
-import { DbService } from './dbService';
+import { generateTransactionId } from '../utils/idGenerator.js';
+import { serverLogger } from '../utils/logger.js';
+import { maskSensitiveData } from '../utils/masking.js';
+import { logAICall, logAIError, withAILogging } from '../utils/aiLogger.js';
+import { DbService } from './dbService.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 // const CACHE_FILE = path.join(DATA_DIR, 'config', 'ai_categories_cache.json'); // Legacy

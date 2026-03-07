@@ -5,7 +5,7 @@ import {
   clearOldAILogs,
   logAICall,
   logAIError
-} from '../utils/aiLogger';
+} from '../utils/aiLogger.js';
 
 const router = Router();
 

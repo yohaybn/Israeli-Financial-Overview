@@ -1,6 +1,6 @@
 import express from 'express';
-import { SchedulerService } from '../services/schedulerService';
-import { serviceLogger as logger } from '../utils/logger';
+import { SchedulerService } from '../services/schedulerService.js';
+import { serviceLogger as logger } from '../utils/logger.js';
 
 export function createSchedulerRoutes(schedulerService: SchedulerService) {
     const router = express.Router();

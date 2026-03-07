@@ -1,28 +1,30 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// IMPORTANT: Import routes AFTER dotenv.config() so that services can access environment variables during instantiation
-const { scrapeRoutes } = require('./routes/scrapeRoutes');
-const { profileRoutes } = require('./routes/profileRoutes');
-const { aiRoutes } = require('./routes/aiRoutes');
-const { aiLogRoutes } = require('./routes/aiLogRoutes');
-const { authRoutes } = require('./routes/authRoutes');
-const { sheetsRoutes } = require('./routes/sheetsRoutes');
-const { logRoutes } = require('./routes/logRoutes');
-import { createSchedulerRoutes } from './routes/schedulerRoutes';
-import { createPipelineRoutes } from './routes/pipelineRoutes';
-import { SchedulerService } from './services/schedulerService';
-import { ScraperService } from './services/scraperService';
-import { ProfileService } from './services/profileService';
-import { PipelineController } from './services/pipelineController';
-import { serverLogger, clientLogger } from './utils/logger';
-import { maskSensitiveData } from './utils/masking';
+// Initialize loggers first
+import { serverLogger, clientLogger } from './utils/logger.js';
+import { maskSensitiveData } from './utils/masking.js';
+
+// Import services
+import { SchedulerService } from './services/schedulerService.js';
+import { ScraperService } from './services/scraperService.js';
+import { ProfileService } from './services/profileService.js';
+import { PipelineController } from './services/pipelineController.js';
+import { AiService } from './services/aiService.js';
+import { StorageService } from './services/storageService.js';
+import { FilterService } from './services/filterService.js';
+import { ImportService } from './services/importService.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -37,6 +39,11 @@ const io = new Server(httpServer, {
 });
 
 // Initialize services (with dependency injection)
+const aiService = new AiService();
+const storageService = new StorageService();
+const filterService = new FilterService();
+const importService = new ImportService(aiService);
+
 const profileService = new ProfileService(); // Assuming default constructor
 const scraperService = new ScraperService();
 scraperService.setSocketIO(io);
@@ -91,7 +98,25 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', version: '1.0.0' });
 });
 
-app.use('/api', scrapeRoutes);
+// Dynamic imports for routes to ensure environment variables are loaded
+const { createScrapeRoutes } = await import('./routes/scrapeRoutes.js');
+const { profileRoutes } = await import('./routes/profileRoutes.js');
+const { aiRoutes } = await import('./routes/aiRoutes.js');
+const { aiLogRoutes } = await import('./routes/aiLogRoutes.js');
+const { authRoutes } = await import('./routes/authRoutes.js');
+const { sheetsRoutes } = await import('./routes/sheetsRoutes.js');
+const { logRoutes } = await import('./routes/logRoutes.js');
+const { createSchedulerRoutes } = await import('./routes/schedulerRoutes.js');
+const { createPipelineRoutes } = await import('./routes/pipelineRoutes.js');
+
+app.use('/api', createScrapeRoutes(
+    scraperService,
+    storageService,
+    filterService,
+    aiService,
+    importService,
+    io
+));
 app.use('/api/profiles', profileRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/ai-logs', aiLogRoutes);
@@ -115,7 +140,6 @@ io.on('connection', (socket) => {
 let STATIC_PATH = path.join(process.cwd(), 'client/dist');
 
 if (process.env.NODE_ENV === 'production') {
-    const fs = require('fs');
     if (!fs.existsSync(STATIC_PATH)) {
         const alternatePath = path.join(__dirname, '../../client/dist');
         if (fs.existsSync(alternatePath)) {

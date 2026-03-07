@@ -7,9 +7,13 @@ import { Server } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { ScrapeResult, ScraperOptions } from '@app/shared';
-import { serviceLogger as logger } from '../utils/logger';
-import { notificationService, NotificationPayload, NotificationDetailLevel } from './notifications';
+import { serviceLogger as logger } from '../utils/logger.js';
+import { notificationService, NotificationPayload, NotificationDetailLevel } from './notifications/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
 const PIPELINE_CONFIG_PATH = path.join(DATA_DIR, 'config', 'pipeline_config.json');
@@ -568,7 +572,7 @@ export class PipelineController {
       // Only save if there are transactions or accounts
       const hasTransactions = analysisResults.categorizedTransactions && analysisResults.categorizedTransactions.length > 0;
       const hasAccounts = context.catalogedData?.accounts && context.catalogedData.accounts.length > 0;
-      
+
       if (hasTransactions || hasAccounts) {
         try {
           const dateTimeFolder = this.getDateTimeFolder();
@@ -690,11 +694,11 @@ export class PipelineController {
       },
       errorDetails: failedStage
         ? {
-            stage: failedStage,
-            message:
-              context.stages.find((s) => s.stage === failedStage)?.error ||
-              'Unknown error',
-          }
+          stage: failedStage,
+          message:
+            context.stages.find((s) => s.stage === failedStage)?.error ||
+            'Unknown error',
+        }
         : undefined,
     };
 
@@ -781,7 +785,7 @@ export class PipelineController {
       // Do not save empty results
       const hasTransactions = data?.categorizedTransactions && data.categorizedTransactions.length > 0;
       const hasAccounts = data?.accounts && data.accounts.length > 0;
-      
+
       if (!hasTransactions && !hasAccounts) {
         logger.debug(`Skipping ${stage} result persist - no transactions or accounts found`);
         return;

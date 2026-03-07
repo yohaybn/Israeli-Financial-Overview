@@ -4,7 +4,7 @@ import { Transaction, ScrapeResult, Account } from '@app/shared';
 import fs from 'fs-extra';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
-import { AiService } from './aiService';
+import { AiService } from './aiService.js';
 
 export class ImportService {
     constructor(private aiService?: AiService) { }

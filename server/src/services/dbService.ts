@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs-extra';
 import { Transaction } from '@app/shared';
-import { serverLogger } from '../utils/logger';
+import { serverLogger } from '../utils/logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const DB_PATH = path.join(DATA_DIR, 'app.db');

@@ -1,9 +1,9 @@
 import { google } from 'googleapis';
-import { GoogleAuthService } from './googleAuthService';
+import { GoogleAuthService } from './googleAuthService.js';
 import { Transaction } from '@app/shared';
-import { serverLogger } from '../utils/logger';
+import { serverLogger } from '../utils/logger.js';
 import * as crypto from 'crypto';
-import { generateTransactionId } from '../utils/idGenerator';
+import { generateTransactionId } from '../utils/idGenerator.js';
 import path from 'path';
 import fs from 'fs-extra';
 

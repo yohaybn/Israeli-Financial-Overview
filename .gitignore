@@ -9,10 +9,11 @@ coverage
 *.pdf
 *.xlsx
 *.xls
-mizrhai2025.json
-ישראכרט יוחאי_2026-02-01.json
 server/data/
 git_files*.txt
 client/dist/
 server/dist/
 node_modules/
+data/app.db
+data/app.db-shm
+data/app.db-wal

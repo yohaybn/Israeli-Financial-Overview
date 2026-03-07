@@ -1,4 +1,4 @@
-export * from './types';
-export { DEFAULT_DASHBOARD_CONFIG, DEFAULT_SCHEDULER_CONFIG } from './types';
-export * from './providers';
+export * from './types.js';
+export { DEFAULT_DASHBOARD_CONFIG, DEFAULT_SCHEDULER_CONFIG } from './types.js';
+export * from './providers.js';
 export const version = "1.0.0";

@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import path from 'path';
 import fs from 'fs-extra';
-import { serverLogger } from '../utils/logger';
+import { serverLogger } from '../utils/logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const TOKENS_PATH = path.join(DATA_DIR, 'config', 'google_tokens.json');

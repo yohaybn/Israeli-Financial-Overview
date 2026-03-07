@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { AiService } from '../services/aiService';
-import { StorageService } from '../services/storageService';
+import { AiService } from '../services/aiService.js';
+import { StorageService } from '../services/storageService.js';
 
 const router = Router();
 const aiService = new AiService();

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import path from 'path';
 import fs from 'fs-extra';
-import { serverLogger, clientLogger, getLogLevel, setLogLevel } from '../utils/logger';
+import { serverLogger, clientLogger, getLogLevel, setLogLevel } from '../utils/logger.js';
 
 export const logRoutes = Router();
 
