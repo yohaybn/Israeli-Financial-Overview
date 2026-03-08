@@ -45,7 +45,8 @@
         "debug": "ניפוי (Debug)",
         "info": "מידע (Info)",
         "warn": "אזהרה (Warn)",
-        "error_level": "שגיאה (Error)"
+        "error_level": "שגיאה (Error)",
+        "environment": "סביבה"
     },
     "scraper": {
         "dashboard": "לוח בקרה",

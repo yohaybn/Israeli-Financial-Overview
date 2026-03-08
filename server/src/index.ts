@@ -108,6 +108,7 @@ const { sheetsRoutes } = await import('./routes/sheetsRoutes.js');
 const { logRoutes } = await import('./routes/logRoutes.js');
 const { createSchedulerRoutes } = await import('./routes/schedulerRoutes.js');
 const { createPipelineRoutes } = await import('./routes/pipelineRoutes.js');
+const { configRoutes } = await import('./routes/configRoutes.js');
 
 app.use('/api', createScrapeRoutes(
     scraperService,
@@ -125,6 +126,7 @@ app.use('/api/sheets', sheetsRoutes);
 app.use('/api/scheduler', createSchedulerRoutes(schedulerService));
 app.use('/api/pipeline', createPipelineRoutes(pipelineController));
 app.use('/api/logs', logRoutes);
+app.use('/api/config', configRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {

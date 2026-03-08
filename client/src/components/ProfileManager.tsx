@@ -52,6 +52,10 @@ export function ProfileManager({
                 setNewProfileName('');
                 setShowSaveInput(false);
             },
+            onError: (err: any) => {
+                const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
+                alert(`Failed to save profile: ${errorMsg}`);
+            }
         });
     };
 
@@ -62,7 +66,12 @@ export function ProfileManager({
     const handleDeleteProfile = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm('Are you sure you want to delete this profile?')) {
-            deleteProfile(id);
+            deleteProfile(id, {
+                onError: (err: any) => {
+                    const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
+                    alert(`Failed to delete profile: ${errorMsg}`);
+                }
+            });
         }
     };
 

@@ -1,7 +1,9 @@
 version: '3.8'
 
 services:
-  image: ghcr.io/yohaybn/israeli-bank-scraper-docker-app:master
+  app:
+    image: ghcr.io/yohaybn/israeli-bank-scraper-docker-app:master
+    restart: unless-stopped
   ports:
     - "3000:3000"
   volumes:

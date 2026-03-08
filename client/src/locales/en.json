@@ -45,7 +45,8 @@
         "debug": "Debug",
         "info": "Info",
         "warn": "Warn",
-        "error_level": "Error"
+        "error_level": "Error",
+        "environment": "Environment"
     },
     "scraper": {
         "dashboard": "Scraper Dashboard",

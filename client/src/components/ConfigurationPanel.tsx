@@ -4,8 +4,9 @@ import { useReloadDatabase, useResetToDefaults } from '../hooks/useScraper';
 import { AISettings } from './AISettings';
 import { PipelineSettings } from './PipelineSettings';
 import { GoogleSettings } from './GoogleSettings';
+import { EnvironmentSettings } from './EnvironmentSettings';
 
-type ConfigTab = 'ai' | 'pipeline' | 'sheets' | 'maintenance';
+type ConfigTab = 'ai' | 'pipeline' | 'sheets' | 'maintenance' | 'environment';
 
 export function ConfigurationPanel() {
     const { t } = useTranslation();
@@ -47,6 +48,12 @@ export function ConfigurationPanel() {
                         📊 {t('google_settings.title', 'Google Sheets')}
                     </button>
                     <button
+                        onClick={() => setActiveTab('environment')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'environment' ? 'bg-slate-700 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                        🌐 {t('common.environment', 'Environment')}
+                    </button>
+                    <button
                         onClick={() => setActiveTab('maintenance')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'maintenance' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
@@ -60,6 +67,7 @@ export function ConfigurationPanel() {
                     {activeTab === 'ai' && <AISettings isInline={true} />}
                     {activeTab === 'pipeline' && <PipelineSettings />}
                     {activeTab === 'sheets' && <GoogleSettings isInline={true} />}
+                    {activeTab === 'environment' && <EnvironmentSettings />}
                     {activeTab === 'maintenance' && <MaintenancePanel />}
                 </div>
             </main>
