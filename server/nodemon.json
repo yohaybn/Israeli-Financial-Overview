@@ -10,5 +10,5 @@
         "dist/**/*",
         "node_modules"
     ],
-    "exec": "ts-node src/index.ts"
+    "exec": "npx tsx src/index.ts"
 }

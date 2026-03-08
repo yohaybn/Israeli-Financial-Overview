@@ -82,6 +82,12 @@ export class ScraperService {
             addLog(`Using browser at: ${executablePath}`);
         }
 
+        // Ensure required Docker/Linux arguments for Puppeteer
+        const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
+        const combinedArgs = request.options.args
+            ? [...new Set([...defaultArgs, ...request.options.args])]
+            : defaultArgs;
+
         // Map our options to the library's options
         const libOptions: any = {
             companyId: request.companyId as CompanyTypes,
@@ -90,7 +96,7 @@ export class ScraperService {
             verbose: request.options.verbose ?? true,
             timeout: request.options.timeout,
             defaultTimeout: request.options.timeout, // The library uses defaultTimeout for puppeteer navigation
-            args: request.options.args,
+            args: combinedArgs,
             executablePath: executablePath,
         };
 
