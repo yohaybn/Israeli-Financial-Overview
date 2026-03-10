@@ -1,6 +1,7 @@
 import { createScraper, CompanyTypes } from 'israeli-bank-scrapers';
 import { ScrapeResult, ScrapeRequest } from '@app/shared';
 import { Server } from 'socket.io';
+import { postScrapeService } from './postScrapeService.js';
 import puppeteer from 'puppeteer';
 import fs from 'fs-extra';
 
@@ -24,6 +25,7 @@ export interface ScrapeProgress {
 
 export class ScraperService {
     private io: Server | null = null;
+    private postScrapeService: any = null;
 
     setSocketIO(io: Server) {
         this.io = io;
@@ -157,13 +159,21 @@ export class ScraperService {
                     });
                 }
 
-                return {
+                const successResult = {
                     success: true,
                     accounts: scrapeResult.accounts as any,
                     transactions,
                     logs,
                     executionTimeMs,
                 };
+
+                // Run post-scrape actions asynchronously (categorization, fraud check, custom AI, notifications)
+                postScrapeService.handleResult(successResult, request).catch((err: any) => {
+                    // Log but don't fail the scrape
+                    this.emitLog(`Post-scrape actions failed: ${err?.message || err}`);
+                });
+
+                return successResult;
             } else {
                 this.emitProgress(ScraperProgressTypes.LoginFailed, `Scrape failed: ${scrapeResult.errorType}`);
                 addLog(`Scrape failed: ${scrapeResult.errorType} - ${scrapeResult.errorMessage || ''}`);

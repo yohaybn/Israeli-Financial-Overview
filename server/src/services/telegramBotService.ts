@@ -1,0 +1,1065 @@
+/**
+ * Telegram Bot Service
+ * Handles Telegram bot interactions including AI chat and scraper control
+ */
+
+import { Telegraf, Context, Markup } from 'telegraf';
+import { Message } from 'telegraf/types';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs-extra';
+import { serverLogger } from '../utils/logger.js';
+import { AiService } from './aiService.js';
+import { ScraperService } from './scraperService.js';
+import { ProfileService } from './profileService.js';
+import { StorageService } from './storageService.js';
+import { Profile, ScrapeRequest } from '@app/shared';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
+const TEL_CONFIG_PATH = path.join(DATA_DIR, 'config', 'telegram_config.json');
+
+export interface TelegramConfig {
+  botToken: string;
+  enabled: boolean;
+  adminChatIds: string[];
+  notificationChatIds: string[];
+  allowedUsers?: string[]; // Empty = allow all
+}
+
+export interface TelegramChatState {
+  chatId: string;
+  userId: string;
+  isNotificationEnabled: boolean;
+  isAdmin: boolean;
+  conversationContext?: string;
+}
+
+export class TelegramBotService {
+  private bot: Telegraf | null = null;
+  private config: TelegramConfig;
+  private chatStates: Map<string, TelegramChatState>;
+  private aiService: AiService | null = null;
+  private scraperService: ScraperService | null = null;
+  private profileService: ProfileService | null = null;
+  private isRunning: boolean = false;
+
+  constructor() {
+    this.config = this.loadConfig();
+    this.chatStates = new Map();
+    // Lazy-load services on demand
+    // If a token is configured on disk, attempt to auto-start the bot in background
+    if (this.config.botToken && this.config.botToken.trim() !== '') {
+      setImmediate(() => {
+        serverLogger.info('TelegramBotService: token found in config, attempting auto-start');
+        this.start().then(() => {
+          serverLogger.info('Telegram bot auto-started from service constructor');
+        }).catch((err) => {
+          serverLogger.warn('TelegramBotService auto-start failed', { error: err });
+        });
+      });
+    }
+  }
+
+  /**
+   * Get AI service instance (lazy-loaded)
+   */
+  private getAiService(): AiService {
+    if (!this.aiService) {
+      this.aiService = new AiService();
+    }
+    return this.aiService;
+  }
+
+  /**
+   * Get scraper service instance (lazy-loaded)
+   */
+  private getScraperService(): ScraperService {
+    if (!this.scraperService) {
+      this.scraperService = new ScraperService();
+    }
+    return this.scraperService;
+  }
+
+  /**
+   * Get profile service instance (lazy-loaded)
+   */
+  private getProfileService(): ProfileService {
+    if (!this.profileService) {
+      this.profileService = new ProfileService();
+    }
+    return this.profileService;
+  }
+
+  private getStorageService(): StorageService {
+    // lazy-load storage service to avoid startup heavy IO
+    // @ts-ignore
+    if (!(this as any).storageService) {
+      // @ts-ignore
+      (this as any).storageService = new StorageService();
+    }
+    // @ts-ignore
+    return (this as any).storageService as StorageService;
+  }
+
+  /**
+   * Check if a user is authorized to use the bot
+   */
+  private isUserAuthorized(userId: string): boolean {
+    // If allowedUsers is empty, do NOT allow any users
+    if (!this.config.allowedUsers || this.config.allowedUsers.length === 0) {
+      return false;
+    }
+    // Otherwise, check if user is in the allowed list
+    return this.config.allowedUsers.includes(userId);
+  }
+
+  /**
+   * Check if allowed users list is configured
+   */
+  isAllowedUsersConfigured(): boolean {
+    return !!(this.config.allowedUsers && this.config.allowedUsers.length > 0);
+  }
+
+  /**
+   * Log unauthorized request attempt
+   */
+  private logUnauthorizedAttempt(ctx: Context, command: string): void {
+    const userId = ctx.from?.id.toString() || 'unknown';
+    const username = ctx.from?.username || 'no-username';
+    const chatId = ctx.chat?.id.toString() || 'unknown';
+    const chatType = ctx.chat?.type || 'unknown';
+    
+    serverLogger.warn('UNAUTHORIZED_TELEGRAM_REQUEST', {
+      userId,
+      username,
+      chatId,
+      chatType,
+      command,
+      timestamp: new Date().toISOString(),
+      allowedUsersCount: this.config.allowedUsers?.length || 0,
+    });
+  }
+
+  /**
+   * Load configuration from file
+   */
+  private loadConfig(): TelegramConfig {
+    try {
+      if (fs.existsSync(TEL_CONFIG_PATH)) {
+        const config = fs.readJsonSync(TEL_CONFIG_PATH);
+        serverLogger.info('Loaded Telegram config from file');
+        return config;
+      }
+    } catch (error) {
+      serverLogger.warn('Failed to load Telegram config, using defaults', { error });
+    }
+
+    return {
+      botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+      enabled: false,
+      adminChatIds: [],
+      notificationChatIds: [],
+      allowedUsers: [],
+    };
+  }
+
+  /**
+   * Save configuration to file
+   */
+  private saveConfig(): void {
+    try {
+      fs.ensureDirSync(path.dirname(TEL_CONFIG_PATH));
+      fs.writeJsonSync(TEL_CONFIG_PATH, this.config, { spaces: 2 });
+    } catch (error) {
+      serverLogger.error('Failed to save Telegram config', { error });
+    }
+  }
+
+  /**
+   * Initialize and start the bot
+   */
+  async start(botToken?: string): Promise<void> {
+    try {
+      const token = botToken || this.config.botToken || process.env.TELEGRAM_BOT_TOKEN;
+
+      if (!token || token.trim() === '') {
+        throw new Error('Telegram bot token not provided. Please configure a valid token from @BotFather.');
+      }
+
+      // Basic token format validation
+      if (!token.includes(':')) {
+        throw new Error('Invalid Telegram bot token format. Token should contain a colon (:). Format: <bot_id>:<bot_token>');
+      }
+
+      // Log startup attempt (mask token tail for safety)
+      const masked = token ? `***${token.slice(-10)}` : 'none';
+      serverLogger.info('Attempting to start Telegram bot', { botToken: masked, botTokenFromArg: !!botToken });
+      serverLogger.debug('Telegram start - config snapshot', {
+        configEnabled: this.config.enabled,
+        configHasToken: !!this.config.botToken,
+        envTokenPresent: !!process.env.TELEGRAM_BOT_TOKEN,
+        allowedUsersCount: this.config.allowedUsers?.length || 0,
+      });
+
+      this.config.botToken = token;
+      serverLogger.debug('Creating Telegraf instance');
+      this.bot = new Telegraf(token);
+      serverLogger.debug('Telegraf instance created');
+
+      // Global authorization middleware: logs unauthorized attempts and returns
+      // a standardized error message for any incoming update from unauthorized users.
+      this.bot.use(async (ctx, next) => {
+        try {
+          const userId = ctx.from?.id?.toString();
+          if (!userId) return next();
+
+          // Derive a friendly command string for logging: prefer message text or callback data
+          let commandText = 'unknown';
+          // Text message
+          // @ts-ignore - telegraf types
+          if (ctx.message && (ctx.message as any).text) {
+            // Truncate long messages for logs
+            const txt = (ctx.message as any).text || '';
+            commandText = txt.length > 200 ? `${txt.substring(0, 200)}...` : txt;
+          } else if ((ctx as any).callbackQuery && (ctx as any).callbackQuery.data) {
+            commandText = (ctx as any).callbackQuery.data;
+          } else if (ctx.updateType) {
+            commandText = ctx.updateType;
+          }
+
+          // If allowedUsers is not configured or user not in list, block
+          if (!this.isUserAuthorized(userId)) {
+            this.logUnauthorizedAttempt(ctx, commandText);
+            const unauthorizedMessage = `❌ <b>Access Denied</b>\n\nYou don't have permission to use this bot yet.\n\n<b>Your User ID:</b> <code>${userId}</code>\n\nPlease share your User ID with the manager to request access.`;
+            try { await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' }); } catch (e) {}
+            return;
+          }
+
+          return next();
+        } catch (err) {
+          // If middleware itself fails, allow processing to continue
+          serverLogger.error('Error in auth middleware', { error: (err as any) && (err as any).stack ? (err as any).stack : err });
+          return next();
+        }
+      });
+
+      serverLogger.debug('Auth middleware attached');
+
+      // Setup command handlers
+      this.setupCommands();
+
+      // Setup message handlers
+      this.setupMessageHandlers();
+
+      // Launch bot
+      serverLogger.info('Launching Telegram bot (calling bot.launch)');
+      await this.bot.launch();
+
+      // Attempt to get bot info for diagnostics
+      try {
+        const me = await this.bot.telegram.getMe();
+        serverLogger.info('Telegram bot launched and reachable', { bot_username: me.username, bot_id: me.id });
+      } catch (meErr) {
+        serverLogger.warn('Bot launched but getMe() failed', { error: (meErr as any) && (meErr as any).stack ? (meErr as any).stack : meErr });
+      }
+
+      this.isRunning = true;
+      this.config.enabled = true;
+      this.saveConfig();
+
+      serverLogger.info('Telegram bot started successfully');
+    } catch (error: any) {
+      this.isRunning = false;
+      this.config.enabled = false;
+
+      // If error indicates another getUpdates requester is running (409), treat as running
+      const msg = String(error && (error.message || error.response || ''));
+      if (msg.includes('409') || msg.includes('Conflict') || msg.includes('terminated by other getUpdates')) {
+        this.isRunning = true;
+        this.config.enabled = true;
+        try { this.saveConfig(); } catch (e) {}
+        serverLogger.info('Telegram bot appears to be already running (409 Conflict). Marking as enabled.');
+        return;
+      }
+
+      // Provide helpful error messages for other common issues
+      let errorMessage = error.message || 'Unknown error starting Telegram bot';
+      
+      if (error.response?.error_code === 404 || error.message?.includes('Not Found')) {
+        errorMessage = 'Bot not found. The bot token is invalid or the bot no longer exists. Please regenerate the token from @BotFather and try again.';
+        serverLogger.error('Telegram bot token is invalid - bot not found on Telegram API', { error: error && error.response ? error.response : error, token: this.config.botToken ? `***${this.config.botToken.slice(-10)}` : null });
+      } else if (error.response?.error_code === 401 || error.message?.includes('Unauthorized')) {
+        errorMessage = 'Authentication failed. The bot token is invalid or expired. Please regenerate it from @BotFather.';
+        serverLogger.error('Telegram bot authentication failed', { error: error && error.response ? error.response : error, token: this.config.botToken ? `***${this.config.botToken.slice(-10)}` : null });
+      } else {
+        serverLogger.error('Failed to start Telegram bot', { error: error && error.stack ? error.stack : error });
+      }
+      
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * Stop the bot
+   */
+  async stop(): Promise<void> {
+    if (this.bot && this.isRunning) {
+      await this.bot.stop();
+      this.isRunning = false;
+      this.config.enabled = false;
+      this.saveConfig();
+      serverLogger.info('Telegram bot stopped');
+    }
+  }
+
+  /**
+   * Setup command handlers
+   */
+  private setupCommands(): void {
+    if (!this.bot) return;
+
+    // Start command
+    this.bot.start(async (ctx) => {
+      await this.handleStart(ctx);
+    });
+
+    // Help command
+    this.bot.help(async (ctx) => {
+      await this.handleHelp(ctx);
+    });
+
+    // Scrape command
+    this.bot.command('scrape', async (ctx) => {
+      await this.handleScrapeCommand(ctx);
+    });
+
+    // Chat command
+    this.bot.command('chat', async (ctx) => {
+      await this.handleChatCommand(ctx);
+    });
+
+    // Settings command
+    this.bot.command('settings', async (ctx) => {
+      await this.handleSettings(ctx);
+    });
+
+    // Status command
+    this.bot.command('status', async (ctx) => {
+      await this.handleStatus(ctx);
+    });
+
+    // Subscribe command
+    this.bot.command('subscribe', async (ctx) => {
+      await this.handleSubscribe(ctx);
+    });
+
+    // Unsubscribe command
+    this.bot.command('unsubscribe', async (ctx) => {
+      await this.handleUnsubscribe(ctx);
+    });
+
+    // Done / Cancel command to exit chat mode
+    this.bot.command('done', async (ctx) => {
+      await this.handleDoneCommand(ctx);
+    });
+
+    this.bot.command('cancel', async (ctx) => {
+      await this.handleDoneCommand(ctx);
+    });
+  }
+
+  /**
+   * Setup message handlers
+   */
+  private setupMessageHandlers(): void {
+    if (!this.bot) return;
+
+    // Handle callback queries from inline buttons
+    this.bot.action(/^scrape_/, async (ctx) => {
+      try {
+        const profileId = ctx.match?.input?.replace('scrape_', '') || '';
+        await this.handleScraperExecution(ctx, profileId);
+      } catch (error) {
+        serverLogger.error('Error handling scrape callback', { error });
+        await ctx.answerCbQuery('❌ Error executing scraper');
+      }
+    });
+
+    this.bot.action('settings_notifications', async (ctx) => {
+      try {
+        await this.handleSettingsNotifications(ctx);
+      } catch (error) {
+        serverLogger.error('Error handling settings', { error });
+      }
+    });
+
+    this.bot.action('settings_profile', async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+        await ctx.reply('Coming soon!');
+      } catch (error) {
+        serverLogger.error('Error handling profile settings', { error });
+      }
+    });
+
+    // Handle text messages for AI chat
+    this.bot.on('text', async (ctx) => {
+      try {
+        const chatId = ctx.chat?.id?.toString();
+        if (!chatId) return;
+        const state = this.chatStates.get(chatId);
+
+        // If in chat mode, handle as AI query
+        if (state?.conversationContext === 'chat') {
+          await this.handleAIChat(ctx, ctx.message.text);
+          return;
+        }
+
+        // If message looks like an unknown command, show command buttons
+        const text = (ctx.message as any).text || '';
+        if (text.startsWith('/')) {
+          const known = ['/scrape','/chat','/settings','/status','/subscribe','/unsubscribe','/help','/start','/done','/cancel'];
+          const cmd = text.split(' ')[0];
+          if (!known.includes(cmd)) {
+            await ctx.reply('Unknown command. Available commands:',
+              Markup.keyboard([
+                ['/chat','/scrape','/status'],
+                ['/subscribe','/unsubscribe','/settings'],
+                ['/help']
+              ]).resize().oneTime()
+            );
+            return;
+          }
+        }
+      } catch (error) {
+        serverLogger.error('Error handling text message', { error });
+        await ctx.reply('❌ Error processing your message');
+      }
+    });
+  }
+
+  /**
+   * Handle /start command
+   */
+  private async handleStart(ctx: Context): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    const userId = ctx.from?.id.toString() || '';
+    
+    if (!chatId || !userId) return;
+
+    // Check authorization
+    if (!this.isUserAuthorized(userId)) {
+      this.logUnauthorizedAttempt(ctx, '/start');
+      const unauthorizedMessage = `❌ <b>Access Denied</b>
+
+You don't have permission to use this bot yet.
+
+<b>Your User ID:</b> <code>${userId}</code>
+
+Please share your User ID with the manager to request access.`;
+      await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+      return;
+    }
+
+    // Initialize chat state
+    this.chatStates.set(chatId, {
+      chatId,
+      userId,
+      isNotificationEnabled: false,
+      isAdmin: this.config.adminChatIds.includes(chatId),
+    });
+
+    const message = `
+👋 Welcome to Israeli Bank Scraper Bot!
+
+I can help you with:
+• 📊 Run bank scrapers and get notifications
+• 💬 Chat with AI about your transactions
+• ⚙️ Manage your settings
+
+Use /help for available commands
+    `;
+
+    await ctx.reply(message);
+  }
+
+  /**
+   * Handle /help command
+   */
+  private async handleHelp(ctx: Context): Promise<void> {
+    const message = `
+📖 Available Commands:
+
+<b>Scraping:</b>
+/scrape - Run a bank scraper
+/status - Check scraper status
+
+<b>AI Chat:</b>
+/chat - Start AI chat about transactions
+
+<b>Notifications:</b>
+/subscribe - Enable transaction notifications
+/unsubscribe - Disable notifications
+
+<b>Settings:</b>
+/settings - Manage your preferences
+
+<b>Help:</b>
+/help - Show this message
+    `;
+
+    await ctx.reply(message, { parse_mode: 'HTML' });
+  }
+
+  /**
+   * Handle /scrape command
+   */
+  private async handleScrapeCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      
+      // Check authorization
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/scrape');
+        const unauthorizedMessage = `❌ <b>Access Denied</b>
+
+You don't have permission to use the scraper yet.
+
+<b>Your User ID:</b> <code>${userId}</code>
+
+Please share your User ID with the manager to request access.`;
+        await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+        return;
+      }
+
+      const profiles = await this.getProfileService().getProfiles();
+
+      if (profiles.length === 0) {
+        await ctx.reply('❌ No profiles configured. Please set up a profile first.');
+        return;
+      }
+
+      const buttons = profiles.map((profile: Profile) =>
+        Markup.button.callback(profile.name || profile.id, `scrape_${profile.id}`)
+      );
+
+      await ctx.reply(
+        '🏦 Select the profile to scrape:',
+        Markup.inlineKeyboard([buttons])
+      );
+    } catch (error) {
+      serverLogger.error('Error in scrape command', { error });
+      await ctx.reply('❌ Error retrieving profiles');
+    }
+  }
+
+  /**
+   * Handle /chat command
+   */
+  private async handleChatCommand(ctx: Context): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    const userId = ctx.from?.id.toString() || '';
+    
+    if (!chatId) return;
+
+    // Check authorization
+    if (!this.isUserAuthorized(userId)) {
+      this.logUnauthorizedAttempt(ctx, '/chat');
+      const unauthorizedMessage = `❌ <b>Access Denied</b>
+
+You don't have permission to use the chat feature yet.
+
+<b>Your User ID:</b> <code>${userId}</code>
+
+Please share your User ID with the manager to request access.`;
+      await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+      return;
+    }
+
+    const state = this.chatStates.get(chatId) || {
+      chatId,
+      userId,
+      isNotificationEnabled: false,
+      isAdmin: false,
+    };
+
+    state.conversationContext = 'chat';
+    this.chatStates.set(chatId, state);
+
+    await ctx.reply(
+      '💬 AI Chat Mode activated!\n\n' +
+      'Ask me questions about your transactions:\n' +
+      '• "What are my largest expenses?"\n' +
+      '• "Analyze my spending this month"\n' +
+      '• "Show me transactions in the food category"\n\n' +
+      'Type /done or /cancel to exit chat mode'
+    );
+  }
+
+  /**
+   * Handle /settings command
+   */
+  private async handleSettings(ctx: Context): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    const userId = ctx.from?.id.toString() || '';
+    
+    if (!chatId) return;
+
+    // Check authorization
+    if (!this.isUserAuthorized(userId)) {
+      this.logUnauthorizedAttempt(ctx, '/settings');
+      const unauthorizedMessage = `❌ <b>Access Denied</b>
+
+You don't have permission to access settings yet.
+
+<b>Your User ID:</b> <code>${userId}</code>
+
+Please share your User ID with the manager to request access.`;
+      await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+      return;
+    }
+
+    const state = this.chatStates.get(chatId);
+
+    const buttons = [
+      Markup.button.callback('📬 Notifications', 'settings_notifications'),
+      Markup.button.callback('👤 Profile', 'settings_profile'),
+    ];
+
+    await ctx.reply(
+      '⚙️ Settings Menu:',
+      Markup.inlineKeyboard([buttons])
+    );
+  }
+
+  /**
+   * Handle /status command
+   */
+  private async handleStatus(ctx: Context): Promise<void> {
+    const status = this.isRunning ? '✅ Online' : '❌ Offline';
+    const message = `
+🤖 Bot Status: ${status}
+
+Configured Features:
+• Notifications: ${this.config.notificationChatIds.length} chats
+• Admin Chats: ${this.config.adminChatIds.length}
+• Token: ${this.config.botToken ? '✅' : '❌'}
+    `;
+
+    await ctx.reply(message);
+  }
+
+  /**
+   * Handle /subscribe command
+   */
+  private async handleSubscribe(ctx: Context): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    const userId = ctx.from?.id.toString() || '';
+    
+    if (!chatId) return;
+
+    // Check authorization
+    if (!this.isUserAuthorized(userId)) {
+      this.logUnauthorizedAttempt(ctx, '/subscribe');
+      const unauthorizedMessage = `❌ <b>Access Denied</b>
+
+You don't have permission to subscribe to notifications yet.
+
+<b>Your User ID:</b> <code>${userId}</code>
+
+Please share your User ID with the manager to request access.`;
+      await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+      return;
+    }
+
+    if (!this.config.notificationChatIds.includes(chatId)) {
+      this.config.notificationChatIds.push(chatId);
+      this.saveConfig();
+    }
+
+    const state = this.chatStates.get(chatId);
+    if (state) {
+      state.isNotificationEnabled = true;
+      this.chatStates.set(chatId, state);
+    }
+
+    await ctx.reply('✅ You are now subscribed to notifications');
+  }
+
+  /**
+   * Handle /unsubscribe command
+   */
+  private async handleUnsubscribe(ctx: Context): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    const userId = ctx.from?.id.toString() || '';
+    
+    if (!chatId) return;
+
+    // Check authorization
+    if (!this.isUserAuthorized(userId)) {
+      this.logUnauthorizedAttempt(ctx, '/unsubscribe');
+      const unauthorizedMessage = `❌ <b>Access Denied</b>
+
+You don't have permission to unsubscribe from notifications yet.
+
+<b>Your User ID:</b> <code>${userId}</code>
+
+Please share your User ID with the manager to request access.`;
+      await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+      return;
+    }
+
+    this.config.notificationChatIds = this.config.notificationChatIds.filter(id => id !== chatId);
+    this.saveConfig();
+
+    const state = this.chatStates.get(chatId);
+    if (state) {
+      state.isNotificationEnabled = false;
+      this.chatStates.set(chatId, state);
+    }
+
+    await ctx.reply('✅ You have been unsubscribed from notifications');
+  }
+
+  /**
+   * Handle AI chat messages
+   */
+  private async handleAIChat(ctx: Context, message: string): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      
+      // Check authorization
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, 'message_in_chat_mode');
+        const unauthorizedMessage = `❌ <b>Access Denied</b>
+
+You don't have permission to use this chat feature yet.
+
+<b>Your User ID:</b> <code>${userId}</code>
+
+Please share your User ID with the administrator to request access.
+
+If you believe this is an error, please contact the manager for assistance.`;
+        await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+        return;
+      }
+
+      await ctx.sendChatAction('typing');
+
+      const chatIdNum = ctx.chat?.id;
+      if (!chatIdNum) return;
+
+      // Send quick 'thinking' message and later edit it with the final AI response
+      const thinkingMsg = await ctx.reply('💭 Thinking...');
+
+      // Try to load a transactions context from storage (pick the largest result available)
+      let transactions: any[] = [];
+      try {
+        const storage = this.getStorageService();
+        const files = await storage.listScrapeResults();
+        if (files && files.length > 0) {
+          // pick file with max transactionCount
+          files.sort((a: any, b: any) => (b.transactionCount || 0) - (a.transactionCount || 0));
+          const filename = files[0].filename;
+          const result = await storage.getScrapeResult(filename);
+          if (result && Array.isArray(result.transactions) && result.transactions.length > 0) {
+            transactions = result.transactions;
+          }
+        }
+      } catch (e) {
+        serverLogger.warn('Failed to load transactions for AI chat, continuing without context', { error: e });
+      }
+
+      // Build a context query similar to the web UI unified chat
+      const contextQuery = `\nContext Rules:\n- History transactions: Older than the current month. Used for baselines and averages.\n- Current month transactions: The focus of immediate budget tracking.\n- Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.\n- Ignored transactions: should be fully excluded from calculations.\n\nUser Query: ${message}`;
+
+      const aiService = this.getAiService();
+      let response = '';
+      try {
+        response = await aiService.analyzeData(contextQuery, transactions);
+      } catch (err) {
+        serverLogger.error('AI analyzeData failed for Telegram chat', { error: err });
+        response = `🪡 <b>Financial Tip:</b>\nFor detailed analysis of your transactions, please use the web dashboard where you can upload and analyze your banking data.\n\nYour question: "${message}"\n\nVisit the web interface to get detailed insights and AI-powered analysis of your spending patterns!`;
+      }
+
+      // Edit the thinking message with the AI response (split if too long)
+      if (!response) response = '❌ No response from AI';
+
+      // If response already contains HTML tags, use as-is; otherwise convert Markdown to HTML
+      const looksLikeHtml = /<\/?\w+[^>]*>/.test(response);
+      const htmlResponse = looksLikeHtml ? response : this.convertMarkdownToHtml(response);
+
+      if (htmlResponse.length > 4096) {
+        const chunks = htmlResponse.match(/[\s\S]{1,4096}/g) || [];
+        // Edit first chunk into the thinking message
+        try {
+          // @ts-ignore
+          await ctx.telegram.editMessageText(chatIdNum, thinkingMsg.message_id, undefined, chunks[0], { parse_mode: 'HTML' });
+        } catch (e) {
+          // If edit fails, send as a new message
+          await ctx.reply(String(chunks[0]), { parse_mode: 'HTML' });
+        }
+        for (let i = 1; i < chunks.length; i++) {
+          await ctx.reply(String(chunks[i]), { parse_mode: 'HTML' });
+        }
+      } else {
+        try {
+          // @ts-ignore
+          await ctx.telegram.editMessageText(chatIdNum, thinkingMsg.message_id, undefined, htmlResponse, { parse_mode: 'HTML' });
+        } catch (e) {
+          await ctx.reply(String(htmlResponse), { parse_mode: 'HTML' });
+        }
+      }
+    } catch (error) {
+      serverLogger.error('Error in AI chat', { error });
+      await ctx.reply('❌ Error processing your query');
+    }
+  }
+
+  /**
+   * Get AI response for chat message
+   */
+  private async getAIResponse(message: string, chatId: string): Promise<string> {
+    try {
+      const aiService = this.getAiService();
+
+      // Try to call the AI analysis with available transactions. If AI provider isn't configured
+      // or the call fails, fall back to a helpful tip directing the user to the web UI.
+      try {
+        // Pass an empty transactions array if we don't have per-user transactions here.
+        const aiResponse = await aiService.analyzeData(message, []);
+        if (aiResponse && aiResponse.trim().length > 0) {
+          return aiResponse;
+        }
+      } catch (aiError) {
+        serverLogger.warn('AI analyzeData failed or GEMINI not configured, falling back', { error: aiError });
+      }
+
+      // Fallback helpful tip when AI provider is not configured or no data available
+      const financialTips = `🪡 <b>Financial Tip:</b>\nFor detailed analysis of your transactions, please use the web dashboard where you can upload and analyze your banking data.\n\nYour question: "${message}"\n\nVisit the web interface to get detailed insights and AI-powered analysis of your spending patterns!`;
+      return financialTips;
+    } catch (error) {
+      serverLogger.error('Error getting AI response', { error });
+      return `❌ Error getting AI response. Please try again later or check the web dashboard.`;
+    }
+  }
+
+  /**
+   * Convert simple Markdown to HTML for Telegram (basic cases)
+   */
+  private convertMarkdownToHtml(input: string): string {
+    if (!input) return '';
+    // Escape HTML
+    let s = input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Code blocks ``` -> <pre>
+    s = s.replace(/```([\s\S]*?)```/g, (_m, code) => `<pre>${code.replace(/</g, '&lt;')}</pre>`);
+    // Inline code ` -> <code>
+    s = s.replace(/`([^`]+)`/g, (_m, code) => `<code>${code.replace(/</g, '&lt;')}</code>`);
+    // Bold **text** or __text__ -> <b>
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    s = s.replace(/__([^_]+)__/g, '<b>$1</b>');
+    // Italic *text* or _text_ -> <i>
+    s = s.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+    s = s.replace(/_([^_]+)_/g, '<i>$1</i>');
+    // Links [text](url)
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, url) => `<a href="${url}">${text}</a>`);
+
+    return s;
+  }
+
+  /**
+   * Handle scraper execution from Telegram
+   */
+  private async handleScraperExecution(ctx: Context, profileId: string): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      
+      // Check authorization
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, `scrape_profile_${profileId}`);
+        await ctx.answerCbQuery('❌ Unauthorized - you do not have permission.', { show_alert: true });
+        return;
+      }
+
+      await ctx.answerCbQuery('Starting scraper...');
+      const statusMsg = await ctx.reply('⏳ Executing scraper...');
+
+      try {
+        const profile = await this.getProfileService().getProfile(profileId);
+        if (!profile) {
+          await ctx.reply('❌ Profile not found');
+          return;
+        }
+
+        const scraperService = this.getScraperService();
+        const scrapeRequest: ScrapeRequest = {
+          companyId: profile.companyId,
+          credentials: profile.credentials,
+          options: {
+            combineInstallments: true,
+            showBrowser: false,
+            timeout: 30000
+          }
+        };
+        // Annotate request so post-scrape can notify the initiating Telegram chat
+        try {
+          const chatId = ctx.chat?.id?.toString();
+          if (chatId) {
+            (scrapeRequest.options as any).postScrape = { telegramChatId: chatId, initiatedBy: `telegram:${userId}` };
+          }
+        } catch (e) { }
+
+        serverLogger.info(`[Telegram] Starting scraper for profile: ${profileId}`);
+        const result = await scraperService.runScrape(scrapeRequest);
+        const txnCount = result.transactions?.length || 0;
+
+        // Attempt to persist the scrape result to the results folder
+        let savedFilename: string | null = null;
+        try {
+          const storage = this.getStorageService();
+          // Use profile name if available as provider identifier, fallback to companyId
+          const provider = (profile && (profile.name || profile.companyId)) || 'telegram';
+          savedFilename = await storage.saveScrapeResult(result, provider);
+          serverLogger.info('Saved scrape result from Telegram', { filename: savedFilename, profileId });
+        } catch (saveErr) {
+          serverLogger.warn('Failed to save scrape result from Telegram', { error: saveErr });
+        }
+
+        const accountCount = result.accounts?.length || 0;
+        let msg = `✅ Scraper executed!\nProfile: ${profile.name}\nAccounts: ${accountCount}\nTransactions: ${txnCount}`;
+        if (savedFilename) {
+          msg += `\nSaved: ${savedFilename}`;
+        }
+
+        await ctx.reply(msg);
+        
+      } catch (scraperError: any) {
+        serverLogger.error('Scraper execution failed', { scraperError });
+        await ctx.reply(`❌ Scraper failed: ${scraperError.message}`);
+      }
+    } catch (error) {
+      serverLogger.error('Error handling scrape callback', { error });
+      await ctx.reply('❌ Error processing scraper request');
+    }
+  }
+
+  /**
+   * Handle settings notifications callback
+   */
+  private async handleSettingsNotifications(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      
+      // Check authorization
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, 'settings_notifications_callback');
+        await ctx.answerCbQuery('❌ Unauthorized - you do not have permission.', { show_alert: true });
+        return;
+      }
+      
+
+      const chatId = ctx.chat?.id?.toString();
+      if (!chatId) return;
+      const state = this.chatStates.get(chatId);
+
+      if (!state) {
+        await ctx.answerCbQuery();
+        await ctx.reply('Error: Chat state not found');
+        return;
+      }
+
+      const currentState = !state.isNotificationEnabled;
+      state.isNotificationEnabled = currentState;
+      this.chatStates.set(chatId, state);
+
+      // Update config
+      if (currentState && !this.config.notificationChatIds.includes(chatId)) {
+        this.config.notificationChatIds.push(chatId);
+      } else if (!currentState) {
+        this.config.notificationChatIds = this.config.notificationChatIds.filter(id => id !== chatId);
+      }
+      this.saveConfig();
+
+      const status = currentState ? '✅ Enabled' : '⛔ Disabled';
+      await ctx.answerCbQuery(status);
+      await ctx.editMessageText(`📬 Notifications ${status}`);
+    } catch (error) {
+      serverLogger.error('Error handling notification settings', { error });
+      await ctx.answerCbQuery('Error updating settings');
+    }
+  }
+
+  /**
+   * Exit chat mode (/done or /cancel)
+   */
+  private async handleDoneCommand(ctx: Context): Promise<void> {
+    try {
+      const chatId = ctx.chat?.id?.toString();
+      const userId = ctx.from?.id.toString() || '';
+      if (!chatId) return;
+
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/done');
+        await ctx.reply(`❌ You are not authorized.`);
+        return;
+      }
+
+      const state = this.chatStates.get(chatId);
+      if (state) {
+        state.conversationContext = undefined;
+        this.chatStates.set(chatId, state);
+      }
+
+      await ctx.reply('✅ Exited AI chat mode.');
+    } catch (error) {
+      serverLogger.error('Error handling done command', { error });
+      await ctx.reply('❌ Error exiting chat mode');
+    }
+  }
+
+  /**
+   * Get configuration
+   */
+  getConfig(): TelegramConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Update configuration
+   */
+  updateConfig(newConfig: Partial<TelegramConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+    this.saveConfig();
+  }
+
+  /**
+   * Add admin chat ID
+   */
+  addAdminChat(chatId: string): void {
+    if (!this.config.adminChatIds.includes(chatId)) {
+      this.config.adminChatIds.push(chatId);
+      this.saveConfig();
+    }
+  }
+
+  /**
+   * Get notification chat IDs
+   */
+  getNotificationChatIds(): string[] {
+    return [...this.config.notificationChatIds];
+  }
+
+  /**
+   * Check if bot is running
+   */
+  isActive(): boolean {
+    return this.isRunning;
+  }
+}
+
+// Export singleton instance
+export const telegramBotService = new TelegramBotService();

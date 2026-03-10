@@ -7,7 +7,7 @@ interface GoogleSheetsSyncProps {
     selectedFile: string | null;
 }
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = '/api';
 
 export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
     const { data: configStatus, isLoading: isLoadingConfig } = useGoogleConfigStatus();
@@ -25,7 +25,7 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
     const { data: spreadsheets, isLoading: isLoadingSheets } = useQuery({
         queryKey: ['spreadsheets', folderConfig?.folderId],
         queryFn: async () => {
-            const url = folderConfig?.folderId 
+            const url = folderConfig?.folderId
                 ? `${API_BASE}/sheets/list?folderId=${folderConfig.folderId}`
                 : `${API_BASE}/sheets/list`;
             const res = await fetch(url);

@@ -93,6 +93,13 @@ export class NotificationService {
   }
 
   /**
+   * Get a specific notifier by channel name
+   */
+  getNotifier(channelName: string): BaseNotifier | undefined {
+    return this.notifiers.get(channelName);
+  }
+
+  /**
    * Get available notification channels
    */
   getAvailableChannels(): string[] {

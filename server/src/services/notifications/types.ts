@@ -3,7 +3,7 @@
  * Defines interfaces and enums for the notification system
  */
 
-export type NotificationStatus = 'success' | 'failure';
+export type NotificationStatus = 'success' | 'failure' | 'warning';
 export type NotificationDetailLevel = 'minimal' | 'normal' | 'detailed' | 'verbose';
 
 export interface NotificationPayload {

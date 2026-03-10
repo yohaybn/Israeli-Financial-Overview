@@ -6,7 +6,7 @@ import { SchedulerConfig, DEFAULT_SCHEDULER_CONFIG, Profile } from '@app/shared'
 import { serviceLogger as logger } from '../utils/logger.js';
 import { ScraperService } from './scraperService.js';
 import { ProfileService } from './profileService.js';
-import { PipelineController } from './pipelineController.js';
+// PipelineController removed - scheduler will run scrapes and rely on post-scrape actions
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,14 +18,13 @@ export class SchedulerService {
     private config: SchedulerConfig;
     private scraperService: ScraperService;
     private profileService: ProfileService;
-    private pipelineController?: PipelineController;
+    
     private currentJob: cron.ScheduledTask | null = null;
     private isRunning: boolean = false;
 
-    constructor(scraperService: ScraperService, profileService: ProfileService, pipelineController?: PipelineController) {
+    constructor(scraperService: ScraperService, profileService: ProfileService) {
         this.scraperService = scraperService;
         this.profileService = profileService;
-        this.pipelineController = pipelineController;
         this.config = this.loadConfig();
         this.initialize();
     }
@@ -132,17 +131,12 @@ export class SchedulerService {
                     } as any
                 };
 
-                // Use pipeline controller if available, otherwise fallback to scraper service
-                if (this.pipelineController) {
-                    try {
-                        await this.pipelineController.execute(scrapeRequest);
-                        logger.info(`Scheduled pipeline completed for profile: ${profile.name}`);
-                    } catch (error) {
-                        logger.error(`Scheduled pipeline failed for profile: ${profile.name}`, { error });
-                    }
-                } else {
-                    // Fallback to direct scraper service
+                // Run direct scrape; post-scrape actions are handled by ScraperService/postScrapeService
+                try {
                     await this.scraperService.runScrape(scrapeRequest);
+                    logger.info(`Scheduled scrape completed for profile: ${profile.name}`);
+                } catch (error) {
+                    logger.error(`Scheduled scrape failed for profile: ${profile.name}`, { error });
                 }
             }
 

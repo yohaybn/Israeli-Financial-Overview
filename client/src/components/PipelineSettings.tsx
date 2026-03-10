@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePipeline, PipelineConfig, PipelineStage } from '../hooks/usePipeline';
+import PostScrapeSettings from './PostScrapeSettings';
 
 interface PipelineStageUI extends PipelineStage {
     icon: string;
@@ -27,6 +28,7 @@ export function PipelineSettings() {
     const [stages, setStages] = useState<PipelineStageUI[]>([]);
     const [config, setConfig] = useState<PipelineConfig | null>(null);
     const [persistResults] = useState(true);
+    const [showPostScrape] = useState(true);
 
     // Load initial data
     useEffect(() => {
@@ -134,6 +136,10 @@ export function PipelineSettings() {
                     </h3>
                 </div>
                 <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div />
+                        <div />
+                    </div>
                     {/* Detail Level */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">
@@ -175,6 +181,11 @@ export function PipelineSettings() {
                     </div>
                 </div>
             </div>
+            {showPostScrape && (
+                <div className="mt-6">
+                    <PostScrapeSettings isInline={true} />
+                </div>
+            )}
         </div>
     );
 }

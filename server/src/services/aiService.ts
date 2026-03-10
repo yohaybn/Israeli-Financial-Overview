@@ -43,6 +43,13 @@ export class AiService {
         this.initialize();
     }
 
+    /**
+     * Returns true when AI provider API key is configured and client initialized
+     */
+    hasApiKey(): boolean {
+        return !!this.genAI;
+    }
+
     private async initialize() {
         // await this.loadCache(); // Legacy
         await this.loadSettings();
@@ -432,34 +439,61 @@ export class AiService {
      * Robustly extracts JSON from an AI response string, handling markdown and preamble.
      */
     private extractJson(text: string): any {
+        // Try direct parse first
         try {
-            // 1. Try direct parsing
             return JSON.parse(text.trim());
-        } catch (e) {
-            // 2. Try removing markdown blocks
-            const jsonMatch = text.match(/```json\s?([\s\S]*?)\s?```/) || text.match(/```\s?([\s\S]*?)\s?```/);
-            if (jsonMatch && jsonMatch[1]) {
-                try {
-                    return JSON.parse(jsonMatch[1].trim());
-                } catch (innerE) {
-                    // Fall through to fuzzy extraction
-                }
-            }
+        } catch (directErr) {
+            // Continue to sanitization attempts
+        }
 
-            // 3. Fuzzy extraction (find first { and last })
-            const startIdx = text.indexOf('{');
-            const endIdx = text.lastIndexOf('}');
+        // Remove common markdown fences and extract inner content if present
+        const jsonMatch = text.match(/```json\s?([\s\S]*?)\s?```/) || text.match(/```\s?([\s\S]*?)\s?```/);
+        let candidate = jsonMatch && jsonMatch[1] ? jsonMatch[1].trim() : text;
 
-            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-                const fuzzyJson = text.substring(startIdx, endIdx + 1);
-                try {
-                    return JSON.parse(fuzzyJson);
-                } catch (fuzzyE: any) {
-                    throw new Error(`JSON parsing failed: ${fuzzyE.message}`);
-                }
-            }
+        // Fuzzy extract between first { and last }
+        const startIdx = candidate.indexOf('{');
+        const endIdx = candidate.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            candidate = candidate.substring(startIdx, endIdx + 1);
+        }
 
-            throw new Error('No JSON object found in response');
+        // Sanitization heuristics
+        const sanitize = (input: string) => {
+            let s = input;
+
+            // Normalize smart quotes to straight
+            s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+
+            // Remove extraneous backticks
+            s = s.replace(/`/g, '');
+
+            // Replace single quotes around property names/strings with double quotes
+            // This is a best-effort transform; may not be perfect for all edge cases.
+            s = s.replace(/'([^']*)'/g, function (_m, p1) {
+                return '"' + p1.replace(/"/g, '\\"') + '"';
+            });
+
+            // Ensure property names are quoted: { key: -> { "key":
+            s = s.replace(/([,{\s])([A-Za-z0-9_\- ]+)\s*:/g, function (_m, p1, p2) {
+                // If already quoted, leave as-is
+                if (/^\s*"/.test(p2)) return _m;
+                return `${p1}\"${p2.replace(/\"/g, '\\\"')}\":`;
+            });
+
+            // Remove trailing commas before } or ]
+            s = s.replace(/,\s*(?=[}\]])/g, '');
+
+            return s;
+        };
+
+        const sanitized = sanitize(candidate);
+
+        try {
+            return JSON.parse(sanitized);
+        } catch (sanitizedErr: any) {
+            // As a last resort, provide helpful error including original and sanitized snippets
+            const sample = (candidate && candidate.length > 500) ? candidate.substring(0, 500) : candidate;
+            throw new Error(`JSON parsing failed: ${sanitizedErr.message}. Candidate excerpt: ${sample}`);
         }
     }
 }

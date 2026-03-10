@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 export const api = axios.create({
-    baseURL: 'http://localhost:3000/api',
+    // Remove the protocol and domain. 
+    // This will now point to: current-domain.com/api
+    baseURL: '/api',
     headers: {
         'Content-Type': 'application/json',
     },
