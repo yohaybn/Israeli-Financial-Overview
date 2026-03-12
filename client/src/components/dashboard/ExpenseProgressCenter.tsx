@@ -22,8 +22,6 @@ interface ExpenseProgressCenterProps {
     }[];
     categories?: string[];
     onUpdateCategory?: (transactionId: string, category: string) => void;
-    onAddFilter?: (description: string) => void;
-    onUpdateType?: (transactionId: string, type: string) => void;
 }
 
 export function ExpenseProgressCenter({
@@ -34,9 +32,7 @@ export function ExpenseProgressCenter({
     totalProjected,
     byCategory,
     categories,
-    onUpdateCategory,
-    onAddFilter,
-    onUpdateType
+    onUpdateCategory
 }: ExpenseProgressCenterProps) {
     const { t, i18n } = useTranslation();
     const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
@@ -309,7 +305,6 @@ export function ExpenseProgressCenter({
                                         transactions={selectedCategory.transactions}
                                         categories={categories}
                                         onUpdateCategory={onUpdateCategory}
-                                        onAddFilter={onAddFilter}
                                     />
                                 ) : (
                                     <div className="text-center text-gray-400 py-10">
@@ -348,8 +343,6 @@ export function ExpenseProgressCenter({
                                     transactions={selectedKpi === 'already_spent' ? alreadySpentTxns : remainingPlannedTxns}
                                     categories={categories}
                                     onUpdateCategory={onUpdateCategory}
-                                    onAddFilter={onAddFilter}
-                                    onUpdateType={onUpdateType}
                                 />
                             ) : (
                                 <div className="text-center text-gray-400 py-10">

@@ -9,6 +9,7 @@
 			"npx tsc": true,
 			"npm install": true,
 			"npm run build": true
-		}
+		},
+		"editor.semanticHighlighting.enabled": false
 	}
 }

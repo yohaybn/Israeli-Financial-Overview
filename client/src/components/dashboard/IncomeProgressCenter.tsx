@@ -12,8 +12,6 @@ interface IncomeProgressCenterProps {
     upcomingIncome?: { description: string; amount: number; expectedDate: string }[];
     categories?: string[];
     onUpdateCategory?: (transactionId: string, category: string) => void;
-    onAddFilter?: (description: string) => void;
-    onUpdateType?: (transactionId: string, type: string) => void;
 }
 
 export function IncomeProgressCenter({
@@ -24,9 +22,7 @@ export function IncomeProgressCenter({
     totalProjected,
     upcomingIncome,
     categories,
-    onUpdateCategory,
-    onAddFilter,
-    onUpdateType
+    onUpdateCategory
 }: IncomeProgressCenterProps) {
     const { t, i18n } = useTranslation();
     const [selectedKpi, setSelectedKpi] = useState<'already_received' | 'expected_inflow' | null>(null);
@@ -197,8 +193,6 @@ export function IncomeProgressCenter({
                                     transactions={selectedKpi === 'already_received' ? alreadyReceivedTxns : expectedInflowTxns}
                                     categories={categories}
                                     onUpdateCategory={onUpdateCategory}
-                                    onAddFilter={onAddFilter}
-                                    onUpdateType={onUpdateType}
                                 />
                             ) : (
                                 <div className="text-center text-gray-400 py-10">

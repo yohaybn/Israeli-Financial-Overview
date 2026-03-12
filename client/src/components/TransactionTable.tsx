@@ -31,7 +31,11 @@ const AVAILABLE_COLUMNS: ColumnConfig[] = [
     { key: 'processedDate', label: 'table.processed_date', sortable: false, defaultVisible: false },
 ];
 
-export function TransactionTable({ transactions, categories = [], onUpdateCategory }: TransactionTableProps) {
+export function TransactionTable({ 
+    transactions, 
+    categories = [], 
+    onUpdateCategory 
+}: TransactionTableProps) {
     const { t, i18n } = useTranslation();
 
     const [sortField, setSortField] = useState<SortField>('date');

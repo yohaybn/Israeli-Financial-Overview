@@ -193,6 +193,10 @@ export interface ScraperOptions {
     futureMonthsToScrape?: number;
     autoCategorize?: boolean;
     args?: string[]; // Additional browser args
+    additionalTransactionInformation?: boolean;
+    includeRawTransaction?: boolean;
+    navigationRetryCount?: number;
+    optInFeatures?: string[];
 }
 
 // Provider-specific credential field definitions

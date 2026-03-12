@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUnifiedData } from '../../hooks/useUnifiedData';
-import { useAISettings } from '../../hooks/useScraper';
-import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { Transaction } from '@app/shared';
 import { TransactionModal } from '../TransactionModal';
 import { clsx } from 'clsx';
@@ -15,8 +13,6 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
     const { t, i18n } = useTranslation();
     const { data: transactions = [], isLoading } = useUnifiedData();
-    const { data: aiSettings } = useAISettings();
-    const { config } = useDashboardConfig();
     const [search, setSearch] = useState('');
     const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
 

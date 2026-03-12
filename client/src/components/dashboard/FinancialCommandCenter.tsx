@@ -21,8 +21,6 @@ interface FinancialCommandCenterProps {
     selectedMonth: string;
     onMonthChange: (month: string) => void;
     onUpdateCategory?: (transactionId: string, category: string) => void;
-    onAddFilter?: (description: string) => void;
-    onUpdateType?: (transactionId: string, type: string) => void;
     categories?: string[];
     onNavigateToLogs?: () => void;
 }
@@ -32,8 +30,6 @@ export function FinancialCommandCenter({
     selectedMonth,
     onMonthChange,
     onUpdateCategory,
-    onAddFilter,
-    onUpdateType,
     categories,
     onNavigateToLogs
 }: FinancialCommandCenterProps) {
@@ -192,8 +188,6 @@ export function FinancialCommandCenter({
                     byCategory={summary.expenses.byCategory}
                     categories={categories}
                     onUpdateCategory={onUpdateCategory}
-                    onAddFilter={onAddFilter}
-                    onUpdateType={onUpdateType}
                 />
                 <IncomeProgressCenter
                     alreadyReceived={summary.income.alreadyReceived}
@@ -204,8 +198,6 @@ export function FinancialCommandCenter({
                     upcomingIncome={summary.upcomingFixed.filter(i => i.type === 'income')}
                     categories={categories}
                     onUpdateCategory={onUpdateCategory}
-                    onAddFilter={onAddFilter}
-                    onUpdateType={onUpdateType}
                 />
             </div>
 

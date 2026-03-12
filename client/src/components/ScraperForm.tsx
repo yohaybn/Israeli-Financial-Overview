@@ -208,50 +208,148 @@ export function ScraperForm() {
                     </div>
 
                     {/* Advanced Options */}
+                    {/* Advanced Options */}
                     {showAdvanced && (
-                        <div className="space-y-3 pt-2 border-t border-gray-200">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    id="showBrowser"
-                                    checked={options.showBrowser || false}
-                                    onChange={(e) => updateOption('showBrowser', e.target.checked)}
-                                    className="rounded border-gray-300"
-                                />
-                                <label htmlFor="showBrowser" className="text-sm text-gray-700">{t('scraper.show_browser')}</label>
+                        <div className="space-y-4 pt-4 border-t border-gray-100">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="showBrowser"
+                                            checked={options.showBrowser || false}
+                                            onChange={(e) => updateOption('showBrowser', e.target.checked)}
+                                            className="rounded border-gray-300"
+                                        />
+                                        <label htmlFor="showBrowser" className="text-sm text-gray-700">{t('scraper.show_browser')}</label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="verbose"
+                                            checked={options.verbose ?? true}
+                                            onChange={(e) => updateOption('verbose', e.target.checked)}
+                                            className="rounded border-gray-300"
+                                        />
+                                        <label htmlFor="verbose" className="text-sm text-gray-700">{t('scraper.verbose', 'Verbose Logging')}</label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="combineInstallments"
+                                            checked={options.combineInstallments || false}
+                                            onChange={(e) => updateOption('combineInstallments', e.target.checked)}
+                                            className="rounded border-gray-300"
+                                        />
+                                        <label htmlFor="combineInstallments" className="text-sm text-gray-700">{t('scraper.combine_installments')}</label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="additionalInfo"
+                                            checked={options.additionalTransactionInformation || false}
+                                            onChange={(e) => updateOption('additionalTransactionInformation', e.target.checked)}
+                                            className="rounded border-gray-300"
+                                        />
+                                        <label htmlFor="additionalInfo" className="text-sm text-gray-700">{t('scraper.additional_info', 'Additional Info')}</label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="includeRaw"
+                                            checked={options.includeRawTransaction || false}
+                                            onChange={(e) => updateOption('includeRawTransaction', e.target.checked)}
+                                            className="rounded border-gray-300"
+                                        />
+                                        <label htmlFor="includeRaw" className="text-sm text-gray-700">{t('scraper.include_raw', 'Include Raw data')}</label>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-1">{t('scraper.timeout')} (ms)</label>
+                                        <input
+                                            type="number"
+                                            value={options.timeout || 120000}
+                                            onChange={(e) => updateOption('timeout', parseInt(e.target.value))}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs p-1.5 border"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-1">{t('scraper.navigation_retries', 'Retry Count')}</label>
+                                        <input
+                                            type="number"
+                                            value={options.navigationRetryCount || 0}
+                                            onChange={(e) => updateOption('navigationRetryCount', parseInt(e.target.value))}
+                                            min={0}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs p-1.5 border"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-1">{t('scraper.future_months')}</label>
+                                        <input
+                                            type="number"
+                                            value={options.futureMonthsToScrape || 0}
+                                            onChange={(e) => updateOption('futureMonthsToScrape', parseInt(e.target.value))}
+                                            min={0}
+                                            max={12}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs p-1.5 border"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
+
+                            <div className="pt-2">
+                                <label className="block text-xs font-bold text-gray-600 mb-2">{t('scraper.opt_in_features', 'Opt-in Features')}</label>
+                                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded border border-gray-100">
+                                    {[
+                                        { id: 'isracard-amex:skipAdditionalTransactionInformation', label: 'Isracard Amex - Skip Additional Info' },
+                                        { id: 'mizrahi:pendingIfNoIdentifier', label: 'Mizrahi - Pending if no ID' },
+                                        { id: 'mizrahi:pendingIfHasGenericDescription', label: 'Mizrahi - Pending if generic desc' },
+                                        { id: 'mizrahi:pendingIfTodayTransaction', label: 'Mizrahi - Pending if today' }
+                                    ].map((feature: any) => (
+                                        <label key={feature.id} className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={(options.optInFeatures || []).includes(feature.id)}
+                                                onChange={(e) => {
+                                                    const current = options.optInFeatures || [];
+                                                    const next = e.target.checked 
+                                                        ? [...current, feature.id]
+                                                        : current.filter((id: string) => id !== feature.id);
+                                                    updateOption('optInFeatures', next);
+                                                }}
+                                                className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600"
+                                            />
+                                            <span className="text-[11px] text-gray-700">{feature.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
                                 <input
-                                    type="checkbox"
-                                    id="combineInstallments"
-                                    checked={options.combineInstallments || false}
-                                    onChange={(e) => updateOption('combineInstallments', e.target.checked)}
-                                    className="rounded border-gray-300"
+                                    type="text"
+                                    placeholder={t('scraper.custom_opt_in', 'Custom opt-in (comma separated)...')}
+                                    value={(options.optInFeatures || []).filter((f: string) => ![
+                                        'isracard-amex:skipAdditionalTransactionInformation',
+                                        'mizrahi:pendingIfNoIdentifier',
+                                        'mizrahi:pendingIfHasGenericDescription',
+                                        'mizrahi:pendingIfTodayTransaction'
+                                    ].includes(f)).join(', ')}
+                                    onChange={(e) => {
+                                        const known = [
+                                            'isracard-amex:skipAdditionalTransactionInformation',
+                                            'mizrahi:pendingIfNoIdentifier',
+                                            'mizrahi:pendingIfHasGenericDescription',
+                                            'mizrahi:pendingIfTodayTransaction'
+                                        ];
+                                        const currentKnown = (options.optInFeatures || []).filter((f: string) => known.includes(f));
+                                        const custom = e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean);
+                                        updateOption('optInFeatures', [...new Set([...currentKnown, ...custom])]);
+                                    }}
+                                    className="mt-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-[10px] p-1.5 border"
                                 />
-                                <label htmlFor="combineInstallments" className="text-sm text-gray-700">{t('scraper.combine_installments')}</label>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">{t('scraper.timeout')}</label>
-                                <input
-                                    type="number"
-                                    value={options.timeout || 120000}
-                                    onChange={(e) => updateOption('timeout', parseInt(e.target.value))}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">{t('scraper.future_months')}</label>
-                                <input
-                                    type="number"
-                                    value={options.futureMonthsToScrape || 0}
-                                    onChange={(e) => updateOption('futureMonthsToScrape', parseInt(e.target.value))}
-                                    min={0}
-                                    max={12}
-                                    className="rounded border-gray-300"
-                                />
-                                <label htmlFor="futureMonthsToScrape" className="text-sm text-gray-700">{t('scraper.future_months')}</label>
-                            </div>
-                            <div className="flex items-center gap-2">
+
+                            <div className="flex items-center gap-2 pt-2">
                                 <input
                                     type="checkbox"
                                     id="autoCategorize"

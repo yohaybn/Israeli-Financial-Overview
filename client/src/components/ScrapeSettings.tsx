@@ -102,6 +102,19 @@ export function ScrapeSettings() {
                         <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
                             <input
                                 type="checkbox"
+                                checked={config.scraperOptions.verbose ?? true}
+                                onChange={(e) => updateOption('verbose', e.target.checked)}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div>
+                                <span className="block text-sm font-bold text-gray-700">{t('scraper.verbose', 'Verbose Logging')}</span>
+                                <span className="text-xs text-gray-500">{t('scraper.verbose_desc', 'Include more debug info in the output logs.')}</span>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                            <input
+                                type="checkbox"
                                 checked={config.scraperOptions.combineInstallments || false}
                                 onChange={(e) => updateOption('combineInstallments', e.target.checked)}
                                 className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -109,6 +122,32 @@ export function ScrapeSettings() {
                             <div>
                                 <span className="block text-sm font-bold text-gray-700">{t('scraper.combine_installments')}</span>
                                 <span className="text-xs text-gray-500">{t('scraper.combine_installments_desc', 'Merge installments into a single transaction')}</span>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={config.scraperOptions.additionalTransactionInformation || false}
+                                onChange={(e) => updateOption('additionalTransactionInformation', e.target.checked)}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div>
+                                <span className="block text-sm font-bold text-gray-700">{t('scraper.additional_info', 'Additional Transaction Info')}</span>
+                                <span className="text-xs text-gray-500">{t('scraper.additional_info_desc', 'Perform extra operations to get more info like categories (may increase processing time).')}</span>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={config.scraperOptions.includeRawTransaction || false}
+                                onChange={(e) => updateOption('includeRawTransaction', e.target.checked)}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div>
+                                <span className="block text-sm font-bold text-gray-700">{t('scraper.include_raw', 'Include Raw Transaction')}</span>
+                                <span className="text-xs text-gray-500">{t('scraper.include_raw_desc', 'Include the raw source transaction in the output for debugging.')}</span>
                             </div>
                         </label>
                     </div>
@@ -124,6 +163,18 @@ export function ScrapeSettings() {
                             />
                         </div>
 
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.navigation_retries', 'Navigation Retry Count')}</label>
+                            <input
+                                type="number"
+                                value={config.scraperOptions.navigationRetryCount || 0}
+                                onChange={(e) => updateOption('navigationRetryCount', parseInt(e.target.value))}
+                                min={0}
+                                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1">{t('scraper.navigation_retries_desc', 'Number of times to retry navigation on failure.')}</p>
+                        </div>
+
                         <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl cursor-pointer hover:bg-blue-100 transition-colors border border-blue-100">
                             <input
                                 type="checkbox"
@@ -136,6 +187,61 @@ export function ScrapeSettings() {
                                 <span className="text-xs text-blue-700 opacity-80">{t('scraper.smart_start_date_desc', 'Automatically start from the last successful scrape date')}</span>
                             </div>
                         </label>
+
+                        <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                            <span className="block text-sm font-bold text-gray-700">{t('scraper.opt_in_features', 'Opt-in Features')}</span>
+                            <div className="space-y-2">
+                                {[
+                                    { id: 'isracard-amex:skipAdditionalTransactionInformation', label: 'Isracard Amex - Skip Additional Info', desc: 'Skips fetching extra details to speed up scraping.' },
+                                    { id: 'mizrahi:pendingIfNoIdentifier', label: 'Mizrahi - Pending if no ID', desc: 'Treat transactions without unique identifiers as pending.' },
+                                    { id: 'mizrahi:pendingIfHasGenericDescription', label: 'Mizrahi - Pending if generic desc', desc: 'Treat transactions with generic descriptions as pending.' },
+                                    { id: 'mizrahi:pendingIfTodayTransaction', label: 'Mizrahi - Pending if today', desc: 'Treat today\'s transactions as pending.' }
+                                ].map((feature: any) => (
+                                    <label key={feature.id} className="flex items-start gap-2 cursor-pointer group">
+                                        <input
+                                            type="checkbox"
+                                            checked={(config.scraperOptions.optInFeatures || []).includes(feature.id)}
+                                            onChange={(e) => {
+                                                const current = config.scraperOptions.optInFeatures || [];
+                                                const next = e.target.checked 
+                                                    ? [...current, feature.id]
+                                                    : current.filter((id: string) => id !== feature.id);
+                                                updateOption('optInFeatures', next);
+                                            }}
+                                            className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <div>
+                                            <span className="block text-xs font-bold text-gray-700 group-hover:text-blue-700">{feature.label}</span>
+                                            <span className="text-[10px] text-gray-500">{feature.desc}</span>
+                                        </div>
+                                    </label>
+                                ))}
+                                <div className="pt-2">
+                                    <input
+                                        type="text"
+                                        placeholder={t('scraper.custom_opt_in', 'Add custom opt-in feature (comma separated)...')}
+                                        value={(config.scraperOptions.optInFeatures || []).filter((f: string) => ![
+                                            'isracard-amex:skipAdditionalTransactionInformation',
+                                            'mizrahi:pendingIfNoIdentifier',
+                                            'mizrahi:pendingIfHasGenericDescription',
+                                            'mizrahi:pendingIfTodayTransaction'
+                                        ].includes(f)).join(', ')}
+                                        onChange={(e) => {
+                                            const known = [
+                                                'isracard-amex:skipAdditionalTransactionInformation',
+                                                'mizrahi:pendingIfNoIdentifier',
+                                                'mizrahi:pendingIfHasGenericDescription',
+                                                'mizrahi:pendingIfTodayTransaction'
+                                            ];
+                                            const currentKnown = (config.scraperOptions.optInFeatures || []).filter((f: string) => known.includes(f));
+                                            const custom = e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean);
+                                            updateOption('optInFeatures', [...new Set([...currentKnown, ...custom])]);
+                                        }}
+                                        className="w-full p-2 bg-white border border-gray-200 rounded-lg text-[11px] focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
