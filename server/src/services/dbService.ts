@@ -118,6 +118,20 @@ export class DbService {
         return info.changes > 0;
     }
 
+    updateTransactionMemo(id: string, memo: string): boolean {
+        const getStmt = this.db.prepare('SELECT raw_data FROM transactions WHERE id = ?');
+        const row: any = getStmt.get(id);
+
+        if (!row) return false;
+
+        const txn = JSON.parse(row.raw_data);
+        txn.memo = memo;
+
+        const updateStmt = this.db.prepare('UPDATE transactions SET raw_data = ? WHERE id = ?');
+        const info = updateStmt.run(JSON.stringify(txn), id);
+        return info.changes > 0;
+    }
+
     toggleTransactionIgnore(id: string, isIgnored: boolean): boolean {
         const stmt = this.db.prepare('UPDATE transactions SET isIgnored = ? WHERE id = ?');
         const info = stmt.run(isIgnored ? 1 : 0, id);
@@ -127,6 +141,12 @@ export class DbService {
     clearTransactions() {
         this.db.exec('DELETE FROM transactions');
         serverLogger.info('Transactions table cleared');
+    }
+
+    getLatestTransactionDate(provider: string): string | null {
+        const stmt = this.db.prepare('SELECT MAX(date) as latestDate FROM transactions WHERE provider = ?');
+        const row: any = stmt.get(provider);
+        return row ? row.latestDate : null;
     }
 
     // --- Categories Cache ---

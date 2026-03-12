@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { ProviderDefinition, ScrapeRequest, ScraperOptions, ScrapeResult, Profile } from '@app/shared';
+import { ProviderDefinition, ScrapeRequest, ScraperOptions, ScrapeResult, Profile, GlobalScrapeConfig } from '@app/shared';
 import { ProfileManager } from './ProfileManager';
 
 // Fetch provider definitions from the server
@@ -30,11 +30,24 @@ function useRunScrape() {
     });
 }
 
+// Fetch global scrape configuration
+function useGlobalConfig() {
+    return useQuery({
+        queryKey: ['globalConfig'],
+        queryFn: async () => {
+            const { data } = await api.get<{ success: boolean; data: GlobalScrapeConfig }>('/config');
+            return data.data;
+        },
+    });
+}
+
 
 export function ScraperForm() {
     const { t, i18n } = useTranslation();
     const { data: providers, isLoading: isLoadingProviders } = useProviders();
     const { mutate: runScrape, isPending, isSuccess, isError, error, reset } = useRunScrape();
+
+    const { data: globalConfig } = useGlobalConfig();
 
     // Form state
     const [selectedProvider, setSelectedProvider] = useState('');
@@ -46,6 +59,17 @@ export function ScraperForm() {
         timeout: 120000,
     });
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [loadedProfileName, setLoadedProfileName] = useState<string | undefined>(undefined);
+
+    // Initialize options from global config when it loads
+    useEffect(() => {
+        if (globalConfig?.scraperOptions) {
+            setOptions(prev => ({
+                ...prev,
+                ...globalConfig.scraperOptions,
+            }));
+        }
+    }, [globalConfig]);
 
     // Get display text based on current language
     const getProviderName = (provider: ProviderDefinition): string => {
@@ -83,6 +107,7 @@ export function ScraperForm() {
             companyId: selectedProvider,
             credentials,
             options,
+            profileName: loadedProfileName,
         };
         runScrape(request);
     };
@@ -98,6 +123,7 @@ export function ScraperForm() {
     const handleLoadProfile = useCallback((profile: Profile) => {
         setSelectedProvider(profile.companyId);
         setCredentials(profile.credentials);
+        setLoadedProfileName(profile.name);
         setOptions(prev => ({
             ...prev,
             ...profile.options,
@@ -161,7 +187,13 @@ export function ScraperForm() {
                             onChange={(e) => updateOption('startDate', e.target.value || undefined)}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
                         />
-                        <p className="text-xs text-gray-500 mt-1">{t('scraper.start_date_hint')}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {options.startDate 
+                                ? t('scraper.start_date_hint') 
+                                : (globalConfig?.useSmartStartDate 
+                                    ? t('scraper.smart_start_date_active', '✨ Smart start date active (will start from last successful scrape)') 
+                                    : t('scraper.start_date_hint'))}
+                        </p>
                     </div>
 
                     {/* Advanced Options Toggle */}

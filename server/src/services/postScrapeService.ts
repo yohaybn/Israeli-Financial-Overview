@@ -3,50 +3,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { notificationService, NotificationPayload } from './notifications/index.js';
 import { AiService } from './aiService.js';
-import { ScrapeResult, ScrapeRequest } from '@app/shared';
+import { ScrapeResult, ScrapeRequest, PostScrapeConfig } from '@app/shared';
 import { serviceLogger as logger } from '../utils/logger.js';
+import { StorageService } from './storageService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
-const CONFIG_PATH = path.join(DATA_DIR, 'config', 'post_scrape_config.json');
-
-export interface PostScrapeConfig {
-  runCategorization: boolean;
-  fraudDetection: {
-    enabled: boolean;
-    notifyOnIssue: boolean;
-  };
-  customAI: {
-    enabled: boolean;
-    query: string;
-    notifyOnResult: boolean;
-  };
-  notificationChannels: string[];
-}
-
-const DEFAULT_CONFIG: PostScrapeConfig = {
-  runCategorization: true,
-  fraudDetection: {
-    enabled: false,
-    notifyOnIssue: true,
-  },
-  customAI: {
-    enabled: false,
-    query: '',
-    notifyOnResult: true,
-  },
-  notificationChannels: ['console'],
-};
-
 export class PostScrapeService {
-  private config: PostScrapeConfig;
   private ai: AiService;
+  private storageService: StorageService;
 
   constructor() {
-    this.config = this.loadConfig();
     this.ai = new AiService();
+    this.storageService = new StorageService();
   }
 
   /**
@@ -64,42 +34,71 @@ export class PostScrapeService {
     }
   }
 
-  private loadConfig(): PostScrapeConfig {
+  async getConfig(): Promise<PostScrapeConfig> {
+    const global = await this.storageService.getGlobalScrapeConfig();
+    return global.postScrapeConfig;
+  }
+
+  async updateConfig(newCfg: Partial<PostScrapeConfig>): Promise<PostScrapeConfig> {
+    const global = await this.storageService.getGlobalScrapeConfig();
+    global.postScrapeConfig = { ...global.postScrapeConfig, ...newCfg };
+    await this.storageService.updateGlobalScrapeConfig(global);
+    return global.postScrapeConfig;
+  }
+
+  /**
+   * Send an error notification for a failed post-scrape action.
+   */
+  private async sendPostScrapeErrorNotification(stage: string, errorMessage: string, request?: ScrapeRequest): Promise<void> {
     try {
-      if (fs.existsSync(CONFIG_PATH)) {
-        const loaded = fs.readJsonSync(CONFIG_PATH);
-        return { ...DEFAULT_CONFIG, ...loaded };
+      const cfg = await this.getConfig();
+      const channels = [...(cfg.notificationChannels || ['console'])];
+
+      // Auto-include telegram if registered and enabled
+      if (!channels.includes('telegram')) {
+        const tgNotifier = notificationService.getNotifier('telegram');
+        if (tgNotifier && tgNotifier.isEnabled()) {
+          channels.push('telegram');
+        }
       }
-    } catch (error) {
-      logger.warn('Failed to load post-scrape config, using defaults', { error });
-    }
-    return DEFAULT_CONFIG;
-  }
 
-  getConfig(): PostScrapeConfig {
-    this.config = this.loadConfig();
-    return { ...this.config };
-  }
+      const payload: NotificationPayload = {
+        pipelineId: request?.profileName || request?.companyId || 'post-scrape',
+        status: 'failure',
+        timestamp: new Date(),
+        detailLevel: 'normal',
+        summary: {
+          durationMs: 0,
+          stagesRun: ['scrape', stage],
+          successfulStages: ['scrape'],
+          failedStage: stage,
+          insights: [`Post-scrape ${stage} failed: ${errorMessage}`],
+        },
+        errorDetails: {
+          stage,
+          message: errorMessage,
+        },
+      };
 
-  updateConfig(newCfg: Partial<PostScrapeConfig>): PostScrapeConfig {
-    this.config = { ...this.config, ...newCfg } as PostScrapeConfig;
-    try {
-      fs.ensureDirSync(path.dirname(CONFIG_PATH));
-      fs.writeJsonSync(CONFIG_PATH, this.config, { spaces: 2 });
-    } catch (error) {
-      logger.warn('Failed to save post-scrape config', { error });
+      await notificationService.notify(channels, payload);
+      logger.info(`Post-scrape error notification sent for ${stage}`);
+    } catch (notifyErr) {
+      logger.warn('Failed to send post-scrape error notification', { error: (notifyErr as Error).message });
     }
-    return this.getConfig();
   }
 
   async handleResult(result: ScrapeResult, request?: ScrapeRequest): Promise<void> {
     try {
-      const cfg = this.config;
-
+      const cfg = await this.getConfig();
       const transactions = result.transactions || [];
 
       // 1) Optional categorization
-      if (cfg.runCategorization && transactions.length > 0) {
+      // Favor local request option if provided, otherwise use global config
+      const runCategorization = request?.options?.autoCategorize !== undefined 
+          ? request.options.autoCategorize 
+          : cfg.runCategorization;
+
+      if (runCategorization && transactions.length > 0) {
         this.refreshAiIfNeeded();
         if (!this.ai.hasApiKey()) {
           logger.info('Skipping post-scrape categorization: GEMINI_API_KEY not configured. Set GEMINI_API_KEY or disable post-scrape categorization.');
@@ -109,6 +108,7 @@ export class PostScrapeService {
             logger.info('Post-scrape: categorization completed');
           } catch (err) {
             logger.warn('Post-scrape categorization failed', { error: (err as Error).message });
+            await this.sendPostScrapeErrorNotification('categorization', (err as Error).message, request);
           }
         }
       }
@@ -130,7 +130,7 @@ export class PostScrapeService {
             if (suspicious && cfg.fraudDetection.notifyOnIssue) {
               const channels = cfg.notificationChannels || ['console'];
               const payload: NotificationPayload = {
-                pipelineId: request ? (request.companyId || 'unknown') : 'post-scrape',
+                pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
                 status: 'warning' as any,
                 timestamp: new Date(),
                 detailLevel: 'normal',
@@ -172,6 +172,7 @@ export class PostScrapeService {
           }
         } catch (err) {
           logger.warn('Post-scrape fraud check failed', { error: (err as Error).message });
+          await this.sendPostScrapeErrorNotification('fraud-detection', (err as Error).message, request);
         }
       }
 
@@ -188,7 +189,7 @@ export class PostScrapeService {
             if (cfg.customAI.notifyOnResult) {
               const channels = cfg.notificationChannels || ['console'];
               const payload: NotificationPayload = {
-                pipelineId: request ? (request.companyId || 'unknown') : 'post-scrape',
+                pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
                 status: 'success',
                 timestamp: new Date(),
                 detailLevel: 'normal',
@@ -228,21 +229,71 @@ export class PostScrapeService {
           }
         } catch (err) {
           logger.warn('Post-scrape custom AI query failed', { error: (err as Error).message });
+          await this.sendPostScrapeErrorNotification('custom-ai', (err as Error).message, request);
         }
       }
 
       // Optionally persist post-scrape metadata
       try {
-        const outDir = path.join(DATA_DIR, 'post_scrape');
+        const global = await this.storageService.getGlobalScrapeConfig();
+        const outDir = path.join(process.env.DATA_DIR || './data', 'post_scrape');
         await fs.ensureDir(outDir);
         const filename = `${request?.companyId || 'unknown'}_${Date.now()}_postscrape.json`;
-        await fs.writeJson(path.join(outDir, filename), { config: this.config, resultSummary: { transactions: transactions.length, accounts: result.accounts?.length || 0 } }, { spaces: 2 });
+        await fs.writeJson(path.join(outDir, filename), { config: global.postScrapeConfig, resultSummary: { transactions: transactions.length, accounts: result.accounts?.length || 0 } }, { spaces: 2 });
       } catch (err) {
         logger.debug('Failed to persist post-scrape summary', { error: (err as Error).message });
       }
 
     } catch (error) {
       logger.error('PostScrapeService failed', { error });
+      await this.sendPostScrapeErrorNotification('post-scrape', (error as Error).message, request);
+    }
+  }
+
+  /**
+   * Send a notification for a completed scrape run (success or failure).
+   * This is called for every scrape regardless of AI features.
+   */
+  async sendScrapeNotification(result: ScrapeResult, request?: ScrapeRequest): Promise<void> {
+    try {
+      const cfg = await this.getConfig();
+      const channels = [...(cfg.notificationChannels || ['console'])];
+
+      // Auto-include telegram if the notifier is registered and enabled
+      if (!channels.includes('telegram')) {
+        const tgNotifier = notificationService.getNotifier('telegram');
+        if (tgNotifier && tgNotifier.isEnabled()) {
+          channels.push('telegram');
+        }
+      }
+
+      const success = result.success;
+      const transactions = result.transactions || [];
+
+      const payload: NotificationPayload = {
+        pipelineId: request?.profileName || request?.companyId || 'scrape',
+        status: success ? 'success' : 'failure',
+        timestamp: new Date(),
+        detailLevel: 'normal',
+        summary: {
+          durationMs: result.executionTimeMs || 0,
+          stagesRun: ['scrape'],
+          successfulStages: success ? ['scrape'] : [],
+          failedStage: success ? undefined : 'scrape',
+          transactionCount: transactions.length,
+          accounts: result.accounts?.length || 0,
+          balance: result.accounts?.reduce?.((sum: number, acc: any) => sum + (acc.balance || 0), 0) || 0,
+        },
+        errorDetails: !success && result.error ? {
+          stage: 'scrape',
+          message: result.error,
+        } : undefined,
+      };
+
+      await notificationService.notify(channels, payload);
+      logger.info('Scrape notification sent', { success, channels });
+    } catch (err) {
+      logger.warn('Failed to send scrape notification', { error: (err as Error).message });
     }
   }
 }

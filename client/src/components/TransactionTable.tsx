@@ -1,14 +1,12 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
-import { useDashboardConfig } from '../hooks/useDashboardConfig';
+import { TransactionModal } from './TransactionModal';
 
 interface TransactionTableProps {
     transactions: Transaction[];
     categories?: string[];
     onUpdateCategory?: (txnId: string, category: string) => void;
-    onAddFilter?: (description: string) => void;
-    onUpdateType?: (txnId: string, type: string) => void;
 }
 
 type SortField = 'date' | 'description' | 'originalAmount' | 'category';
@@ -33,16 +31,8 @@ const AVAILABLE_COLUMNS: ColumnConfig[] = [
     { key: 'processedDate', label: 'table.processed_date', sortable: false, defaultVisible: false },
 ];
 
-export function TransactionTable({ transactions, categories = [], onUpdateCategory, onAddFilter, onUpdateType }: TransactionTableProps) {
+export function TransactionTable({ transactions, categories = [], onUpdateCategory }: TransactionTableProps) {
     const { t, i18n } = useTranslation();
-    const { config, updateConfig } = useDashboardConfig();
-
-    const handleMarkAsCCPattern = (description: string) => {
-        const existing = config.customCCKeywords ?? [];
-        if (!existing.includes(description)) {
-            updateConfig({ customCCKeywords: [...existing, description] });
-        }
-    };
 
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -61,6 +51,17 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
         return new Set<ColumnKey>(['date', 'description', 'category', 'chargedAmount', 'status']);
     });
     const [showColumnPicker, setShowColumnPicker] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+    // Available categories in the current set of transactions
+    const availableCategories = useMemo(() => {
+        const categories = new Set<string>();
+        transactions.forEach(t => {
+            if (t.category) categories.add(t.category);
+        });
+        return Array.from(categories).sort();
+    }, [transactions]);
 
     // Persist visible columns to localStorage
     useEffect(() => {
@@ -90,7 +91,7 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
     const filteredAndSortedTransactions = useMemo(() => {
         let result = [...transactions];
 
-        // Filter
+        // Search Filter
         if (search) {
             const lowerSearch = search.toLowerCase();
             result = result.filter(t =>
@@ -98,6 +99,11 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
                 t.memo?.toLowerCase().includes(lowerSearch) ||
                 t.category?.toLowerCase().includes(lowerSearch)
             );
+        }
+
+        // Category Filter
+        if (selectedCategory !== 'all') {
+            result = result.filter(t => t.category === selectedCategory);
         }
 
         // Sort
@@ -116,7 +122,7 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
         });
 
         return result;
-    }, [transactions, sortField, sortOrder, search]);
+    }, [transactions, sortField, sortOrder, search, selectedCategory]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -154,6 +160,19 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <select
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
+                    >
+                        <option value="all">{t('common.all', 'All Categories')}</option>
+                        {availableCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="relative">
@@ -221,7 +240,11 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {filteredAndSortedTransactions.map((txn) => (
-                                <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
+                                <tr 
+                                    key={txn.id} 
+                                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                    onClick={() => setSelectedTransaction(txn)}
+                                >
                                     {AVAILABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).map(col => renderColumn(col, txn))}
                                 </tr>
                             ))}
@@ -229,6 +252,13 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
                     </table>
                 </div>
             </div>
+
+            <TransactionModal 
+                transaction={selectedTransaction}
+                isOpen={!!selectedTransaction}
+                onClose={() => setSelectedTransaction(null)}
+                categories={categories}
+            />
         </div>
     );
 
@@ -256,67 +286,24 @@ export function TransactionTable({ transactions, categories = [], onUpdateCatego
                                 <div className="font-medium">{txn.description}</div>
                                 {txn.memo && <div className="text-xs text-gray-400 mt-0.5">{txn.memo}</div>}
                             </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {/* Mark as CC Pattern button */}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleMarkAsCCPattern(txn.description);
-                                    }}
-                                    className="p-1 text-gray-400 hover:text-amber-500"
-                                    title={t('table.mark_cc_pattern', 'Mark as CC payment pattern')}
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                    </svg>
-                                </button>
-                                {txn.type !== 'internal_transfer' && (
+                                {/* Simplified actions - more inside the modal */}
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (onUpdateType) {
-                                                onUpdateType(txn.id, 'internal_transfer');
-                                            }
+                                            setSelectedTransaction(txn);
                                         }}
                                         className="p-1 text-gray-400 hover:text-blue-500"
-                                        title={t('table.mark_internal_transfer', 'Mark as Internal Transfer')}
+                                        title={t('common.edit', 'Quick Edit')}
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                         </svg>
                                     </button>
-                                )}
-                                {txn.status !== 'ignored' ? (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onAddFilter?.(txn.description);
-                                        }}
-                                        className={`p-1 text-gray-400 hover:text-red-500 ${i18n.language === 'he' ? 'mr-1' : 'ml-1'}`}
-                                        title={t('table.exclude_title', 'Exclude transactions like this')}
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                        </svg>
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (onUpdateType) onUpdateType(txn.id, 'normal');
-                                        }}
-                                        className={`p-1 text-gray-400 hover:text-green-500 ${i18n.language === 'he' ? 'mr-1' : 'ml-1'}`}
-                                        title={t('table.unignore_title', 'Restore ignored transaction')}
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                    </button>
-                                )}
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                );
+                        </td>
+                    );
             case 'memo':
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-600`}>

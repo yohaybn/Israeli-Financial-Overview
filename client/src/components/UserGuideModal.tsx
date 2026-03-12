@@ -80,9 +80,9 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                 },
                 {
                     id: 'scheduler',
-                    title: 'Automation & Scheduler',
+                    title: 'Scheduled Scraping',
                     icon: '⏱️',
-                    content: 'Automatically run scrapes on a schedule. Set time, select profiles, enable auto-save to Google Sheets. Test with "Run Now".'
+                    content: 'Automatically run scrapes on a schedule. Enable and configure this in the Configuration panel > Scheduler tab. Set time and select profiles.'
                 },
                 {
                     id: 'googleSetup',
@@ -161,9 +161,9 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                 },
                 {
                     id: 'scheduler',
-                    title: 'אוטומציה ותזמון',
+                    title: 'תזמון סריקות',
                     icon: '⏱️',
-                    content: 'הפעל באופן אוטומטי סריקות בלוח שנה. הגדר זמן, בחר פרופילים, הפעל שמירה אוטומטית ל-Google Sheets. בדוק עם "Run Now".'
+                    content: 'הפעל באופן אוטומטי סריקות בלוח זמנים. הפעל והגדר זאת בחלונית הגדרות > כרטיסיית מתזמן. קבע זמן ובחר פרופילים.'
                 },
                 {
                     id: 'googleSetup',

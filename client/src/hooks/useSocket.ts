@@ -19,7 +19,7 @@ export interface ScrapeComplete {
     executionTimeMs?: number;
 }
 
-const SOCKET_URL = 'http://localhost:3000';
+const SOCKET_URL = '';
 
 export function useSocket() {
     const [socket, setSocket] = useState<Socket | null>(null);

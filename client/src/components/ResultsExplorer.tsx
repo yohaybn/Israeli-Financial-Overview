@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useScrapeResults, useMultipleScrapeResults, useUpdateCategory, useFilters, useAddFilter, useRemoveFilter, useToggleFilter, useAICategorize, useAIChat, useAISettings, useDeleteScrapeResult, useRenameResult, useMergeResults, useUpdateTransactionType } from '../hooks/useScraper';
+import { useScrapeResults, useMultipleScrapeResults, useUpdateCategory, useFilters, useRemoveFilter, useToggleFilter, useAICategorize, useAIChat, useAISettings, useDeleteScrapeResult, useRenameResult, useMergeResults } from '../hooks/useScraper';
 import { TransactionTable } from './TransactionTable';
 import { AISettings } from './AISettings';
 import { logger } from '../utils/logger';
@@ -14,7 +14,6 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
     const { data: files, isLoading: isLoadingList } = useScrapeResults();
     const { data: aiSettings } = useAISettings();
     const { data: filters } = useFilters();
-    const { mutate: addFilter } = useAddFilter();
     const { mutate: removeFilter } = useRemoveFilter();
     const { mutate: toggleFilter } = useToggleFilter();
     const { mutate: deleteResult } = useDeleteScrapeResult();
@@ -103,20 +102,6 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
         }
     };
 
-    const handleAddFilterFromTxn = (description: string) => {
-        if (window.confirm(t('explorer.confirm_exclude', { description, defaultValue: `Exclude all future transactions with description: "${description}"?` }))) {
-            addFilter(description);
-        }
-    };
-
-    const { mutate: updateType } = useUpdateTransactionType();
-
-    const handleUpdateType = (transactionId: string, type: string) => {
-        const fileIndex = multiResults?.findIndex(r => r?.transactions?.some(t => t.id === transactionId));
-        if (fileIndex !== -1 && fileIndex !== undefined && selectedFiles[fileIndex]) {
-            updateType({ transactionId, type });
-        }
-    };
 
     const handleExport = (format: 'json' | 'csv') => {
         const transactionsToExport = activeTransactions;
@@ -534,8 +519,6 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                                     transactions={activeTransactions}
                                     categories={aiSettings?.categories}
                                     onUpdateCategory={handleUpdateCategory}
-                                    onAddFilter={handleAddFilterFromTxn}
-                                    onUpdateType={handleUpdateType}
                                 />
                             </div>
                         ) : (

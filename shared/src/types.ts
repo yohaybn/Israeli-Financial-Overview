@@ -1,3 +1,23 @@
+export interface PostScrapeConfig {
+    runCategorization: boolean;
+    fraudDetection: {
+        enabled: boolean;
+        notifyOnIssue: boolean;
+    };
+    customAI: {
+        enabled: boolean;
+        query: string;
+        notifyOnResult: boolean;
+    };
+    notificationChannels: string[];
+}
+
+export interface GlobalScrapeConfig {
+    scraperOptions: Partial<ScraperOptions>;
+    postScrapeConfig: PostScrapeConfig;
+    useSmartStartDate: boolean;
+}
+
 export interface Transaction {
     id: string; // Unique identifier (hash or bank provided)
     date: string; // ISO Date string
@@ -209,6 +229,8 @@ export interface ScrapeRequest {
     companyId: string;
     credentials: Record<string, string>;
     options: ScraperOptions;
+    profileId?: string;   // Profile ID that triggered this scrape
+    profileName?: string; // Human-readable profile name for display in notifications
 }
 
 export interface SchedulerConfig {

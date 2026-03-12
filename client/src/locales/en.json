@@ -3,7 +3,6 @@
         "title": "Israeli Bank Scraper",
         "scrape": "Scrape",
         "explorer": "Explorer",
-        "automation": "Automation",
         "logs": "Logs",
         "version": "v2.1 (Auto)",
         "note": "Note",
@@ -49,6 +48,12 @@
         "environment": "Environment"
     },
     "scraper": {
+        "config_title": "Scrape Configuration",
+        "global_options": "Global Scraper Options",
+        "smart_start_date": "Smart Start Date",
+        "smart_start_date_desc": "Automatically start from the last successful scrape date",
+        "show_browser_desc": "Open browser window during scrape (useful for debugging)",
+        "combine_installments_desc": "Merge installments into a single transaction",
         "dashboard": "Scraper Dashboard",
         "new_scrape": "New Scrape",
         "provider": "Provider",
@@ -179,24 +184,8 @@
         "placeholder_client_id": "your-client-id.apps.googleusercontent.com",
         "placeholder_client_secret": "Enter client secret"
     },
-    "pipeline": {
-        "title": "Pipeline Controller",
-        "subtitle": "Orchestrate your data processing workflow",
-        "execution_mode": "Execution Mode",
-        "select_profile": "Select Profile",
-        "choose_profile": "Choose a profile...",
-        "select_profiles": "Select Profiles to Run",
-        "select_all": "Select All",
-        "stages": "Pipeline Stages",
-        "settings": "Settings",
-        "execute": "Execute Pipeline",
-        "executing": "Executing Pipeline...",
-        "notification_detail": "Notification Detail Level",
-        "notification_channels": "Notification Channels",
-        "persist_results": "Persist Intermediate Results",
-        "persist_results_desc": "Save stage results for debugging and analysis",
-        "progress": "Execution Progress",
-        "waiting_for_progress": "Waiting for progress updates..."
+    "post_scrape": {
+        "title": "Post-Scrape Actions"
     },
     "dashboard": {
         "title": "Financial Command Center",
@@ -357,5 +346,26 @@
         "cmd_settings": "Manage settings",
         "chat_added": "Chat added to notifications",
         "chat_removed": "Chat removed from notifications"
+    },
+    "transaction_modal": {
+        "title": "Transaction Details",
+        "internal_transfer_pattern": "Mark as Internal Transfer Pattern",
+        "hide_pattern": "Exclude Similar Transactions (Description)",
+        "hide_status_pattern": "Exclude Similar Transactions (Status)",
+        "ignore_this": "Ignore This Transaction",
+        "restore": "Restore Transaction",
+        "remove_pattern": "Remove Exclusion Pattern",
+        "details": "Details",
+        "actions": "Actions",
+        "history": "History",
+        "original_amount": "Original Amount",
+        "memo": "Memo",
+        "edit_memo": "Edit Memo",
+        "save_memo": "Save Memo",
+        "mark_internal_transfer": "Mark as Internal Transfer (One-time)",
+        "provider": "Provider",
+        "account": "Account",
+        "category_updated": "Category updated successfully",
+        "memo_updated": "Memo updated successfully"
     }
 }

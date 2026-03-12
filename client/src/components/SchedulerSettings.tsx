@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSchedulerConfig, useUpdateSchedulerConfig, useRunSchedulerNow } from '../hooks/useScraper';
+import { useSchedulerConfig, useUpdateSchedulerConfig } from '../hooks/useScraper';
 import { useProfiles } from '../hooks/useProfiles';
-import { PipelineExecution } from './PipelineExecution';
 
-export function SchedulerSettings() {
+export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) {
     const { t } = useTranslation();
     const { data: config, isLoading } = useSchedulerConfig();
     const { mutate: updateConfig, isPending: isUpdating } = useUpdateSchedulerConfig();
-    const { mutate: runNow, isPending: isRunningNow } = useRunSchedulerNow();
     const { data: profiles } = useProfiles();
 
     const [enabled, setEnabled] = useState(false);
@@ -53,20 +51,22 @@ export function SchedulerSettings() {
     if (isLoading) return <div className="p-8 text-center text-gray-500">Loading automation settings...</div>;
 
     return (
-        <div className="p-8 space-y-12 max-w-6xl mx-auto">
-            <header className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <div>
-                    <h1 className="text-3xl font-black text-gray-900">{t('common.automation', 'Automation')}</h1>
-                    <p className="text-gray-500">{t('common.automation_desc', 'Schedule and trigger automated scraper runs')}</p>
-                </div>
-            </header>
+        <div className={`p-8 space-y-12 max-w-6xl mx-auto ${isInline ? 'p-0 space-y-8' : ''}`}>
+            {!isInline && (
+                <header className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-black text-gray-900">{t('common.automation', 'Automation')}</h1>
+                        <p className="text-gray-500">{t('common.automation_desc', 'Schedule and trigger automated scraper runs')}</p>
+                    </div>
+                </header>
+            )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 gap-12">
                 {/* Left Column: Scheduled Automation */}
                 <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
@@ -160,38 +160,6 @@ export function SchedulerSettings() {
                                 Notifications will be sent according to your global pipeline settings.
                             </p>
                         </div>
-                    </div>
-                </div>
-
-                {/* Right Column: Manual Execution */}
-                <div className="space-y-8">
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
-                        <PipelineExecution />
-                    </div>
-
-                    <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-8 opacity-10 transform transition-transform group-hover:scale-110">
-                            <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M13 10V3L4 14H11V21L20 10H13Z" />
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <span>⚡</span> {t('scheduler.legacy_run', 'Legacy Trigger')}
-                        </h3>
-                        <p className="text-indigo-100 mb-6 text-sm leading-relaxed">
-                            {t('scheduler.legacy_run_desc', 'Trigger the legacy scraper process immediately for all enabled profiles above.')}
-                        </p>
-                        <button
-                            onClick={() => runNow()}
-                            disabled={isRunningNow || isUpdating}
-                            className="bg-white text-indigo-600 font-bold py-3 px-6 rounded-xl transition-all hover:bg-indigo-50 flex items-center gap-2 text-sm shadow-md"
-                        >
-                            {isRunningNow ? (
-                                <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                                <>🚀 {t('scheduler.run_now', 'Trigger Now')}</>
-                            )}
-                        </button>
                     </div>
                 </div>
             </div>

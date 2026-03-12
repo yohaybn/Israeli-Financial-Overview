@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { UpcomingItem, Transaction, FinancialSummary } from '@app/shared';
 import { useState } from 'react';
+import { TransactionModal } from '../TransactionModal';
 
 interface UpcomingFixedListProps {
     items: UpcomingItem[];
@@ -11,6 +12,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
     const { t, i18n } = useTranslation();
     const [showInfo, setShowInfo] = useState(false);
     const [selectedHistory, setSelectedHistory] = useState<UpcomingItem | null>(null);
+    const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
 
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
@@ -303,8 +305,9 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                             <div className="space-y-3">
                                 {selectedHistory.history?.map((txn: Transaction, idx: number) => (
                                     <div
-                                        key={txn.id + idx}
-                                        className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-md transition-all group"
+                                        key={txn.id + (txn.date || idx)}
+                                        onClick={() => setSelectedTxn(txn)}
+                                        className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-md transition-all group cursor-pointer"
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center font-bold text-gray-400 group-hover:text-blue-500 transition-colors">
@@ -351,6 +354,13 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                     </div>
                 </div>
             )}
+
+            {/* Transaction Detail Modal */}
+            <TransactionModal 
+                transaction={selectedTxn}
+                isOpen={!!selectedTxn}
+                onClose={() => setSelectedTxn(null)}
+            />
         </div>
     );
 }

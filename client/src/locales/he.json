@@ -3,7 +3,6 @@
         "title": "סורק בנקים ישראלי",
         "scrape": "סריקה",
         "explorer": "סייר",
-        "automation": "אוטומציה",
         "logs": "יומנים",
         "version": "גרסה 2.1 (אוטומטי)",
         "note": "הערה",
@@ -49,6 +48,12 @@
         "environment": "סביבה"
     },
     "scraper": {
+        "config_title": "הגדרות סריקה",
+        "global_options": "הגדרות סריקה גלובליות",
+        "smart_start_date": "תאריך התחלה חכם",
+        "smart_start_date_desc": "התחל אוטומטית מתאריך הסריקה המוצלחת האחרון",
+        "show_browser_desc": "פתח חלון דפדפן בזמן הסריקה (שימושי לניפוי שגיאות)",
+        "combine_installments_desc": "מזג תשלומים לעסקה אחת",
         "dashboard": "לוח בקרה",
         "new_scrape": "סריקה חדשה",
         "provider": "ספק",
@@ -179,24 +184,8 @@
         "placeholder_client_id": "your-client-id.apps.googleusercontent.com",
         "placeholder_client_secret": "הזן סוד לקוח"
     },
-    "pipeline": {
-        "title": "צינור עיבוד",
-        "subtitle": "תזמן את זרימת עיבוד הנתונים שלך",
-        "execution_mode": "מצב הביצוע",
-        "select_profile": "בחר פרופיל",
-        "choose_profile": "בחר פרופיל...",
-        "select_profiles": "בחר פרופילים להפעלה",
-        "select_all": "בחר הכל",
-        "stages": "שלבי הצינור",
-        "settings": "הגדרות",
-        "execute": "הפעל צינור",
-        "executing": "הצינור בתהליך ביצוע...",
-        "notification_detail": "רמת פרטון ההודעות",
-        "notification_channels": "ערוצי הודעות",
-        "persist_results": "שמור תוצאות ביניים",
-        "persist_results_desc": "שמור תוצאות שלבים לניפוי וניתוח",
-        "progress": "התקדמות הביצוע",
-        "waiting_for_progress": "מחכה לעדכוני התקדמות..."
+    "post_scrape": {
+        "title": "פעולות לאחר סריקה"
     },
     "dashboard": {
         "title": "מרכז פיקוד פיננסי",
@@ -362,5 +351,26 @@
         "cmd_settings": "נהל הגדרות",
         "chat_added": "הצ'אט נוסף להודעות",
         "chat_removed": "הצ'אט הוסר מהודעות"
+    },
+    "transaction_modal": {
+        "title": "פרטי עסקה",
+        "internal_transfer_pattern": "סמן כדפוס העברה פנימית",
+        "hide_pattern": "החרג עסקאות דומות (תיאור)",
+        "hide_status_pattern": "החרג עסקאות דומות (סטטוס)",
+        "ignore_this": "התעלם מעסקה זו",
+        "restore": "שחזר עסקה",
+        "remove_pattern": "הסר דפוס החרגה",
+        "details": "פרטים",
+        "actions": "פעולות",
+        "history": "היסטוריה",
+        "original_amount": "סכום מקורי",
+        "memo": "הערה",
+        "edit_memo": "עריכת הערה",
+        "save_memo": "שמור הערה",
+        "mark_internal_transfer": "סמן כהעברה פנימית (חד פעמי)",
+        "provider": "ספק",
+        "account": "חשבון",
+        "category_updated": "הקטגוריה עודכנה בהצלחה",
+        "memo_updated": "ההערה עודכנה בהצלחה"
     }
 }

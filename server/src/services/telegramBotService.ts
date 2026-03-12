@@ -27,7 +27,90 @@ export interface TelegramConfig {
   adminChatIds: string[];
   notificationChatIds: string[];
   allowedUsers?: string[]; // Empty = allow all
+  language?: 'en' | 'he'; // Bot UI language
 }
+
+// Translation strings for the bot
+const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
+  en: {
+    accessDenied: '❌ <b>Access Denied</b>\n\nYou don\'t have permission to use this bot yet.',
+    yourUserId: '<b>Your User ID:</b>',
+    shareId: 'Please share your User ID with the manager to request access.',
+    welcome: '👋 Welcome to Israeli Bank Scraper Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>Help:</b>\n/help - Show this message',
+    noProfiles: '❌ No profiles configured. Please set up a profile first.',
+    selectProfile: '🏦 Select the profile to scrape:',
+    chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
+    settingsMenu: '⚙️ Settings Menu:',
+    settingsBtnNotif: '📬 Notifications',
+    settingsBtnProfile: '👤 Profile',
+    botStatus: '🤖 Bot Status:',
+    botOnline: '✅ Online',
+    botOffline: '❌ Offline',
+    configuredFeatures: 'Configured Features:',
+    notifChats: 'Notifications',
+    adminChats: 'Admin Chats',
+    token: 'Token',
+    subscribed: '✅ You are now subscribed to notifications',
+    unsubscribed: '✅ You have been unsubscribed from notifications',
+    notAuthorized: '❌ You are not authorized.',
+    exitedChatMode: '✅ Exited AI chat mode.',
+    unknownCommand: 'Unknown command. Available commands:',
+    notifEnabled: '✅ Enabled',
+    notifDisabled: '⛔ Disabled',
+    scraperStarting: 'Starting scraper...',
+    scraperExecuting: '⏳ Executing scraper...',
+    profileNotFound: '❌ Profile not found',
+    scraperSuccess: '✅ Scraper executed!',
+    profileLabel: 'Profile',
+    accountsLabel: 'Accounts',
+    transactionsLabel: 'Transactions',
+    savedLabel: 'Saved',
+    errorProcessing: '❌ Error processing your message',
+    errorScraper: '❌ Error processing scraper request',
+    thinkingMsg: '💭 Thinking...',
+    comingSoon: 'Coming soon!',
+  },
+  he: {
+    accessDenied: '❌ <b>גישה נדחתה</b>\n\nאין לך הרשאה להשתמש בבוט זה עדיין.',
+    yourUserId: '<b>מזהה המשתמש שלך:</b>',
+    shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
+    welcome: '👋 ברוך הבא לבוט סריקת הבנקים הישראלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scan - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
+    selectProfile: '🏦 בחר פרופיל לסריקה:',
+    chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
+    settingsMenu: '⚙️ תפריט הגדרות:',
+    settingsBtnNotif: '📬 התראות',
+    settingsBtnProfile: '👤 פרופיל',
+    botStatus: '🤖 סטטוס הבוט:',
+    botOnline: '✅ פעיל',
+    botOffline: '❌ לא פעיל',
+    configuredFeatures: 'פיצ׳רים מוגדרים:',
+    notifChats: 'התראות',
+    adminChats: 'צ׳אטים של מנהלים',
+    token: 'טוקן',
+    subscribed: '✅ נרשמת להתראות',
+    unsubscribed: '✅ בוטלה הרשמתך להתראות',
+    notAuthorized: '❌ אין לך הרשאה.',
+    exitedChatMode: '✅ יצאת ממצב שיחת AI.',
+    unknownCommand: 'פקודה לא מוכרת. פקודות זמינות:',
+    notifEnabled: '✅ מופעל',
+    notifDisabled: '⛔ מבוטל',
+    scraperStarting: 'מתחיל סריקה...',
+    scraperExecuting: '⏳ מריץ סורק...',
+    profileNotFound: '❌ פרופיל לא נמצא',
+    scraperSuccess: '✅ הסריקה הושלמה!',
+    profileLabel: 'פרופיל',
+    accountsLabel: 'חשבונות',
+    transactionsLabel: 'עסקאות',
+    savedLabel: 'נשמר',
+    errorProcessing: '❌ שגיאה בעיבוד ההודעה שלך',
+    errorScraper: '❌ שגיאה בעיבוד בקשת הסריקה',
+    thinkingMsg: '💭 חושב...',
+    comingSoon: 'בקרוב!',
+  },
+};
 
 export interface TelegramChatState {
   chatId: string;
@@ -45,6 +128,12 @@ export class TelegramBotService {
   private scraperService: ScraperService | null = null;
   private profileService: ProfileService | null = null;
   private isRunning: boolean = false;
+
+  /** Translate a key using the configured bot language */
+  private t(key: string): string {
+    const lang = this.config?.language || 'en';
+    return BOT_STRINGS[lang]?.[key] ?? BOT_STRINGS['en']?.[key] ?? key;
+  }
 
   constructor() {
     this.config = this.loadConfig();
@@ -131,7 +220,7 @@ export class TelegramBotService {
     const username = ctx.from?.username || 'no-username';
     const chatId = ctx.chat?.id.toString() || 'unknown';
     const chatType = ctx.chat?.type || 'unknown';
-    
+
     serverLogger.warn('UNAUTHORIZED_TELEGRAM_REQUEST', {
       userId,
       username,
@@ -233,8 +322,8 @@ export class TelegramBotService {
           // If allowedUsers is not configured or user not in list, block
           if (!this.isUserAuthorized(userId)) {
             this.logUnauthorizedAttempt(ctx, commandText);
-            const unauthorizedMessage = `❌ <b>Access Denied</b>\n\nYou don't have permission to use this bot yet.\n\n<b>Your User ID:</b> <code>${userId}</code>\n\nPlease share your User ID with the manager to request access.`;
-            try { await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' }); } catch (e) {}
+            const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
+            try { await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' }); } catch (e) { }
             return;
           }
 
@@ -280,14 +369,14 @@ export class TelegramBotService {
       if (msg.includes('409') || msg.includes('Conflict') || msg.includes('terminated by other getUpdates')) {
         this.isRunning = true;
         this.config.enabled = true;
-        try { this.saveConfig(); } catch (e) {}
+        try { this.saveConfig(); } catch (e) { }
         serverLogger.info('Telegram bot appears to be already running (409 Conflict). Marking as enabled.');
         return;
       }
 
       // Provide helpful error messages for other common issues
       let errorMessage = error.message || 'Unknown error starting Telegram bot';
-      
+
       if (error.response?.error_code === 404 || error.message?.includes('Not Found')) {
         errorMessage = 'Bot not found. The bot token is invalid or the bot no longer exists. Please regenerate the token from @BotFather and try again.';
         serverLogger.error('Telegram bot token is invalid - bot not found on Telegram API', { error: error && error.response ? error.response : error, token: this.config.botToken ? `***${this.config.botToken.slice(-10)}` : null });
@@ -297,7 +386,7 @@ export class TelegramBotService {
       } else {
         serverLogger.error('Failed to start Telegram bot', { error: error && error.stack ? error.stack : error });
       }
-      
+
       throw new Error(errorMessage);
     }
   }
@@ -399,7 +488,7 @@ export class TelegramBotService {
     this.bot.action('settings_profile', async (ctx) => {
       try {
         await ctx.answerCbQuery();
-        await ctx.reply('Coming soon!');
+        await ctx.reply(this.t('comingSoon'));
       } catch (error) {
         serverLogger.error('Error handling profile settings', { error });
       }
@@ -421,13 +510,13 @@ export class TelegramBotService {
         // If message looks like an unknown command, show command buttons
         const text = (ctx.message as any).text || '';
         if (text.startsWith('/')) {
-          const known = ['/scrape','/chat','/settings','/status','/subscribe','/unsubscribe','/help','/start','/done','/cancel'];
+          const known = ['/scrape', '/chat', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel'];
           const cmd = text.split(' ')[0];
           if (!known.includes(cmd)) {
-            await ctx.reply('Unknown command. Available commands:',
+            await ctx.reply(this.t('unknownCommand'),
               Markup.keyboard([
-                ['/chat','/scrape','/status'],
-                ['/subscribe','/unsubscribe','/settings'],
+                ['/chat', '/scrape', '/status'],
+                ['/subscribe', '/unsubscribe', '/settings'],
                 ['/help']
               ]).resize().oneTime()
             );
@@ -447,19 +536,13 @@ export class TelegramBotService {
   private async handleStart(ctx: Context): Promise<void> {
     const chatId = ctx.chat?.id?.toString();
     const userId = ctx.from?.id.toString() || '';
-    
+
     if (!chatId || !userId) return;
 
     // Check authorization
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, '/start');
-      const unauthorizedMessage = `❌ <b>Access Denied</b>
-
-You don't have permission to use this bot yet.
-
-<b>Your User ID:</b> <code>${userId}</code>
-
-Please share your User ID with the manager to request access.`;
+      const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
       await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
       return;
     }
@@ -472,46 +555,14 @@ Please share your User ID with the manager to request access.`;
       isAdmin: this.config.adminChatIds.includes(chatId),
     });
 
-    const message = `
-👋 Welcome to Israeli Bank Scraper Bot!
-
-I can help you with:
-• 📊 Run bank scrapers and get notifications
-• 💬 Chat with AI about your transactions
-• ⚙️ Manage your settings
-
-Use /help for available commands
-    `;
-
-    await ctx.reply(message);
+    await ctx.reply(this.t('welcome'));
   }
 
   /**
    * Handle /help command
    */
   private async handleHelp(ctx: Context): Promise<void> {
-    const message = `
-📖 Available Commands:
-
-<b>Scraping:</b>
-/scrape - Run a bank scraper
-/status - Check scraper status
-
-<b>AI Chat:</b>
-/chat - Start AI chat about transactions
-
-<b>Notifications:</b>
-/subscribe - Enable transaction notifications
-/unsubscribe - Disable notifications
-
-<b>Settings:</b>
-/settings - Manage your preferences
-
-<b>Help:</b>
-/help - Show this message
-    `;
-
-    await ctx.reply(message, { parse_mode: 'HTML' });
+    await ctx.reply(this.t('helpText'), { parse_mode: 'HTML' });
   }
 
   /**
@@ -520,17 +571,11 @@ Use /help for available commands
   private async handleScrapeCommand(ctx: Context): Promise<void> {
     try {
       const userId = ctx.from?.id.toString() || '';
-      
+
       // Check authorization
       if (!this.isUserAuthorized(userId)) {
         this.logUnauthorizedAttempt(ctx, '/scrape');
-        const unauthorizedMessage = `❌ <b>Access Denied</b>
-
-You don't have permission to use the scraper yet.
-
-<b>Your User ID:</b> <code>${userId}</code>
-
-Please share your User ID with the manager to request access.`;
+        const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
         await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
         return;
       }
@@ -538,7 +583,7 @@ Please share your User ID with the manager to request access.`;
       const profiles = await this.getProfileService().getProfiles();
 
       if (profiles.length === 0) {
-        await ctx.reply('❌ No profiles configured. Please set up a profile first.');
+        await ctx.reply(this.t('noProfiles'));
         return;
       }
 
@@ -547,7 +592,7 @@ Please share your User ID with the manager to request access.`;
       );
 
       await ctx.reply(
-        '🏦 Select the profile to scrape:',
+        this.t('selectProfile'),
         Markup.inlineKeyboard([buttons])
       );
     } catch (error) {
@@ -562,19 +607,13 @@ Please share your User ID with the manager to request access.`;
   private async handleChatCommand(ctx: Context): Promise<void> {
     const chatId = ctx.chat?.id?.toString();
     const userId = ctx.from?.id.toString() || '';
-    
+
     if (!chatId) return;
 
     // Check authorization
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, '/chat');
-      const unauthorizedMessage = `❌ <b>Access Denied</b>
-
-You don't have permission to use the chat feature yet.
-
-<b>Your User ID:</b> <code>${userId}</code>
-
-Please share your User ID with the manager to request access.`;
+      const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('unauthorizedChat')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
       await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
       return;
     }
@@ -589,14 +628,7 @@ Please share your User ID with the manager to request access.`;
     state.conversationContext = 'chat';
     this.chatStates.set(chatId, state);
 
-    await ctx.reply(
-      '💬 AI Chat Mode activated!\n\n' +
-      'Ask me questions about your transactions:\n' +
-      '• "What are my largest expenses?"\n' +
-      '• "Analyze my spending this month"\n' +
-      '• "Show me transactions in the food category"\n\n' +
-      'Type /done or /cancel to exit chat mode'
-    );
+    await ctx.reply(this.t('chatModeActive'));
   }
 
   /**
@@ -605,19 +637,13 @@ Please share your User ID with the manager to request access.`;
   private async handleSettings(ctx: Context): Promise<void> {
     const chatId = ctx.chat?.id?.toString();
     const userId = ctx.from?.id.toString() || '';
-    
+
     if (!chatId) return;
 
     // Check authorization
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, '/settings');
-      const unauthorizedMessage = `❌ <b>Access Denied</b>
-
-You don't have permission to access settings yet.
-
-<b>Your User ID:</b> <code>${userId}</code>
-
-Please share your User ID with the manager to request access.`;
+      const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('unauthorizedSettings')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
       await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
       return;
     }
@@ -625,12 +651,12 @@ Please share your User ID with the manager to request access.`;
     const state = this.chatStates.get(chatId);
 
     const buttons = [
-      Markup.button.callback('📬 Notifications', 'settings_notifications'),
-      Markup.button.callback('👤 Profile', 'settings_profile'),
+      Markup.button.callback(this.t('settingsBtnNotif'), 'settings_notifications'),
+      Markup.button.callback(this.t('settingsBtnProfile'), 'settings_profile'),
     ];
 
     await ctx.reply(
-      '⚙️ Settings Menu:',
+      this.t('settingsMenu'),
       Markup.inlineKeyboard([buttons])
     );
   }
@@ -639,16 +665,8 @@ Please share your User ID with the manager to request access.`;
    * Handle /status command
    */
   private async handleStatus(ctx: Context): Promise<void> {
-    const status = this.isRunning ? '✅ Online' : '❌ Offline';
-    const message = `
-🤖 Bot Status: ${status}
-
-Configured Features:
-• Notifications: ${this.config.notificationChatIds.length} chats
-• Admin Chats: ${this.config.adminChatIds.length}
-• Token: ${this.config.botToken ? '✅' : '❌'}
-    `;
-
+    const statusStr = this.isRunning ? this.t('botOnline') : this.t('botOffline');
+    const message = `${this.t('botStatus')} ${statusStr}\n\n${this.t('configuredFeatures')}\n• ${this.t('notifChats')}: ${this.config.notificationChatIds.length}\n• ${this.t('adminChats')}: ${this.config.adminChatIds.length}\n• ${this.t('token')}: ${this.config.botToken ? '✅' : '❌'}`;
     await ctx.reply(message);
   }
 
@@ -658,19 +676,13 @@ Configured Features:
   private async handleSubscribe(ctx: Context): Promise<void> {
     const chatId = ctx.chat?.id?.toString();
     const userId = ctx.from?.id.toString() || '';
-    
+
     if (!chatId) return;
 
     // Check authorization
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, '/subscribe');
-      const unauthorizedMessage = `❌ <b>Access Denied</b>
-
-You don't have permission to subscribe to notifications yet.
-
-<b>Your User ID:</b> <code>${userId}</code>
-
-Please share your User ID with the manager to request access.`;
+      const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('unauthorizedSubscribe')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
       await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
       return;
     }
@@ -686,7 +698,7 @@ Please share your User ID with the manager to request access.`;
       this.chatStates.set(chatId, state);
     }
 
-    await ctx.reply('✅ You are now subscribed to notifications');
+    await ctx.reply(this.t('subscribed'));
   }
 
   /**
@@ -695,19 +707,13 @@ Please share your User ID with the manager to request access.`;
   private async handleUnsubscribe(ctx: Context): Promise<void> {
     const chatId = ctx.chat?.id?.toString();
     const userId = ctx.from?.id.toString() || '';
-    
+
     if (!chatId) return;
 
     // Check authorization
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, '/unsubscribe');
-      const unauthorizedMessage = `❌ <b>Access Denied</b>
-
-You don't have permission to unsubscribe from notifications yet.
-
-<b>Your User ID:</b> <code>${userId}</code>
-
-Please share your User ID with the manager to request access.`;
+      const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('unauthorizedUnsubscribe')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
       await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
       return;
     }
@@ -721,7 +727,7 @@ Please share your User ID with the manager to request access.`;
       this.chatStates.set(chatId, state);
     }
 
-    await ctx.reply('✅ You have been unsubscribed from notifications');
+    await ctx.reply(this.t('unsubscribed'));
   }
 
   /**
@@ -730,19 +736,11 @@ Please share your User ID with the manager to request access.`;
   private async handleAIChat(ctx: Context, message: string): Promise<void> {
     try {
       const userId = ctx.from?.id.toString() || '';
-      
+
       // Check authorization
       if (!this.isUserAuthorized(userId)) {
         this.logUnauthorizedAttempt(ctx, 'message_in_chat_mode');
-        const unauthorizedMessage = `❌ <b>Access Denied</b>
-
-You don't have permission to use this chat feature yet.
-
-<b>Your User ID:</b> <code>${userId}</code>
-
-Please share your User ID with the administrator to request access.
-
-If you believe this is an error, please contact the manager for assistance.`;
+        const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
         await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
         return;
       }
@@ -753,7 +751,7 @@ If you believe this is an error, please contact the manager for assistance.`;
       if (!chatIdNum) return;
 
       // Send quick 'thinking' message and later edit it with the final AI response
-      const thinkingMsg = await ctx.reply('💭 Thinking...');
+      const thinkingMsg = await ctx.reply(this.t('thinkingMsg'));
 
       // Try to load a transactions context from storage (pick the largest result available)
       let transactions: any[] = [];
@@ -815,7 +813,7 @@ If you believe this is an error, please contact the manager for assistance.`;
       }
     } catch (error) {
       serverLogger.error('Error in AI chat', { error });
-      await ctx.reply('❌ Error processing your query');
+      await ctx.reply(this.t('errorProcessing'));
     }
   }
 
@@ -877,7 +875,7 @@ If you believe this is an error, please contact the manager for assistance.`;
   private async handleScraperExecution(ctx: Context, profileId: string): Promise<void> {
     try {
       const userId = ctx.from?.id.toString() || '';
-      
+
       // Check authorization
       if (!this.isUserAuthorized(userId)) {
         this.logUnauthorizedAttempt(ctx, `scrape_profile_${profileId}`);
@@ -885,13 +883,13 @@ If you believe this is an error, please contact the manager for assistance.`;
         return;
       }
 
-      await ctx.answerCbQuery('Starting scraper...');
-      const statusMsg = await ctx.reply('⏳ Executing scraper...');
+      await ctx.answerCbQuery(this.t('scraperStarting'));
+      const statusMsg = await ctx.reply(this.t('scraperExecuting'));
 
       try {
         const profile = await this.getProfileService().getProfile(profileId);
         if (!profile) {
-          await ctx.reply('❌ Profile not found');
+          await ctx.reply(this.t('profileNotFound'));
           return;
         }
 
@@ -899,6 +897,8 @@ If you believe this is an error, please contact the manager for assistance.`;
         const scrapeRequest: ScrapeRequest = {
           companyId: profile.companyId,
           credentials: profile.credentials,
+          profileId: profile.id,
+          profileName: profile.name,
           options: {
             combineInstallments: true,
             showBrowser: false,
@@ -930,20 +930,20 @@ If you believe this is an error, please contact the manager for assistance.`;
         }
 
         const accountCount = result.accounts?.length || 0;
-        let msg = `✅ Scraper executed!\nProfile: ${profile.name}\nAccounts: ${accountCount}\nTransactions: ${txnCount}`;
+        let msg = `${this.t('scraperSuccess')}\n${this.t('profileLabel')}: ${profile.name}\n${this.t('accountsLabel')}: ${accountCount}\n${this.t('transactionsLabel')}: ${txnCount}`;
         if (savedFilename) {
-          msg += `\nSaved: ${savedFilename}`;
+          msg += `\n${this.t('savedLabel')}: ${savedFilename}`;
         }
 
         await ctx.reply(msg);
-        
+
       } catch (scraperError: any) {
         serverLogger.error('Scraper execution failed', { scraperError });
-        await ctx.reply(`❌ Scraper failed: ${scraperError.message}`);
+        await ctx.reply(`❌ ${scraperError.message}`);
       }
     } catch (error) {
       serverLogger.error('Error handling scrape callback', { error });
-      await ctx.reply('❌ Error processing scraper request');
+      await ctx.reply(this.t('errorScraper'));
     }
   }
 
@@ -953,14 +953,14 @@ If you believe this is an error, please contact the manager for assistance.`;
   private async handleSettingsNotifications(ctx: Context): Promise<void> {
     try {
       const userId = ctx.from?.id.toString() || '';
-      
+
       // Check authorization
       if (!this.isUserAuthorized(userId)) {
         this.logUnauthorizedAttempt(ctx, 'settings_notifications_callback');
         await ctx.answerCbQuery('❌ Unauthorized - you do not have permission.', { show_alert: true });
         return;
       }
-      
+
 
       const chatId = ctx.chat?.id?.toString();
       if (!chatId) return;
@@ -968,7 +968,7 @@ If you believe this is an error, please contact the manager for assistance.`;
 
       if (!state) {
         await ctx.answerCbQuery();
-        await ctx.reply('Error: Chat state not found');
+        await ctx.reply(this.t('errorProcessing'));
         return;
       }
 
@@ -984,9 +984,9 @@ If you believe this is an error, please contact the manager for assistance.`;
       }
       this.saveConfig();
 
-      const status = currentState ? '✅ Enabled' : '⛔ Disabled';
+      const status = currentState ? this.t('notifEnabled') : this.t('notifDisabled');
       await ctx.answerCbQuery(status);
-      await ctx.editMessageText(`📬 Notifications ${status}`);
+      await ctx.editMessageText(`📬 ${this.t('settingsBtnNotif')} ${status}`);
     } catch (error) {
       serverLogger.error('Error handling notification settings', { error });
       await ctx.answerCbQuery('Error updating settings');
@@ -1004,7 +1004,7 @@ If you believe this is an error, please contact the manager for assistance.`;
 
       if (!this.isUserAuthorized(userId)) {
         this.logUnauthorizedAttempt(ctx, '/done');
-        await ctx.reply(`❌ You are not authorized.`);
+        await ctx.reply(this.t('notAuthorized'));
         return;
       }
 
@@ -1014,7 +1014,7 @@ If you believe this is an error, please contact the manager for assistance.`;
         this.chatStates.set(chatId, state);
       }
 
-      await ctx.reply('✅ Exited AI chat mode.');
+      await ctx.reply(this.t('exitedChatMode'));
     } catch (error) {
       serverLogger.error('Error handling done command', { error });
       await ctx.reply('❌ Error exiting chat mode');

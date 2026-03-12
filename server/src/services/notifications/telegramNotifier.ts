@@ -1,6 +1,6 @@
 /**
  * Telegram Notifier Implementation
- * Sends pipeline notifications to Telegram
+ * Sends pipeline notifications to Telegram using MarkdownV2 formatting
  */
 
 import { BaseNotifier } from './baseNotifier.js';
@@ -13,19 +13,66 @@ export interface TelegramNotifierConfig extends Omit<NotifierConfig, 'enabled'> 
   botToken?: string;
   chatIds?: string[];
   parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2';
+  language?: 'en' | 'he';
 }
+
+// MarkdownV2 escape helper – must escape these chars outside code spans
+function escMDV2(text: string): string {
+  return String(text).replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+}
+
+const LABELS: Record<'en' | 'he', Record<string, string>> = {
+  en: {
+    scrapeNotification: '🏦 Scrape Notification',
+    profile: 'Profile',
+    duration: 'Duration',
+    transactions: 'Transactions',
+    accounts: 'Accounts',
+    balance: 'Balance',
+    error: 'Error',
+    stages: 'Stages',
+    successful: 'Successful',
+    failed: 'Failed',
+    timestamp: 'Timestamp',
+    insights: 'Insights',
+    successStatus: '✅ SUCCESS',
+    failureStatus: '❌ FAILURE',
+    warningStatus: '⚠️ WARNING',
+    seconds: 's',
+  },
+  he: {
+    scrapeNotification: '🏦 הודעת גירוד',
+    profile: 'פרופיל',
+    duration: 'משך',
+    transactions: 'עסקאות',
+    accounts: 'חשבונות',
+    balance: 'יתרה',
+    error: 'שגיאה',
+    stages: 'שלבים',
+    successful: 'הצליחו',
+    failed: 'נכשל',
+    timestamp: 'זמן',
+    insights: 'תובנות',
+    successStatus: '✅ הצלחה',
+    failureStatus: '❌ כישלון',
+    warningStatus: '⚠️ אזהרה',
+    seconds: 'ש',
+  },
+};
 
 export class TelegramNotifier extends BaseNotifier {
   private botToken: string;
   private chatIds: string[];
   private telegramApiUrl: string;
   private parseMode: 'HTML' | 'Markdown' | 'MarkdownV2';
+  private language: 'en' | 'he';
 
   constructor(config: TelegramNotifierConfig = {}) {
     super('telegram', { enabled: config.enabled ?? false, ...config });
     this.botToken = config.botToken || process.env.TELEGRAM_BOT_TOKEN || '';
     this.chatIds = config.chatIds || [];
-    this.parseMode = config.parseMode || 'HTML';
+    this.parseMode = 'MarkdownV2';
+    this.language = config.language || 'en';
     this.telegramApiUrl = `https://api.telegram.org/bot${this.botToken}`;
   }
 
@@ -33,8 +80,13 @@ export class TelegramNotifier extends BaseNotifier {
    * Send notification to all configured chat IDs
    */
   async send(payload: NotificationPayload): Promise<void> {
-    if (!this.botToken || this.chatIds.length === 0) {
-      throw new Error('Telegram notifier not properly configured (missing botToken or chatIds)');
+    if (!this.botToken) {
+      serverLogger.debug('Telegram notifier missing botToken - skipping send');
+      return;
+    }
+    if (this.chatIds.length === 0) {
+      serverLogger.debug('Telegram notifier has no configured chat IDs - skipping send');
+      return;
     }
 
     const message = this.formatMessage(payload);
@@ -72,52 +124,80 @@ export class TelegramNotifier extends BaseNotifier {
     }
   }
 
+  private L(key: string): string {
+    return LABELS[this.language]?.[key] ?? LABELS['en'][key] ?? key;
+  }
+
+  private statusText(status: string): string {
+    if (status === 'success') return this.L('successStatus');
+    if (status === 'failure') return this.L('failureStatus');
+    return this.L('warningStatus');
+  }
+
   /**
-   * Format payload as Telegram HTML message
+   * Format payload as Telegram MarkdownV2 message
    */
   private formatMessage(payload: NotificationPayload): string {
-    const statusEmoji = payload.status === 'success' ? '✅' : '❌';
-    const statusText = payload.status.toUpperCase();
+    const statusLine = `${this.statusText(payload.status)}`;
+    const title = `*${escMDV2(this.L('scrapeNotification'))} \\— ${escMDV2(statusLine)}*`;
+    const durationStr = `${(payload.summary.durationMs / 1000).toFixed(2)}${this.L('seconds')}`;
 
     switch (payload.detailLevel) {
       case 'minimal':
-        return `${statusEmoji} <b>Pipeline ${statusText}</b>\nDuration: ${(payload.summary.durationMs / 1000).toFixed(2)}s`;
+        return `${title}\n⏱ ${escMDV2(durationStr)}`;
 
-      case 'normal':
-        return [
-          `${statusEmoji} <b>Pipeline Notification - ${statusText}</b>`,
-          `<b>ID:</b> <code>${payload.pipelineId}</code>`,
-          `<b>Duration:</b> ${(payload.summary.durationMs / 1000).toFixed(2)}s`,
-          `<b>Stages:</b> ${payload.summary.stagesRun.join(' → ')}`,
-          `<b>Successful:</b> ${payload.summary.successfulStages.join(', ') || 'None'}`,
-          payload.summary.failedStage ? `<b>Failed:</b> ${payload.summary.failedStage}` : '',
-          payload.summary.transactionCount ? `<b>Transactions:</b> ${payload.summary.transactionCount}` : '',
-          payload.summary.insights?.length ? `<b>Insights:</b>\n${payload.summary.insights.map(i => `• ${i}`).join('\n')}` : '',
-        ]
-          .filter(Boolean)
-          .join('\n');
+      case 'normal': {
+        const lines: string[] = [title];
+        lines.push(`*${escMDV2(this.L('profile'))}:* \`${escMDV2(payload.pipelineId)}\``);
+        lines.push(`*${escMDV2(this.L('duration'))}:* ${escMDV2(durationStr)}`);
+        if (payload.summary.transactionCount != null) {
+          lines.push(`*${escMDV2(this.L('transactions'))}:* ${escMDV2(String(payload.summary.transactionCount))}`);
+        }
+        if (payload.summary.failedStage) {
+          lines.push(`*${escMDV2(this.L('failed'))}:* ${escMDV2(payload.summary.failedStage)}`);
+        }
+        if (payload.summary.insights?.length) {
+          lines.push(`*${escMDV2(this.L('insights'))}:*`);
+          payload.summary.insights.forEach(i => lines.push(`• ${escMDV2(i)}`));
+        }
+        if (payload.errorDetails?.message) {
+          lines.push(`*${escMDV2(this.L('error'))}:* ${escMDV2(payload.errorDetails.message)}`);
+        }
+        return lines.join('\n');
+      }
 
-      case 'detailed':
-        return [
-          `${statusEmoji} <b>Pipeline Notification - ${statusText}</b>`,
-          `<b>ID:</b> <code>${payload.pipelineId}</code>`,
-          `<b>Timestamp:</b> ${payload.timestamp.toISOString()}`,
-          `<b>Duration:</b> ${(payload.summary.durationMs / 1000).toFixed(2)}s`,
-          `<b>Stages:</b> ${payload.summary.stagesRun.join(' → ')}`,
-          `<b>Successful Stages:</b> ${payload.summary.successfulStages.join(', ') || 'None'}`,
-          payload.summary.failedStage ? `<b>Failed Stage:</b> ${payload.summary.failedStage}` : '',
-          `<b>Summary:</b>`,
-          `  Transactions: ${payload.summary.transactionCount || 0}`,
-          `  Accounts: ${payload.summary.accounts || 0}`,
-          `  Balance: ${payload.summary.balance || 0}`,
-          payload.summary.insights?.length ? `<b>Insights:</b>\n${payload.summary.insights.map(i => `• ${i}`).join('\n')}` : '',
-          payload.errorDetails ? `<b>Error:</b> ${payload.errorDetails.message}` : '',
-        ]
-          .filter(Boolean)
-          .join('\n');
+      case 'detailed': {
+        const lines: string[] = [title];
+        lines.push(`*${escMDV2(this.L('profile'))}:* \`${escMDV2(payload.pipelineId)}\``);
+        lines.push(`*${escMDV2(this.L('timestamp'))}:* ${escMDV2(payload.timestamp.toISOString())}`);
+        lines.push(`*${escMDV2(this.L('duration'))}:* ${escMDV2(durationStr)}`);
+        if (payload.summary.stagesRun.length) {
+          lines.push(`*${escMDV2(this.L('stages'))}:* ${escMDV2(payload.summary.stagesRun.join(' → '))}`);
+        }
+        if (payload.summary.successfulStages.length) {
+          lines.push(`*${escMDV2(this.L('successful'))}:* ${escMDV2(payload.summary.successfulStages.join(', '))}`);
+        }
+        if (payload.summary.failedStage) {
+          lines.push(`*${escMDV2(this.L('failed'))}:* ${escMDV2(payload.summary.failedStage)}`);
+        }
+        if (payload.summary.transactionCount != null) {
+          lines.push(`*${escMDV2(this.L('transactions'))}:* ${escMDV2(String(payload.summary.transactionCount))}`);
+        }
+        if (payload.summary.accounts != null) {
+          lines.push(`*${escMDV2(this.L('accounts'))}:* ${escMDV2(String(payload.summary.accounts))}`);
+        }
+        if (payload.summary.insights?.length) {
+          lines.push(`*${escMDV2(this.L('insights'))}:*`);
+          payload.summary.insights.forEach(i => lines.push(`• ${escMDV2(i)}`));
+        }
+        if (payload.errorDetails?.message) {
+          lines.push(`*${escMDV2(this.L('error'))}:* ${escMDV2(payload.errorDetails.message)}`);
+        }
+        return lines.join('\n');
+      }
 
       case 'verbose':
-        return `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
+        return `\`\`\`\n${JSON.stringify(payload, null, 2).substring(0, 3900)}\n\`\`\``;
 
       default:
         return this.formatMessage({ ...payload, detailLevel: 'normal' });
@@ -128,15 +208,14 @@ export class TelegramNotifier extends BaseNotifier {
    * Validate Telegram configuration
    */
   validate(config: TelegramNotifierConfig): boolean {
-    const fullConfig: NotifierConfig = { enabled: config.enabled ?? false, ...config };
+    const isEnabled = config.enabled ?? this.config?.enabled ?? false;
+    const fullConfig: NotifierConfig = { ...config, enabled: isEnabled };
     const baseValid = super.validate(fullConfig);
     if (!baseValid) return false;
 
-    // If enabled, require botToken and at least one chatId
-    if (config.enabled) {
-      const hasToken = config.botToken || process.env.TELEGRAM_BOT_TOKEN;
-      const hasChatIds = config.chatIds && config.chatIds.length > 0;
-      return !!(hasToken && hasChatIds);
+    if (isEnabled) {
+      const hasToken = config.botToken || this.botToken || process.env.TELEGRAM_BOT_TOKEN;
+      return !!hasToken;
     }
 
     return true;
@@ -150,6 +229,7 @@ export class TelegramNotifier extends BaseNotifier {
     if (config.botToken) this.botToken = config.botToken;
     if (config.chatIds) this.chatIds = config.chatIds;
     if (config.parseMode) this.parseMode = config.parseMode;
+    if (config.language) this.language = config.language;
   }
 
   /**

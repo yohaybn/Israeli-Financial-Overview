@@ -4,6 +4,8 @@ import { Server } from 'socket.io';
 import { postScrapeService } from './postScrapeService.js';
 import puppeteer from 'puppeteer';
 import fs from 'fs-extra';
+import { StorageService } from './storageService.js';
+import { DbService } from './dbService.js';
 
 // Progress event types matching the library
 export enum ScraperProgressTypes {
@@ -25,7 +27,13 @@ export interface ScrapeProgress {
 
 export class ScraperService {
     private io: Server | null = null;
-    private postScrapeService: any = null;
+    private storageService: StorageService;
+    private dbService: DbService;
+
+    constructor() {
+        this.storageService = new StorageService();
+        this.dbService = new DbService();
+    }
 
     setSocketIO(io: Server) {
         this.io = io;
@@ -90,26 +98,66 @@ export class ScraperService {
             ? [...new Set([...defaultArgs, ...request.options.args])]
             : defaultArgs;
 
+        // Fetch global configuration
+        const globalConfig = await this.storageService.getGlobalScrapeConfig();
+        
+        // Merge global options with request overrides
+        const mergedOptions = {
+            ...globalConfig.scraperOptions,
+            ...request.options
+        };
+
         // Map our options to the library's options
         const libOptions: any = {
             companyId: request.companyId as CompanyTypes,
-            combineInstallments: request.options.combineInstallments ?? false,
-            showBrowser: request.options.showBrowser ?? false,
-            verbose: request.options.verbose ?? true,
-            timeout: request.options.timeout,
-            defaultTimeout: request.options.timeout, // The library uses defaultTimeout for puppeteer navigation
+            combineInstallments: mergedOptions.combineInstallments ?? false,
+            showBrowser: mergedOptions.showBrowser ?? false,
+            verbose: mergedOptions.verbose ?? true,
+            timeout: mergedOptions.timeout,
+            defaultTimeout: mergedOptions.timeout,
             args: combinedArgs,
             executablePath: executablePath,
         };
 
-        // Set start date - default to 30 days ago if not provided
+        // Set start date - logic:
+        // 1. Use explicit startDate from request if provided
+        // 2. Otherwise, if smartStartDate is enabled, use last txn date + 1 day
+        // 3. Fallback to 30 days ago
         if (request.options.startDate) {
             libOptions.startDate = new Date(request.options.startDate);
+            addLog(`Using explicit start date: ${request.options.startDate}`);
+        } else if (globalConfig.useSmartStartDate && request.profileName) {
+            try {
+                const txns = await this.dbService.getAllTransactions();
+                // Filter transactions for this profile if possible, or just find the latest overall for this company
+                const profileTxns = txns.filter(t => t.accountNumber && txns.some(ot => ot.id === t.id)); // This is a bit weak, let's refine
+                
+                // Better: find latest date for this provider/company in the DB
+                const latestDate = await this.dbService.getLatestTransactionDate(request.companyId);
+                
+                if (latestDate) {
+                    const nextDay = new Date(latestDate);
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    libOptions.startDate = nextDay;
+                    addLog(`Smart start date enabled. Using day after last transaction: ${nextDay.toISOString().split('T')[0]}`);
+                } else {
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                    libOptions.startDate = thirtyDaysAgo;
+                    addLog('Smart start date enabled but no previous transactions found. Defaulting to 30 days ago.');
+                }
+            } catch (err) {
+                addLog(`Warning: Failed to calculate smart start date: ${(err as Error).message}. Defaulting to 30 days ago.`);
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                libOptions.startDate = thirtyDaysAgo;
+            }
         } else {
             // Default to 30 days ago
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             libOptions.startDate = thirtyDaysAgo;
+            addLog(`Defaulting to 30 days ago: ${libOptions.startDate.toISOString().split('T')[0]}`);
         }
 
         // Add futureMonthsToScrape if specified
@@ -173,6 +221,11 @@ export class ScraperService {
                     this.emitLog(`Post-scrape actions failed: ${err?.message || err}`);
                 });
 
+                // Notify configured channels (Telegram, etc.) about the scrape result
+                postScrapeService.sendScrapeNotification(successResult, request).catch((err: any) => {
+                    this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                });
+
                 return successResult;
             } else {
                 this.emitProgress(ScraperProgressTypes.LoginFailed, `Scrape failed: ${scrapeResult.errorType}`);
@@ -187,12 +240,19 @@ export class ScraperService {
                     });
                 }
 
-                return {
-                    success: false,
+                const failResult = {
+                    success: false as const,
                     error: `${scrapeResult.errorType}${scrapeResult.errorMessage ? ': ' + scrapeResult.errorMessage : ''}`,
                     logs,
                     executionTimeMs,
                 };
+
+                // Notify configured channels about the failed scrape
+                postScrapeService.sendScrapeNotification(failResult, request).catch((err: any) => {
+                    this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                });
+
+                return failResult;
             }
 
         } catch (e: any) {
@@ -209,12 +269,17 @@ export class ScraperService {
                 });
             }
 
-            return {
-                success: false,
+            const errorResult = {
+                success: false as const,
                 error: e.message,
                 logs,
                 executionTimeMs,
             };
+
+            // Notify configured channels about the critical error
+            postScrapeService.sendScrapeNotification(errorResult, request).catch(() => {});
+
+            return errorResult;
         }
     }
 }

@@ -103,7 +103,7 @@ export function EnvironmentSettings() {
                 {
                     key: 'GOOGLE_REDIRECT_URI',
                     label: 'Google Redirect URI',
-                    help: 'Must match the authorized redirect URI in Cloud Console (e.g., http://localhost:3000/api/auth/google/callback)'
+                    help: `Must match the authorized redirect URI in Cloud Console (e.g., ${window.location.origin}/api/auth/google/callback)`
                 },
                 {
                     key: 'DRIVE_FOLDER_ID',

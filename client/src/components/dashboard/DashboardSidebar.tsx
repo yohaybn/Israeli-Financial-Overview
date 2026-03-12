@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUnifiedData } from '../../hooks/useUnifiedData';
-import { useUpdateTransactionCategory, useToggleIgnore, useAISettings } from '../../hooks/useScraper';
+import { useAISettings } from '../../hooks/useScraper';
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { Transaction } from '@app/shared';
+import { TransactionModal } from '../TransactionModal';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 
@@ -15,18 +16,9 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
     const { t, i18n } = useTranslation();
     const { data: transactions = [], isLoading } = useUnifiedData();
     const { data: aiSettings } = useAISettings();
-    const { mutate: updateCategory } = useUpdateTransactionCategory();
-    const { mutate: toggleIgnore } = useToggleIgnore();
-    const { config, updateConfig } = useDashboardConfig();
+    const { config } = useDashboardConfig();
     const [search, setSearch] = useState('');
-
-    const handleMarkAsCCPattern = (description: string) => {
-        const existing = config.customCCKeywords ?? [];
-        if (!existing.includes(description)) {
-            updateConfig({ customCCKeywords: [...existing, description] });
-        }
-    };
-
+    const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
 
     const filteredTransactions = useMemo(() => {
         return transactions
@@ -113,8 +105,9 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                                     {txns.map(txn => (
                                         <div
                                             key={txn.id}
+                                            onClick={() => setSelectedTxn(txn)}
                                             className={clsx(
-                                                "group bg-white/40 hover:bg-white/80 backdrop-blur-sm border border-gray-100/50 rounded-xl p-3 transition-all cursor-default hover:shadow-sm",
+                                                "group bg-white/40 hover:bg-white/80 backdrop-blur-sm border border-gray-100/50 rounded-xl p-3 transition-all cursor-pointer hover:shadow-sm",
                                                 txn.isIgnored && "opacity-40 grayscale"
                                             )}
                                         >
@@ -127,41 +120,16 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                                                         <span className="text-[10px] text-gray-400 font-medium">
                                                             {txn.provider}
                                                         </span>
-
-                                                        {/* Category Selector */}
-                                                        <select
-                                                            value={txn.category || ''}
-                                                            onChange={(e) => updateCategory({ transactionId: txn.id, category: e.target.value })}
-                                                            className="text-[9px] bg-blue-50/50 text-blue-600 px-1 py-0.5 rounded border-none focus:ring-1 focus:ring-blue-300 font-bold appearance-none cursor-pointer hover:bg-blue-100/50 transition-colors"
-                                                        >
-                                                            <option value="">{t('table.uncategorized', 'Other')}</option>
-                                                            {aiSettings?.categories?.map((cat: string) => (
-                                                                <option key={cat} value={cat}>{cat}</option>
-                                                            ))}
-                                                        </select>
-
-                                                        {/* Ignore Toggle */}
-                                                        <button
-                                                            onClick={() => toggleIgnore({ transactionId: txn.id, isIgnored: !txn.isIgnored })}
-                                                            className={clsx(
-                                                                "text-[9px] px-1.5 py-0.5 rounded font-bold transition-colors",
-                                                                txn.isIgnored
-                                                                    ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                                                                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                                            )}
-                                                            title={txn.isIgnored ? "Included" : "Ignored"}
-                                                        >
-                                                            {txn.isIgnored ? t('common.ignored', 'Ignored') : t('common.ignore', 'Ignore')}
-                                                        </button>
-
-                                                        {/* Mark as CC Pattern */}
-                                                        <button
-                                                            onClick={() => handleMarkAsCCPattern(txn.description)}
-                                                            className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
-                                                            title={t('dashboard.mark_cc_pattern', 'Mark as CC payment pattern — auto-exclude from expenses')}
-                                                        >
-                                                            💳
-                                                        </button>
+                                                        {txn.category && (
+                                                            <span className="text-[9px] bg-blue-50/50 text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                                                                {txn.category}
+                                                            </span>
+                                                        )}
+                                                        {txn.isIgnored && (
+                                                            <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                {t('common.ignored', 'Ignored')}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className={clsx(
@@ -179,6 +147,12 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                     </div>
                 )}
             </div>
+
+            <TransactionModal
+                transaction={selectedTxn}
+                isOpen={!!selectedTxn}
+                onClose={() => setSelectedTxn(null)}
+            />
         </div>
     );
 }

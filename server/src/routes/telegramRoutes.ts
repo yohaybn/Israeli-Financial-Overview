@@ -42,9 +42,9 @@ router.get('/config', async (req: Request, res: Response) => {
  */
 router.post('/config', async (req: Request, res: Response) => {
   try {
-    const { botToken, enabled, adminChatIds, notificationChatIds, allowedUsers } = req.body;
+    const { botToken, enabled, adminChatIds, notificationChatIds, allowedUsers, language } = req.body;
 
-    if (!botToken && !enabled && !adminChatIds && !notificationChatIds && !allowedUsers) {
+    if (!botToken && !enabled && !adminChatIds && !notificationChatIds && !allowedUsers && !language) {
       return res.status(400).json({ success: false, error: 'At least one field is required' });
     }
 
@@ -54,18 +54,20 @@ router.post('/config', async (req: Request, res: Response) => {
     if (adminChatIds) config.adminChatIds = adminChatIds;
     if (notificationChatIds) config.notificationChatIds = notificationChatIds;
     if (allowedUsers !== undefined) config.allowedUsers = allowedUsers;
+    if (language) config.language = language;
 
     telegramBotService.updateConfig(config);
 
-    // If we have a valid token and telegram notifier exists, update it
-    if (botToken || notificationChatIds) {
+    // If we have a valid token, notificationChatIds, or language, update the notifier
+    if (botToken || notificationChatIds || language) {
       try {
         const telegramNotifier = notificationService.getNotifier('telegram') as TelegramNotifier;
-        if (telegramNotifier && (botToken || notificationChatIds)) {
+        if (telegramNotifier) {
           telegramNotifier.updateConfig({
             botToken: botToken || undefined,
             chatIds: notificationChatIds || undefined,
             enabled: true,
+            language: language || undefined,
           });
         }
       } catch (notifierError) {
@@ -278,6 +280,19 @@ router.get('/notification-chats', async (req: Request, res: Response) => {
   try {
     const config = telegramBotService.getConfig();
     if (config.botToken && config.botToken.trim() !== '') {
+      // Register Telegram notifier so notification channels work on auto-start
+      const notifier = new TelegramNotifier({
+        botToken: config.botToken,
+        chatIds: config.notificationChatIds || [],
+        enabled: true,
+        language: config.language || 'en',
+      });
+      try {
+        notificationService.registerNotifier('telegram', notifier);
+      } catch (e) {
+        serverLogger.warn('Failed to register telegram notifier during auto-start', { error: e });
+      }
+
       serverLogger.info('Auto-starting Telegram bot with configured token...');
       await telegramBotService.start(config.botToken);
       serverLogger.info('Telegram bot auto-started successfully');

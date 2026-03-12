@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
+import { TransactionModal } from '../TransactionModal';
 
 interface TransferDetectionBannerProps {
     count: number;
@@ -11,6 +12,7 @@ interface TransferDetectionBannerProps {
 export function TransferDetectionBanner({ count, total, transactions }: TransferDetectionBannerProps) {
     const { t, i18n } = useTranslation();
     const [isExpanded, setIsExpanded] = useState(false);
+    const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
 
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
@@ -66,7 +68,8 @@ export function TransferDetectionBanner({ count, total, transactions }: Transfer
                         {transactions.map((txn, idx) => (
                             <div
                                 key={txn.id || idx}
-                                className="flex items-center justify-between py-2 px-3 bg-white/70 rounded-lg text-xs border border-blue-50"
+                                onClick={() => setSelectedTxn(txn)}
+                                className="flex items-center justify-between py-2 px-3 bg-white/70 rounded-lg text-xs border border-blue-50 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
                             >
                                 <div className="flex items-center gap-2">
                                     <span className="w-5 h-5 bg-blue-100 rounded text-blue-500 flex items-center justify-center text-[10px] font-bold">
@@ -87,6 +90,12 @@ export function TransferDetectionBanner({ count, total, transactions }: Transfer
                     </div>
                 </div>
             )}
+
+            <TransactionModal 
+                transaction={selectedTxn}
+                isOpen={!!selectedTxn}
+                onClose={() => setSelectedTxn(null)}
+            />
         </div>
     );
 }

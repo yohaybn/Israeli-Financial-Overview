@@ -62,16 +62,26 @@ async function startServer() {
     const start = Date.now();
     const { method, url, body, query } = req;
 
-    // Skip logging for the logs endpoints to avoid spamming the server log
-    if (url && url.startsWith('/api/logs')) {
-      return next();
-    }
+    // Check if it's a frequent/scheduled request that should be logged at debug level
+    const isDebugEndpoint = url && (
+      url.startsWith('/api/logs') ||
+      url.startsWith('/api/ai-logs') ||
+      url.startsWith('/api/telegram/status') ||
+      url.includes('/settings')
+    );
 
     // Log request
-    serverLogger.info(`Incoming ${method} ${url}`, {
-      body: maskSensitiveData(body),
-      query: maskSensitiveData(query)
-    });
+    if (isDebugEndpoint) {
+      serverLogger.debug(`Incoming ${method} ${url}`, {
+        body: maskSensitiveData(body),
+        query: maskSensitiveData(query)
+      });
+    } else {
+      serverLogger.info(`Incoming ${method} ${url}`, {
+        body: maskSensitiveData(body),
+        query: maskSensitiveData(query)
+      });
+    }
 
     // Capture response data
     const oldSend = res.send;
@@ -82,9 +92,15 @@ async function startServer() {
         if (typeof data === 'string') parsedData = JSON.parse(data);
       } catch (e) { }
 
-      serverLogger.info(`Outgoing ${method} ${url} - ${res.statusCode} (${duration}ms)`, {
-        data: maskSensitiveData(parsedData)
-      });
+      if (isDebugEndpoint) {
+        serverLogger.debug(`Outgoing ${method} ${url} - ${res.statusCode} (${duration}ms)`, {
+          data: maskSensitiveData(parsedData)
+        });
+      } else {
+        serverLogger.info(`Outgoing ${method} ${url} - ${res.statusCode} (${duration}ms)`, {
+          data: maskSensitiveData(parsedData)
+        });
+      }
 
       return oldSend.apply(res, arguments as any);
     };

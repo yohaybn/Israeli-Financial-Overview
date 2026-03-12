@@ -5,7 +5,6 @@ import { ResultsExplorer } from './components/ResultsExplorer';
 import { ScraperForm } from './components/ScraperForm';
 import { ScrapeProgress } from './components/ScrapeProgress';
 import { GoogleSheetsSync } from './components/GoogleSheetsSync';
-import { SchedulerSettings } from './components/SchedulerSettings';
 import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { ImportModal } from './components/ImportModal';
@@ -15,7 +14,7 @@ import { DashboardSidebar } from './components/dashboard/DashboardSidebar';
 function App() {
     const { t, i18n } = useTranslation();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [view, setView] = useState<'dashboard' | 'scrape' | 'scheduler' | 'logs' | 'configuration'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'scrape' | 'logs' | 'configuration'>('dashboard');
     const [initialLogType, setInitialLogType] = useState<'server' | 'client' | 'ai'>('server');
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -85,15 +84,6 @@ function App() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                     </svg>
                                     {t('common.scrape', 'Scrape')}
-                                </button>
-                                <button
-                                    onClick={() => setView('scheduler')}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${view === 'scheduler' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    {t('common.automation')}
                                 </button>
                                 <button
                                     onClick={() => setView('logs')}
@@ -184,9 +174,6 @@ function App() {
                         </div>
                         <div className={view === 'configuration' ? 'h-full' : 'hidden'}>
                             <ConfigurationPanel />
-                        </div>
-                        <div className={view === 'scheduler' ? 'h-full overflow-y-auto' : 'hidden'}>
-                            <SchedulerSettings />
                         </div>
                         <div className={view === 'logs' ? 'h-full' : 'hidden'}>
                             <LogViewer initialType={initialLogType} />

@@ -369,6 +369,24 @@ export function createScrapeRoutes(
         }
     });
 
+    // Update a transaction's memo (Unified DB only)
+    router.patch('/transactions/:transactionId/memo', async (req, res) => {
+        try {
+            const { transactionId } = req.params;
+            const { memo } = req.body;
+
+            const success = await storageService.updateTransactionMemoUnified(transactionId, memo);
+
+            if (!success) {
+                return res.status(404).json({ success: false, error: 'Transaction not found' });
+            }
+
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
     // Get all exclusion filters
     router.get('/filters', async (req, res) => {
         try {
@@ -453,6 +471,26 @@ export function createScrapeRoutes(
             res.json({ success: true, message: 'All user changes have been reset to defaults' });
         } catch (error: any) {
             console.error('[API] Reset failed:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+    
+    // Get global scrape configuration
+    router.get('/config', async (req, res) => {
+        try {
+            const config = await storageService.getGlobalScrapeConfig();
+            res.json({ success: true, data: config });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // Update global scrape configuration
+    router.put('/config', async (req, res) => {
+        try {
+            const config = await storageService.updateGlobalScrapeConfig(req.body);
+            res.json({ success: true, data: config });
+        } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
     });

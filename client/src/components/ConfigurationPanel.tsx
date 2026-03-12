@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useReloadDatabase, useResetToDefaults } from '../hooks/useScraper';
 import { AISettings } from './AISettings';
-import { PipelineSettings } from './PipelineSettings';
+import { ScrapeSettings } from './ScrapeSettings';
+import { MaintenancePanel } from './MaintenancePanel';
+import { SchedulerSettings } from './SchedulerSettings';
 import { GoogleSettings } from './GoogleSettings';
 import { EnvironmentSettings } from './EnvironmentSettings';
 import { TelegramSettings } from './TelegramSettings';
 
-type ConfigTab = 'ai' | 'pipeline' | 'sheets' | 'telegram' | 'maintenance' | 'environment';
+type ConfigTab = 'ai' | 'scheduler' | 'scrape' | 'sheets' | 'telegram' | 'maintenance' | 'environment';
 
 export function ConfigurationPanel() {
     const { t } = useTranslation();
@@ -29,40 +30,46 @@ export function ConfigurationPanel() {
                     </div>
                 </div>
 
-                <nav className="flex gap-2">
+                <nav className="flex gap-2 scrollbar-hide overflow-x-auto pb-2">
                     <button
                         onClick={() => setActiveTab('ai')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'ai' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
                         🧠 {t('ai_settings.title', 'AI Settings')}
                     </button>
                     <button
-                        onClick={() => setActiveTab('pipeline')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'pipeline' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                        onClick={() => setActiveTab('scheduler')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scheduler' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        ⚙️ {t('pipeline.title', 'Pipeline')}
+                        ⏱️ {t('scheduler.title', 'Scheduler')}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('scrape')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scrape' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                        ⚙️ {t('scraper.config_title', 'Scrape Configuration')}
                     </button>
                     <button
                         onClick={() => setActiveTab('sheets')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'sheets' ? 'bg-green-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sheets' ? 'bg-green-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
                         📊 {t('google_settings.title', 'Google Sheets')}
                     </button>
                     <button
                         onClick={() => setActiveTab('telegram')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'telegram' ? 'bg-cyan-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'telegram' ? 'bg-cyan-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
                         📱 {t('telegram.settings_title', 'Telegram')}
                     </button>
                     <button
                         onClick={() => setActiveTab('environment')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'environment' ? 'bg-slate-700 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'environment' ? 'bg-slate-700 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
                         🌐 {t('common.environment', 'Environment')}
                     </button>
                     <button
                         onClick={() => setActiveTab('maintenance')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'maintenance' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'maintenance' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
                         🛠️ {t('common.maintenance', 'Maintenance')}
                     </button>
@@ -72,99 +79,14 @@ export function ConfigurationPanel() {
             <main className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-4xl mx-auto">
                     {activeTab === 'ai' && <AISettings isInline={true} />}
-                    {activeTab === 'pipeline' && <PipelineSettings />}
+                    {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
+                    {activeTab === 'scrape' && <ScrapeSettings />}
                     {activeTab === 'sheets' && <GoogleSettings isInline={true} />}
                     {activeTab === 'telegram' && <TelegramSettings isInline={true} />}
                     {activeTab === 'environment' && <EnvironmentSettings />}
                     {activeTab === 'maintenance' && <MaintenancePanel />}
                 </div>
             </main>
-        </div>
-    );
-}
-
-function MaintenancePanel() {
-    const { t } = useTranslation();
-    const { mutate: reloadDb, isPending } = useReloadDatabase();
-    const { mutate: resetAll, isPending: isResetting } = useResetToDefaults();
-
-    const handleReload = () => {
-        if (window.confirm(t('maintenance.confirm_reload'))) {
-            reloadDb(undefined, {
-                onSuccess: () => {
-                    alert(t('maintenance.reload_success'));
-                },
-                onError: (err: any) => {
-                    const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                    alert(`Reload failed: ${errorMsg}`);
-                }
-            });
-        }
-    };
-
-    const handleReset = () => {
-        console.log('handleReset clicked');
-        const confirmMsg = t('table.confirm_reset_all');
-        if (window.confirm(confirmMsg)) {
-            console.log('Confirmation received, calling resetAll mutation...');
-            resetAll(undefined, {
-                onSuccess: () => {
-                    console.log('Reset mutation success');
-                    alert(t('maintenance.reset_success'));
-                },
-                onError: (err: any) => {
-                    console.error('Reset mutation failed:', err);
-                    const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                    alert(`Reset failed: ${errorMsg}`);
-                }
-            });
-        } else {
-            console.log('Reset cancelled by user');
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-lg font-bold text-gray-800 mb-2">{t('common.maintenance')}</h3>
-                <p className="text-gray-600 text-sm mb-6">
-                    {t('common.maintenance_desc')}
-                </p>
-
-                <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between mb-6">
-                    <div>
-                        <h4 className="font-bold text-amber-900 mb-1">{t('maintenance.reload_title')}</h4>
-                        <p className="text-amber-800 text-xs opacity-80 max-w-lg">
-                            {t('maintenance.reload_desc')}
-                        </p>
-                    </div>
-
-                    <button
-                        onClick={handleReload}
-                        disabled={isPending}
-                        className="bg-white text-amber-600 border-2 border-amber-200 hover:border-amber-600 px-6 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {isPending ? t('common.loading') : t('table.reset_columns')}
-                    </button>
-                </div>
-
-                <div className="p-6 bg-red-50 rounded-2xl border border-red-100 flex items-center justify-between">
-                    <div>
-                        <h4 className="font-bold text-red-900 mb-1">{t('table.reset_all')}</h4>
-                        <p className="text-red-800 text-xs opacity-80 max-w-lg">
-                            {t('table.reset_all_desc')}
-                        </p>
-                    </div>
-
-                    <button
-                        onClick={handleReset}
-                        disabled={isResetting}
-                        className="bg-white text-red-600 border-2 border-red-200 hover:border-red-600 px-6 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {isResetting ? t('common.loading') : t('common.reset_to_defaults')}
-                    </button>
-                </div>
-            </div>
         </div>
     );
 }

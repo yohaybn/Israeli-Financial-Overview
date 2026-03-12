@@ -162,6 +162,21 @@ export function useUpdateTransactionType() {
     });
 }
 
+export function useUpdateTransactionMemo() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ transactionId, memo }: { transactionId: string; memo: string }) => {
+            const encodedTxn = encodeURIComponent(transactionId);
+            const { data } = await api.patch<{ success: boolean }>(`/transactions/${encodedTxn}/memo`, { memo });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+        },
+    });
+}
+
 export function useUnifiedAIChat() {
     return useMutation({
         mutationFn: async ({ query, transactions, historyNote }: { query: string; transactions: Transaction[]; historyNote?: string }) => {

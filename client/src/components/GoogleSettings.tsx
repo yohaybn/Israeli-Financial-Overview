@@ -24,7 +24,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
 
     const [clientId, setClientId] = useState('');
     const [clientSecret, setClientSecret] = useState('');
-    const [redirectUri, setRedirectUri] = useState('http://localhost:3000/api/auth/google/callback');
+    const [redirectUri, setRedirectUri] = useState(`${window.location.origin}/api/auth/google/callback`);
     const [selectedFolderId, setSelectedFolderId] = useState('');
     const [selectedFolderName, setSelectedFolderName] = useState('');
     const [currentBrowsingFolderId, setCurrentBrowsingFolderId] = useState<string | null>(null);
@@ -144,7 +144,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
         if (settings) {
             setClientId(settings.clientId || '');
             setClientSecret(settings.clientSecret || '');
-            setRedirectUri(settings.redirectUri || 'http://localhost:3000/api/auth/google/callback');
+            setRedirectUri(settings.redirectUri || `${window.location.origin}/api/auth/google/callback`);
         }
     }, [settings]);
 

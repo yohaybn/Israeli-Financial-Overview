@@ -21,6 +21,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [newAllowedUser, setNewAllowedUser] = useState('');
     const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
+    const [botLanguage, setBotLanguage] = useState<'en' | 'he'>('he');
 
     const showNotification = useCallback((type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
@@ -46,6 +47,9 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             }
             if (config.allowedUsers) {
                 setAllowedUsers(config.allowedUsers);
+            }
+            if (config.language) {
+                setBotLanguage(config.language);
             }
         }
     }, [config]);
@@ -255,7 +259,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             showNotification('error', 'Bot token is required');
             return;
         }
-        updateConfig({ botToken });
+        updateConfig({ botToken, language: botLanguage });
     };
 
     const handleStartBot = () => {
@@ -364,6 +368,35 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                     </>
                 )}
 
+
+                {/* Bot Language */}
+                <div className="space-y-4 mb-6">
+                    <div>
+                        <label className="block text-sm font-semibold mb-2">
+                            {t('telegram.bot_language', 'Bot Language')}
+                        </label>
+                        <div className="flex gap-3 items-center">
+                            <button
+                                type="button"
+                                onClick={() => { setBotLanguage('en'); updateConfig({ language: 'en' }); }}
+                                className={`px-5 py-2 rounded-lg text-sm font-bold border transition-all ${botLanguage === 'en' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            >
+                                🇬🇧 English
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setBotLanguage('he'); updateConfig({ language: 'he' }); }}
+                                className={`px-5 py-2 rounded-lg text-sm font-bold border transition-all ${botLanguage === 'he' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            >
+                                🇮🇱 עברית
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {t('telegram.bot_language_help', 'All bot messages and notifications will be sent in the selected language.')}
+                        </p>
+                    </div>
+                </div>
+
                 {/* Bot Token Configuration */}
                 <div className="space-y-4 mb-6">
                     <div>
@@ -391,6 +424,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                             {t('telegram.token_help', 'Get your token from @BotFather on Telegram')}
                         </p>
                     </div>
+
 
                     {/* Test Connection */}
                     {botToken && (
