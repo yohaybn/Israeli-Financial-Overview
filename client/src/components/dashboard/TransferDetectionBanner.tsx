@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
+import { ArrowRightLeft } from 'lucide-react';
 import { TransactionModal } from '../TransactionModal';
 
 interface TransferDetectionBannerProps {
@@ -72,8 +73,8 @@ export function TransferDetectionBanner({ count, total, transactions }: Transfer
                                 className="flex items-center justify-between py-2 px-3 bg-white/70 rounded-lg text-xs border border-blue-50 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
                             >
                                 <div className="flex items-center gap-2">
-                                    <span className="w-5 h-5 bg-blue-100 rounded text-blue-500 flex items-center justify-center text-[10px] font-bold">
-                                        ↔
+                                    <span className="w-5 h-5 bg-blue-100 rounded text-blue-500 flex items-center justify-center">
+                                        <ArrowRightLeft size={10} />
                                     </span>
                                     <div>
                                         <span className="font-medium text-gray-700 truncate block max-w-[250px]">{txn.description}</span>

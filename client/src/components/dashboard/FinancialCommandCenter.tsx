@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
 import { useFinancialSummary } from '../../hooks/useFinancialSummary';
 import { useUnifiedData } from '../../hooks/useUnifiedData';
+import { useAISettings } from '../../hooks/useScraper';
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { ExpenseProgressCenter } from './ExpenseProgressCenter';
 import { IncomeProgressCenter } from './IncomeProgressCenter';
@@ -13,6 +14,7 @@ import { BudgetHealthScore } from './BudgetHealthScore';
 import { AnomalyAlerts } from './AnomalyAlerts';
 import { CCPaymentDateSettings } from './CCPaymentDateSettings';
 import { DashboardAIChat } from './DashboardAIChat';
+import { CategoryDetailsModal } from './CategoryDetailsModal';
 
 interface FinancialCommandCenterProps {
     // Optional: if provided, uses these transactions (for backward compatibility or specific file view)
@@ -36,10 +38,13 @@ export function FinancialCommandCenter({
     const { t, i18n } = useTranslation();
     const [showAnomalies, setShowAnomalies] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<string | null>(null);
 
     // If props provided, use them. Otherwise fetch unified data.
     const { data: unifiedTransactions, isLoading /*, error*/ } = useUnifiedData();
+    const { data: aiSettings } = useAISettings();
     const transactions = propTransactions || unifiedTransactions || [];
+    const availableCategories = categories || aiSettings?.categories || [];
 
     const { config } = useDashboardConfig();
     const summary = useFinancialSummary(
@@ -184,10 +189,13 @@ export function FinancialCommandCenter({
                     alreadySpentTxns={summary.expenses.alreadySpentTxns}
                     remainingPlanned={summary.expenses.remainingPlanned}
                     remainingPlannedTxns={summary.expenses.remainingPlannedTxns}
+                    variableForecast={summary.expenses.variableForecast}
+                    remainingDays={summary.remainingDays}
                     totalProjected={summary.expenses.totalProjected}
                     byCategory={summary.expenses.byCategory}
-                    categories={categories}
+                    categories={availableCategories}
                     onUpdateCategory={onUpdateCategory}
+                    onCategoryClick={setSelectedCategoryForModal}
                 />
                 <IncomeProgressCenter
                     alreadyReceived={summary.income.alreadyReceived}
@@ -196,7 +204,7 @@ export function FinancialCommandCenter({
                     expectedInflowTxns={summary.income.expectedInflowTxns}
                     totalProjected={summary.income.totalProjected}
                     upcomingIncome={summary.upcomingFixed.filter(i => i.type === 'income')}
-                    categories={categories}
+                    categories={availableCategories}
                     onUpdateCategory={onUpdateCategory}
                 />
             </div>
@@ -242,6 +250,18 @@ export function FinancialCommandCenter({
                 contextMonth={selectedMonth}
                 onNavigateToLogs={onNavigateToLogs}
             />
+
+            {/* Category Details Modal */}
+            {selectedCategoryForModal && (
+                <CategoryDetailsModal
+                    categoryName={selectedCategoryForModal}
+                    transactions={transactions}
+                    categories={availableCategories}
+                    onUpdateCategory={onUpdateCategory}
+                    initialMonth={selectedMonth}
+                    onClose={() => setSelectedCategoryForModal(null)}
+                />
+            )}
 
             {/* Floating AI Chat Button */}
             {!isChatOpen && (

@@ -1,7 +1,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
+import { ArrowRightLeft } from 'lucide-react';
 import { TransactionModal } from './TransactionModal';
+import { isInternalTransfer } from '../utils/transactionUtils';
+import { useDashboardConfig } from '../hooks/useDashboardConfig';
 
 interface TransactionTableProps {
     transactions: Transaction[];
@@ -37,6 +40,7 @@ export function TransactionTable({
     onUpdateCategory 
 }: TransactionTableProps) {
     const { t, i18n } = useTranslation();
+    const { config } = useDashboardConfig();
 
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -286,9 +290,21 @@ export function TransactionTable({
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-900 group relative`}>
                         <div className="flex items-center justify-between">
-                            <div>
-                                <div className="font-medium">{txn.description}</div>
-                                {txn.memo && <div className="text-xs text-gray-400 mt-0.5">{txn.memo}</div>}
+                            <div className="flex items-center gap-2">
+                                <div>
+                                    <div className="font-medium flex items-center gap-2">
+                                        {txn.description}
+                                        {isInternalTransfer(txn, config.customCCKeywords) && (
+                                            <div title={t('table.internal_transfer')}>
+                                                <ArrowRightLeft 
+                                                    size={14} 
+                                                    className="text-blue-500" 
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                    {txn.memo && <div className="text-xs text-gray-400 mt-0.5">{txn.memo}</div>}
+                                </div>
                             </div>
                                 {/* Simplified actions - more inside the modal */}
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -319,6 +335,7 @@ export function TransactionTable({
                     <td key={col.key} className={baseClass}>
                         <select
                             value={txn.category || ''}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onUpdateCategory?.(txn.id, e.target.value)}
                             className="bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 focus:ring-blue-500 focus:border-blue-500 block w-full appearance-none cursor-pointer hover:bg-white transition-colors"
                         >

@@ -34,9 +34,10 @@ async function startServer() {
   const { logRoutes } = await import('./routes/logRoutes.js');
   const { telegramRoutes } = await import('./routes/telegramRoutes.js');
   const { createNotificationRoutes } = await import('./routes/notificationRoutes.js');
+  const { configRoutes } = await import('./routes/configRoutes.js');
 
   const app = express();
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 3001;
 
   // Create HTTP server and Socket.IO instance
   const httpServer = createServer(app);
@@ -123,6 +124,7 @@ async function startServer() {
   app.use('/api/telegram', telegramRoutes);
   app.use('/api/logs', logRoutes);
   app.use('/api/notifications', createNotificationRoutes());
+  app.use('/api/config', configRoutes);
 
   // Socket.IO connection handling
   io.on('connection', (socket) => {

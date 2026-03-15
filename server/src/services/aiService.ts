@@ -169,7 +169,7 @@ export class AiService {
 
             OUTPUT FORMAT:
             You MUST return the result as a VALID JSON object where:
-            - The key is the EXACT transaction description.
+            - The key is the EXACT transaction description. If the description contains quotes or special characters, you MUST properly escape them in the JSON.
             - The value is the selected category string.
 
             Example:
@@ -190,7 +190,12 @@ export class AiService {
             });
 
             startTime = Date.now();
-            const result = await model.generateContent(prompt);
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json"
+                }
+            });
             const response = await result.response;
             const text = response.text();
             const latencyMs = Date.now() - startTime;
@@ -370,7 +375,12 @@ export class AiService {
 
         try {
             serverLogger.info(`AI Parsing document text (${text.length} chars) using ${this.settings.categorizationModel}`);
-            const result = await model.generateContent(prompt);
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json"
+                }
+            });
             const response = await result.response;
             const resText = response.text();
 

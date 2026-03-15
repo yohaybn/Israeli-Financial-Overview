@@ -61,10 +61,10 @@ export function createScrapeRoutes(
         const request: ScrapeRequest = req.body;
 
         // Validate required fields
-        if (!request.companyId || !request.credentials) {
+        if (!request.companyId || (!request.credentials && !request.profileId)) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields: companyId and credentials are required'
+                error: 'Missing required fields: companyId and either credentials or profileId are required'
             });
         }
 

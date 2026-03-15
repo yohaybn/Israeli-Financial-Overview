@@ -21,7 +21,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [newAllowedUser, setNewAllowedUser] = useState('');
     const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
-    const [botLanguage, setBotLanguage] = useState<'en' | 'he'>('he');
+    const [botLanguage, setBotLanguage] = useState<'en' | 'he'>('en');
 
     const showNotification = useCallback((type: 'success' | 'error', message: string) => {
         setNotification({ type, message });

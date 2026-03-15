@@ -138,6 +138,7 @@
         "memo": "Memo",
         "processed_date": "Processed Date",
         "reset_columns": "Reset to defaults",
+        "internal_transfer": "Internal Transfer",
         "reset_all": "Reset All User Changes",
         "reset_all_desc": "This will clear all categories, filters, internal transfers, and ignored transaction settings. Rebuilds DB from source files.",
         "confirm_reset_all": "Are you sure you want to reset all user modifications (categories, filters, ignoring) back to defaults? This cannot be undone."
@@ -159,7 +160,12 @@
         "add_category": "Add category...",
         "add_button": "Add",
         "saving": "Saving...",
-        "save_button": "Save Settings"
+        "save_button": "Save Settings",
+        "recategorize_all": "Recategorize Everything",
+        "recategorize_all_desc": "Iterate through all transactions in the database and attempt to categorize them using AI. This uses the allowed categories list above.",
+        "force_recategorize": "Force Recategorization (overwrite existing)",
+        "recategorize_button": "Recategorize All Now",
+        "recategorize_success": "Successfully updated {{count}} transactions!"
     },
     "analytics": {
         "total_income": "Total Income",
@@ -185,7 +191,9 @@
         "placeholder_client_secret": "Enter client secret"
     },
     "post_scrape": {
-        "title": "Post-Scrape Actions"
+        "title": "Post-Scrape Actions",
+        "ignore_pending": "Ignore Pending Transactions",
+        "ignore_pending_desc": "Do not enter and delete existing from DB transactions in pending status"
     },
     "dashboard": {
         "title": "Financial Command Center",

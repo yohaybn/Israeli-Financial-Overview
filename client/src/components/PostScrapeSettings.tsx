@@ -94,6 +94,19 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
               <span>{t('post_scrape.fraud_notify_help', 'Send notification when potential fraud is detected')}</span>
             </label>
           </div>
+          <div className="mt-3 pt-3 border-t">
+            <div className="text-xs text-gray-500 mb-2">{t('post_scrape.transaction_scope', 'Transaction Scope')}</div>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="fraud_scope" checked={cfg.fraudDetection?.scope !== 'all'} onChange={() => update({ fraudDetection: { ...cfg.fraudDetection, scope: 'current' } })} />
+                <span className="text-xs">{t('post_scrape.current_scrape', 'Current scrape')}</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="fraud_scope" checked={cfg.fraudDetection?.scope === 'all'} onChange={() => update({ fraudDetection: { ...cfg.fraudDetection, scope: 'all' } })} />
+                <span className="text-xs">{t('post_scrape.all_transactions', 'All transactions')}</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className="p-3 border rounded-lg">
@@ -107,6 +120,19 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
               <input type="checkbox" checked={cfg.customAI?.notifyOnResult} onChange={(e) => update({ customAI: { ...cfg.customAI, notifyOnResult: e.target.checked } })} />
               <span>{t('post_scrape.notify_on_result', 'Notify when custom AI returns a result')}</span>
             </label>
+          </div>
+          <div className="mt-3 pt-3 border-t">
+            <div className="text-xs text-gray-500 mb-2">{t('post_scrape.transaction_scope', 'Transaction Scope')}</div>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="ai_scope" checked={cfg.customAI?.scope !== 'all'} onChange={() => update({ customAI: { ...cfg.customAI, scope: 'current' } })} />
+                <span className="text-xs">{t('post_scrape.current_scrape', 'Current scrape')}</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="ai_scope" checked={cfg.customAI?.scope === 'all'} onChange={() => update({ customAI: { ...cfg.customAI, scope: 'all' } })} />
+                <span className="text-xs">{t('post_scrape.all_transactions', 'All transactions')}</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -154,7 +180,12 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
       {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
 
       {toast && (
-        <div className="fixed right-6 bottom-6 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg">{toast}</div>
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur-sm text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 z-[110]">
+          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-sm font-bold">{toast}</span>
+        </div>
       )}
     </div>
   );

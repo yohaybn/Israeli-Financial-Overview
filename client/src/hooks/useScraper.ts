@@ -6,7 +6,7 @@ export function useScrapeResults() {
     return useQuery({
         queryKey: ['scrapeResults'],
         queryFn: async () => {
-            const { data } = await api.get<{ success: boolean; data: Array<{ filename: string; transactionCount: number; accountCount: number }> }>('/results');
+            const { data } = await api.get<{ success: boolean; data: Array<{ filename: string; transactionCount: number; accountCount: number; createdAt: string }> }>('/results');
             return data.data;
         },
     });
@@ -289,6 +289,20 @@ export function useAICategorize() {
         },
         onSuccess: (_, filename) => {
             queryClient.invalidateQueries({ queryKey: ['scrapeResult', filename] });
+        },
+    });
+}
+
+export function useRecategorizeAll() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (force: boolean = false) => {
+            const { data } = await api.post<{ success: boolean; count: number }>('/ai/categorize/all', { force });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
         },
     });
 }

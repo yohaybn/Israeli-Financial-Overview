@@ -18,6 +18,7 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
         timeout: 120000,
         futureMonthsToScrape: 0,
         autoCategorize: true,
+        ignorePendingTransactions: true,
     },
     useSmartStartDate: true,
     postScrapeConfig: {
@@ -25,11 +26,13 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
         fraudDetection: {
             enabled: false,
             notifyOnIssue: true,
+            scope: 'current',
         },
         customAI: {
             enabled: false,
             query: '',
             notifyOnResult: true,
+            scope: 'current',
         },
         notificationChannels: ['console'],
     },
@@ -39,11 +42,12 @@ export class StorageService {
     private aiService: AiService;
     private dbService: DbService;
     private dbSynced = false;
+    private initPromise: Promise<void>;
 
     constructor() {
         this.aiService = new AiService();
         this.dbService = new DbService();
-        this.ensureDataDir();
+        this.initPromise = this.ensureDataDir();
     }
 
     private async ensureDataDir() {
@@ -103,6 +107,9 @@ export class StorageService {
         // One-time sync or on startup: read all JSONs and push to DB
         // To avoid re-processing everything every time, maybe check if DB is empty or just rely on INSERT OR IGNORE
         serverLogger.info('Syncing JSON files to DB...');
+        const globalConfig = await this.getGlobalScrapeConfig();
+        const ignorePending = globalConfig.scraperOptions.ignorePendingTransactions !== false;
+
         const files = await fs.readdir(RESULTS_DIR);
         for (const file of files) {
             if (!file.endsWith('.json')) continue;
@@ -110,6 +117,9 @@ export class StorageService {
                 const result = await this.getScrapeResult(file);
                 if (result && result.transactions) {
                     for (const txn of result.transactions) {
+                        if (ignorePending && txn.status === 'pending') {
+                            continue;
+                        }
                         this.dbService.addTransaction(txn);
                     }
                 }
@@ -137,6 +147,25 @@ export class StorageService {
         }
 
         if (result.transactions && result.transactions.length > 0) {
+            const config = await this.getGlobalScrapeConfig();
+            const ignorePending = config.scraperOptions.ignorePendingTransactions !== false;
+
+            const validTransactions = [];
+            for (const txn of result.transactions) {
+                if (ignorePending && txn.status === 'pending') {
+                    const txnId = txn.id || this.generateStableId(txn, txn.accountNumber || accountNumber);
+                    this.dbService.deleteTransaction(txnId);
+                    continue;
+                }
+
+                if (!txn.id) {
+                    txn.id = this.generateStableId(txn, txn.accountNumber);
+                }
+                validTransactions.push(txn);
+                this.dbService.addTransaction(txn);
+            }
+            result.transactions = validTransactions;
+
             const dates = result.transactions
                 .map(t => new Date(t.date).getTime())
                 .filter(d => !isNaN(d));
@@ -144,14 +173,6 @@ export class StorageService {
             if (dates.length > 0) {
                 const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
                 dateRange = `_${minDate}`;
-            }
-
-            // Save to DB
-            for (const txn of result.transactions) {
-                if (!txn.id) {
-                    txn.id = this.generateStableId(txn, txn.accountNumber);
-                }
-                this.dbService.addTransaction(txn);
             }
         }
 
@@ -198,20 +219,23 @@ export class StorageService {
     }
 
     async listScrapeResults() {
-        await this.ensureDataDir();
+        await this.initPromise;
         const files = await fs.readdir(RESULTS_DIR);
         const fileMetadata = [];
 
         for (const file of files) {
             if (!file.endsWith('.json')) continue;
             try {
+                const filePath = path.join(RESULTS_DIR, file);
+                const stats = await fs.stat(filePath);
                 const result = await this.getScrapeResult(file);
                 const transactionCount = result?.transactions?.length || 0;
                 if (transactionCount > 0) {
                     fileMetadata.push({
                         filename: file,
                         transactionCount,
-                        accountCount: result?.accounts?.length || 0
+                        accountCount: result?.accounts?.length || 0,
+                        createdAt: stats.birthtime.toISOString()
                     });
                 }
             } catch (error) {
@@ -292,7 +316,7 @@ export class StorageService {
                         category: txn.category,
                         provider: provider,
                         accountNumber: account.accountNumber,
-                        txnType: txn.txnType || txn.type
+                        txnType: txn.txnType || (txn.type === 'internal_transfer' ? 'internal_transfer' : undefined)
                     });
                 });
             }
@@ -334,48 +358,16 @@ export class StorageService {
     }
 
     async updateTransactionCategory(filename: string, transactionId: string, category: string): Promise<boolean> {
-        // Update DB
+        // Get description first to enable mass update
+        const result = await this.getScrapeResult(filename);
+        const txn = result?.transactions?.find(t => t.id === transactionId);
+        
+        if (txn && txn.description) {
+            return this.updateTransactionCategoryUnified(transactionId, category);
+        }
+
+        // Fallback to single update if description not found (shouldn't happen)
         this.dbService.updateTransactionCategory(transactionId, category);
-
-        // Also update the file for consistency
-        const filePath = path.join(RESULTS_DIR, filename);
-        if (!await fs.pathExists(filePath)) return false;
-
-        const rawData = await fs.readJson(filePath);
-        let description: string | null = null;
-
-        if (Array.isArray(rawData)) {
-            let found = false;
-            for (const account of rawData) {
-                if (account.txns) {
-                    const txnIndex = account.txns.findIndex((t: any) => t.identifier?.toString() === transactionId || t.id === transactionId);
-                    if (txnIndex !== -1) {
-                        description = account.txns[txnIndex].description;
-                        account.txns[txnIndex].category = category;
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            if (!found) return false;
-            await fs.writeJson(filePath, rawData, { spaces: 2 });
-        } else {
-            const result: ScrapeResult = rawData;
-            if (!result.transactions) return false;
-
-            const txnIndex = result.transactions.findIndex(t => t.id === transactionId);
-            if (txnIndex === -1) return false;
-
-            description = result.transactions[txnIndex].description;
-            result.transactions[txnIndex].category = category;
-
-            await fs.writeJson(filePath, result, { spaces: 2 });
-        }
-
-        if (description) {
-            await this.aiService.updateCategoryInCache(description, category);
-        }
-
         return true;
     }
 
@@ -385,18 +377,70 @@ export class StorageService {
     }
 
     async updateTransactionCategoryUnified(transactionId: string, category: string): Promise<boolean> {
-        // Update DB
-        this.dbService.updateTransactionCategory(transactionId, category);
-
-        // Get description for AI cache update
+        // Get description for mass update
         const transactions = await this.dbService.getAllTransactions(true); // Get all including ignored
         const txn = transactions.find(t => t.id === transactionId);
 
-        if (txn && txn.description) {
-            await this.aiService.updateCategoryInCache(txn.description, category);
+        if (!txn || !txn.description) {
+            // Fallback to single update if no description (unlikely)
+            this.dbService.updateTransactionCategory(transactionId, category);
+            return true;
         }
 
+        const description = txn.description;
+
+        // 1. Update DB for ALL transactions with this description
+        this.dbService.updateCategoryByDescription(description, category);
+
+        // 2. Update AI cache
+        await this.aiService.updateCategoryInCache(description, category);
+
+        // 3. Sync to ALL files
+        await this.syncCategoryUpdateByDescriptionToFiles(description, category);
+
         return true;
+    }
+
+    private async syncCategoryUpdateByDescriptionToFiles(description: string, category: string): Promise<void> {
+        const files = await fs.readdir(RESULTS_DIR);
+        for (const file of files) {
+            if (!file.endsWith('.json')) continue;
+
+            const filePath = path.join(RESULTS_DIR, file);
+            try {
+                const rawData = await fs.readJson(filePath);
+                let updated = false;
+
+                if (Array.isArray(rawData)) {
+                    for (const account of rawData) {
+                        if (account.txns) {
+                            account.txns.forEach((t: any) => {
+                                if (t.description === description) {
+                                    t.category = category;
+                                    updated = true;
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    const result: ScrapeResult = rawData;
+                    if (result.transactions) {
+                        result.transactions.forEach(t => {
+                            if (t.description === description) {
+                                t.category = category;
+                                updated = true;
+                            }
+                        });
+                    }
+                }
+
+                if (updated) {
+                    await fs.writeJson(filePath, rawData, { spaces: 2 });
+                }
+            } catch (e) {
+                serverLogger.error(`Error updating file ${file}:`, e);
+            }
+        }
     }
 
     async updateTransactionTypeUnified(transactionId: string, txnType: string): Promise<boolean> {
@@ -556,7 +600,7 @@ export class StorageService {
 
     async getAllTransactions(includeIgnored = false): Promise<any[]> {
         // Read from DB now!
-        await this.ensureDataDir();
+        await this.initPromise;
         return this.dbService.getAllTransactions(includeIgnored);
     }
 
@@ -608,5 +652,68 @@ export class StorageService {
         await fs.ensureDir(CONFIG_DIR);
         await fs.writeJson(SCRAPE_CONFIG_PATH, config, { spaces: 2 });
         return config;
+    }
+
+    async categorizeAllWithAi(force: boolean = false): Promise<{ success: boolean; count: number }> {
+        const transactions = await this.dbService.getAllTransactions(true);
+        if (transactions.length === 0) return { success: true, count: 0 };
+
+        serverLogger.info(`Starting bulk AI categorization for ${transactions.length} transactions (force: ${force})`);
+
+        // Group by description to minimize AI calls
+        const uniqueDescriptions = Array.from(new Set(transactions.map(t => t.description)));
+        
+        let toCategorize: string[] = [];
+        if (force) {
+            toCategorize = uniqueDescriptions;
+        } else {
+            // Only categorize those not in cache
+            toCategorize = uniqueDescriptions.filter(desc => !this.dbService.getCategory(desc));
+        }
+
+        if (toCategorize.length === 0) {
+            serverLogger.info('No new descriptions to categorize');
+            return { success: true, count: 0 };
+        }
+
+        serverLogger.info(`Sending ${toCategorize.length} unique descriptions to AI service`);
+
+        // We can't use categorizeTransactions directly because it expects full Transaction objects
+        // and handles its own filtering. We'll create dummy transactions for it.
+        const dummyTransactions: Transaction[] = toCategorize.map(desc => ({
+            id: 'dummy',
+            date: new Date().toISOString(),
+            processedDate: new Date().toISOString(),
+            description: desc,
+            amount: 0,
+            originalAmount: 0,
+            originalCurrency: 'ILS',
+            chargedAmount: 0,
+            chargedCurrency: 'ILS',
+            status: 'completed',
+            provider: 'dummy',
+            accountNumber: 'dummy'
+        }));
+
+        await this.aiService.categorizeTransactions(dummyTransactions);
+
+        // Now that the AI service has updated the cache, we apply it to all transactions in DB
+        let updateCount = 0;
+        for (const txn of transactions) {
+            const newCategory = this.dbService.getCategory(txn.description);
+            if (newCategory && newCategory !== txn.category) {
+                await this.dbService.updateTransactionCategory(txn.id, newCategory);
+                
+                // Sync to files
+                await this.syncTransactionUpdateToFiles(txn.id, (t) => {
+                    t.category = newCategory;
+                });
+                
+                updateCount++;
+            }
+        }
+
+        serverLogger.info(`Bulk categorization complete. Updated ${updateCount} transactions.`);
+        return { success: true, count: updateCount };
     }
 }

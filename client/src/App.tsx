@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QueryProvider } from './providers/QueryProvider';
 import { ResultsExplorer } from './components/ResultsExplorer';
 import { ScraperForm } from './components/ScraperForm';
 import { ScrapeProgress } from './components/ScrapeProgress';
@@ -10,6 +9,10 @@ import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { ImportModal } from './components/ImportModal';
 import { FinancialCommandCenter } from './components/dashboard/FinancialCommandCenter';
 import { DashboardSidebar } from './components/dashboard/DashboardSidebar';
+import { useScrapeResults, useUpdateTransactionCategory } from './hooks/useScraper';
+import { useUnifiedData } from './hooks/useUnifiedData';
+import { useEffect } from 'react';
+
 
 function App() {
     const { t, i18n } = useTranslation();
@@ -22,17 +25,26 @@ function App() {
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
 
-    // Auto-collapse sidebar when not in history view to give more space
-    // and auto-expand when entering history view as scraper controls are there
-    /* useEffect(() => {
-        if (view === 'scrape') {
-            setIsSidebarCollapsed(false);
-        } else {
-            setIsSidebarCollapsed(true);
+    const { data: scrapeResults, isLoading: isLoadingScrape } = useScrapeResults();
+    const { data: unifiedTransactions, isLoading: isLoadingUnified } = useUnifiedData();
+    const [hasCheckedData, setHasCheckedData] = useState(false);
+
+    // Default to scrape view if no data exists
+    useEffect(() => {
+        if (!hasCheckedData && !isLoadingScrape && !isLoadingUnified && scrapeResults && unifiedTransactions) {
+            const noData = scrapeResults.length === 0 && unifiedTransactions.length === 0;
+            if (noData) {
+                setView('scrape');
+            }
+            setHasCheckedData(true);
         }
-    }, [view]); */
-    // Commented out to avoid jarring UI shifts, let user control it manually for now.
-    // Instead, just conditionally render content.
+    }, [scrapeResults, unifiedTransactions, isLoadingScrape, isLoadingUnified, hasCheckedData]);
+
+    const { mutate: updateCategory } = useUpdateTransactionCategory();
+
+    const handleUpdateCategory = (transactionId: string, category: string) => {
+        updateCategory({ transactionId, category });
+    };
 
     const toggleLanguage = () => {
         const newLng = i18n.language === 'he' ? 'en' : 'he';
@@ -45,7 +57,7 @@ function App() {
     };
 
     return (
-        <QueryProvider>
+        <>
             <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
                 <header className="bg-white border-b border-gray-200 p-4 shadow-sm z-10 w-full">
                     <div className="container mx-auto flex items-center justify-between">
@@ -167,6 +179,7 @@ function App() {
                                 selectedMonth={selectedMonth}
                                 onMonthChange={setSelectedMonth}
                                 onNavigateToLogs={handleNavigateToAILogs}
+                                onUpdateCategory={handleUpdateCategory}
                             />
                         </div>
                         <div className={view === 'scrape' ? 'h-full' : 'hidden'}>
@@ -191,7 +204,7 @@ function App() {
                     // For now, simple success logging.
                 }}
             />
-        </QueryProvider>
+        </>
     );
 }
 

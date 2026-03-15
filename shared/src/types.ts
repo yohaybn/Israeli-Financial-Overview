@@ -3,11 +3,13 @@ export interface PostScrapeConfig {
     fraudDetection: {
         enabled: boolean;
         notifyOnIssue: boolean;
+        scope?: 'current' | 'all';
     };
     customAI: {
         enabled: boolean;
         query: string;
         notifyOnResult: boolean;
+        scope?: 'current' | 'all';
     };
     notificationChannels: string[];
 }
@@ -34,7 +36,7 @@ export interface Transaction {
     category?: string; // AI assigned category
     provider: string; // e.g., 'hapoalim', 'isracard'
     accountNumber: string;
-    txnType?: 'expense' | 'income' | 'internal_transfer'; // Classification for anti-double-counting
+    txnType?: 'expense' | 'income' | 'internal_transfer' | 'normal'; // Classification for anti-double-counting
     isIgnored?: boolean; // Flag to exclude from calculations
 }
 
@@ -45,6 +47,7 @@ export interface FinancialSummary {
         alreadySpent: number;        // Cleared bank txns + unbilled CC txns
         remainingPlanned: number;     // Upcoming fixed bills + remaining budgets
         totalProjected: number;
+        variableForecast?: number;   // Statistical projection for remaining days
         byCategory: CategoryBudgetItem[];
         alreadySpentTxns?: Transaction[]; // The underlying transactions
         remainingPlannedTxns?: Transaction[]; // The underlying transactions (partially virtual)
@@ -64,7 +67,7 @@ export interface FinancialSummary {
     historicalBaseline?: HistoricalBaseline;
     budgetHealth?: BudgetHealth;
     anomalies?: AnomalyAlert[];
-    variableSpendForecast?: number; // Total forecasted for remaining days in variable categories
+    remainingDays?: number;      // Days left in the month for forecasting
 }
 
 export interface UpcomingItem {
@@ -86,6 +89,10 @@ export interface CategoryBudgetItem {
     historicalAvg?: number;   // Average monthly spend from last 6 months
     historicalStdDev?: number; // Standard deviation of monthly spend
     transactions?: Transaction[]; // The underlying transactions for the current month
+    upcomingBillsAmount?: number;
+    variableForecastAmount?: number;
+    forecastRate?: number;       // Daily rate used for forecast
+    forecastMethod?: 'historical_avg' | 'extrapolation';
 }
 
 // Historical baseline per category over the last N months
@@ -192,6 +199,7 @@ export interface ScraperOptions {
     combineInstallments?: boolean;
     futureMonthsToScrape?: number;
     autoCategorize?: boolean;
+    ignorePendingTransactions?: boolean;
     args?: string[]; // Additional browser args
     additionalTransactionInformation?: boolean;
     includeRawTransaction?: boolean;

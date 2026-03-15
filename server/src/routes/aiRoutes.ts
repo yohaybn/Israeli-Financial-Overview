@@ -6,6 +6,17 @@ const router = Router();
 const aiService = new AiService();
 const storageService = new StorageService();
 
+// Categorize all transactions in DB using AI
+router.post('/categorize/all', async (req, res) => {
+    try {
+        const { force } = req.body;
+        const result = await storageService.categorizeAllWithAi(!!force);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Categorize transactions in a result file using AI
 router.post('/categorize/:filename', async (req, res) => {
     try {

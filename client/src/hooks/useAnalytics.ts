@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Transaction } from '@app/shared';
+import { isInternalTransfer } from '../utils/transactionUtils';
 
 interface AnalyticsData {
     totalIncome: number;
@@ -46,6 +47,7 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         let totalExpenses = 0;
 
         transactions.forEach(t => {
+            if (isInternalTransfer(t)) return;
             const amount = t.chargedAmount || t.amount || 0;
             if (amount > 0) {
                 totalIncome += amount;
@@ -57,6 +59,7 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         // Group by category
         const categoryMap = new Map<string, number>();
         transactions.forEach(t => {
+            if (isInternalTransfer(t)) return;
             const category = t.category || 'אחר';
             const amount = Math.abs(t.chargedAmount || t.amount || 0);
             categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
@@ -73,6 +76,7 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         // Group by month
         const monthMap = new Map<string, { income: number; expenses: number }>();
         transactions.forEach(t => {
+            if (isInternalTransfer(t)) return;
             const date = new Date(t.date);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             const amount = t.chargedAmount || t.amount || 0;
@@ -100,6 +104,7 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         // Top merchants
         const merchantMap = new Map<string, { count: number; total: number }>();
         transactions.forEach(t => {
+            if (isInternalTransfer(t)) return;
             const desc = t.description;
             if (!merchantMap.has(desc)) {
                 merchantMap.set(desc, { count: 0, total: 0 });

@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useScrapeResults, useMultipleScrapeResults, useUpdateCategory, useFilters, useRemoveFilter, useToggleFilter, useAICategorize, useAIChat, useAISettings, useDeleteScrapeResult, useRenameResult, useMergeResults } from '../hooks/useScraper';
+import { useScrapeResults, useMultipleScrapeResults, useUpdateCategory, useFilters, useRemoveFilter, useToggleFilter, useAICategorize, useAIChat, useAISettings, useDeleteScrapeResult, useRenameResult } from '../hooks/useScraper';
 import { TransactionTable } from './TransactionTable';
+import { ScrapeSettings } from './ScrapeSettings';
 import { AISettings } from './AISettings';
 import { logger } from '../utils/logger';
 
@@ -25,17 +26,15 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
     const [showHidden, setShowHidden] = useState(false);
     const [showAnalyst, setShowAnalyst] = useState(false);
     const [showAISettings, setShowAISettings] = useState(false);
+    const [showScrapeSettings, setShowScrapeSettings] = useState(false);
     const [showRenameModal, setShowRenameModal] = useState(false);
     const [renameTarget, setRenameTarget] = useState<string | null>(null);
     const [newFileName, setNewFileName] = useState('');
     const [chatQuery, setChatQuery] = useState('');
     const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai'; content: string; isError?: boolean; userQuery?: string }[]>([]);
     const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-    const [showMergeModal, setShowMergeModal] = useState(false);
-    const [mergeOutputName, setMergeOutputName] = useState('');
     const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
     const { data: multiResults } = useMultipleScrapeResults(selectedFiles);
-    const { mutate: mergeResults, isPending: isMerging } = useMergeResults();
 
     // Notification helper function
     const showNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
@@ -199,10 +198,10 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
         handleSendAnalystQuery(chatQuery);
     };
 
-    // Filter files to show most recent first (based on filename timestamp if possible)
+    // Filter files to show most recent first (based on creation time)
     const sortedFiles = useMemo(() => {
         if (!files) return [];
-        return [...files].sort((a, b) => b.filename.localeCompare(a.filename));
+        return [...files].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [files]);
 
     const stripJsonExtension = (filename: string) => {
@@ -240,34 +239,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
         });
     };
 
-    const handleMergeSubmit = () => {
-        if (selectedFiles.length < 2) {
-            logger.error('Select at least 2 files to merge');
-            return;
-        }
-        if (!mergeOutputName.trim()) {
-            logger.error('Please enter a name for the merged file');
-            return;
-        }
 
-        const outputName = mergeOutputName.trim();
-        logger.info(`Merging ${selectedFiles.length} files into: ${outputName}`);
-
-        mergeResults({ filenames: selectedFiles, outputName }, {
-            onSuccess: (data) => {
-                setShowMergeModal(false);
-                setMergeOutputName('');
-                setSelectedFiles([]);
-                logger.info(`Successfully merged files into: ${data.filename}`);
-                showNotification('success', t('explorer.merge_success', 'Files merged successfully'));
-            },
-            onError: (err: any) => {
-                const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                logger.error(`Merge failed: ${errorMsg}`);
-                showNotification('error', `Merge failed: ${errorMsg}`);
-            }
-        });
-    };
 
     if (isLoadingList) return (
         <div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 text-gray-400">
@@ -305,9 +277,9 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                             title={t('explorer.select_all', 'Select All')}
                         />
                         <button
-                            onClick={() => setShowAISettings(true)}
+                            onClick={() => setShowScrapeSettings(true)}
                             className="p-2 hover:bg-white hover:text-indigo-600 rounded-full transition-all border border-transparent hover:border-indigo-100 shadow-sm bg-white md:bg-transparent text-gray-400"
-                            title={t('explorer.ai_settings')}
+                            title={t('scraper.config_title', 'Scrape Configuration')}
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -444,23 +416,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
 
                                 <div className="h-4 w-[1px] bg-gray-200 mx-1"></div>
 
-                                {selectedFiles.length >= 2 && (
-                                    <>
-                                        <button
-                                            onClick={() => setShowMergeModal(true)}
-                                            disabled={isMerging}
-                                            className="px-3 py-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-all border border-emerald-100 flex items-center gap-2 disabled:opacity-50"
-                                        >
-                                            {isMerging ? (
-                                                <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-                                            ) : (
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                            )}
-                                            {isMerging ? t('explorer.merging', 'Merging...') : t('explorer.combine_files', 'Combine Files')}
-                                        </button>
-                                        <div className="h-4 w-[1px] bg-gray-200 mx-1"></div>
-                                    </>
-                                )}
+
 
                                 <div className="flex gap-1">
                                     <button
@@ -654,81 +610,10 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                 </div>
             )}
 
-            {/* Merge Modal */}
-            {showMergeModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{t('explorer.combine_files', 'Combine Files')}</h3>
-                        <p className="text-sm text-gray-600 mb-2">
-                            {t('explorer.combine_confirm', {
-                                count: selectedFiles.length,
-                                defaultValue: `Combining ${selectedFiles.length} files into one. Duplicate transactions (by ID) will be automatically removed.`
-                            })}
-                        </p>
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                            <p className="text-xs text-amber-800 font-medium flex items-center gap-2">
-                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-                                {t('explorer.merge_delete_warning', 'Warning: The original files will be deleted after merging. Only files with the same account can be merged.')}
-                            </p>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    {t('explorer.files_to_combine', 'Files to combine')}:
-                                </label>
-                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-40 overflow-y-auto">
-                                    <ul className="space-y-1">
-                                        {selectedFiles.map(file => (
-                                            <li key={file} className="text-xs text-gray-600 truncate">
-                                                • {stripJsonExtension(file)}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    {t('explorer.output_name', 'Output file name')}:
-                                </label>
-                                <input
-                                    type="text"
-                                    value={mergeOutputName}
-                                    onChange={(e) => setMergeOutputName(e.target.value)}
-                                    placeholder={t('explorer.combined_results', 'combined_results')}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleMergeSubmit();
-                                        if (e.key === 'Escape') setShowMergeModal(false);
-                                    }}
-                                    autoFocus
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    {t('explorer.no_extension_needed', 'Note: File extension will be added automatically')}
-                                </p>
-                            </div>
-                            <div className="flex gap-3 justify-end pt-4">
-                                <button
-                                    onClick={() => setShowMergeModal(false)}
-                                    className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                                    disabled={isMerging}
-                                >
-                                    {t('common.cancel', 'Cancel')}
-                                </button>
-                                <button
-                                    onClick={handleMergeSubmit}
-                                    disabled={!mergeOutputName.trim() || isMerging}
-                                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {isMerging && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                                    {isMerging ? t('explorer.combining', 'Combining...') : t('explorer.combine', 'Combine')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             <AISettings isOpen={showAISettings} onClose={() => setShowAISettings(false)} />
+            <ScrapeSettings isOpen={showScrapeSettings} onClose={() => setShowScrapeSettings(false)} />
         </div>
     );
 }

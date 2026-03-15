@@ -60,6 +60,7 @@ export function ScraperForm() {
     });
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [loadedProfileName, setLoadedProfileName] = useState<string | undefined>(undefined);
+    const [profileId, setProfileId] = useState<string | undefined>(undefined);
 
     // Initialize options from global config when it loads
     useEffect(() => {
@@ -105,15 +106,19 @@ export function ScraperForm() {
 
         const request: ScrapeRequest = {
             companyId: selectedProvider,
-            credentials,
+            credentials: profileId ? {} : credentials,
             options,
             profileName: loadedProfileName,
+            profileId,
         };
         runScrape(request);
     };
 
     const updateCredential = (name: string, value: string) => {
         setCredentials(prev => ({ ...prev, [name]: value }));
+        // Manual change clears the profile context
+        setProfileId(undefined);
+        setLoadedProfileName(undefined);
     };
 
     const updateOption = <K extends keyof ScraperOptions>(key: K, value: ScraperOptions[K]) => {
@@ -124,6 +129,7 @@ export function ScraperForm() {
         setSelectedProvider(profile.companyId);
         setCredentials(profile.credentials);
         setLoadedProfileName(profile.name);
+        setProfileId(profile.id);
         setOptions(prev => ({
             ...prev,
             ...profile.options,

@@ -2,47 +2,7 @@ import { useMemo } from 'react';
 import { Transaction, FinancialSummary, UpcomingItem, CategoryBaseline, HistoricalBaseline, BudgetHealth, AnomalyAlert } from '@app/shared';
 
 // Built-in Israeli credit card company name patterns for detecting CC settlements
-const CC_SETTLEMENT_PATTERNS = [
-    /visa/i, /ויזה/i,
-    /isracard/i, /ישראכרט/i,
-    /cal/i, /כאל/i,
-    /max/i, /מקס/i,
-    /diners/i, /דיינרס/i,
-    /amex/i, /אמריקן אקספרס/i,
-    /american express/i,
-    /mastercard/i, /מסטרקארד/i,
-    /הוראת קבע.*כרטיס/i,
-    /תשלום.*כרטיס/i,
-    /חיוב.*כרטיס/i,
-];
-
-/**
- * Detect if a transaction is a credit card settlement (internal transfer).
- * CC settlements appear as debits paying the card company from any account.
- * The bank-provider guard has been removed: any transaction whose description
- * matches a CC pattern (built-in or user-defined) is classified as internal.
- */
-function isInternalTransfer(txn: Transaction, customCCKeywords: string[] = []): boolean {
-    // If already classified, respect it
-    if (txn.txnType === 'internal_transfer' || txn.type === 'internal_transfer') return true;
-
-    const desc = txn.description;
-
-    // Check built-in CC company patterns
-    const matchesBuiltIn = CC_SETTLEMENT_PATTERNS.some(pattern => pattern.test(desc));
-
-    // Check user-defined custom keywords (case-insensitive substring match)
-    const matchesCustom = customCCKeywords.length > 0 &&
-        customCCKeywords.some(kw => kw.trim() && desc.toLowerCase().includes(kw.trim().toLowerCase()));
-
-    if (!matchesBuiltIn && !matchesCustom) return false;
-
-    // CC settlements are typically negative (debit) and relatively large
-    const amount = Math.abs(txn.chargedAmount || txn.amount || 0);
-    if (amount < 100) return false; // Too small to be a CC settlement
-
-    return true;
-}
+import { isInternalTransfer } from '../utils/transactionUtils';
 
 /**
  * Detect recurring transactions by analyzing historical patterns.
@@ -443,7 +403,7 @@ export function useFinancialSummary(
 
         const empty: FinancialSummary = {
             month: currentMonth,
-            expenses: { alreadySpent: 0, remainingPlanned: 0, totalProjected: 0, byCategory: [] },
+            expenses: { alreadySpent: 0, remainingPlanned: 0, variableForecast: 0, totalProjected: 0, byCategory: [] },
             income: { alreadyReceived: 0, expectedInflow: 0, totalProjected: 0 },
             upcomingFixed: [],
             recurringRealized: { income: 0, bills: 0 },
@@ -560,17 +520,21 @@ export function useFinancialSummary(
                 .filter(i => i.type === 'bill' && (i.category === name || (!i.category && name === 'אחר')));
 
             const upcomingForCategory = categoryUpcomingBills.reduce((sum, i) => sum + i.amount, 0);
-
             let categoryVariableForecast = 0;
+            let forecastRate = 0;
+            let forecastMethod: 'historical_avg' | 'extrapolation' | undefined;
 
             // Variable Spend Forecasting
             if (isCurrentMonth) {
                 if (baseline && !baseline.isFixed) {
-                    categoryVariableForecast = baseline.avgDaily * Math.max(0, remainingDays);
+                    forecastRate = baseline.avgDaily;
+                    categoryVariableForecast = forecastRate * Math.max(0, remainingDays);
+                    forecastMethod = 'historical_avg';
                 } else if (!baseline && spent > 0) {
                     // If no baseline but we have spend, do a naive extrapolation
-                    const dailyPace = spent / Math.max(1, daysPassed);
-                    categoryVariableForecast = dailyPace * remainingDays;
+                    forecastRate = spent / Math.max(1, daysPassed);
+                    categoryVariableForecast = forecastRate * remainingDays;
+                    forecastMethod = 'extrapolation';
                 }
             }
 
@@ -592,6 +556,8 @@ export function useFinancialSummary(
                 transactions: categoryTxns.get(name) || [],
                 upcomingBillsAmount: Math.round(upcomingForCategory * 100) / 100,
                 variableForecastAmount: Math.round(categoryVariableForecast * 100) / 100,
+                forecastRate: Math.round(forecastRate * 100) / 100,
+                forecastMethod,
                 upcomingBills: categoryUpcomingBills,
             };
         }).sort((a, b) => b.spent - a.spent);
@@ -664,6 +630,7 @@ export function useFinancialSummary(
             expenses: {
                 alreadySpent: Math.round(alreadySpent * 100) / 100,
                 remainingPlanned: Math.round(remainingPlanned * 100) / 100,
+                variableForecast: Math.round(variableSpendForecast * 100) / 100,
                 totalProjected: Math.round(totalProjectedExpenses * 100) / 100,
                 byCategory,
                 alreadySpentTxns,
@@ -690,7 +657,7 @@ export function useFinancialSummary(
             historicalBaseline,
             budgetHealth,
             anomalies,
-            variableSpendForecast: Math.round(variableSpendForecast * 100) / 100
+            remainingDays
         };
     }, [allTransactions, selectedMonth, ccPaymentDate, forecastMonths, customCCKeywords]);
 }

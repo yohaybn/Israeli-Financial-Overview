@@ -102,6 +102,12 @@ export class DbService {
         return info.changes > 0;
     }
 
+    updateCategoryByDescription(description: string, category: string): number {
+        const stmt = this.db.prepare('UPDATE transactions SET category = ? WHERE description = ?');
+        const info = stmt.run(category, description);
+        return info.changes;
+    }
+
     updateTransactionType(id: string, txnType: string): boolean {
         // We need to update the raw_data JSON to persist the updated type,
         // since type is not a top-level column in our schema.
@@ -136,6 +142,11 @@ export class DbService {
         const stmt = this.db.prepare('UPDATE transactions SET isIgnored = ? WHERE id = ?');
         const info = stmt.run(isIgnored ? 1 : 0, id);
         return info.changes > 0;
+    }
+
+    deleteTransaction(id: string) {
+        const stmt = this.db.prepare('DELETE FROM transactions WHERE id = ?');
+        stmt.run(id);
     }
 
     clearTransactions() {

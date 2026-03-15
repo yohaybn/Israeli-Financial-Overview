@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DashboardConfig } from '@app/shared';
 import * as Shared from '@app/shared';
 
@@ -17,15 +17,15 @@ export function useDashboardConfig() {
         }
     });
 
-    const updateConfig = (newConfig: Partial<DashboardConfig>) => {
-        setConfigState(prev => {
-            const updated = { ...prev, ...newConfig };
-            localStorage.setItem(CONFIG_KEY, JSON.stringify(updated));
-            // Dispatch a custom event to sync across components on the same page
-            window.dispatchEvent(new CustomEvent('dashboard-config-updated', { detail: updated }));
-            return updated;
-        });
-    };
+    const updateConfig = useCallback((newConfig: Partial<DashboardConfig>) => {
+        const updated = { ...config, ...newConfig };
+        setConfigState(updated);
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(updated));
+        
+        // Move side effect outside of any state update to avoid React warning
+        // Use a small delay or ensure it's not during render
+        window.dispatchEvent(new CustomEvent('dashboard-config-updated', { detail: updated }));
+    }, [config]);
 
     useEffect(() => {
         const handleStorageChange = (e: StorageEvent) => {

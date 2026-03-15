@@ -41,7 +41,7 @@ const LABELS: Record<'en' | 'he', Record<string, string>> = {
     seconds: 's',
   },
   he: {
-    scrapeNotification: '🏦 הודעת גירוד',
+    scrapeNotification: '🏦 תוצאת סריקה',
     profile: 'פרופיל',
     duration: 'משך',
     transactions: 'עסקאות',
@@ -56,7 +56,7 @@ const LABELS: Record<'en' | 'he', Record<string, string>> = {
     successStatus: '✅ הצלחה',
     failureStatus: '❌ כישלון',
     warningStatus: '⚠️ אזהרה',
-    seconds: 'ש',
+    seconds: 'שניות',
   },
 };
 

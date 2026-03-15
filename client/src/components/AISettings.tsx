@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAISettings, useUpdateAISettings, useAIModels } from '../hooks/useScraper';
+import { useAISettings, useUpdateAISettings, useAIModels, useRecategorizeAll } from '../hooks/useScraper';
 
 interface AISettingsProps {
     isOpen?: boolean;
@@ -13,9 +13,11 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
     const { data: settings } = useAISettings();
     const { data: models } = useAIModels();
     const { mutate: updateSettings, isPending } = useUpdateAISettings();
-
+    const { mutate: recategorizeAll, isPending: isRecategorizing } = useRecategorizeAll();
+ 
     const [localSettings, setLocalSettings] = useState<any>(null);
     const [newCategory, setNewCategory] = useState('');
+    const [forceRecat, setForceRecat] = useState(false);
 
     useEffect(() => {
         if (settings) {
@@ -47,6 +49,19 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
             ...localSettings,
             categories: localSettings.categories.filter((c: string) => c !== cat)
         });
+    };
+
+    const handleRecategorizeAll = () => {
+        if (window.confirm(t('ai_settings.recategorize_all_desc'))) {
+            recategorizeAll(forceRecat, {
+                onSuccess: (data) => {
+                    alert(t('ai_settings.recategorize_success', { count: data.count }));
+                },
+                onError: (err: any) => {
+                    alert(`Error: ${err.message}`);
+                }
+            });
+        }
     };
 
     const content = (
@@ -151,6 +166,58 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                                 </button>
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* Bulk Recategorization */}
+                <div className="pt-6 border-t border-gray-100 space-y-4">
+                    <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
+                        <h4 className="font-bold text-indigo-900 mb-1 flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a2 2 0 00-1.96 1.414l-.477 2.387a2 2 0 00.547 1.022l1.428 1.428a2 2 0 001.022.547l2.387.477a2 2 0 001.96-1.414l.477-2.387a2 2 0 00-.547-1.022l-1.428-1.428z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {t('ai_settings.recategorize_all')}
+                        </h4>
+                        <p className="text-indigo-800 text-xs opacity-80 mb-4">
+                            {t('ai_settings.recategorize_all_desc')}
+                        </p>
+                        
+                        <div className="space-y-4">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <div className="relative">
+                                    <input
+                                        type="checkbox"
+                                        checked={forceRecat}
+                                        onChange={(e) => setForceRecat(e.target.checked)}
+                                        className="sr-only"
+                                    />
+                                    <div className={`w-10 h-6 rounded-full transition-colors ${forceRecat ? 'bg-indigo-600' : 'bg-gray-300'}`}></div>
+                                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${forceRecat ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                </div>
+                                <span className="text-sm font-medium text-indigo-900">{t('ai_settings.force_recategorize')}</span>
+                            </label>
+
+                            <button
+                                onClick={handleRecategorizeAll}
+                                disabled={isRecategorizing}
+                                className="w-full py-3 bg-white text-indigo-600 border-2 border-indigo-200 hover:border-indigo-600 rounded-xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isRecategorizing ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        {t('explorer.categorizing')}
+                                    </>
+                                ) : (
+                                    <>
+                                        {t('ai_settings.recategorize_button')}
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

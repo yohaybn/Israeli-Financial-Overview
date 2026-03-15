@@ -124,7 +124,7 @@ export class SchedulerService {
 
                 const scrapeRequest = {
                     companyId: profile.companyId,
-                    credentials: profile.credentials,
+                    credentials: {}, // ScraperService will fetch them from profile storage using profileId
                     profileId: profile.id,
                     profileName: profile.name,
                     options: {

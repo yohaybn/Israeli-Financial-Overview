@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
+import { isInternalTransfer } from '../utils/transactionUtils';
 import { 
     X, 
     Calendar, 
@@ -97,7 +99,11 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     };
 
     const handleMarkAsInternalTransfer = () => {
-        updateType({ transactionId: transaction.id, type: transaction.type === 'internal_transfer' ? 'normal' : 'internal_transfer' });
+        const currentlyInternal = isInternalTransfer(transaction, config.customCCKeywords);
+        updateType({ 
+            transactionId: transaction.id, 
+            type: currentlyInternal ? 'normal' : 'internal_transfer' 
+        });
     };
 
     const formatDate = (dateStr: string) => {
@@ -119,7 +125,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const hasDifferentAmount = transaction.originalAmount !== transaction.chargedAmount;
     const isForeignCurrency = transaction.originalCurrency && transaction.originalCurrency !== 'ILS';
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
             {/* Backdrop */}
             <div 
@@ -149,6 +155,12 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                             {isForeignCurrency && (
                                 <span className="bg-amber-400/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-gray-900 uppercase tracking-widest border border-white/10">
                                     {transaction.originalCurrency}
+                                </span>
+                            )}
+                            {isInternalTransfer(transaction, config.customCCKeywords) && (
+                                <span className="bg-blue-400/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/10 flex items-center gap-1">
+                                    <ArrowRightLeft size={10} />
+                                    {t('table.internal_transfer')}
                                 </span>
                             )}
                         </div>
@@ -276,8 +288,8 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                             {/* Specific Transaction Internal Transfer Toggle */}
                             <ActionButton 
                                 icon={<ArrowRightLeft size={18} />}
-                                label={transaction.type === 'internal_transfer' ? t('transaction_modal.restore') : t('transaction_modal.internal_transfer_pattern')}
-                                active={transaction.type === 'internal_transfer'}
+                                label={isInternalTransfer(transaction, config.customCCKeywords) ? t('transaction_modal.restore') : t('transaction_modal.mark_internal_transfer')}
+                                active={isInternalTransfer(transaction, config.customCCKeywords)}
                                 onClick={handleMarkAsInternalTransfer}
                                 color="blue"
                             />
@@ -285,7 +297,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                             {/* Internal Transfer Pattern Action */}
                             <ActionButton 
                                 icon={<ArrowRightLeft size={18} className="opacity-50" />}
-                                label={t('transaction_modal.internal_transfer_pattern') + " (Pattern)"}
+                                label={t('transaction_modal.internal_transfer_pattern')}
                                 active={isInternalTransferPattern}
                                 onClick={handleToggleInternalTransferPattern}
                                 color="blue"
@@ -334,7 +346,8 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 

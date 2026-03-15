@@ -6,6 +6,7 @@ import puppeteer from 'puppeteer';
 import fs from 'fs-extra';
 import { StorageService } from './storageService.js';
 import { DbService } from './dbService.js';
+import { ProfileService } from './profileService.js';
 
 // Progress event types matching the library
 export enum ScraperProgressTypes {
@@ -29,10 +30,12 @@ export class ScraperService {
     private io: Server | null = null;
     private storageService: StorageService;
     private dbService: DbService;
+    private profileService: ProfileService;
 
     constructor() {
         this.storageService = new StorageService();
         this.dbService = new DbService();
+        this.profileService = new ProfileService();
     }
 
     setSocketIO(io: Server) {
@@ -84,6 +87,22 @@ export class ScraperService {
             logs.push(logEntry);
             this.emitLog(logEntry);
         };
+
+        // If profileId is provided, fetch credentials from profile storage
+        let credentials = request.credentials;
+        if (request.profileId) {
+            try {
+                const profile = await this.profileService.getProfile(request.profileId);
+                if (profile) {
+                    addLog(`Using saved credentials from profile: ${profile.name}`);
+                    credentials = profile.credentials;
+                } else {
+                    addLog(`Warning: Profile ID ${request.profileId} not found. Falling back to provided credentials.`);
+                }
+            } catch (err) {
+                addLog(`Warning: Failed to load profile: ${(err as Error).message}. Falling back to provided credentials.`);
+            }
+        }
 
         const executablePath = this.getExecutablePath();
         if (!executablePath) {
@@ -178,14 +197,14 @@ export class ScraperService {
 
             // Subscribe to scraper progress events if the library supports it
             if (typeof scraper.onProgress === 'function') {
-                scraper.onProgress((progressType: string) => {
-                    this.emitProgress(progressType, `Scraper progress: ${progressType}`);
-                    addLog(`Progress: ${progressType}`);
+                scraper.onProgress((companyId: string, payload: { type: string }) => {
+                    this.emitProgress(payload.type, `Scraper progress: ${payload.type}`);
+                    addLog(`Progress: ${payload.type}`);
                 });
             }
 
             this.emitProgress(ScraperProgressTypes.StartScraping, 'Starting scrape process...');
-            const scrapeResult = await scraper.scrape(request.credentials as any);
+            const scrapeResult = await scraper.scrape(credentials as any);
 
             const executionTimeMs = Date.now() - startTime;
 

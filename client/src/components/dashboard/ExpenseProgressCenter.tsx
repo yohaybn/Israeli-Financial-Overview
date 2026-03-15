@@ -1,13 +1,17 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
 import { TransactionTable } from '../TransactionTable';
+import { VariableForecastModal } from './VariableForecastModal';
 
 interface ExpenseProgressCenterProps {
     alreadySpent: number;
     alreadySpentTxns?: Transaction[];
     remainingPlanned: number;
     remainingPlannedTxns?: Transaction[];
+    variableForecast?: number;
+    remainingDays?: number;
     totalProjected: number;
     byCategory: {
         name: string;
@@ -22,6 +26,7 @@ interface ExpenseProgressCenterProps {
     }[];
     categories?: string[];
     onUpdateCategory?: (transactionId: string, category: string) => void;
+    onCategoryClick?: (categoryName: string) => void;
 }
 
 export function ExpenseProgressCenter({
@@ -29,16 +34,19 @@ export function ExpenseProgressCenter({
     alreadySpentTxns = [],
     remainingPlanned,
     remainingPlannedTxns = [],
+    variableForecast = 0,
+    remainingDays = 0,
     totalProjected,
     byCategory,
     categories,
-    onUpdateCategory
+    onUpdateCategory,
+    onCategoryClick
 }: ExpenseProgressCenterProps) {
     const { t, i18n } = useTranslation();
-    const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
     const [selectedKpi, setSelectedKpi] = useState<'already_spent' | 'remaining_planned' | null>(null);
+    const [showForecastModal, setShowForecastModal] = useState(false);
 
-    const selectedCategory = selectedCategoryName ? byCategory.find(c => c.name === selectedCategoryName) : null;
+
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
             style: 'currency',
@@ -130,6 +138,18 @@ export function ExpenseProgressCenter({
                                 {t('dashboard.remaining_planned', 'Remaining Planned')}: <span className="font-bold text-gray-900 border-b border-dashed border-gray-300">{formatCurrency(remainingPlanned)}</span>
                             </span>
                         </div>
+                        {variableForecast > 0 && (
+                            <div
+                                className="flex items-center gap-1.5 p-1 -m-1 rounded cursor-pointer hover:bg-gray-50/50 transition-colors"
+                                title={t('dashboard.forecast_details', 'Statistical Projection - Click for details')}
+                                onClick={() => setShowForecastModal(true)}
+                            >
+                                <div className="w-3 h-3 rounded-full bg-rose-100 shadow-sm border border-rose-200" />
+                                <span className="text-gray-500 font-medium italic">
+                                    {t('dashboard.variable_forecast', 'Variable Forecast')}: <span className="font-bold text-gray-700 border-b border-dashed border-gray-300">{formatCurrency(variableForecast)}</span>
+                                </span>
+                            </div>
+                        )}
                     </div>
                     <span className="text-gray-400 font-mono font-medium bg-gray-100 px-2 py-0.5 rounded text-[10px]">{Math.round(spentPercent)}% {t('dashboard.spent_label', 'Spent')}</span>
                 </div>
@@ -184,7 +204,7 @@ export function ExpenseProgressCenter({
                                 <div
                                     key={cat.name}
                                     className="flex flex-col gap-1 cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all border border-transparent hover:border-gray-200 hover:shadow-sm"
-                                    onClick={() => setSelectedCategoryName(cat.name)}
+                                    onClick={() => onCategoryClick?.(cat.name)}
                                 >
                                     <div className="flex items-center justify-between w-full">
                                         <div className="flex items-center gap-2">
@@ -230,95 +250,8 @@ export function ExpenseProgressCenter({
                 )}
             </div>
 
-            {/* Category Transactions Modal */}
-            {selectedCategory && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={() => setSelectedCategoryName(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                                    </div>
-                                    {selectedCategory.name}
-                                </h3>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {t('dashboard.category_spending_details', 'Spending Details')} ({formatCurrency(selectedCategory.spent)})
-                                </p>
-                            </div>
-                            <button onClick={() => setSelectedCategoryName(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <div className="p-6 bg-white border-b border-gray-100">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Spent */}
-                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('dashboard.already_spent', 'Already Spent')}</p>
-                                    <p className="text-xl font-black text-gray-900">{formatCurrency(selectedCategory.spent)}</p>
-                                </div>
-                                {/* Upcoming Bills */}
-                                <div className="bg-red-50/50 p-4 rounded-xl border border-red-100">
-                                    <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1">{t('dashboard.upcoming_bills', 'Upcoming Bills')}</p>
-                                    <p className="text-xl font-black text-red-600">{formatCurrency(selectedCategory.upcomingBillsAmount || 0)}</p>
-                                    {selectedCategory.upcomingBills && selectedCategory.upcomingBills.length > 0 && (
-                                        <div className="mt-2 space-y-1">
-                                            {selectedCategory.upcomingBills.map((bill, i) => (
-                                                <div key={i} className="flex justify-between text-[10px] text-red-500/70">
-                                                    <span>{bill.description}</span>
-                                                    <span className="font-bold">{formatCurrency(bill.amount)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Variable Forecast */}
-                                <div className="bg-rose-50/30 p-4 rounded-xl border border-rose-100">
-                                    <p className="text-[10px] font-bold text-rose-400 uppercase tracking-wider mb-1">{t('dashboard.variable_forecast', 'Variable Forecast')}</p>
-                                    <p className="text-xl font-black text-rose-500">{formatCurrency(selectedCategory.variableForecastAmount || 0)}</p>
-                                    <p className="text-[9px] text-rose-400/70 mt-1 italic">{t('dashboard.forecast_calculation', 'Based on current daily pace and historical baseline')}</p>
-                                </div>
-                            </div>
-                            <div className="mt-6 flex items-center justify-between p-4 bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl text-white">
-                                <div>
-                                    <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">{t('dashboard.total_projected', 'Total Projected')}</p>
-                                    <p className="text-2xl font-black">{formatCurrency(selectedCategory.projected)}</p>
-                                </div>
-                                <div className="text-right">
-                                    {selectedCategory.historicalAvg && (
-                                        <>
-                                            <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">{t('dashboard.historical_average', 'Historical Average')}</p>
-                                            <p className="text-lg font-bold text-white/90">{formatCurrency(selectedCategory.historicalAvg)}</p>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-0 sm:p-6 bg-gray-50/30">
-                            <div className="p-4 sm:p-0">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-2">
-                                    {t('dashboard.recent_transactions', 'Recent Transactions')}
-                                </h4>
-                                {selectedCategory.transactions && selectedCategory.transactions.length > 0 ? (
-                                    <TransactionTable
-                                        transactions={selectedCategory.transactions}
-                                        categories={categories}
-                                        onUpdateCategory={onUpdateCategory}
-                                    />
-                                ) : (
-                                    <div className="text-center text-gray-400 py-10">
-                                        {t('dashboard.no_transactions', 'No transactions found for this category.')}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* KPI Transactions Modal */}
-            {selectedKpi && (
+            {selectedKpi && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={() => setSelectedKpi(null)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
@@ -351,8 +284,17 @@ export function ExpenseProgressCenter({
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
+
+            {/* Variable Forecast Calculation Modal */}
+            <VariableForecastModal
+                isOpen={showForecastModal}
+                onClose={() => setShowForecastModal(false)}
+                remainingDays={remainingDays || 0}
+                categories={byCategory}
+            />
         </div>
     );
 }

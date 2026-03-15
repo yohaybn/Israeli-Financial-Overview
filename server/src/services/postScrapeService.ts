@@ -92,6 +92,18 @@ export class PostScrapeService {
       const cfg = await this.getConfig();
       const transactions = result.transactions || [];
 
+      // Fetch bot language
+      let botLanguage: 'en' | 'he' = 'en';
+      try {
+        const telConfigPath = path.join(process.env.DATA_DIR || './data', 'config', 'telegram_config.json');
+        if (await fs.pathExists(telConfigPath)) {
+          const telConfig = await fs.readJson(telConfigPath);
+          if (telConfig.language) botLanguage = telConfig.language;
+        }
+      } catch (e) {
+        // ignore - fallback to en
+      }
+
       // 1) Optional categorization
       // Favor local request option if provided, otherwise use global config
       const runCategorization = request?.options?.autoCategorize !== undefined 
@@ -114,60 +126,76 @@ export class PostScrapeService {
       }
 
       // 2) Fraud detection
-      if (cfg.fraudDetection?.enabled && transactions.length > 0) {
+      if (cfg.fraudDetection?.enabled) {
         try {
-          const fraudQuery = `Analyze these transactions and identify any potential fraud, unauthorized charges, anomalies, or disputes. Return a concise summary and any detected issues.`;
-          this.refreshAiIfNeeded();
-          if (!this.ai.hasApiKey()) {
-            logger.info('Skipping post-scrape fraud analysis: GEMINI_API_KEY not configured.');
-          } else {
-            const fraudResult = await this.ai.analyzeData(fraudQuery, transactions as any);
-            logger.info('Post-scrape: fraud analysis completed');
-          logger.info('Post-scrape: fraud analysis completed');
+          let transactionsToAnalyze = transactions;
+          if (cfg.fraudDetection.scope === 'all') {
+            const allDbTxns = await this.storageService.getAllTransactions();
+            const currentIds = new Set(transactions.map(t => t.id));
+            const uniqueDbTxns = allDbTxns.filter(t => !currentIds.has(t.id));
+            transactionsToAnalyze = [...transactions, ...uniqueDbTxns];
+            logger.info(`Post-scrape fraud detection: using all transactions (${transactionsToAnalyze.length} total, ${transactions.length} new)`);
+          }
 
-            const lower = (fraudResult || '').toLowerCase();
-            const suspicious = /suspicious|fraud|anomaly|chargeback|dispute|unauthorized/.test(lower);
-            if (suspicious && cfg.fraudDetection.notifyOnIssue) {
-              const channels = cfg.notificationChannels || ['console'];
-              const payload: NotificationPayload = {
-                pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
-                status: 'warning' as any,
-                timestamp: new Date(),
-                detailLevel: 'normal',
-                summary: {
-                  durationMs: result.executionTimeMs || 0,
-                  stagesRun: ['scrape'],
-                  successfulStages: ['scrape'],
-                  transactionCount: transactions.length,
-                  insights: [ 'Fraud detection flagged potential issues' ],
-                  accounts: result.accounts?.length || 0,
-                  balance: result.accounts?.reduce?.((sum: number, acc: any) => sum + (acc.balance || 0), 0) || 0,
-                },
-              };
+          if (transactionsToAnalyze.length > 0) {
+            const fraudQuery = botLanguage === 'he' 
+              ? `נתח את העסקאות הבאות וזהה הונאות פוטנציאליות, חיובים לא מורשים, חריגות או מחלוקות. החזר סיכום תמציתי וכל בעיה שתתגלה בעברית.`
+              : `Analyze these transactions and identify any potential fraud, unauthorized charges, anomalies, or disputes. Return a concise summary and any detected issues in English.`;
+            
+            this.refreshAiIfNeeded();
+            if (!this.ai.hasApiKey()) {
+              logger.info('Skipping post-scrape fraud analysis: GEMINI_API_KEY not configured.');
+            } else {
+              const fraudResult = await this.ai.analyzeData(fraudQuery, transactionsToAnalyze as any);
+              logger.info('Post-scrape: fraud analysis completed');
 
-              // Notify global channels
-              await notificationService.notify(channels, {
-                ...payload,
-                summary: { ...payload.summary, insights: [ fraudResult.substring(0, 1000) ] },
-              } as any);
+              const lower = (fraudResult || '').toLowerCase();
+              const suspicious = /suspicious|fraud|anomaly|chargeback|dispute|unauthorized/.test(lower);
+              if (suspicious && cfg.fraudDetection.notifyOnIssue) {
+                const channels = cfg.notificationChannels || ['console'];
+                const payload: NotificationPayload = {
+                  pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
+                  status: 'warning' as any,
+                  timestamp: new Date(),
+                  detailLevel: 'normal',
+                  summary: {
+                    durationMs: result.executionTimeMs || 0,
+                    stagesRun: ['scrape'],
+                    successfulStages: ['scrape'],
+                    transactionCount: transactions.length,
+                    insights: [ 'Fraud detection flagged potential issues' ],
+                    accounts: result.accounts?.length || 0,
+                    balance: result.accounts?.reduce?.((sum: number, acc: any) => sum + (acc.balance || 0), 0) || 0,
+                  },
+                };
 
-              // If scrape was triggered from Telegram, notify the initiating chat directly
-              const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
-              if (tgChatId) {
-                const tgNotifier = notificationService.getNotifier('telegram') as any;
-                if (tgNotifier && typeof tgNotifier.addChatId === 'function') {
-                  try {
-                    tgNotifier.addChatId(String(tgChatId));
-                    await tgNotifier.send({ ...payload, summary: { ...payload.summary, insights: [ fraudResult.substring(0, 1000) ] } } as any);
-                  } catch (err) {
-                    logger.warn('Failed to send direct Telegram fraud notification', { error: (err as Error).message });
-                  } finally {
-                    try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) {}
+                // Notify global channels
+                await notificationService.notify(channels, {
+                  ...payload,
+                  summary: { ...payload.summary, insights: [ fraudResult.substring(0, 1000) ] },
+                } as any);
+
+                // If scrape was triggered from Telegram, notify the initiating chat directly
+                // (Note: notificationService.notify already handles global channels including telegram if registered)
+                const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
+                if (tgChatId) {
+                  const tgNotifier = notificationService.getNotifier('telegram') as any;
+                  // Only send if it's NOT already in the global notification channels to avoid duplicates
+                  const globalChannels = channels;
+                  if (tgNotifier && typeof tgNotifier.addChatId === 'function' && !globalChannels.includes('telegram')) {
+                    try {
+                      tgNotifier.addChatId(String(tgChatId));
+                      await tgNotifier.send({ ...payload, summary: { ...payload.summary, insights: [ fraudResult.substring(0, 1000) ] } } as any);
+                    } catch (err) {
+                      logger.warn('Failed to send direct Telegram fraud notification', { error: (err as Error).message });
+                    } finally {
+                      try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) {}
+                    }
                   }
                 }
-              }
 
-              logger.info('Post-scrape: fraud notification sent');
+                logger.info('Post-scrape: fraud notification sent');
+              }
             }
           }
         } catch (err) {
@@ -177,54 +205,67 @@ export class PostScrapeService {
       }
 
       // 3) Custom AI query
-      if (cfg.customAI?.enabled && cfg.customAI.query && transactions.length > 0) {
+      if (cfg.customAI?.enabled && cfg.customAI.query) {
         try {
-          this.refreshAiIfNeeded();
-          if (!this.ai.hasApiKey()) {
-            logger.info('Skipping custom AI query: GEMINI_API_KEY not configured.');
-          } else {
-            const aiResult = await this.ai.analyzeData(cfg.customAI.query, transactions as any);
-            logger.info('Post-scrape: custom AI query completed');
+          let transactionsToAnalyze = transactions;
+          if (cfg.customAI.scope === 'all') {
+            const allDbTxns = await this.storageService.getAllTransactions();
+            const currentIds = new Set(transactions.map(t => t.id));
+            const uniqueDbTxns = allDbTxns.filter(t => !currentIds.has(t.id));
+            transactionsToAnalyze = [...transactions, ...uniqueDbTxns];
+            logger.info(`Post-scrape custom AI: using all transactions (${transactionsToAnalyze.length} total, ${transactions.length} new)`);
+          }
 
-            if (cfg.customAI.notifyOnResult) {
-              const channels = cfg.notificationChannels || ['console'];
-              const payload: NotificationPayload = {
-                pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
-                status: 'success',
-                timestamp: new Date(),
-                detailLevel: 'normal',
-                summary: {
-                  durationMs: result.executionTimeMs || 0,
-                  stagesRun: ['scrape'],
-                  successfulStages: ['scrape'],
-                  transactionCount: transactions.length,
-                  insights: [ 'Custom AI query result attached' ],
-                  accounts: result.accounts?.length || 0,
-                  balance: result.accounts?.reduce?.((sum: number, acc: any) => sum + (acc.balance || 0), 0) || 0,
-                },
-              };
+          if (transactionsToAnalyze.length > 0) {
+            this.refreshAiIfNeeded();
+            if (!this.ai.hasApiKey()) {
+              logger.info('Skipping custom AI query: GEMINI_API_KEY not configured.');
+            } else {
+              const langSuffix = botLanguage === 'he' ? '\nאנא השב בעברית.' : '\nPlease respond in English.';
+              const aiResult = await this.ai.analyzeData(cfg.customAI.query + langSuffix, transactionsToAnalyze as any);
+              logger.info('Post-scrape: custom AI query completed');
 
-              await notificationService.notify(channels, {
-                ...payload,
-                summary: { ...payload.summary, insights: [ aiResult.substring(0, 1000) ] },
-              } as any);
+              if (cfg.customAI.notifyOnResult) {
+                const channels = cfg.notificationChannels || ['console'];
+                const payload: NotificationPayload = {
+                  pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
+                  status: 'success',
+                  timestamp: new Date(),
+                  detailLevel: 'normal',
+                  summary: {
+                    durationMs: result.executionTimeMs || 0,
+                    stagesRun: ['scrape'],
+                    successfulStages: ['scrape'],
+                    transactionCount: transactions.length,
+                    insights: [ 'Custom AI query result attached' ],
+                    accounts: result.accounts?.length || 0,
+                    balance: result.accounts?.reduce?.((sum: number, acc: any) => sum + (acc.balance || 0), 0) || 0,
+                  },
+                };
 
-              const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
-              if (tgChatId) {
-                const tgNotifier = notificationService.getNotifier('telegram') as any;
-                if (tgNotifier && typeof tgNotifier.addChatId === 'function') {
-                  try {
-                    tgNotifier.addChatId(String(tgChatId));
-                    await tgNotifier.send({ ...payload, summary: { ...payload.summary, insights: [ aiResult.substring(0, 1000) ] } } as any);
-                  } catch (err) {
-                    logger.warn('Failed to send direct Telegram custom-AI notification', { error: (err as Error).message });
-                  } finally {
-                    try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) {}
+                await notificationService.notify(channels, {
+                  ...payload,
+                  summary: { ...payload.summary, insights: [ aiResult.substring(0, 1000) ] },
+                } as any);
+
+                const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
+                if (tgChatId) {
+                  const tgNotifier = notificationService.getNotifier('telegram') as any;
+                  // Only send if it's NOT already in the global notification channels to avoid duplicates
+                  if (tgNotifier && typeof tgNotifier.addChatId === 'function' && !channels.includes('telegram')) {
+                    try {
+                      tgNotifier.addChatId(String(tgChatId));
+                      await tgNotifier.send({ ...payload, summary: { ...payload.summary, insights: [ aiResult.substring(0, 1000) ] } } as any);
+                    } catch (err) {
+                      logger.warn('Failed to send direct Telegram custom-AI notification', { error: (err as Error).message });
+                    } finally {
+                      try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) {}
+                    }
                   }
                 }
-              }
 
-              logger.info('Post-scrape: custom AI notification sent');
+                logger.info('Post-scrape: custom AI notification sent');
+              }
             }
           }
         } catch (err) {

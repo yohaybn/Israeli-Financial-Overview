@@ -80,7 +80,7 @@ export function ConfigurationPanel() {
                 <div className="max-w-4xl mx-auto">
                     {activeTab === 'ai' && <AISettings isInline={true} />}
                     {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
-                    {activeTab === 'scrape' && <ScrapeSettings />}
+                    {activeTab === 'scrape' && <ScrapeSettings isInline={true} />}
                     {activeTab === 'sheets' && <GoogleSettings isInline={true} />}
                     {activeTab === 'telegram' && <TelegramSettings isInline={true} />}
                     {activeTab === 'environment' && <EnvironmentSettings />}
