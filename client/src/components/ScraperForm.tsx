@@ -309,10 +309,10 @@ export function ScraperForm() {
                                 <label className="block text-xs font-bold text-gray-600 mb-2">{t('scraper.opt_in_features', 'Opt-in Features')}</label>
                                 <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded border border-gray-100">
                                     {[
-                                        { id: 'isracard-amex:skipAdditionalTransactionInformation', label: 'Isracard Amex - Skip Additional Info' },
-                                        { id: 'mizrahi:pendingIfNoIdentifier', label: 'Mizrahi - Pending if no ID' },
-                                        { id: 'mizrahi:pendingIfHasGenericDescription', label: 'Mizrahi - Pending if generic desc' },
-                                        { id: 'mizrahi:pendingIfTodayTransaction', label: 'Mizrahi - Pending if today' }
+                                        { id: 'isracard-amex:skipAdditionalTransactionInformation', label: t('scraper.feature_skip_additional_info') },
+                                        { id: 'mizrahi:pendingIfNoIdentifier', label: t('scraper.feature_mizrahi_pending_no_id') },
+                                        { id: 'mizrahi:pendingIfHasGenericDescription', label: t('scraper.feature_mizrahi_pending_generic') },
+                                        { id: 'mizrahi:pendingIfTodayTransaction', label: t('scraper.feature_mizrahi_pending_today') }
                                     ].map((feature: any) => (
                                         <label key={feature.id} className="flex items-center gap-2 cursor-pointer">
                                             <input

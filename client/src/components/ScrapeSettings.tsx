@@ -187,6 +187,80 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                     <span className="text-xs text-indigo-700 opacity-80">{t('scraper.smart_start_date_desc', 'Automatically start from the last successful scrape date')}</span>
                                 </div>
                             </label>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.future_months', 'Future Months to Scrape')}</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={12}
+                                    value={config.scraperOptions.futureMonthsToScrape || 0}
+                                    onChange={(e) => updateOption('futureMonthsToScrape', parseInt(e.target.value))}
+                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-gray-100">
+                        <label className="block text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+                             <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                            </svg>
+                            {t('scraper.opt_in_features', 'Opt-in Features')}
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2 p-4 bg-white/50 rounded-2xl border border-gray-50">
+                                {[
+                                    { id: 'isracard-amex:skipAdditionalTransactionInformation', label: t('scraper.feature_skip_additional_info') },
+                                    { id: 'mizrahi:pendingIfNoIdentifier', label: t('scraper.feature_mizrahi_pending_no_id') },
+                                    { id: 'mizrahi:pendingIfHasGenericDescription', label: t('scraper.feature_mizrahi_pending_generic') },
+                                    { id: 'mizrahi:pendingIfTodayTransaction', label: t('scraper.feature_mizrahi_pending_today') }
+                                ].map((feature) => (
+                                    <label key={feature.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-xl cursor-pointer transition-colors group">
+                                        <input
+                                            type="checkbox"
+                                            checked={(config.scraperOptions.optInFeatures || []).includes(feature.id)}
+                                            onChange={(e) => {
+                                                const current = config.scraperOptions.optInFeatures || [];
+                                                const next = e.target.checked 
+                                                    ? [...current, feature.id]
+                                                    : current.filter((id: string) => id !== feature.id);
+                                                updateOption('optInFeatures', next);
+                                            }}
+                                            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors">{feature.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <p className="text-xs text-gray-500 px-1 italic">
+                                    {t('scraper.custom_opt_in_help', 'Add specific feature flags by name (comma separated)')}
+                                </p>
+                                <textarea
+                                    placeholder={t('scraper.custom_opt_in', 'Custom opt-in (comma separated)...')}
+                                    value={(config.scraperOptions.optInFeatures || []).filter((f: string) => ![
+                                        'isracard-amex:skipAdditionalTransactionInformation',
+                                        'mizrahi:pendingIfNoIdentifier',
+                                        'mizrahi:pendingIfHasGenericDescription',
+                                        'mizrahi:pendingIfTodayTransaction'
+                                    ].includes(f)).join(', ')}
+                                    onChange={(e) => {
+                                        const known = [
+                                            'isracard-amex:skipAdditionalTransactionInformation',
+                                            'mizrahi:pendingIfNoIdentifier',
+                                            'mizrahi:pendingIfHasGenericDescription',
+                                            'mizrahi:pendingIfTodayTransaction'
+                                        ];
+                                        const currentKnown = (config.scraperOptions.optInFeatures || []).filter((f: string) => known.includes(f));
+                                        const custom = e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean);
+                                        updateOption('optInFeatures', [...new Set([...currentKnown, ...custom])]);
+                                    }}
+                                    className="w-full p-4 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm min-h-[120px]"
+                                />
+                            </div>
                         </div>
                     </div>
                 </section>

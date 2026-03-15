@@ -13,20 +13,55 @@ interface AnalyticsData {
 
 const CATEGORY_COLORS: Record<string, string> = {
     // English
-    'Food & Dining': '#FF6B6B',
-    'Shopping': '#4ECDC4',
-    'Transport': '#FFE66D',
-    'Entertainment': '#A8D8EA',
-    'Health': '#FF8C94',
-    'Education': '#AA96DA',
-    'Travel': '#FCBAD3',
-    'Other': '#C7CEEA',
+    'Food & Dining': '#FF6B6B',     // Coral Red
+    'Shopping': '#4ECDC4',          // Turquoise
+    'Transport': '#FFE66D',         // Bright Yellow
+    'Entertainment': '#ff9f43',     // Orange
+    'Health': '#FF8C94',            // Soft Pink
+    'Education': '#54a0ff',         // Sky Blue
+    'Travel': '#00d2d3',            // Jade Dust
+    'Utilities': '#48dbfb',         // Cyan
+    'Housing': '#ee5253',           // Armor
+    'Insurance': '#5f27cd',         // Nassau Purple
+    'Gifts': '#ff9ff3',             // Jigglypuff
+    'Income': '#1dd1a1',            // Wild Watermelon
+    'Investments': '#10ac84',       // Dark Mountain Meadow
+    'Other': '#C7CEEA',             // Lavender
+    // Hebrew
+    'מזון': '#FF6B6B',
+    'קניות': '#4ECDC4',
+    'תחבורה': '#FFE66D',
+    'פנאי ובידור': '#ff9f43',
+    'בריאות': '#FF8C94',
+    'חינוך': '#54a0ff',
+    'חופשות וטיולים': '#00d2d3',
+    'חשבונות': '#48dbfb',
+    'דיור': '#ee5253',
+    'ביטוח': '#5f27cd',
+    'מתנות': '#ff9ff3',
+    'הכנסה': '#1dd1a1',
+    'השקעות': '#10ac84',
     'אחר': '#C7CEEA',
     'ללא קטגוריה': '#B0BEC5',
 };
 
+// Fallback colors for unknown categories
+const PALETTE = [
+    '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff',
+    '#00d2d3', '#1dd1a1', '#5f27cd', '#ff9f43', '#ee5253',
+    '#0abde3', '#10ac84', '#576574', '#222f3e'
+];
+
 function getColorForCategory(category: string): string {
-    return CATEGORY_COLORS[category] || CATEGORY_COLORS['אחר'] || CATEGORY_COLORS['Other'] || '#B0BEC5';
+    if (CATEGORY_COLORS[category]) return CATEGORY_COLORS[category];
+    
+    // Deterministic selection from palette based on string hash
+    let hash = 0;
+    for (let i = 0; i < category.length; i++) {
+        hash = category.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % PALETTE.length;
+    return PALETTE[index];
 }
 
 export function useAnalytics(transactions: Transaction[]): AnalyticsData {

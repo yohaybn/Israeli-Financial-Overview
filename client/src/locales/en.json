@@ -68,7 +68,13 @@
         "start_scrape": "Start Scrape",
         "scraping": "Scraping...",
         "scrape_success": "Scrape completed successfully! Check the results panel.",
-        "scrape_error": "Error: {{message}}"
+        "scrape_error": "Error: {{message}}",
+        "opt_in_features": "Opt-in Features",
+        "custom_opt_in": "Custom opt-in (comma separated)...",
+        "feature_skip_additional_info": "Isracard Amex - Skip Additional Info",
+        "feature_mizrahi_pending_no_id": "Mizrahi - Pending if no ID",
+        "feature_mizrahi_pending_generic": "Mizrahi - Pending if generic desc",
+        "feature_mizrahi_pending_today": "Mizrahi - Pending if today"
     },
     "explorer": {
         "records": "Records",

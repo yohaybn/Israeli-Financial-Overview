@@ -68,7 +68,13 @@
         "start_scrape": "התחל סריקה",
         "scraping": "סורק...",
         "scrape_success": "הסריקה הושלמה בהצלחה! בדוק את פנל התוצאות.",
-        "scrape_error": "שגיאה: {{message}}"
+        "scrape_error": "שגיאה: {{message}}",
+        "opt_in_features": "תכונות ניסיוניות (Opt-in)",
+        "custom_opt_in": "תכונות מותאמות אישית (מופרדות בפסיק)...",
+        "feature_skip_additional_info": "ישראכרט אמקס - דלג על מידע נוסף",
+        "feature_mizrahi_pending_no_id": "מזרחי - ממתין אם אין מזהה",
+        "feature_mizrahi_pending_generic": "מזרחי - ממתין אם תיאור גנרי",
+        "feature_mizrahi_pending_today": "מזרחי - ממתין אם עסקה מהיום"
     },
     "explorer": {
         "records": "רשומות",

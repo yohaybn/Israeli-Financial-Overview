@@ -7,7 +7,6 @@ import { useAISettings } from '../../hooks/useScraper';
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { ExpenseProgressCenter } from './ExpenseProgressCenter';
 import { IncomeProgressCenter } from './IncomeProgressCenter';
-import { UpcomingFixedList } from './UpcomingFixedList';
 import { TransferDetectionBanner } from './TransferDetectionBanner';
 import { AnalyticsDashboard } from '../AnalyticsDashboard';
 import { BudgetHealthScore } from './BudgetHealthScore';
@@ -209,15 +208,14 @@ export function FinancialCommandCenter({
                 />
             </div>
 
-            {/* Internal Transfers Banner */}
-            <TransferDetectionBanner
-                count={summary.internalTransfers.count}
-                total={summary.internalTransfers.total}
-                transactions={summary.internalTransfers.transactions}
-            />
-
-            {/* Upcoming Fixed Items */}
-            <UpcomingFixedList items={summary.upcomingFixed} summary={summary} />
+            {/* Internal Transfers Banner - Moved to less prominent location */}
+            <div className="pt-2">
+                <TransferDetectionBanner
+                    count={summary.internalTransfers.count}
+                    total={summary.internalTransfers.total}
+                    transactions={summary.internalTransfers.transactions}
+                />
+            </div>
 
             {/* Existing Analytics Charts (Category Pie + Monthly Trend + Top Merchants) */}
             <div className="border-t border-gray-200 pt-6">
@@ -237,9 +235,11 @@ export function FinancialCommandCenter({
                     However, `summary` logic already filters by month, so we should filter 
                     transactions passed to AnalyticsDashboard to match the selected month.
                 */}
-                <AnalyticsDashboard transactions={
-                    transactions.filter(t => t.date.startsWith(selectedMonth))
-                } />
+                <AnalyticsDashboard
+                    transactions={transactions.filter(t => t.date.startsWith(selectedMonth))}
+                    allTransactions={transactions}
+                    onCategoryClick={setSelectedCategoryForModal}
+                />
             </div>
 
             {/* Dashboard AI Chat Drawer */}

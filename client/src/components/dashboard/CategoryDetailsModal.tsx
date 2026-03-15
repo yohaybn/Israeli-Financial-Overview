@@ -49,7 +49,7 @@ export function CategoryDetailsModal({
         }).format(amount);
 
     const categoryTransactions = useMemo(() => {
-        return transactions.filter(t => t.category === categoryName);
+        return transactions.filter(t => t.category === categoryName && !isInternalTransfer(t));
     }, [transactions, categoryName]);
 
     // Calculate chart data (Anchored to initialMonth)
