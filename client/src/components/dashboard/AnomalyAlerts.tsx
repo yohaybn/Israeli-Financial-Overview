@@ -89,12 +89,12 @@ export function AnomalyAlerts({ anomalies = [] }: AnomalyAlertsProps) {
                             {anomaly.currentValue !== undefined && anomaly.expectedValue !== undefined && (
                                 <div className="mt-3 flex items-center gap-4 text-xs font-mono bg-white/50 inline-flex p-2 rounded-lg border border-white/20">
                                     <div className="flex flex-col">
-                                        <span className="text-gray-500 uppercase tracking-wider text-[10px]">{t('dashboard.current', 'Current')}</span>
+                                        <span className="text-gray-500 uppercase tracking-wider text-[10px]">{t('dashboard.current')}</span>
                                         <span className={`font-bold ${config.color}`}>{formatCurrency(anomaly.currentValue)}</span>
                                     </div>
                                     <div className="w-px h-6 bg-gray-300"></div>
                                     <div className="flex flex-col">
-                                        <span className="text-gray-500 uppercase tracking-wider text-[10px]">{t('dashboard.expected', 'Expected')}</span>
+                                        <span className="text-gray-500 uppercase tracking-wider text-[10px]">{t('dashboard.expected')}</span>
                                         <span className="text-gray-700 font-bold">{formatCurrency(anomaly.expectedValue)}</span>
                                     </div>
                                 </div>

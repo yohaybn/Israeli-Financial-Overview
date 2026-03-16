@@ -125,7 +125,7 @@ export function CategoryDetailsModal({
                             {categoryName}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">
-                            {t('dashboard.category_spending_details', 'Spending Details')}
+                            {t('dashboard.category_spending_details')}
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -134,18 +134,18 @@ export function CategoryDetailsModal({
                                 onClick={handleZoomOut}
                                 className="p-2 border-r border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-30"
                                 disabled={monthsToShow >= 24}
-                                title={t('dashboard.zoom_out', 'Show more months')}
+                                title={t('dashboard.zoom_out')}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" /></svg>
                             </button>
                             <span className="px-3 text-xs font-bold text-gray-400 min-w-[70px] text-center uppercase tracking-tighter">
-                                {monthsToShow} {t('dashboard.months', 'Months')}
+                                {monthsToShow} {t('dashboard.months')}
                             </span>
                             <button 
                                 onClick={handleZoomIn}
                                 className="p-2 border-l border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-30"
                                 disabled={monthsToShow <= 3}
-                                title={t('dashboard.zoom_in', 'Show fewer months')}
+                                title={t('dashboard.zoom_in')}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                             </button>
@@ -177,15 +177,15 @@ export function CategoryDetailsModal({
                         <div className="flex flex-col gap-4">
                             <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
                                 <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">
-                                    {t('dashboard.spending_for', 'Spending for')} {format(parseISO(`${selectedMonth}-01`), 'MM/yy')}
+                                    {t('dashboard.spending_for')} {format(parseISO(`${selectedMonth}-01`), 'MM/yy')}
                                 </p>
                                 <p className="text-3xl font-black text-indigo-700">{formatCurrency(spentSoFar)}</p>
                             </div>
                             
                             <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100 flex-1 flex flex-col justify-center">
-                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">{t('dashboard.projected_monthly', 'Projected Monthly Spending')}</p>
+                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">{t('dashboard.projected_monthly')}</p>
                                 <p className="text-2xl font-black text-emerald-600">{formatCurrency(projectedSpend)}</p>
-                                <p className="text-[10px] text-emerald-600/70 mt-1.5 font-medium">{t('dashboard.based_on_avg', 'Based on historical average')}: {formatCurrency(chartData.avg)}</p>
+                                <p className="text-[10px] text-emerald-600/70 mt-1.5 font-medium">{t('dashboard.based_on_avg')}: {formatCurrency(chartData.avg)}</p>
                             </div>
                         </div>
 
@@ -228,7 +228,7 @@ export function CategoryDetailsModal({
                                                 return m;
                                             }
                                         }}
-                                        formatter={(value: number | undefined) => [value ? formatCurrency(value) : '', t('dashboard.spent', 'Spent')]}
+                                        formatter={(value: number | undefined) => [value ? formatCurrency(value) : '', t('dashboard.spent')]}
                                         labelStyle={{ color: '#374151', fontWeight: 'bold' }}
                                         contentStyle={{ borderRadius: '0.75rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
                                     />
@@ -259,7 +259,7 @@ export function CategoryDetailsModal({
                     {/* Bottom: Transaction Detail Table */}
                     <div className="p-6 bg-gray-50/30 flex-1">
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-2">
-                            {t('dashboard.transactions_for', 'Transactions for')} {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}
+                            {t('dashboard.transactions_for')} {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}
                         </h4>
                         {currentMonthTxns.length > 0 ? (
                             <TransactionTable
@@ -269,7 +269,7 @@ export function CategoryDetailsModal({
                             />
                         ) : (
                             <div className="text-center text-gray-400 py-10 bg-white rounded-xl border border-dashed border-gray-200">
-                                {t('dashboard.no_transactions_month', 'No transactions found for this month.')}
+                                {t('dashboard.no_transactions_month')}
                             </div>
                         )}
                     </div>

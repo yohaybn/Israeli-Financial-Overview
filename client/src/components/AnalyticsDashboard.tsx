@@ -54,7 +54,7 @@ export function AnalyticsDashboard({
                             : 'text-gray-500 hover:text-gray-700'
                             }`}
                     >
-                        {t('analytics.this_month', 'This Month')}
+                        {t('analytics.this_month')}
                     </button>
                     <button
                         onClick={() => setViewRange('all')}
@@ -63,7 +63,7 @@ export function AnalyticsDashboard({
                             : 'text-gray-500 hover:text-gray-700'
                             }`}
                     >
-                        {t('analytics.all_months', 'All Months')}
+                        {t('analytics.all_months')}
                     </button>
                 </div>
             </div>
@@ -114,7 +114,7 @@ export function AnalyticsDashboard({
                         </PieChart>
                     </ResponsiveContainer>
                     <p className="text-[10px] text-center text-gray-400 mt-2">
-                        💡 {t('analytics.click_hint', 'Click a category to see details')}
+                        💡 {t('analytics.click_hint')}
                     </p>
                 </div>
 
@@ -143,7 +143,7 @@ export function AnalyticsDashboard({
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h3 className="text-sm font-bold text-gray-800">{t('analytics.top_merchants')}</h3>
-                        <p className="text-xs text-gray-400 mt-1">{t('analytics.merchants_subtitle', 'Where your money goes')}</p>
+                        <p className="text-xs text-gray-400 mt-1">{t('analytics.merchants_subtitle')}</p>
                     </div>
                     <div className="flex gap-2">
                         <button
@@ -171,9 +171,9 @@ export function AnalyticsDashboard({
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-gray-50">
-                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t('transactions.merchant', 'Merchant')}</th>
-                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">{t('analytics.txns', 'Frequency')}</th>
-                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">{t('analytics.total_amount', 'Total')}</th>
+                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t('transactions.merchant')}</th>
+                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">{t('analytics.txns')}</th>
+                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">{t('analytics.total_amount')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">

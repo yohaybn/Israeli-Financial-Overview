@@ -26,7 +26,7 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
     }, [settings]);
 
     if (!isInline && (!isOpen || !localSettings)) return null;
-    if (isInline && !localSettings) return <div className="p-8 text-center text-gray-500">Loading AI settings...</div>;
+    if (isInline && !localSettings) return <div className="p-8 text-center text-gray-500">{t('ai_settings.loading')}</div>;
 
     const handleSave = () => {
         updateSettings(localSettings, {

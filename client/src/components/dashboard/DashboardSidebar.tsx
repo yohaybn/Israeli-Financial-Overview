@@ -51,7 +51,7 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
         return (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <div className="w-8 h-8 border-2 border-blue-100 border-t-blue-500 rounded-full animate-spin"></div>
-                <p className="text-sm text-gray-400 font-medium">{t('common.loading', 'Loading active data...')}</p>
+                <p className="text-sm text-gray-400 font-medium">{t('common.loading')}</p>
             </div>
         );
     }
@@ -61,14 +61,14 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
             {/* Sidebar Header */}
             <div className="flex flex-col gap-2">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">
-                    {t('dashboard.sidebar_title', 'Monthly Activity')}
+                    {t('dashboard.sidebar_title')}
                 </h3>
 
                 {/* Search Bar */}
                 <div className="relative group">
                     <input
                         type="text"
-                        placeholder={t('dashboard.search_txns', 'Search transactions...')}
+                        placeholder={t('dashboard.search_txns')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-xl py-2 px-4 pl-10 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400/50 transition-all outline-none"
@@ -87,7 +87,7 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 12H4M12 4v16m8-8l-8-8-8 8" />
                         </svg>
                         <p className="text-xs font-bold leading-tight text-center">
-                            {t('dashboard.no_txns_month', 'No transactions found for this month')}
+                            {t('dashboard.no_txns_month')}
                         </p>
                     </div>
                 ) : (
@@ -123,7 +123,7 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                                                         )}
                                                         {txn.isIgnored && (
                                                             <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                                                {t('common.ignored', 'Ignored')}
+                                                                {t('common.ignored')}
                                                             </span>
                                                         )}
                                                     </div>

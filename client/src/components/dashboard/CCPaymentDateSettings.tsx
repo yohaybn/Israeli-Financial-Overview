@@ -32,7 +32,7 @@ export function CCPaymentDateSettings() {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="p-2 text-gray-500 hover:text-gray-800 hover:bg-white/50 rounded-xl transition-colors flex items-center gap-2 group border border-transparent hover:border-gray-200"
-                title={t('dashboard.dashboard_settings', 'Dashboard Settings')}
+                title={t('dashboard.dashboard_settings')}
             >
                 <div className="bg-white p-1.5 rounded-lg shadow-sm group-hover:shadow border border-gray-100">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,17 +51,17 @@ export function CCPaymentDateSettings() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            {t('dashboard.dashboard_settings', 'Dashboard Settings')}
+                            {t('dashboard.dashboard_settings')}
                         </h4>
 
                         <div className="space-y-5">
                             {/* CC Billing Date */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                                    {t('dashboard.cc_billing_date', 'CC Billing Date')}
+                                    {t('dashboard.cc_billing_date')}
                                 </label>
                                 <p className="text-xs text-gray-500 mb-2 leading-relaxed">
-                                    {t('dashboard.cc_billing_desc', 'Day of month when credit cards are debited from your bank.')}
+                                    {t('dashboard.cc_billing_desc')}
                                 </p>
                                 <div className="flex gap-2">
                                     <select
@@ -70,10 +70,14 @@ export function CCPaymentDateSettings() {
                                         onChange={(e) => setDraftDate(Number(e.target.value))}
                                     >
                                         {COMMON_DATES.map(date => (
-                                            <option key={date} value={date}>{date}{t('dashboard.date_suffix', 'th')} of month</option>
+                                            <option key={date} value={date}>
+                                                {date}{t('dashboard.date_suffix')} {t('dashboard.of_month')}
+                                            </option>
                                         ))}
                                         {!COMMON_DATES.includes(draftDate) && (
-                                            <option value={draftDate}>{draftDate}{t('dashboard.date_suffix', 'th')} (Custom)</option>
+                                            <option value={draftDate}>
+                                                {draftDate}{t('dashboard.date_suffix')} {t('dashboard.custom')}
+                                            </option>
                                         )}
                                     </select>
                                     <input
@@ -89,10 +93,10 @@ export function CCPaymentDateSettings() {
                             {/* Forecast Window */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                                    {t('dashboard.forecast_window', 'Forecast History Window')}
+                                    {t('dashboard.forecast_window')}
                                 </label>
                                 <p className="text-xs text-gray-500 mb-2 leading-relaxed">
-                                    {t('dashboard.forecast_window_desc', 'Months of data used to compute spending averages. Capped to your available data.')}
+                                    {t('dashboard.forecast_window_desc')}
                                 </p>
                                 <div className="flex gap-2">
                                     {FORECAST_OPTIONS.map(mo => (
@@ -114,10 +118,10 @@ export function CCPaymentDateSettings() {
                             {(config.customCCKeywords ?? []).length > 0 && (
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                                        {t('dashboard.cc_patterns', 'CC Payment Patterns')}
+                                        {t('dashboard.cc_patterns')}
                                     </label>
                                     <p className="text-xs text-gray-500 mb-2">
-                                        {t('dashboard.cc_patterns_desc', 'Transactions flagged as CC payments. Remove to stop auto-detection.')}
+                                        {t('dashboard.cc_patterns_desc')}
                                     </p>
                                     <div className="space-y-1 max-h-36 overflow-y-auto">
                                         {(config.customCCKeywords ?? []).map(kw => (
@@ -126,7 +130,7 @@ export function CCPaymentDateSettings() {
                                                 <button
                                                     onClick={() => removeKeyword(kw)}
                                                     className="ml-2 text-amber-400 hover:text-red-500 transition-colors text-sm font-bold flex-shrink-0"
-                                                    title={t('common.remove', 'Remove')}
+                                                    title={t('common.remove')}
                                                 >
                                                     ×
                                                 </button>
@@ -141,13 +145,13 @@ export function CCPaymentDateSettings() {
                                     onClick={() => setIsOpen(false)}
                                     className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
                                 >
-                                    {t('common.cancel', 'Cancel')}
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     onClick={handleSave}
                                     className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-5 py-2 rounded-xl shadow-md shadow-blue-500/20 transition-all hover:shadow-lg hover:-translate-y-0.5"
                                 >
-                                    {t('common.save', 'Save')}
+                                    {t('common.save')}
                                 </button>
                             </div>
                         </div>

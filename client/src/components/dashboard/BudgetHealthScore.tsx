@@ -110,18 +110,22 @@ export function BudgetHealthScore({ health }: BudgetHealthScoreProps) {
             {/* Content */}
             <div className="flex-1">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
-                    {t('dashboard.budget_health', 'Budget Health')}
+                    {t('dashboard.budget_health')}
                 </h3>
                 <div className="flex items-baseline gap-3 mb-1">
                     <span className={`text-2xl font-black ${theme.text} capitalize tracking-tight`}>
-                        {t(`dashboard.health_${health.score}`, health.score.replace('_', ' '))}
+                        {i18n.exists(`dashboard.health_${health.score}`)
+                            ? t(`dashboard.health_${health.score}`)
+                            : health.score.replace('_', ' ')}
                     </span>
                 </div>
                 <p className="text-sm text-gray-700 mb-3 font-medium opacity-90">
-                    {t(`dashboard.message_${health.message.replace(/ /g, '_').toLowerCase()}`, health.message)}
+                    {i18n.exists(`dashboard.message_${health.message.replace(/ /g, '_').toLowerCase()}`)
+                        ? t(`dashboard.message_${health.message.replace(/ /g, '_').toLowerCase()}`)
+                        : health.message}
                 </p>
                 <div className="flex items-center gap-2 bg-white/50 inline-flex px-3 py-1.5 rounded-lg">
-                    <span className="text-xs text-gray-500 font-medium">{t('dashboard.projected_end', 'Projected EOM')}:</span>
+                    <span className="text-xs text-gray-500 font-medium">{t('dashboard.projected_end')}:</span>
                     <span className={`text-sm font-bold ${isSurplus ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {isSurplus ? '+' : '-'}{formatCurrency(Math.abs(health.projectedSurplus))}
                     </span>

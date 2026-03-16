@@ -27,8 +27,8 @@ export function ConfigurationPanel() {
                         </svg>
                     </div>
                     <div>
-                        <h1 className="text-3xl font-black text-gray-900">{t('common.configuration', 'Configuration')}</h1>
-                        <p className="text-gray-500">{t('common.configuration_desc', 'Manage system settings and integrations')}</p>
+                        <h1 className="text-3xl font-black text-gray-900">{t('common.configuration')}</h1>
+                        <p className="text-gray-500">{t('common.configuration_desc')}</p>
                     </div>
                 </div>
 
@@ -37,19 +37,19 @@ export function ConfigurationPanel() {
                         onClick={() => setActiveTab('ai')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        🧠 {t('ai_settings.title', 'AI Settings')}
+                        🧠 {t('ai_settings.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('scheduler')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scheduler' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        ⏱️ {t('scheduler.title', 'Scheduler')}
+                        ⏱️ {t('scheduler.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('scrape')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scrape' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        ⚙️ {t('scraper.config_title', 'Scrape Configuration')}
+                        ⚙️ {t('scraper.config_title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('fraud')}
@@ -57,31 +57,31 @@ export function ConfigurationPanel() {
                             activeTab === 'fraud' ? 'bg-rose-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'
                         }`}
                     >
-                        🚨 {t('fraud_settings.title', 'Fraud & Alerts')}
+                        🚨 {t('fraud_settings.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('sheets')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sheets' ? 'bg-green-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        📊 {t('google_settings.title', 'Google Sheets')}
+                        📊 {t('google_settings.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('telegram')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'telegram' ? 'bg-cyan-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        📱 {t('telegram.settings_title', 'Telegram')}
+                        📱 {t('telegram.settings_title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('environment')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'environment' ? 'bg-slate-700 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        🌐 {t('common.environment', 'Environment')}
+                        🌐 {t('common.environment')}
                     </button>
                     <button
                         onClick={() => setActiveTab('maintenance')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'maintenance' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        🛠️ {t('common.maintenance', 'Maintenance')}
+                        🛠️ {t('common.maintenance')}
                     </button>
                 </nav>
             </header>

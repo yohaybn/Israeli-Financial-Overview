@@ -172,6 +172,9 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const hasDifferentAmount = transaction.originalAmount !== transaction.chargedAmount;
     const isForeignCurrency = transaction.originalCurrency && transaction.originalCurrency !== 'ILS';
 
+    const providerKey = `provider.${transaction.provider}`;
+    const providerLabel = i18n.exists(providerKey) ? t(providerKey) : transaction.provider;
+
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
             {/* Backdrop */}
@@ -192,7 +195,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                     <div className="space-y-4">
                         <div className="flex items-center gap-2">
                             <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/10">
-                                {t(`provider.${transaction.provider}`, { defaultValue: transaction.provider })}
+                                {providerLabel}
                             </span>
                             {isIgnored && (
                                 <span className="bg-red-500/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/10">
@@ -311,7 +314,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                         <InfoItem 
                             icon={<Hash size={16}/>} 
                             label={t('common.account_number')} 
-                            value={`${transaction.accountNumber || '-'} (${t(`provider.${transaction.provider}`, { defaultValue: transaction.provider })})`} 
+                            value={`${transaction.accountNumber || '-'} (${providerLabel})`} 
                         />
                         {hasDifferentAmount && (
                             <InfoItem 
@@ -320,7 +323,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                                 value={`${formatAmount(transaction.originalAmount, transaction.originalCurrency)} (${transaction.originalCurrency})`} 
                             />
                         )}
-                        <InfoItem icon={<Building2 size={16}/>} label={t('transaction_modal.provider')} value={t(`provider.${transaction.provider}`, { defaultValue: transaction.provider })} />
+                        <InfoItem icon={<Building2 size={16}/>} label={t('transaction_modal.provider')} value={providerLabel} />
                     </div>
 
                     <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
@@ -405,7 +408,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                                                     : "bg-white text-gray-600 hover:bg-amber-100 border border-amber-100"
                                             )}
                                         >
-                                            {t(`common.interval.${interval}`, { defaultValue: interval })}
+                                            {i18n.exists(`common.interval.${interval}`) ? t(`common.interval.${interval}`) : interval}
                                         </button>
                                     ))}
                                 </div>

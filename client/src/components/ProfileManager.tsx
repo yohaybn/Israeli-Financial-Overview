@@ -18,7 +18,7 @@ export function ProfileManager({
     currentOptions,
     onLoadProfile,
 }: ProfileManagerProps) {
-    const { i18n } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { data: profiles, isLoading } = useProfiles();
     const { data: providers } = useQuery({
         queryKey: ['providers'],
@@ -53,8 +53,8 @@ export function ProfileManager({
                 setShowSaveInput(false);
             },
             onError: (err: any) => {
-                const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                alert(`Failed to save profile: ${errorMsg}`);
+                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                alert(t('profiles.save_failed', { error: errorMsg }));
             }
         });
     };
@@ -65,29 +65,29 @@ export function ProfileManager({
 
     const handleDeleteProfile = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this profile?')) {
+        if (confirm(t('profiles.confirm_delete'))) {
             deleteProfile(id, {
                 onError: (err: any) => {
-                    const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                    alert(`Failed to delete profile: ${errorMsg}`);
+                    const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                    alert(t('profiles.delete_failed', { error: errorMsg }));
                 }
             });
         }
     };
 
     if (isLoading) {
-        return <div className="text-sm text-gray-500">Loading profiles...</div>;
+        return <div className="text-sm text-gray-500">{t('profiles.loading')}</div>;
     }
 
     return (
         <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
             <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-800">Saved Profiles</h3>
+                <h3 className="font-semibold text-gray-800">{t('profiles.title')}</h3>
                 <button
                     onClick={() => setShowSaveInput(!showSaveInput)}
                     className="text-xs text-blue-600 hover:text-blue-800"
                 >
-                    {showSaveInput ? 'Cancel' : '+ Save Current'}
+                    {showSaveInput ? t('common.cancel') : t('profiles.save_current')}
                 </button>
             </div>
 
@@ -98,7 +98,7 @@ export function ProfileManager({
                         type="text"
                         value={newProfileName}
                         onChange={(e) => setNewProfileName(e.target.value)}
-                        placeholder="Profile name..."
+                        placeholder={t('profiles.name_placeholder')}
                         className="flex-1 text-sm p-2 border border-gray-300 rounded"
                     />
                     <button
@@ -106,7 +106,7 @@ export function ProfileManager({
                         disabled={isCreating || !newProfileName.trim()}
                         className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-blue-400"
                     >
-                        {isCreating ? 'Saving...' : 'Save'}
+                        {isCreating ? t('common.saving') : t('common.save')}
                     </button>
                 </div>
             )}
@@ -129,14 +129,14 @@ export function ProfileManager({
                                 disabled={isDeleting}
                                 className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
                             >
-                                Delete
+                                {t('common.delete')}
                             </button>
                         </div>
                     ))}
                 </div>
             ) : (
                 <div className="text-sm text-gray-500 text-center py-2">
-                    No saved profiles yet.
+                    {t('profiles.empty')}
                 </div>
             )}
         </div>

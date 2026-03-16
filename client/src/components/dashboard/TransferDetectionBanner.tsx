@@ -37,7 +37,7 @@ export function TransferDetectionBanner({ count, total, transactions }: Transfer
                     </div>
                     <div className="text-left">
                         <p className="text-xs font-bold text-blue-700">
-                            {t('dashboard.transfers_detected', { count, defaultValue: `${count} Internal Transfers Detected` })}
+                            {t('dashboard.transfers_detected', { count })}
                         </p>
                     </div>
                 </div>
@@ -58,7 +58,7 @@ export function TransferDetectionBanner({ count, total, transactions }: Transfer
             {isExpanded && (
                 <div className="px-4 pb-4 border-t border-blue-100">
                     <p className="text-xs text-blue-500 mt-3 mb-3 bg-white/60 rounded-lg p-2.5 border border-blue-100">
-                        💡 {t('dashboard.transfer_explanation', 'These are credit card settlement payments from your bank account. The individual card transactions are already counted as expenses, so these lump-sum payments are excluded to avoid double-counting.')}
+                        💡 {t('dashboard.transfer_explanation')}
                     </p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto">
                         {transactions.map((txn, idx) => (

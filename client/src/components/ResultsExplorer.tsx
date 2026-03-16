@@ -2,15 +2,17 @@ import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useScrapeResults, useMultipleScrapeResults, useUpdateCategory, useFilters, useRemoveFilter, useToggleFilter, useAICategorize, useAIChat, useAISettings, useDeleteScrapeResult, useRenameResult } from '../hooks/useScraper';
 import { TransactionTable } from './TransactionTable';
-import { ScrapeSettings } from './ScrapeSettings';
 import { AISettings } from './AISettings';
 import { logger } from '../utils/logger';
+import { clsx } from 'clsx';
+import { ScrapeFileList, ScrapeResultFileMeta } from './scrape/ScrapeFileList';
 
 interface ResultsExplorerProps {
     onOpenImport?: () => void;
+    layout?: 'split' | 'stacked';
 }
 
-export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
+export function ResultsExplorer({ onOpenImport, layout = 'split' }: ResultsExplorerProps) {
     const { t, i18n } = useTranslation();
     const { data: files, isLoading: isLoadingList } = useScrapeResults();
     const { data: aiSettings } = useAISettings();
@@ -26,7 +28,6 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
     const [showHidden, setShowHidden] = useState(false);
     const [showAnalyst, setShowAnalyst] = useState(false);
     const [showAISettings, setShowAISettings] = useState(false);
-    const [showScrapeSettings, setShowScrapeSettings] = useState(false);
     const [showRenameModal, setShowRenameModal] = useState(false);
     const [renameTarget, setRenameTarget] = useState<string | null>(null);
     const [newFileName, setNewFileName] = useState('');
@@ -74,23 +75,6 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
         }
     };
 
-    const handleDeleteFile = (e: React.MouseEvent, file: string) => {
-        e.stopPropagation();
-        if (confirm(t('explorer.confirm_delete', 'Are you sure you want to delete this result?'))) {
-            deleteResult(file, {
-                onSuccess: () => {
-                    setSelectedFiles(prev => prev.filter(f => f !== file));
-                    showNotification('success', t('explorer.delete_success', 'File deleted successfully'));
-                },
-                onError: (err: any) => {
-                    const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                    logger.error(`Delete failed: ${errorMsg}`);
-                    showNotification('error', `Delete failed: ${errorMsg}`);
-                }
-            });
-        }
-    };
-
 
 
     const handleUpdateCategory = (transactionId: string, category: string) => {
@@ -115,7 +99,15 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
             content = JSON.stringify(transactionsToExport, null, 2);
             type = 'application/json';
         } else {
-            const headers = ['Date', 'Description', 'Amount', 'Currency', 'Category', 'Status', 'Memo'];
+            const headers = [
+                t('export.headers.date'),
+                t('export.headers.description'),
+                t('export.headers.amount'),
+                t('export.headers.currency'),
+                t('export.headers.category'),
+                t('export.headers.status'),
+                t('export.headers.memo'),
+            ];
             const rows = transactionsToExport.map(t => [
                 t.date,
                 `"${t.description.replace(/"/g, '""')}"`,
@@ -141,7 +133,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
 
     const handleAICategorize = () => {
         if (selectedFiles.length === 0) {
-            showNotification('info', t('explorer.select_file_first', 'Please select a file first'));
+            showNotification('info', t('explorer.select_file_first'));
             return;
         }
         const targetFile = selectedFiles[0]; // Categorize the primary selected file for now
@@ -149,19 +141,19 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
         aiCategorize(targetFile, {
             onSuccess: () => {
                 logger.info(`Successfully categorized: ${targetFile}`);
-                showNotification('success', t('explorer.ai_categorize_success', 'Categorization completed successfully'));
+                showNotification('success', t('explorer.ai_categorize_success'));
             },
             onError: (err: any) => {
-                const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
+                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
                 logger.error(`AI Categorization failed for ${targetFile}: ${errorMsg}`);
-                showNotification('error', `Categorization failed: ${errorMsg}`);
+                showNotification('error', t('explorer.ai_categorize_failed', { error: errorMsg }));
             }
         });
     };
 
     const handleSendAnalystQuery = (queryText: string, isRetry: boolean = false) => {
         if (!queryText.trim() || selectedFiles.length === 0) {
-            showNotification('info', t('explorer.select_file_and_query', 'Please select a file and enter a query'));
+            showNotification('info', t('explorer.select_file_and_query'));
             return;
         }
 
@@ -179,13 +171,13 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                 setChatHistory(prev => [...prev, { role: 'ai', content: answer }]);
             },
             onError: (err: any) => {
-                const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
+                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
                 logger.error(`AI Analyst query failed: ${errorMsg}`);
-                showNotification('error', `AI Analyst failed: ${errorMsg}`);
+                showNotification('error', t('explorer.ai_analyst_failed', { error: errorMsg }));
                 // Add error message to chat history
                 setChatHistory(prev => [...prev, {
                     role: 'ai',
-                    content: `Error: ${errorMsg}`,
+                    content: t('common.error_with_message', { error: errorMsg }),
                     isError: true,
                     userQuery: queryText
                 }]);
@@ -208,13 +200,6 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
         return filename.endsWith('.json') ? filename.slice(0, -5) : filename;
     };
 
-    const handleRenameClick = (e: React.MouseEvent, filename: string) => {
-        e.stopPropagation();
-        setRenameTarget(filename);
-        setNewFileName(stripJsonExtension(filename));
-        setShowRenameModal(true);
-    };
-
     const handleRenameSubmit = () => {
         if (!renameTarget || !newFileName.trim()) return;
         const cleanName = newFileName.trim();
@@ -229,12 +214,12 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                 setRenameTarget(null);
                 setNewFileName('');
                 logger.info(`File renamed to: ${newFullName}`);
-                showNotification('success', t('explorer.rename_success', 'File renamed successfully'));
+                showNotification('success', t('explorer.rename_success'));
             },
             onError: (err: any) => {
-                const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
+                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
                 logger.error(`Rename failed: ${errorMsg}`);
-                showNotification('error', `Rename failed: ${errorMsg}`);
+                showNotification('error', t('explorer.rename_failed', { error: errorMsg }));
             }
         });
     };
@@ -243,12 +228,15 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
 
     if (isLoadingList) return (
         <div className="flex items-center justify-center h-[calc(100vh-64px)] bg-gray-50 text-gray-400">
-            <div className="animate-pulse text-lg">{t('explorer.loading_explorer', 'Loading results explorer...')}</div>
+            <div className="animate-pulse text-lg">{t('explorer.loading_explorer')}</div>
         </div>
     );
 
     return (
-        <div className="flex h-[calc(100vh-64px)] bg-gray-50 border-t border-gray-200">
+        <div className={clsx(
+            "bg-gray-50 border-t border-gray-200",
+            layout === 'split' ? "flex h-[calc(100vh-64px)]" : "flex flex-col"
+        )}>
             {/* Notification Toast */}
             {notification && (
                 <div className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-medium z-50 animate-in fade-in slide-in-from-right-5 ${notification.type === 'success' ? 'bg-green-600' :
@@ -258,104 +246,37 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                     {notification.message}
                 </div>
             )}
-            {/* Sidebar: File List */}
-            <div className="w-1/4 border-r border-gray-200 overflow-y-auto bg-white shadow-inner">
-                <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-600 flex justify-between items-center sticky top-0 z-20 group/sidebar">
-                    <div className="flex flex-col">
-                        <span className="text-xs uppercase tracking-tighter text-gray-400">{t('explorer.records')}</span>
-                        <div className="flex items-center gap-2">
-                            <span>{t('explorer.scrape', 'Scrape')}</span>
-                            <span className="text-[10px] bg-gray-200 px-2 py-0.5 rounded-full">{files?.length || 0}</span>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={sortedFiles.length > 0 && selectedFiles.length === sortedFiles.length}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                            title={t('explorer.select_all', 'Select All')}
-                        />
-                        <button
-                            onClick={() => setShowScrapeSettings(true)}
-                            className="p-2 hover:bg-white hover:text-indigo-600 rounded-full transition-all border border-transparent hover:border-indigo-100 shadow-sm bg-white md:bg-transparent text-gray-400"
-                            title={t('scraper.config_title', 'Scrape Configuration')}
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </button>
-                        <button
-                            onClick={onOpenImport}
-                            className="p-2 hover:bg-white hover:text-blue-600 rounded-full transition-all border border-transparent hover:border-blue-100 shadow-sm bg-white md:bg-transparent"
-                            title={t('explorer.import_files')}
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <ul>
-                    {selectedFiles.length > 1 && (
-                        <li className="p-3 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 font-medium">
-                            {t('explorer.files_selected_count', {
-                                count: selectedFiles.length,
-                                defaultValue: `${selectedFiles.length} files selected for aggregation`
-                            })}
-                        </li>
-                    )}
-                    {sortedFiles.map((file) => (
-                        <li
-                            key={file.filename}
-                            onClick={() => handleFileClick(file.filename)}
-                            className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-all flex items-center justify-between group ${selectedFiles.includes(file.filename) ? 'bg-blue-100 border-l-4 border-blue-500 shadow-inner' : ''}`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${selectedFiles.includes(file.filename) ? 'bg-blue-600 border-blue-600 rotate-0 scale-110' : 'border-gray-300 rotate-90 scale-100 group-hover:border-blue-400'}`}>
-                                    {selectedFiles.includes(file.filename) && (
-                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    )}
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold text-gray-800 break-all">{stripJsonExtension(file.filename)}</span>
-                                    <span className="text-[10px] text-gray-400 mt-1">{file.transactionCount} transactions • {file.accountCount} accounts</span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onClick={(e) => handleRenameClick(e, file.filename)}
-                                    className="p-1.5 text-gray-400 hover:text-blue-600 transition-all rounded-md hover:bg-blue-50"
-                                    title={t('common.rename', 'Rename')}
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                </button>
-                                <button
-                                    onClick={(e) => handleDeleteFile(e, file.filename)}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-all rounded-md hover:bg-red-50"
-                                    title={t('common.delete')}
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </li>
-                    ))}
-                    {files?.length === 0 && (
-                        <li className="p-10 text-center text-gray-400 italic">
-                            <svg className="w-12 h-12 mx-auto mb-2 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                            </svg>
-                            {t('explorer.no_results')}
-                        </li>
-                    )}
-                </ul>
+            {/* File List */}
+            <div className={clsx(
+                layout === 'split' ? "w-1/4 border-r border-gray-200 overflow-y-auto bg-white shadow-inner" : "p-4"
+            )}>
+                <ScrapeFileList
+                    files={(files || []) as ScrapeResultFileMeta[]}
+                    selectedFiles={selectedFiles}
+                    onToggleFile={handleFileClick}
+                    onSelectAll={handleSelectAll}
+                    onRenameClick={(filename) => {
+                        setRenameTarget(filename);
+                        setNewFileName(stripJsonExtension(filename));
+                        setShowRenameModal(true);
+                    }}
+                    onDeleteClick={(filename) => {
+                        if (confirm(t('explorer.confirm_delete'))) {
+                            deleteResult(filename, {
+                                onSuccess: () => {
+                                    setSelectedFiles(prev => prev.filter(f => f !== filename));
+                                    showNotification('success', t('explorer.delete_success'));
+                                },
+                                onError: (err: any) => {
+                                    const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                                    logger.error(`Delete failed: ${errorMsg}`);
+                                    showNotification('error', t('explorer.delete_failed', { error: errorMsg }));
+                                }
+                            });
+                        }
+                    }}
+                    onOpenImport={onOpenImport}
+                />
 
                 {/* Filters Management Section */}
                 {filters && filters.length > 0 && (
@@ -381,7 +302,9 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
             </div>
 
             {/* Main Content Area */}
-            <div className="w-3/4 p-6 overflow-y-auto scroll-smooth">
+            <div className={clsx(
+                layout === 'split' ? "w-3/4 p-6 overflow-y-auto scroll-smooth" : "p-4"
+            )}>
                 {selectedFiles.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-300">
                         <svg className="w-24 h-24 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -397,7 +320,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                                 <div className="flex items-center gap-3">
                                     <span className={`w-3 h-3 rounded-full shadow-sm ${selectedFiles.length > 1 ? 'bg-blue-500' : (result?.success ? 'bg-green-500' : 'bg-red-500')}`}></span>
                                     <h2 className="text-2xl font-black text-gray-900 leading-tight truncate max-w-2xl">
-                                        {selectedFiles.length > 1 ? t('explorer.aggregated_results', { count: selectedFiles.length, defaultValue: `Aggregated Results (${selectedFiles.length} files)` }) : selectedFiles[0]}
+                                        {selectedFiles.length > 1 ? t('explorer.aggregated_results', { count: selectedFiles.length }) : selectedFiles[0]}
                                     </h2>
                                 </div>
                                 <div className="text-xs font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
@@ -453,7 +376,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all border flex items-center gap-2 ${showRaw ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'}`}
                                 >
                                     {showRaw ? '📄' : '⚙️'}
-                                    {showRaw ? t('explorer.hide_raw', 'Hide Raw') : t('explorer.raw_data')}
+                                    {showRaw ? t('explorer.hide_raw') : t('explorer.raw_data')}
                                 </button>
                             </div>
                         </div>
@@ -469,7 +392,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                         ) : (result?.success || selectedFiles.length > 0) ? (
                             <div className="space-y-4">
                                 <h3 className="text-xl font-bold text-gray-800">
-                                    {selectedFiles.length > 1 ? t('explorer.aggregated_txns', 'Aggregated Transactions') : t('explorer.transactions', 'Transactions')}
+                                    {selectedFiles.length > 1 ? t('explorer.aggregated_txns') : t('explorer.transactions')}
                                 </h3>
                                 <TransactionTable
                                     transactions={activeTransactions}
@@ -479,7 +402,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                             </div>
                         ) : (
                             <div className="bg-white p-10 rounded-2xl shadow-sm border border-gray-100 text-center">
-                                <p className="text-gray-400">{t('explorer.no_data_available', 'No transaction data available for this record.')}</p>
+                                <p className="text-gray-400">{t('explorer.no_data_available')}</p>
                             </div>
                         )}
 
@@ -526,7 +449,7 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                                             className="mt-2 text-[11px] font-semibold text-red-600 hover:opacity-75 flex items-center gap-1"
                                         >
                                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                            {t('common.retry', 'Retry')}
+                                            {t('common.retry')}
                                         </button>
                                     )}
                                 </div>
@@ -573,16 +496,16 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
             {showRenameModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                        <h3 className="text-xl font-bold text-gray-900 mb-4">{t('common.rename_file', 'Rename File')}</h3>
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">{t('common.rename_file')}</h3>
                         <div className="space-y-4">
                             <p className="text-sm text-gray-600">
-                                {t('common.rename_from', 'From')}: <span className="font-mono font-semibold text-gray-800">{stripJsonExtension(renameTarget || '')}</span>
+                                {t('common.rename_from')}: <span className="font-mono font-semibold text-gray-800">{stripJsonExtension(renameTarget || '')}</span>
                             </p>
                             <input
                                 type="text"
                                 value={newFileName}
                                 onChange={(e) => setNewFileName(e.target.value)}
-                                placeholder={t('common.new_name', 'New filename')}
+                                placeholder={t('common.new_name')}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleRenameSubmit();
@@ -595,14 +518,14 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
                                     onClick={() => setShowRenameModal(false)}
                                     className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
                                 >
-                                    {t('common.cancel', 'Cancel')}
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     onClick={handleRenameSubmit}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
                                     disabled={!newFileName.trim()}
                                 >
-                                    {t('common.rename', 'Rename')}
+                                    {t('common.rename')}
                                 </button>
                             </div>
                         </div>
@@ -613,7 +536,6 @@ export function ResultsExplorer({ onOpenImport }: ResultsExplorerProps) {
 
 
             <AISettings isOpen={showAISettings} onClose={() => setShowAISettings(false)} />
-            <ScrapeSettings isOpen={showScrapeSettings} onClose={() => setShowScrapeSettings(false)} />
         </div>
     );
 }

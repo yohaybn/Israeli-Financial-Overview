@@ -33,7 +33,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                 if (telegramRes.data.success) setTelegramStatus(telegramRes.data.data);
             } catch (err) {
                 console.error('Failed to fetch scrape settings', err);
-                setError('Failed to load settings');
+                setError(t('scraper.errors.load_failed'));
             } finally {
                 setLoading(false);
             }
@@ -65,32 +65,32 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
         setError(null);
         try {
             const res = await api.put<{ success: boolean; data: GlobalScrapeConfig }>('/config', config);
-            if (!res.data.success) throw new Error('Save failed');
+            if (!res.data.success) throw new Error(t('common.save_failed'));
             setConfig(res.data.data);
-            setToast(t('common.save_success', 'Settings saved successfully'));
+            setToast(t('common.save_success'));
             setTimeout(() => {
                 setToast(null);
                 if (!isInline) onClose?.();
             }, 1500);
         } catch (e: any) {
             console.error('Failed to save scrape config', e);
-            setError(e.message || 'Failed to save settings');
+            setError(e?.message || t('scraper.errors.save_failed'));
         } finally {
             setSaving(false);
         }
     };
 
     if (!isInline && (!isOpen || !config)) return null;
-    if (loading) return <div className="p-4 text-sm text-gray-500">Loading...</div>;
-    if (!config) return <div className="p-4 text-sm text-red-500">Unable to load configuration</div>;
+    if (loading) return <div className="p-4 text-sm text-gray-500">{t('common.loading')}</div>;
+    if (!config) return <div className="p-4 text-sm text-red-500">{t('scraper.errors.unavailable')}</div>;
 
     const content = (
         <div className={`${isInline ? 'space-y-8' : 'bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200'}`}>
             {!isInline && (
                 <div className="p-6 bg-indigo-600 text-white flex justify-between items-center shrink-0">
                     <div>
-                        <h3 className="text-xl font-bold">{t('scraper.config_title', 'Scrape Configuration')}</h3>
-                        <p className="text-indigo-100 text-sm">{t('scraper.config_desc', 'Global scraping behavior and post-processing settings')}</p>
+                        <h3 className="text-xl font-bold">{t('scraper.config_title')}</h3>
+                        <p className="text-indigo-100 text-sm">{t('scraper.config_desc')}</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,7 +107,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                         <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        {t('scraper.global_options', 'Global Scraper Options')}
+                        {t('scraper.global_options')}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
@@ -120,7 +120,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                 />
                                 <div>
                                     <span className="block text-sm font-bold text-gray-700">{t('scraper.show_browser')}</span>
-                                    <span className="text-xs text-gray-500">{t('scraper.show_browser_desc', 'Open browser window during scrape (useful for debugging)')}</span>
+                                    <span className="text-xs text-gray-500">{t('scraper.show_browser_desc')}</span>
                                 </div>
                             </label>
 
@@ -132,8 +132,8 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                     className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                                 <div>
-                                    <span className="block text-sm font-bold text-gray-700">{t('scraper.verbose', 'Verbose Logging')}</span>
-                                    <span className="text-xs text-gray-500">{t('scraper.verbose_desc', 'Include more debug info in the output logs.')}</span>
+                                    <span className="block text-sm font-bold text-gray-700">{t('scraper.verbose')}</span>
+                                    <span className="text-xs text-gray-500">{t('scraper.verbose_desc')}</span>
                                 </div>
                             </label>
 
@@ -146,7 +146,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                 />
                                 <div>
                                     <span className="block text-sm font-bold text-gray-700">{t('scraper.combine_installments')}</span>
-                                    <span className="text-xs text-gray-500">{t('scraper.combine_installments_desc', 'Merge installments into a single transaction')}</span>
+                                    <span className="text-xs text-gray-500">{t('scraper.combine_installments_desc')}</span>
                                 </div>
                             </label>
 
@@ -158,8 +158,8 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                     className="w-5 h-5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                                 />
                                 <div>
-                                    <span className="block text-sm font-bold text-blue-900">{t('post_scrape.ignore_pending', 'Ignore Pending Transactions')}</span>
-                                    <span className="text-xs text-blue-700 opacity-80">{t('post_scrape.ignore_pending_desc', 'Do not enter and delete existing from DB transactions in pending status')}</span>
+                                    <span className="block text-sm font-bold text-blue-900">{t('post_scrape.ignore_pending')}</span>
+                                    <span className="text-xs text-blue-700 opacity-80">{t('post_scrape.ignore_pending_desc')}</span>
                                 </div>
                             </label>
                         </div>
@@ -183,13 +183,13 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                     className="w-5 h-5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 <div>
-                                    <span className="block text-sm font-bold text-indigo-900">{t('scraper.smart_start_date', 'Smart Start Date')}</span>
-                                    <span className="text-xs text-indigo-700 opacity-80">{t('scraper.smart_start_date_desc', 'Automatically start from the last successful scrape date')}</span>
+                                    <span className="block text-sm font-bold text-indigo-900">{t('scraper.smart_start_date')}</span>
+                                    <span className="text-xs text-indigo-700 opacity-80">{t('scraper.smart_start_date_desc')}</span>
                                 </div>
                             </label>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.future_months', 'Future Months to Scrape')}</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.future_months')}</label>
                                 <input
                                     type="number"
                                     min={0}
@@ -207,7 +207,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                              <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                             </svg>
-                            {t('scraper.opt_in_features', 'Opt-in Features')}
+                            {t('scraper.opt_in_features')}
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2 p-4 bg-white/50 rounded-2xl border border-gray-50">
@@ -237,10 +237,10 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                             
                             <div className="space-y-3">
                                 <p className="text-xs text-gray-500 px-1 italic">
-                                    {t('scraper.custom_opt_in_help', 'Add specific feature flags by name (comma separated)')}
+                                    {t('scraper.custom_opt_in_help')}
                                 </p>
                                 <textarea
-                                    placeholder={t('scraper.custom_opt_in', 'Custom opt-in (comma separated)...')}
+                                    placeholder={t('scraper.custom_opt_in')}
                                     value={(config.scraperOptions.optInFeatures || []).filter((f: string) => ![
                                         'isracard-amex:skipAdditionalTransactionInformation',
                                         'mizrahi:pendingIfNoIdentifier',
@@ -271,7 +271,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                         <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
-                        {t('post_scrape.title', 'Post-Scrape Actions')}
+                        {t('post_scrape.title')}
                     </h3>
                     <div className="space-y-6">
                         <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-50">
@@ -283,7 +283,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                             />
                             <div>
                                 <span className="block text-sm font-bold text-gray-700">{t('post_scrape.run_categorization')}</span>
-                                <span className="text-xs text-gray-500">{t('post_scrape.run_categorization_desc', 'Automatically categorize new transactions using AI')}</span>
+                                <span className="text-xs text-gray-500">{t('post_scrape.run_categorization_desc')}</span>
                             </div>
                         </label>
 
@@ -305,7 +305,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                 {/* Detector mode (local / AI / both) */}
                                 <div className="flex items-center gap-2 mt-2">
                                     <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
-                                        {t('post_scrape.fraud_mode_label', 'Detector Mode')}
+                                        {t('post_scrape.fraud_mode_label')}
                                     </span>
                                     <div className="flex gap-1 p-1 bg-gray-50 rounded-lg border border-gray-100">
                                         {(['local', 'ai', 'both'] as const).map((mode) => {
@@ -345,13 +345,13 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                         onClick={() => updatePostScrape({ fraudDetection: { ...config.postScrapeConfig.fraudDetection, scope: 'current' } })}
                                         className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.fraudDetection?.scope !== 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
                                     >
-                                        {t('post_scrape.scope_current', 'Current Run')}
+                                        {t('post_scrape.scope_current')}
                                     </button>
                                     <button 
                                         onClick={() => updatePostScrape({ fraudDetection: { ...config.postScrapeConfig.fraudDetection, scope: 'all' } })}
                                         className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.fraudDetection?.scope === 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
                                     >
-                                        {t('post_scrape.scope_all', 'All Transactions')}
+                                        {t('post_scrape.scope_all')}
                                     </button>
                                 </div>
 
@@ -371,7 +371,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                         className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                                     />
                                     <span className="font-medium">
-                                        {t('post_scrape.fraud_notify_toggle', 'Notify when potential fraud is detected')}
+                                        {t('post_scrape.fraud_notify_toggle')}
                                     </span>
                                 </label>
 
@@ -384,7 +384,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                     }}
                                     className="mt-2 text-[11px] font-semibold text-purple-600 hover:text-purple-800 underline-offset-2 hover:underline"
                                 >
-                                    {t('post_scrape.fraud_advanced_link', 'Advanced fraud settings')}
+                                    {t('post_scrape.fraud_advanced_link')}
                                 </button>
                             </div>
 
@@ -409,13 +409,13 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                         onClick={() => updatePostScrape({ customAI: { ...config.postScrapeConfig.customAI, scope: 'current' } })}
                                         className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.customAI?.scope !== 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
                                     >
-                                        {t('post_scrape.scope_current', 'Current Run')}
+                                        {t('post_scrape.scope_current')}
                                     </button>
                                     <button 
                                         onClick={() => updatePostScrape({ customAI: { ...config.postScrapeConfig.customAI, scope: 'all' } })}
                                         className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.customAI?.scope === 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
                                     >
-                                        {t('post_scrape.scope_all', 'All Transactions')}
+                                        {t('post_scrape.scope_all')}
                                     </button>
                                 </div>
                             </div>

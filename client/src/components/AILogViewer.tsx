@@ -424,7 +424,7 @@ export const AILogViewer: React.FC = () => {
 
                     <details className="group" open>
                       <summary className="flex items-center justify-between cursor-pointer list-none py-2 px-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                        <span className="text-sm font-semibold text-gray-700">{t('ai_logs.raw_request', 'Raw Request')}</span>
+                        <span className="text-sm font-semibold text-gray-700">{t('ai_logs.raw_request')}</span>
                         <svg className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                         </svg>
@@ -454,7 +454,7 @@ export const AILogViewer: React.FC = () => {
                     {selectedLog.responseInfo.success && selectedLog.responseInfo.rawOutput ? (
                       <details className="group" open>
                         <summary className="flex items-center justify-between cursor-pointer list-none py-2 px-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                          <span className="text-sm font-semibold text-gray-700">{t('ai_logs.raw_response', 'Raw Response')}</span>
+                          <span className="text-sm font-semibold text-gray-700">{t('ai_logs.raw_response')}</span>
                           <svg className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                           </svg>
@@ -530,7 +530,7 @@ export const AILogViewer: React.FC = () => {
                 onClick={() => setSelectedLog(null)}
                 className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-all shadow-md active:scale-95 font-medium"
               >
-                {t('common.close', 'Close')}
+                {t('common.close')}
               </button>
             </div>
           </div>

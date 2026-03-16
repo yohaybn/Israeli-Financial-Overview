@@ -37,7 +37,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
             setMessages([{
                 id: 'greeting',
                 role: 'assistant',
-                content: t('ai_chat.greeting', 'Hello! I am your AI financial analyst. I can help answer questions about your spending across both historical patterns and the selected month. What would you like to know?'),
+                content: t('ai_chat.greeting'),
             }]);
         }
     }, [isOpen, messages.length, t]);
@@ -120,7 +120,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                         </div>
                         <div>
                             <h3 className="text-[15px] font-bold text-gray-800">
-                                {t('dashboard.ai_analyst', 'AI Financial Analyst')}
+                                {t('dashboard.ai_analyst')}
                             </h3>
                             <p className="text-xs text-gray-500">
                                 Powered by {aiSettings?.chatModel || 'Gemini 2.5 Pro'}
@@ -131,7 +131,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                         <button
                             onClick={() => setShowSettings(true)}
                             className="p-2 text-gray-400 hover:text-blue-600 hover:bg-white rounded-full transition-colors"
-                            title={t('settings.ai_settings', 'AI Settings')}
+                            title={t('ai_settings.title')}
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -161,7 +161,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                                     <div className="space-y-2">
                                         <div className="font-bold flex items-center gap-1 text-red-800">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            {msg.errorDetails?.title || t('common.error', 'Error')}
+                                            {msg.errorDetails?.title || t('common.error')}
                                         </div>
                                         <div className="text-sm leading-relaxed">
                                             <ReactMarkdown
@@ -177,14 +177,14 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                                         </div>
                                         {msg.errorDetails?.solution && (
                                             <div className="mt-2 p-2 bg-white/50 rounded-lg border border-red-100 text-xs italic">
-                                                <span className="font-semibold not-italic">{t('common.solution', 'Solution')}: </span>
+                                                <span className="font-semibold not-italic">{t('common.solution')}: </span>
                                                 {msg.errorDetails.solution}
                                                 {onNavigateToLogs && (
                                                     <button
                                                         onClick={onNavigateToLogs}
                                                         className="block mt-1 text-blue-600 hover:underline not-italic font-semibold"
                                                     >
-                                                        {t('ai_chat.view_ai_logs', 'View AI Logs →')}
+                                                        {t('ai_chat.view_ai_logs')}
                                                     </button>
                                                 )}
                                             </div>
@@ -195,7 +195,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                                                 className="mt-2 text-xs font-semibold hover:opacity-75 flex items-center gap-1 text-red-600"
                                             >
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                                {t('common.retry', 'Retry')}
+                                                {t('common.retry')}
                                             </button>
                                         )}
                                     </div>
@@ -252,7 +252,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                                     handleSubmit(e);
                                 }
                             }}
-                            placeholder={t('dashboard.ask_ai_placeholder', 'Ask about your spending habits, trends or specific anomalies...')}
+                            placeholder={t('dashboard.ask_ai_placeholder')}
                             className="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
                             rows={2}
                         />
@@ -268,7 +268,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                     </form>
                     <div className="mt-2 text-center">
                         <span className="text-[10px] text-gray-400">
-                            {t('dashboard.ai_disclaimer', 'AI can make mistakes. Please verify important financial information.')}
+                            {t('dashboard.ai_disclaimer')}
                         </span>
                     </div>
                 </div>

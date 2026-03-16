@@ -15,6 +15,7 @@ import { CCPaymentDateSettings } from './CCPaymentDateSettings';
 import { DashboardAIChat } from './DashboardAIChat';
 import { CategoryDetailsModal } from './CategoryDetailsModal';
 import { SubscriptionList } from './SubscriptionList';
+import { MonthlyTransactionsCard } from './MonthlyTransactionsCard';
 
 interface FinancialCommandCenterProps {
     // Optional: if provided, uses these transactions (for backward compatibility or specific file view)
@@ -81,7 +82,7 @@ export function FinancialCommandCenter({
         return (
             <div className="flex flex-col items-center justify-center h-full p-12">
                 <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-                <p className="text-gray-400">{t('common.loading', 'Loading...')}</p>
+                <p className="text-gray-400">{t('common.loading')}</p>
             </div>
         );
     }
@@ -94,7 +95,7 @@ export function FinancialCommandCenter({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                 </div>
-                <p className="text-xl font-light text-gray-400">{t('dashboard.select_data', 'No transaction data available')}</p>
+                <p className="text-xl font-light text-gray-400">{t('dashboard.select_data')}</p>
             </div>
         );
     }
@@ -112,13 +113,13 @@ export function FinancialCommandCenter({
                     <div>
                         <div className="flex items-center gap-3">
                             <h2 className="text-xl font-black text-gray-900 tracking-tight">
-                                {t('dashboard.title', 'Financial Command Center')}
+                                {t('dashboard.title')}
                             </h2>
                             <CCPaymentDateSettings />
                             <button
                                 onClick={() => setShowAnomalies(!showAnomalies)}
                                 className={`relative p-2 rounded-full transition-colors ${showAnomalies ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                                title={t('dashboard.toggle_alerts', 'Toggle Alerts')}
+                                title={t('dashboard.toggle_alerts')}
                             >
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -153,7 +154,7 @@ export function FinancialCommandCenter({
                     {summary.safeToSpend !== undefined && (
                         <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-emerald-100 shadow-sm px-5 py-3 flex flex-col items-center min-w-[130px]">
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                                {t('dashboard.safe_to_spend', 'Safe to Spend')}
+                                {t('dashboard.safe_to_spend')}
                             </span>
                             <span className={`text-xl font-black ${summary.safeToSpend >= 0 ? 'text-emerald-600' : 'text-rose-500'
                                 }`}>
@@ -163,7 +164,7 @@ export function FinancialCommandCenter({
                                     maximumFractionDigits: 0
                                 }).format(summary.safeToSpend)}
                             </span>
-                            <span className="text-[9px] text-gray-400 mt-0.5">{t('dashboard.this_month', 'This month')}</span>
+                            <span className="text-[9px] text-gray-400 mt-0.5">{t('dashboard.this_month')}</span>
                         </div>
                     )}
                     <BudgetHealthScore health={summary.budgetHealth} />
@@ -178,7 +179,7 @@ export function FinancialCommandCenter({
             )}
             {showAnomalies && (!summary.anomalies || summary.anomalies.length === 0) && (
                 <div className="animate-fade-in-down p-4 mb-4 text-center text-gray-500 text-sm bg-gray-50 rounded-xl border border-gray-100">
-                    {t('dashboard.no_alerts', 'No new alerts at this time.')}
+                    {t('dashboard.no_alerts')}
                 </div>
             )}
 
@@ -219,11 +220,18 @@ export function FinancialCommandCenter({
 
             {/* Subscriptions Section */}
             <div className="pt-2 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-                <SubscriptionList 
-                    subscriptions={summary.subscriptions || []} 
-                    categories={availableCategories}
-                    onUpdateCategory={onUpdateCategory}
-                />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    <SubscriptionList
+                        subscriptions={summary.subscriptions || []}
+                        categories={availableCategories}
+                        onUpdateCategory={onUpdateCategory}
+                    />
+                    <MonthlyTransactionsCard
+                        transactions={transactions.filter(t => t.date.startsWith(selectedMonth))}
+                        categories={availableCategories}
+                        onUpdateCategory={onUpdateCategory}
+                    />
+                </div>
             </div>
 
             {/* Existing Analytics Charts (Category Pie + Monthly Trend + Top Merchants) */}
@@ -236,7 +244,7 @@ export function FinancialCommandCenter({
                         </svg>
                     </div>
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                        {t('dashboard.detailed_analytics', 'Detailed Analytics')}
+                        {t('dashboard.detailed_analytics')}
                     </h3>
                 </div>
                 {/* Note: AnalyticsDashboard might need updating to filter by month if it doesn't already, 
@@ -279,7 +287,7 @@ export function FinancialCommandCenter({
                 <button
                     onClick={() => setIsChatOpen(true)}
                     className="fixed bottom-6 right-6 p-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all z-40 group"
-                    title={t('dashboard.open_ai_chat', 'Ask AI Analyst')}
+                    title={t('dashboard.open_ai_chat')}
                 >
                     <div className="absolute inset-0 bg-white/20 rounded-full animate-ping opacity-0 group-hover:opacity-100 transition-opacity" />
                     <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">

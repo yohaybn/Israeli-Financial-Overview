@@ -41,6 +41,11 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
         return acc + monthlyAmount;
     }, 0);
 
+    const formatInterval = (interval: string) => {
+        const key = `common.interval.${interval}`;
+        return i18n.exists(key) ? t(key) : interval;
+    };
+
     return (
         <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/20 p-8 overflow-hidden relative group">
             {/* Header */}
@@ -51,15 +56,15 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
                     </div>
                     <div>
                         <h3 className="text-lg font-black text-gray-800 uppercase tracking-tight">
-                            {t('dashboard.subscriptions', 'Active Subscriptions')}
+                            {t('dashboard.subscriptions')}
                         </h3>
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-indigo-500">
-                                {subscriptions.length} {t('dashboard.paying_now', 'active services')}
+                                {subscriptions.length} {t('dashboard.paying_now')}
                             </span>
                             <span className="text-[10px] text-gray-300">•</span>
                             <span className="text-xs font-medium text-gray-400">
-                                ~{formatCurrency(totalMonthlyCost)}/{t('common.month', 'mo')}
+                                ~{formatCurrency(totalMonthlyCost)}/{t('common.month')}
                             </span>
                         </div>
                     </div>
@@ -93,11 +98,11 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
                                             <div className="flex items-center gap-3 mt-1">
                                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                                     <Clock size={10} />
-                                                    {t(`common.interval.${sub.interval}`, { defaultValue: sub.interval })}
+                                                    {formatInterval(sub.interval)}
                                                 </span>
                                                 {sub.isManual && (
                                                     <span className="bg-amber-100/50 text-amber-600 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-200/50">
-                                                        {t('common.manual', 'Manual')}
+                                                        {t('common.manual')}
                                                     </span>
                                                 )}
                                             </div>
@@ -114,12 +119,12 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
                                                 daysLeft <= 3 ? "text-rose-500 animate-pulse" : "text-gray-400"
                                             )}>
                                                 {daysLeft === 0 
-                                                    ? t('dashboard.today', 'Today') 
+                                                    ? t('dashboard.today')
                                                     : daysLeft === 1 
-                                                        ? t('dashboard.tomorrow', 'Tomorrow')
+                                                        ? t('dashboard.tomorrow')
                                                         : daysLeft < 0
-                                                            ? t('dashboard.past_due', 'Overdue')
-                                                            : t('dashboard.in_days', { days: daysLeft, defaultValue: `in ${daysLeft}d` })}
+                                                            ? t('dashboard.past_due')
+                                                            : t('dashboard.in_days', { days: daysLeft })}
                                             </p>
                                         </div>
                                         <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
@@ -136,10 +141,10 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
                         </div>
                         <div>
                             <p className="text-sm font-black text-gray-400 uppercase tracking-tight">
-                                {t('dashboard.no_subscriptions', 'No subscriptions detected')}
+                                {t('dashboard.no_subscriptions')}
                             </p>
                             <p className="text-[10px] text-gray-300 mt-1 max-w-[200px] mx-auto">
-                                Mark regular transactions as subscriptions in their details modal.
+                                {t('dashboard.subscription_hint')}
                             </p>
                         </div>
                     </div>
@@ -161,7 +166,7 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
                                 </div>
                                 <div>
                                     <h2 className="text-2xl font-black tracking-tight">{selectedHistorySub.description}</h2>
-                                    <p className="text-xs font-bold uppercase tracking-widest opacity-80 mt-1">{t('transaction_modal.history', 'Subscription History')}</p>
+                                    <p className="text-xs font-bold uppercase tracking-widest opacity-80 mt-1">{t('transaction_modal.history')}</p>
                                 </div>
                             </div>
                             <button 

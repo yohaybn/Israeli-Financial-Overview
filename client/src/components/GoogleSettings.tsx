@@ -80,16 +80,16 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                 body: JSON.stringify({ folderId, folderName })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to save folder config');
+            if (!res.ok) throw new Error(data.error || t('google_settings.errors.save_folder_failed'));
             return data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['googleFolderConfig'] });
-            showNotification('success', t('settings.folder_saved', 'Folder configuration saved successfully'));
+            showNotification('success', t('google_settings.folder_saved'));
         },
         onError: (err: any) => {
-            const errorMsg = err?.message || 'Unknown error';
-            showNotification('error', `Failed to save folder: ${errorMsg}`);
+            const errorMsg = err?.message || t('common.unknown_error');
+            showNotification('error', t('google_settings.errors.save_folder_failed_with_error', { error: errorMsg }));
         }
     });
 
@@ -100,7 +100,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                 method: 'DELETE'
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to clear folder config');
+            if (!res.ok) throw new Error(data.error || t('google_settings.errors.clear_folder_failed'));
             return data;
         },
         onSuccess: () => {
@@ -109,11 +109,11 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
             setCurrentBrowsingFolderId(null);
             setFolderPath([]);
             queryClient.invalidateQueries({ queryKey: ['googleFolderConfig'] });
-            showNotification('success', t('settings.folder_cleared', 'Folder configuration cleared'));
+            showNotification('success', t('google_settings.folder_cleared'));
         },
         onError: (err: any) => {
-            const errorMsg = err?.message || 'Unknown error';
-            showNotification('error', `Failed to clear folder: ${errorMsg}`);
+            const errorMsg = err?.message || t('common.unknown_error');
+            showNotification('error', t('google_settings.errors.clear_folder_failed_with_error', { error: errorMsg }));
         }
     });
 
@@ -158,12 +158,12 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     const handleSave = () => {
         updateSettings({ clientId, clientSecret, redirectUri }, {
             onSuccess: () => {
-                showNotification('success', t('settings.saved', 'Settings saved successfully'));
+                showNotification('success', t('common.save_success'));
                 onClose?.();
             },
             onError: (err: any) => {
-                const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                showNotification('error', `Failed to save settings: ${errorMsg}`);
+                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                showNotification('error', t('common.save_failed_with_error', { error: errorMsg }));
             }
         });
     };
@@ -193,7 +193,11 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
 
             <div className="p-6 space-y-5">
                 <p className="text-sm text-gray-500 italic pb-2 border-b border-gray-100">
-                    {t('google_settings.description', 'Obtain these from the')} <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a>.
+                    {t('google_settings.description_prefix')}{' '}
+                    <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                        {t('google_settings.google_cloud_console')}
+                    </a>
+                    {t('google_settings.description_suffix')}
                 </p>
 
                 {/* OAuth Settings */}
@@ -272,7 +276,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                         {isLoading ? (
                             <div className="flex items-center justify-center p-6 text-sm text-gray-500">
                                 <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
-                                Loading...
+                                {t('common.loading')}
                             </div>
                         ) : displayFolders && displayFolders.length > 0 ? (
                             <div className="divide-y divide-gray-100">

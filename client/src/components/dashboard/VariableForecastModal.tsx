@@ -40,10 +40,10 @@ export function VariableForecastModal({
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                 </svg>
                             </div>
-                            {t('dashboard.variable_forecast', 'Variable Forecast')}
+                            {t('dashboard.variable_forecast')}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">
-                            {t('dashboard.forecast_explanation', 'Statistical projection for the remaining {{count}} days of the month.', { count: remainingDays })}
+                            {t('dashboard.forecast_explanation', { count: remainingDays })}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
@@ -62,15 +62,15 @@ export function VariableForecastModal({
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                         {cat.forecastMethod === 'historical_avg' 
-                                            ? t('dashboard.method_historical', 'Based on historical daily average')
-                                            : t('dashboard.method_extrapolation', 'Based on current month spending pace')}
-                                        : {formatCurrency(cat.forecastRate || 0)}/{t('dashboard.day', 'day')}
+                                            ? t('dashboard.method_historical')
+                                            : t('dashboard.method_extrapolation')}
+                                        : {formatCurrency(cat.forecastRate || 0)}/{t('dashboard.day')}
                                     </span>
                                 </div>
                                 <div className="text-right">
                                     <div className="text-lg font-black text-rose-600">+{formatCurrency(Math.max(0, (cat.variableForecastAmount || 0) - (cat.upcomingBillsAmount || 0)))}</div>
                                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">
-                                        {t('dashboard.above_planned', 'Above Planned Bills')}
+                                        {t('dashboard.above_planned')}
                                     </div>
                                 </div>
                             </div>
@@ -78,7 +78,7 @@ export function VariableForecastModal({
 
                         {forecastedCategories.length === 0 && (
                             <div className="text-center py-8 text-gray-400">
-                                {t('dashboard.no_forecast', 'No statistical forecast available for this period.')}
+                                {t('dashboard.no_forecast')}
                             </div>
                         )}
                     </div>
@@ -86,8 +86,8 @@ export function VariableForecastModal({
 
                 <div className="p-6 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                     <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-700 uppercase">{t('dashboard.total_extra_forecast', 'Total Extra Forecast')}</span>
-                        <span className="text-[10px] text-gray-400">{t('dashboard.forecast_disclaimer', 'This is the statistical buffer added on top of your identified bills.')}</span>
+                        <span className="text-sm font-bold text-gray-700 uppercase">{t('dashboard.total_extra_forecast')}</span>
+                        <span className="text-[10px] text-gray-400">{t('dashboard.forecast_disclaimer')}</span>
                     </div>
                     <span className="text-2xl font-black text-gray-900">{formatCurrency(totalExtraForecast)}</span>
                 </div>

@@ -56,7 +56,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
           setConfig(res.data.data);
         }
       } catch (e) {
-        setError('Failed to load fraud configuration');
+        setError(t('fraud_settings.errors.load_failed'));
       } finally {
         setLoading(false);
       }
@@ -126,11 +126,11 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
     setError(null);
     try {
       const res = await api.put<{ success: boolean; data: GlobalScrapeConfig }>('/config', config);
-      if (!res.data.success) throw new Error('Save failed');
+      if (!res.data.success) throw new Error(t('common.save_failed'));
       setConfig(res.data.data);
       if (onClose && !isInline) onClose();
     } catch (e: any) {
-      setError(e.message || 'Failed to save fraud settings');
+      setError(e?.message || t('fraud_settings.errors.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -166,8 +166,8 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
   };
 
   if (!isInline && (!config || loading)) return null;
-  if (loading) return <div className="p-4 text-sm text-gray-500">Loading fraud settings...</div>;
-  if (!config) return <div className="p-4 text-sm text-red-500">Unable to load fraud configuration</div>;
+  if (loading) return <div className="p-4 text-sm text-gray-500">{t('fraud_settings.loading')}</div>;
+  if (!config) return <div className="p-4 text-sm text-red-500">{t('fraud_settings.errors.unavailable')}</div>;
 
   const content = (
     <div
@@ -180,12 +180,9 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
       {!isInline && (
         <div className="p-6 bg-purple-600 text-white flex justify-between items-center shrink-0">
           <div>
-            <h3 className="text-xl font-bold">{t('fraud_settings.title', 'Fraud & Alerts')}</h3>
+            <h3 className="text-xl font-bold">{t('fraud_settings.title')}</h3>
             <p className="text-purple-100 text-sm">
-              {t(
-                'fraud_settings.description',
-                'Configure local and AI-based fraud detection rules, thresholds, and alerts.'
-              )}
+              {t('fraud_settings.description')}
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
@@ -202,20 +199,17 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h4 className="text-xs font-black text-purple-900 uppercase tracking-wider">
-                {t('fraud_settings.overview', 'Detection Overview')}
+                {t('fraud_settings.overview')}
               </h4>
               <p className="text-[11px] text-purple-800/80">
-                {t(
-                  'fraud_settings.overview_desc',
-                  'Choose how fraud is detected after each scrape and when alerts should fire.'
-                )}
+                {t('fraud_settings.overview_desc')}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-purple-900">
-                {t('fraud_settings.mode_label', 'Mode')}:
+                {t('fraud_settings.mode_label')}:
               </span>
               <div className="flex gap-1 p-1 bg-white/60 rounded-lg border border-purple-100">
                 {(['local', 'ai', 'both'] as const).map((mode) => {
@@ -247,7 +241,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-purple-900">
-                {t('post_scrape.scope_label', 'Scope')}:
+                {t('post_scrape.scope_label')}:
               </span>
               <div className="flex gap-1 p-1 bg-white/60 rounded-lg border border-purple-100">
                 <button
@@ -259,7 +253,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
                       : 'text-purple-700/70 hover:bg-purple-50'
                   }`}
                 >
-                  {t('post_scrape.scope_current', 'Current Run')}
+                  {t('post_scrape.scope_current')}
                 </button>
                 <button
                   type="button"
@@ -270,7 +264,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
                       : 'text-purple-700/70 hover:bg-purple-50'
                   }`}
                 >
-                  {t('post_scrape.scope_all', 'All Transactions')}
+                  {t('post_scrape.scope_all')}
                 </button>
               </div>
             </div>
@@ -282,7 +276,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
                 className="w-4 h-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
               />
               <span className="font-medium">
-                {t('post_scrape.fraud_notify_toggle', 'Notify when potential fraud is detected')}
+                {t('post_scrape.fraud_notify_toggle')}
               </span>
             </label>
           </div>
@@ -291,7 +285,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
         {/* Local rules */}
         <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
           <h4 className="text-sm font-bold text-gray-800">
-            {t('fraud_settings.local_rules', 'Local detection rules')}
+            {t('fraud_settings.local_rules')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label className="flex items-start gap-2 text-sm cursor-pointer">
@@ -303,7 +297,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
               />
               <span>
                 <span className="font-semibold">
-                  {t('fraud_settings.rule_outlier_amount', 'Amount outliers per merchant')}
+                  {t('fraud_settings.rule_outlier_amount')}
                 </span>
                 <span className="block text-xs text-gray-500">
                   {t(
@@ -322,7 +316,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
               />
               <span>
                 <span className="font-semibold">
-                  {t('fraud_settings.rule_new_merchant', 'New merchant / description')}
+                  {t('fraud_settings.rule_new_merchant')}
                 </span>
                 <span className="block text-xs text-gray-500">
                   {t(
@@ -341,7 +335,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
               />
               <span>
                 <span className="font-semibold">
-                  {t('fraud_settings.rule_rapid_repeats', 'Rapid repeated charges')}
+                  {t('fraud_settings.rule_rapid_repeats')}
                 </span>
                 <span className="block text-xs text-gray-500">
                   {t(
@@ -360,7 +354,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
               />
               <span>
                 <span className="font-semibold">
-                  {t('fraud_settings.rule_foreign_currency', 'Foreign currency surprises')}
+                  {t('fraud_settings.rule_foreign_currency')}
                 </span>
                 <span className="block text-xs text-gray-500">
                   {t(
@@ -377,20 +371,20 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
         <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-gray-800">
-              {t('fraud_settings.thresholds', 'Thresholds & severity')}
+              {t('fraud_settings.thresholds')}
             </h4>
             <button
               type="button"
               onClick={resetToDefaults}
               className="text-[11px] font-semibold text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
             >
-              {t('fraud_settings.reset_defaults', 'Reset to defaults')}
+              {t('fraud_settings.reset_defaults')}
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.min_new_merchant', 'Min amount for new merchant (₪)')}
+                {t('fraud_settings.min_new_merchant')}
               </label>
               <input
                 type="number"
@@ -403,7 +397,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.min_fx_amount', 'Min foreign amount')}
+                {t('fraud_settings.min_fx_amount')}
               </label>
               <input
                 type="number"
@@ -416,7 +410,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.rapid_window', 'Rapid window (minutes)')}
+                {t('fraud_settings.rapid_window')}
               </label>
               <input
                 type="number"
@@ -429,7 +423,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.rapid_count', 'Rapid repeat count')}
+                {t('fraud_settings.rapid_count')}
               </label>
               <input
                 type="number"
@@ -442,7 +436,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.outlier_history', 'Min history count')}
+                {t('fraud_settings.outlier_history')}
               </label>
               <input
                 type="number"
@@ -455,7 +449,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.outlier_zscore', 'Outlier z-score')}
+                {t('fraud_settings.outlier_zscore')}
               </label>
               <input
                 type="number"
@@ -471,7 +465,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs pt-2 border-t border-gray-100 mt-2">
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.sev_low', 'Low severity score ≥')}
+                {t('fraud_settings.sev_low')}
               </label>
               <input
                 type="number"
@@ -484,7 +478,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.sev_medium', 'Medium severity score ≥')}
+                {t('fraud_settings.sev_medium')}
               </label>
               <input
                 type="number"
@@ -497,7 +491,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.sev_high', 'High severity score ≥')}
+                {t('fraud_settings.sev_high')}
               </label>
               <input
                 type="number"
@@ -510,16 +504,16 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </div>
             <div>
               <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.notify_severity', 'Notify from severity')}
+                {t('fraud_settings.notify_severity')}
               </label>
               <select
                 value={thresholds.notifyMinSeverity || 'medium'}
                 onChange={(e) => updateLocalThresholds({ notifyMinSeverity: e.target.value as any })}
                 className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
               >
-                <option value="low">{t('fraud_settings.severity_low', 'Low')}</option>
-                <option value="medium">{t('fraud_settings.severity_medium', 'Medium')}</option>
-                <option value="high">{t('fraud_settings.severity_high', 'High')}</option>
+                <option value="low">{t('fraud_settings.severity_low')}</option>
+                <option value="medium">{t('fraud_settings.severity_medium')}</option>
+                <option value="high">{t('fraud_settings.severity_high')}</option>
               </select>
               <label className="mt-2 flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
                 <input
@@ -528,7 +522,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
                   onChange={(e) => updateLocalThresholds({ persistOnlyFlagged: e.target.checked })}
                   className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                 />
-                <span>{t('fraud_settings.persist_only_flagged', 'Persist only flagged transactions')}</span>
+                <span>{t('fraud_settings.persist_only_flagged')}</span>
               </label>
             </div>
           </div>
@@ -538,7 +532,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
         <section className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between text-xs">
           <div>
             <div className="font-semibold text-gray-800">
-              {t('fraud_settings.version_label', 'Detector version')}
+              {t('fraud_settings.version_label')}
             </div>
             <div className="text-gray-500">
               {config.postScrapeConfig.fraudDetection.local?.version || 'v1'}
@@ -556,7 +550,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
         <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-gray-800">
-              {t('fraud_settings.recent_findings', 'Recent local fraud findings')}
+              {t('fraud_settings.recent_findings')}
             </h4>
             <button
               type="button"
@@ -564,13 +558,13 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
               className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
             >
               {loadingFindings
-                ? t('fraud_settings.loading_findings', 'Loading...')
-                : t('fraud_settings.refresh_findings', 'Refresh')}
+                ? t('fraud_settings.loading_findings')
+                : t('fraud_settings.refresh_findings')}
             </button>
           </div>
           {findings.length === 0 && !loadingFindings && (
             <p className="text-xs text-gray-500">
-              {t('fraud_settings.no_findings', 'No recent findings (last 7 days).')}
+              {t('fraud_settings.no_findings')}
             </p>
           )}
           {findings.length > 0 && (
@@ -598,7 +592,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
                       </span>
                     </div>
                     <div className="text-gray-700 mt-0.5">
-                      {f.reasons[0]?.message || f.reasons[0]?.code || 'Suspicious pattern'}
+                      {f.reasons[0]?.message || f.reasons[0]?.code || t('fraud_settings.suspicious_pattern')}
                     </div>
                   </div>
                   <code className="text-[10px] text-gray-400 truncate max-w-[120px]">
@@ -633,7 +627,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             saving ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'
           }`}
         >
-          {saving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
     </div>

@@ -73,14 +73,14 @@ export function ExpenseProgressCenter({
                         </div>
                         <div>
                             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
-                                {t('dashboard.expense_progress', 'Expense Progress')}
+                                {t('dashboard.expense_progress')}
                             </h3>
-                            <p className="text-xs text-gray-400">{t('dashboard.monthly_overview', 'Monthly Overview')}</p>
+                            <p className="text-xs text-gray-400">{t('dashboard.monthly_overview')}</p>
                         </div>
                     </div>
                     <div className="text-right">
                         <p className="text-2xl font-black text-gray-900">{formatCurrency(totalProjected)}</p>
-                        <p className="text-xs text-gray-400">{t('dashboard.total_projected', 'Total Projected')}</p>
+                        <p className="text-xs text-gray-400">{t('dashboard.total_projected')}</p>
                     </div>
                 </div>
 
@@ -119,39 +119,39 @@ export function ExpenseProgressCenter({
                         <div
                             className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50/50 p-1 -m-1 rounded transition-colors"
                             onClick={() => setSelectedKpi('already_spent')}
-                            title={t('dashboard.view_transactions', 'View Transactions')}
+                            title={t('dashboard.view_transactions')}
                         >
                             <div className="w-3 h-3 rounded-full bg-gradient-to-br from-red-400 to-rose-500 shadow-sm" />
                             <span className="text-gray-600 font-medium">
-                                {t('dashboard.already_spent', 'Already Spent')}: <span className="font-bold text-gray-900 border-b border-dashed border-gray-300">{formatCurrency(alreadySpent)}</span>
+                                {t('dashboard.already_spent')}: <span className="font-bold text-gray-900 border-b border-dashed border-gray-300">{formatCurrency(alreadySpent)}</span>
                             </span>
                         </div>
                         <div
                             className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50/50 p-1 -m-1 rounded transition-colors"
                             onClick={() => setSelectedKpi('remaining_planned')}
-                            title={t('dashboard.view_transactions', 'View Transactions')}
+                            title={t('dashboard.view_transactions')}
                         >
                             <div className="w-3 h-3 rounded-full bg-rose-200 shadow-sm border border-rose-300" style={{
                                 backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.7) 2px, rgba(255,255,255,0.7) 4px)',
                             }} />
                             <span className="text-gray-600 font-medium">
-                                {t('dashboard.remaining_planned', 'Remaining Planned')}: <span className="font-bold text-gray-900 border-b border-dashed border-gray-300">{formatCurrency(remainingPlanned)}</span>
+                                {t('dashboard.remaining_planned')}: <span className="font-bold text-gray-900 border-b border-dashed border-gray-300">{formatCurrency(remainingPlanned)}</span>
                             </span>
                         </div>
                         {variableForecast > 0 && (
                             <div
                                 className="flex items-center gap-1.5 p-1 -m-1 rounded cursor-pointer hover:bg-gray-50/50 transition-colors"
-                                title={t('dashboard.forecast_details', 'Statistical Projection - Click for details')}
+                                title={t('dashboard.forecast_details')}
                                 onClick={() => setShowForecastModal(true)}
                             >
                                 <div className="w-3 h-3 rounded-full bg-rose-100 shadow-sm border border-rose-200" />
                                 <span className="text-gray-500 font-medium italic">
-                                    {t('dashboard.variable_forecast', 'Variable Forecast')}: <span className="font-bold text-gray-700 border-b border-dashed border-gray-300">{formatCurrency(variableForecast)}</span>
+                                    {t('dashboard.variable_forecast')}: <span className="font-bold text-gray-700 border-b border-dashed border-gray-300">{formatCurrency(variableForecast)}</span>
                                 </span>
                             </div>
                         )}
                     </div>
-                    <span className="text-gray-400 font-mono font-medium bg-gray-100 px-2 py-0.5 rounded text-[10px]">{Math.round(spentPercent)}% {t('dashboard.spent_label', 'Spent')}</span>
+                    <span className="text-gray-400 font-mono font-medium bg-gray-100 px-2 py-0.5 rounded text-[10px]">{Math.round(spentPercent)}% {t('dashboard.spent_label')}</span>
                 </div>
 
                 {/* Category Mini-bars */}
@@ -159,10 +159,10 @@ export function ExpenseProgressCenter({
                     <div className="mt-5 pt-4 border-t border-gray-100 space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                         <div className="flex items-center justify-between mb-2">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                {t('dashboard.by_category', 'By Category')}
+                                {t('dashboard.by_category')}
                             </p>
                             <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                <span className="flex items-center gap-1"><div className="w-0.5 h-3 bg-gray-400"></div> {t('dashboard.history_marker', 'History')}</span>
+                                <span className="flex items-center gap-1"><div className="w-0.5 h-3 bg-gray-400"></div> {t('dashboard.history_marker')}</span>
                             </div>
                         </div>
                         {byCategory.map((cat) => {
@@ -260,10 +260,10 @@ export function ExpenseProgressCenter({
                                     <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                                     </div>
-                                    {selectedKpi === 'already_spent' ? t('dashboard.already_spent', 'Already Spent') : t('dashboard.remaining_planned', 'Remaining Planned')}
+                                    {selectedKpi === 'already_spent' ? t('dashboard.already_spent') : t('dashboard.remaining_planned')}
                                 </h3>
                                 <p className="text-sm text-gray-500 mt-1">
-                                    {t('dashboard.kpi_details', 'Calculation Details')} ({formatCurrency(selectedKpi === 'already_spent' ? alreadySpent : remainingPlanned)})
+                                    {t('dashboard.kpi_details')} ({formatCurrency(selectedKpi === 'already_spent' ? alreadySpent : remainingPlanned)})
                                 </p>
                             </div>
                             <button onClick={() => setSelectedKpi(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
@@ -279,7 +279,7 @@ export function ExpenseProgressCenter({
                                 />
                             ) : (
                                 <div className="text-center text-gray-400 py-10">
-                                    {t('dashboard.no_transactions', 'No transactions found for this calculation.')}
+                                    {t('dashboard.no_transactions')}
                                 </div>
                             )}
                         </div>

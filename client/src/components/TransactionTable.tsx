@@ -152,13 +152,25 @@ export function TransactionTable({
         }).format(amount);
     };
 
+    const formatStatus = (status?: string) => {
+        if (!status) return t('common.unknown');
+        switch (status) {
+            case 'completed':
+                return t('table.status_completed');
+            case 'pending':
+                return t('table.status_pending');
+            default:
+                return status;
+        }
+    };
+
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                <div className="relative flex-1 max-w-md">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <div className="relative flex-1 w-full sm:max-w-md">
                     <input
                         type="text"
-                        placeholder={t('table.search_placeholder', 'Search transactions...')}
+                        placeholder={t('table.search_placeholder')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className={`w-full ${i18n.language === 'he' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
@@ -170,13 +182,13 @@ export function TransactionTable({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
-                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
+                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
                     >
-                        <option value="all">{t('common.all', 'All Categories')}</option>
+                        <option value="all">{t('common.all_categories')}</option>
                         {availableCategories.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
@@ -186,7 +198,7 @@ export function TransactionTable({
                 <div className="relative">
                     <button
                         onClick={() => setShowColumnPicker(!showColumnPicker)}
-                        title={t('table.select_columns', 'Select columns')}
+                        title={t('table.select_columns')}
                         className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,8 +207,8 @@ export function TransactionTable({
                     </button>
 
                     {showColumnPicker && (
-                        <div className={`absolute ${i18n.language === 'he' ? 'right-0' : 'left-0'} top-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 min-w-max`}>
-                            <div className="p-3 space-y-2">
+                        <div className={`absolute ${i18n.language === 'he' ? 'right-0' : 'left-0'} top-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] max-w-sm`}>
+                            <div className="p-3 space-y-2 max-h-[60vh] overflow-y-auto">
                                 {AVAILABLE_COLUMNS.map(col => (
                                     <label key={col.key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
                                         <input
@@ -211,9 +223,9 @@ export function TransactionTable({
                                 <div className="border-t border-gray-200 pt-2 mt-2">
                                     <button
                                         onClick={resetToDefaults}
-                                        className="w-full text-left px-2 py-1 text-sm text-blue-600 hover:bg-gray-50 rounded"
+                                        className={`w-full px-2 py-1 text-sm text-blue-600 hover:bg-gray-50 rounded ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
                                     >
-                                        {t('table.reset_columns', 'Reset to defaults')}
+                                        {t('table.reset_columns')}
                                     </button>
                                 </div>
                             </div>
@@ -221,12 +233,8 @@ export function TransactionTable({
                     )}
                 </div>
 
-                <div className="text-sm text-gray-500">
-                    {t('table.showing_count', {
-                        showing: filteredAndSortedTransactions.length,
-                        total: transactions.length,
-                        defaultValue: `Showing ${filteredAndSortedTransactions.length} of ${transactions.length} transactions`
-                    })}
+                <div className="text-sm text-gray-500 w-full sm:w-auto">
+                    {t('table.showing_count', { showing: filteredAndSortedTransactions.length, total: transactions.length })}
                 </div>
             </div>
 
@@ -314,7 +322,7 @@ export function TransactionTable({
                                             setSelectedTransaction(txn);
                                         }}
                                         className="p-1 text-gray-400 hover:text-blue-500"
-                                        title={t('common.edit', 'Quick Edit')}
+                                        title={t('common.quick_edit')}
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -339,7 +347,7 @@ export function TransactionTable({
                             onChange={(e) => onUpdateCategory?.(txn.id, e.target.value)}
                             className="bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 focus:ring-blue-500 focus:border-blue-500 block w-full appearance-none cursor-pointer hover:bg-white transition-colors"
                         >
-                            <option value="">{t('table.uncategorized', 'Uncategorized')}</option>
+                                            <option value="">{t('table.uncategorized')}</option>
                             {categories.map(cat => (
                                 <option key={cat} value={cat}>{cat}</option>
                             ))}
@@ -362,7 +370,7 @@ export function TransactionTable({
                 return (
                     <td key={col.key} className={baseClass}>
                         <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold ${txn.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {txn.status}
+                                            {formatStatus(txn.status)}
                         </span>
                     </td>
                 );

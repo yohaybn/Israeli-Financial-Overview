@@ -13,8 +13,8 @@ export function MaintenancePanel() {
                     alert(t('maintenance.reload_success'));
                 },
                 onError: (err: any) => {
-                    const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                    alert(`Reload failed: ${errorMsg}`);
+                    const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                    alert(t('maintenance.reload_failed', { error: errorMsg }));
                 }
             });
         }
@@ -28,8 +28,8 @@ export function MaintenancePanel() {
                     alert(t('maintenance.reset_success'));
                 },
                 onError: (err: any) => {
-                    const errorMsg = err?.response?.data?.error || err.message || 'Unknown error';
-                    alert(`Reset failed: ${errorMsg}`);
+                    const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                    alert(t('maintenance.reset_failed', { error: errorMsg }));
                 }
             });
         }
@@ -45,9 +45,9 @@ export function MaintenancePanel() {
 
                 <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between mb-6">
                     <div>
-                        <h4 className="font-bold text-amber-900 mb-1">{t('maintenance.reload_title', 'Reload Database')}</h4>
+                        <h4 className="font-bold text-amber-900 mb-1">{t('maintenance.reload_title')}</h4>
                         <p className="text-amber-800 text-xs opacity-80 max-w-lg">
-                            {t('maintenance.reload_desc', 'Clear the database and reload all transactions from JSON files.')}
+                            {t('maintenance.reload_desc')}
                         </p>
                     </div>
 
@@ -56,7 +56,7 @@ export function MaintenancePanel() {
                         disabled={isPending}
                         className="bg-white text-amber-600 border-2 border-amber-200 hover:border-amber-600 px-6 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
                     >
-                        {isPending ? t('common.loading') : t('table.reset_columns', 'Reload DB')}
+                        {isPending ? t('common.loading') : t('maintenance.reload_button')}
                     </button>
                 </div>
 

@@ -48,7 +48,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
         );
     };
 
-    if (isLoading) return <div className="p-8 text-center text-gray-500">Loading automation settings...</div>;
+    if (isLoading) return <div className="p-8 text-center text-gray-500">{t('scheduler.loading')}</div>;
 
     return (
         <div className={`p-8 space-y-12 max-w-6xl mx-auto ${isInline ? 'p-0 space-y-8' : ''}`}>
@@ -60,8 +60,8 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                         </svg>
                     </div>
                     <div>
-                        <h1 className="text-3xl font-black text-gray-900">{t('common.automation', 'Automation')}</h1>
-                        <p className="text-gray-500">{t('common.automation_desc', 'Schedule and trigger automated scraper runs')}</p>
+                        <h1 className="text-3xl font-black text-gray-900">{t('common.automation')}</h1>
+                        <p className="text-gray-500">{t('common.automation_desc')}</p>
                     </div>
                 </header>
             )}
@@ -73,7 +73,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                         <div className="p-8 flex-1">
                             <div className="flex items-center justify-between mb-8">
                                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                                    <span className="text-2xl">⏳</span> {t('scheduler.title', 'Scheduled Scrapping')}
+                                    <span className="text-2xl">⏳</span> {t('scheduler.title')}
                                 </h2>
                                 <button
                                     onClick={() => setEnabled(!enabled)}
@@ -85,18 +85,18 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
 
                             <div className={`space-y-8 transition-opacity duration-300 ${enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">{t('scheduler.run_time', 'Daily Run Time')}</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">{t('scheduler.run_time')}</label>
                                     <input
                                         type="time"
                                         value={runTime}
                                         onChange={(e) => setRunTime(e.target.value)}
                                         className="w-full bg-gray-50 border-0 rounded-2xl p-4 text-xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 transition-all"
                                     />
-                                    <p className="mt-2 text-xs text-gray-500">{t('scheduler.run_time_desc', 'The scraper will run automatically at this time every day.')}</p>
+                                    <p className="mt-2 text-xs text-gray-500">{t('scheduler.run_time_desc')}</p>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest">{t('scheduler.profiles', 'Profiles to Scale')}</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest">{t('scheduler.profiles')}</label>
                                     <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                                         {profiles?.map(profile => (
                                             <button
@@ -133,7 +133,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                                         </svg>
-                                        {t('common.saved', 'Saved!')}
+                                        {t('common.saved')}
                                     </span>
                                 )}
                             </div>
@@ -145,7 +145,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                                 {isUpdating ? (
                                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                    <span>💾 {t('common.save_settings', 'Save Configuration')}</span>
+                                    <span>💾 {t('common.save_settings')}</span>
                                 )}
                             </button>
                         </div>

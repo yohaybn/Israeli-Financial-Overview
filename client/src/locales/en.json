@@ -16,6 +16,7 @@
         "cancel": "Cancel",
         "delete": "Delete",
         "edit": "Edit",
+        "remove": "Remove",
         "all": "All",
         "enabled": "Enabled",
         "disabled": "Disabled",
@@ -45,14 +46,52 @@
         "info": "Info",
         "warn": "Warn",
         "error_level": "Error",
-        "environment": "Environment"
+        "environment": "Environment",
+        "dashboard": "Dashboard",
+        "sidebar": "Sidebar",
+        "all_categories": "All Categories",
+        "month": "mo",
+        "manual": "Manual",
+        "retry": "Retry",
+        "rename": "Rename",
+        "rename_file": "Rename File",
+        "rename_from": "From",
+        "new_name": "New filename",
+        "clear": "Clear",
+        "settings": "Settings",
+        "hide_section": "Hide section",
+        "not_configured_suffix": "(not configured)",
+        "tip": "Tip",
+        "generate": "Generate",
+        "quick_edit": "Quick Edit",
+        "saved": "Saved!",
+        "save_settings": "Save configuration",
+        "saving": "Saving...",
+        "save_success": "Settings saved successfully",
+        "save_failed": "Save failed",
+        "save_failed_with_error": "Failed to save: {{error}}",
+        "unknown": "Unknown",
+        "unknown_error": "Unknown error",
+        "error_with_message": "Error: {{error}}",
+        "automation": "Automation",
+        "automation_desc": "Schedule and trigger automated scraper runs"
+    },
+    "scheduler": {
+        "title": "Scheduler",
+        "loading": "Loading automation settings...",
+        "run_time": "Daily Run Time",
+        "run_time_desc": "The scraper will run automatically at this time every day.",
+        "profiles": "Profiles to Scrape"
     },
     "scraper": {
         "config_title": "Scrape Configuration",
         "global_options": "Global Scraper Options",
         "smart_start_date": "Smart Start Date",
         "smart_start_date_desc": "Automatically start from the last successful scrape date",
+        "smart_start_date_active": "✨ Smart start date active (will start from last successful scrape)",
         "show_browser_desc": "Open browser window during scrape (useful for debugging)",
+        "verbose": "Verbose Logging",
+        "verbose_desc": "Include more debug info in the output logs.",
         "combine_installments_desc": "Merge installments into a single transaction",
         "dashboard": "Scraper Dashboard",
         "new_scrape": "New Scrape",
@@ -61,8 +100,11 @@
         "start_date_hint": "Leave empty to use library default",
         "advanced_options": "Advanced Options",
         "show_browser": "Show Browser (Debug Mode)",
+        "additional_info": "Additional Info",
+        "include_raw": "Include Raw data",
         "combine_installments": "Combine Installments",
         "timeout": "Timeout (ms)",
+        "navigation_retries": "Retry Count",
         "future_months": "Future Months to Scrape",
         "auto_categorize": "Auto-categorize with AI",
         "start_scrape": "Start Scrape",
@@ -70,11 +112,18 @@
         "scrape_success": "Scrape completed successfully! Check the results panel.",
         "scrape_error": "Error: {{message}}",
         "opt_in_features": "Opt-in Features",
+        "custom_opt_in_help": "Add specific feature flags by name (comma separated)",
         "custom_opt_in": "Custom opt-in (comma separated)...",
         "feature_skip_additional_info": "Isracard Amex - Skip Additional Info",
         "feature_mizrahi_pending_no_id": "Mizrahi - Pending if no ID",
         "feature_mizrahi_pending_generic": "Mizrahi - Pending if generic desc",
-        "feature_mizrahi_pending_today": "Mizrahi - Pending if today"
+        "feature_mizrahi_pending_today": "Mizrahi - Pending if today",
+        "isracard_block_tip": "Isracard often blocks automated requests. Try enabling \"Show Browser\" in Advanced Options to bypass basic bot detection.",
+        "errors": {
+            "load_failed": "Failed to load settings",
+            "save_failed": "Failed to save settings",
+            "unavailable": "Unable to load configuration"
+        }
     },
     "explorer": {
         "records": "Records",
@@ -121,7 +170,16 @@
         "use_ai_parsing": "Use AI for Parsing",
         "ai_parsing_desc": "Use Gemini to extract transactions from complex files",
         "select_all": "Select All",
-        "confirm_delete": "Are you sure you want to delete this result?"
+        "confirm_delete": "Are you sure you want to delete this result?",
+        "delete_success": "File deleted successfully",
+        "delete_failed": "Delete failed: {{error}}",
+        "rename_success": "File renamed successfully",
+        "rename_failed": "Rename failed: {{error}}",
+        "select_file_first": "Please select a file first",
+        "ai_categorize_success": "Categorization completed successfully",
+        "ai_categorize_failed": "Categorization failed: {{error}}",
+        "select_file_and_query": "Please select a file and enter a query",
+        "ai_analyst_failed": "AI Analyst failed: {{error}}"
     },
     "analyst": {
         "title": "AI Analyst",
@@ -135,6 +193,8 @@
         "category": "Category",
         "amount": "Amount",
         "status": "Status",
+        "status_completed": "Completed",
+        "status_pending": "Pending",
         "uncategorized": "Other",
         "search_placeholder": "Search transactions...",
         "showing_count": "Showing {{showing}} of {{total}} transactions",
@@ -154,10 +214,14 @@
         "reload_desc": "This will clear all transactions from the unified database and re-import them from the existing JSON files in the results folder.",
         "confirm_reload": "Are you sure you want to reload the database from files? This will overwrite any unsynced changes.",
         "reload_success": "Database reloaded successfully!",
-        "reset_success": "All changes have been reset to defaults"
+        "reset_success": "All changes have been reset to defaults",
+        "reload_failed": "Reload failed: {{error}}",
+        "reset_failed": "Reset failed: {{error}}",
+        "reload_button": "Reload DB"
     },
     "ai_settings": {
         "title": "AI Configuration",
+        "loading": "Loading AI settings...",
         "description": "Customize models and category lists",
         "categorization_model": "Categorization Model",
         "analyst_model": "Analyst Model",
@@ -189,12 +253,51 @@
     "google_settings": {
         "title": "Google Sheets Setup",
         "description": "Obtain these from the Google Cloud Console.",
+        "description_prefix": "Obtain these from the",
+        "google_cloud_console": "Google Cloud Console",
+        "description_suffix": ".",
+        "folder_saved": "Folder configuration saved successfully",
+        "folder_cleared": "Folder configuration cleared",
+        "errors": {
+            "save_folder_failed": "Failed to save folder config",
+            "save_folder_failed_with_error": "Failed to save folder: {{error}}",
+            "clear_folder_failed": "Failed to clear folder config",
+            "clear_folder_failed_with_error": "Failed to clear folder: {{error}}"
+        },
         "client_id": "Client ID",
         "client_secret": "Client Secret",
         "redirect_uri": "Redirect URI",
         "redirect_uri_hint": "Must match the Authorized redirect URI in Google Console.",
         "placeholder_client_id": "your-client-id.apps.googleusercontent.com",
         "placeholder_client_secret": "Enter client secret"
+    },
+    "google_sheets": {
+        "title": "Google Sheets",
+        "prompt_name": "Enter spreadsheet name:",
+        "default_sheet_name": "Bank Transactions - {{date}}",
+        "create_success": "Spreadsheet created successfully!",
+        "create_fail": "Failed to create sheet: {{error}}",
+        "syncing": "Syncing to Google Sheets...",
+        "sync_success": "Sync complete!",
+        "sync_fail": "Sync failed: {{error}}",
+        "loading_status": "Loading Google Sync status...",
+        "not_configured": "Sync to Sheets is not configured yet.",
+        "configure_now": "Configure Now",
+        "sync_title": "Google Sheets Sync",
+        "connect_desc": "Connect to your Google account to sync transactions.",
+        "connect_button": "Connect with Google",
+        "select_source": "Source Results",
+        "select_file": "Select scrape results to sync...",
+        "target_spreadsheet": "Target Spreadsheet",
+        "from_folder": "from folder",
+        "select_sheet_folder": "Select a sheet from folder...",
+        "select_sheet": "Select a sheet...",
+        "create_new": "Create new sheet",
+        "showing_from": "Showing files only from:",
+        "last_synced": "Last Synced:",
+        "syncing_button": "Syncing...",
+        "sync_button_text": "Sync to Google Sheets",
+        "select_hint": "Select a scrape result to sync"
     },
     "post_scrape": {
         "title": "Post-Scrape Actions",
@@ -213,10 +316,12 @@
     },
     "fraud_settings": {
         "title": "Fraud & Alerts",
+        "loading": "Loading fraud settings...",
         "description": "Configure local and AI-based fraud detection rules, thresholds, and alerts.",
         "overview": "Detection Overview",
         "overview_desc": "Choose how fraud is detected after each scrape and when alerts should fire.",
         "mode_label": "Mode",
+        "suspicious_pattern": "Suspicious pattern",
         "local_rules": "Local detection rules",
         "rule_outlier_amount": "Amount outliers per merchant",
         "rule_outlier_amount_desc": "Flag charges much higher than historical amounts for the same description.",
@@ -247,7 +352,12 @@
         "recent_findings": "Recent local fraud findings",
         "refresh_findings": "Refresh",
         "loading_findings": "Loading...",
-        "no_findings": "No recent findings (last 7 days)."
+        "no_findings": "No recent findings (last 7 days).",
+        "errors": {
+            "load_failed": "Failed to load fraud configuration",
+            "save_failed": "Failed to save fraud settings",
+            "unavailable": "Unable to load fraud configuration"
+        }
     },
     "dashboard": {
         "title": "Financial Command Center",
@@ -310,7 +420,33 @@
         "variable_forecast": "Variable Forecast",
         "forecast_calculation": "Based on current daily pace and historical baseline",
         "recent_transactions": "Recent Transactions",
-        "historical_average": "Historical Average"
+        "historical_average": "Historical Average",
+        "ai_analyst": "AI Financial Analyst",
+        "ask_ai_placeholder": "Ask about your spending habits, trends or specific anomalies...",
+        "ai_disclaimer": "AI can make mistakes. Please verify important financial information.",
+        "subscription_hint": "Mark regular transactions as subscriptions in their details modal.",
+        "income_received": "Income Received",
+        "expense_spent": "Actual Spend (inc. CC)",
+        "no_income": "No patterns found",
+        "no_bills": "No patterns found",
+        "history_of": "Historical occurrences of this group",
+        "no_history_details": "No detailed history available for this item",
+        "view_transactions": "View Transactions",
+        "forecast_details": "Statistical Projection - Click for details",
+        "spent_label": "Spent",
+        "kpi_details": "Calculation Details",
+        "no_transactions": "No transactions found for this calculation.",
+        "dashboard_settings": "Dashboard Settings",
+        "forecast_window": "Forecast History Window",
+        "forecast_window_desc": "Months of data used to compute spending averages. Capped to your available data.",
+        "cc_patterns": "CC Payment Patterns",
+        "cc_patterns_desc": "Transactions flagged as CC payments. Remove to stop auto-detection.",
+        "of_month": "of month"
+    },
+    "ai_chat": {
+        "view_ai_logs": "View AI Logs ←",
+        "greeting": "Hello! I am your AI financial analyst. I can help answer questions about your spending habits, trends, or anomalies. What would you like to know?",
+        "error": "Sorry — I hit an error while analyzing your data. Please try again."
     },
     "ai_logs": {
         "title": "AI Logs",
@@ -384,6 +520,9 @@
         "test": "Test",
         "testing": "Testing...",
         "test_success": "Test message sent successfully",
+        "loading_status": "Loading status...",
+        "user_added": "User added to allowed list",
+        "user_removed": "User removed from allowed list",
         "chat_id_placeholder": "Enter chat ID or group ID",
         "chat_id_help": "Typically starts with - for groups or is a number for private chats",
         "config_saved": "Configuration saved",
@@ -407,7 +546,17 @@
         "cmd_chat": "Start AI chat",
         "cmd_settings": "Manage settings",
         "chat_added": "Chat added to notifications",
-        "chat_removed": "Chat removed from notifications"
+        "chat_removed": "Chat removed from notifications",
+        "errors": {
+            "start_failed": "Failed to start bot",
+            "stop_failed": "Failed to stop bot",
+            "update_config_failed": "Failed to update config",
+            "save_config_failed": "Failed to save configuration",
+            "add_chat_failed": "Failed to add chat",
+            "remove_chat_failed": "Failed to remove chat",
+            "add_user_failed": "Failed to add user",
+            "remove_user_failed": "Failed to remove user"
+        }
     },
     "transaction_modal": {
         "title": "Transaction Details",
@@ -434,5 +583,81 @@
         "not_a_subscription": "Not a Subscription",
         "excluded_from_subscriptions": "Excluded from Detection",
         "subscription_interval": "Subscription Interval"
+    },
+    "profiles": {
+        "title": "Saved Profiles",
+        "loading": "Loading profiles...",
+        "empty": "No saved profiles yet.",
+        "save_current": "+ Save Current",
+        "name_placeholder": "Profile name...",
+        "confirm_delete": "Are you sure you want to delete this profile?",
+        "save_failed": "Failed to save profile: {{error}}",
+        "delete_failed": "Failed to delete profile: {{error}}"
+    },
+    "export": {
+        "headers": {
+            "date": "Date",
+            "description": "Description",
+            "amount": "Amount",
+            "currency": "Currency",
+            "category": "Category",
+            "status": "Status",
+            "memo": "Memo"
+        }
+    },
+    "env": {
+        "title": "Environment Variables",
+        "subtitle": "Configure system-level settings stored in .env",
+        "enter_value": "Enter {{key}}...",
+        "generate_random_key": "Generate random key",
+        "restart_required_hint": "Changes to these variables require a server restart to take effect.",
+        "confirm_restart_after_save": "Settings saved. Restart server now to apply?",
+        "restart_in_progress": "Server is restarting. Please refresh the page in a few seconds.",
+        "restarting": "Restarting...",
+        "restart_server": "Restart Server",
+        "save_settings": "Save Settings",
+        "save_failed": "Failed to save settings: {{error}}",
+        "restart_failed": "Restart failed: {{error}}",
+        "groups": {
+            "ai_external": "AI & External APIs",
+            "google_integration": "Google Integration",
+            "system_security": "System & Security"
+        },
+        "links": {
+            "google_ai_studio": "Google AI Studio",
+            "google_cloud_console": "Google Cloud Console"
+        },
+        "fields": {
+            "gemini_api_key": { "label": "Gemini API Key", "help": "Obtain from " },
+            "google_client_id": { "label": "Google Client ID", "help": "Create \"OAuth 2.0 Client ID\" at " },
+            "google_client_secret": { "label": "Google Client Secret", "help": "Found in the same Google Cloud Console project." },
+            "google_redirect_uri": { "label": "Google Redirect URI", "help": "Must match the authorized redirect URI in Cloud Console (e.g., {{example}})" },
+            "drive_folder_id": { "label": "Drive Folder ID", "help": "The ID from the URL of your Google Drive folder where results will be saved." },
+            "encryption_key": { "label": "Encryption Key (64 hex)", "help": "Generate using: openssl rand -hex 32" },
+            "port": { "label": "Server Port", "help": "Default is 3000." },
+            "data_dir": { "label": "Data Directory", "help": "Path where profiles and results are stored. Default is ./data" }
+        },
+        "validation": {
+            "encryption_key_hex_64": "Encryption key must be a 64-character hex string"
+        }
+    },
+    "scrape_progress": {
+        "title": "Live Progress",
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "initializing": "Initializing",
+        "start_scraping": "Starting Scrape",
+        "logging_in": "Logging In",
+        "login_success": "Login Success",
+        "login_failed": "Login Failed",
+        "change_password": "Password Change Required",
+        "complete": "Complete",
+        "terminating": "Terminating",
+        "unknown": "Unknown",
+        "scrape_completed": "✓ Scrape Completed",
+        "scrape_failed": "✗ Scrape Failed",
+        "transactions_retrieved": "{{count}} transactions retrieved",
+        "completed_in_seconds": "Completed in {{seconds}}s",
+        "empty": "Start a scrape to see real-time progress here."
     }
 }

@@ -35,7 +35,7 @@ export function EnvironmentSettings() {
         // Validate ENCRYPTION_KEY if changed and not masked
         if (form.ENCRYPTION_KEY && !form.ENCRYPTION_KEY.includes('***')) {
             if (!/^[0-9a-fA-F]{64}$/.test(form.ENCRYPTION_KEY)) {
-                newErrors.ENCRYPTION_KEY = 'Encryption key must be a 64-character hex string';
+                newErrors.ENCRYPTION_KEY = t('env.validation.encryption_key_hex_64');
             }
         }
 
@@ -48,12 +48,12 @@ export function EnvironmentSettings() {
 
         updateEnv(form, {
             onSuccess: () => {
-                if (window.confirm('Settings saved. Restart server now to apply?')) {
+                if (window.confirm(t('env.confirm_restart_after_save'))) {
                     handleRestart();
                 }
             },
             onError: (err: any) => {
-                alert(`Failed to save settings: ${err.message}`);
+                alert(t('env.save_failed', { error: err.message || t('common.unknown_error') }));
             }
         });
     };
@@ -61,11 +61,11 @@ export function EnvironmentSettings() {
     const handleRestart = () => {
         restartServer(undefined, {
             onSuccess: () => {
-                alert('Server is restarting. Please refresh the page in a few seconds.');
+                alert(t('env.restart_in_progress'));
                 // Optional: countdown or auto-refresh
             },
             onError: (err: any) => {
-                alert(`Restart failed: ${err.message}`);
+                alert(t('env.restart_failed', { error: err.message || t('common.unknown_error') }));
             }
         });
     };
@@ -76,59 +76,60 @@ export function EnvironmentSettings() {
 
     const fieldGroups = [
         {
-            title: 'AI & External APIs',
+            titleKey: 'env.groups.ai_external',
             fields: [
                 {
                     key: 'GEMINI_API_KEY',
-                    label: 'Gemini API Key',
-                    help: 'Obtain from ',
-                    link: { text: 'Google AI Studio', url: 'https://aistudio.google.com/app/apikey' }
+                    labelKey: 'env.fields.gemini_api_key.label',
+                    helpKey: 'env.fields.gemini_api_key.help',
+                    link: { textKey: 'env.links.google_ai_studio', url: 'https://aistudio.google.com/app/apikey' }
                 }
             ]
         },
         {
-            title: 'Google Integration',
+            titleKey: 'env.groups.google_integration',
             fields: [
                 {
                     key: 'GOOGLE_CLIENT_ID',
-                    label: 'Google Client ID',
-                    help: 'Create "OAuth 2.0 Client ID" at ',
-                    link: { text: 'Google Cloud Console', url: 'https://console.cloud.google.com/apis/credentials' }
+                    labelKey: 'env.fields.google_client_id.label',
+                    helpKey: 'env.fields.google_client_id.help',
+                    link: { textKey: 'env.links.google_cloud_console', url: 'https://console.cloud.google.com/apis/credentials' }
                 },
                 {
                     key: 'GOOGLE_CLIENT_SECRET',
-                    label: 'Google Client Secret',
-                    help: 'Found in the same Google Cloud Console project.'
+                    labelKey: 'env.fields.google_client_secret.label',
+                    helpKey: 'env.fields.google_client_secret.help'
                 },
                 {
                     key: 'GOOGLE_REDIRECT_URI',
-                    label: 'Google Redirect URI',
-                    help: `Must match the authorized redirect URI in Cloud Console (e.g., ${window.location.origin}/api/auth/google/callback)`
+                    labelKey: 'env.fields.google_redirect_uri.label',
+                    helpKey: 'env.fields.google_redirect_uri.help',
+                    helpArgs: { example: `${window.location.origin}/api/auth/google/callback` }
                 },
                 {
                     key: 'DRIVE_FOLDER_ID',
-                    label: 'Drive Folder ID',
-                    help: 'The ID from the URL of your Google Drive folder where results will be saved.'
+                    labelKey: 'env.fields.drive_folder_id.label',
+                    helpKey: 'env.fields.drive_folder_id.help'
                 }
             ]
         },
         {
-            title: 'System & Security',
+            titleKey: 'env.groups.system_security',
             fields: [
                 {
                     key: 'ENCRYPTION_KEY',
-                    label: 'Encryption Key (64 hex)',
-                    help: 'Generate using: openssl rand -hex 32'
+                    labelKey: 'env.fields.encryption_key.label',
+                    helpKey: 'env.fields.encryption_key.help'
                 },
                 {
                     key: 'PORT',
-                    label: 'Server Port',
-                    help: 'Default is 3000.'
+                    labelKey: 'env.fields.port.label',
+                    helpKey: 'env.fields.port.help'
                 },
                 {
                     key: 'DATA_DIR',
-                    label: 'Data Directory',
-                    help: 'Path where profiles and results are stored. Default is ./data'
+                    labelKey: 'env.fields.data_dir.label',
+                    helpKey: 'env.fields.data_dir.help'
                 }
             ]
         }
@@ -146,22 +147,22 @@ export function EnvironmentSettings() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-900">Environment Variables</h3>
-                        <p className="text-sm text-gray-500 mt-1">Configure system-level settings stored in .env</p>
+                        <h3 className="text-xl font-bold text-gray-900">{t('env.title')}</h3>
+                        <p className="text-sm text-gray-500 mt-1">{t('env.subtitle')}</p>
                     </div>
                 </div>
 
                 <div className="space-y-8">
                     {fieldGroups.map(group => (
-                        <div key={group.title} className="space-y-4">
+                        <div key={group.titleKey} className="space-y-4">
                             <h4 className="text-xs font-black uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-2">
-                                {group.title}
+                                {t(group.titleKey)}
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                                 {group.fields.map(field => (
                                     <div key={field.key} className="space-y-1">
                                         <div className="flex items-center justify-between">
-                                            <label className="text-sm font-bold text-gray-700 block">{field.label || field.key}</label>
+                                            <label className="text-sm font-bold text-gray-700 block">{field.labelKey ? t(field.labelKey) : field.key}</label>
                                         </div>
                                         <div className="flex gap-2">
                                             <input
@@ -169,23 +170,23 @@ export function EnvironmentSettings() {
                                                 value={form[field.key] || ''}
                                                 onChange={(e) => handleChange(field.key, e.target.value)}
                                                 className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none ${errors[field.key] ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}
-                                                placeholder={`Enter ${field.key}...`}
+                                                placeholder={t('env.enter_value', { key: field.key })}
                                             />
                                             {field.key === 'ENCRYPTION_KEY' && (
                                                 <button
                                                     onClick={() => generateRandomKey(field.key)}
                                                     className="px-3 py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 transition-all active:scale-95 border border-gray-200"
-                                                    title="Generate Random Key"
+                                                    title={t('env.generate_random_key')}
                                                 >
-                                                    Generate
+                                                    {t('common.generate')}
                                                 </button>
                                             )}
                                         </div>
                                         <div className="flex flex-col gap-1">
                                             {errors[field.key] && <p className="text-xs text-red-600 font-medium">{errors[field.key]}</p>}
-                                            {field.help && (
+                                            {field.helpKey && (
                                                 <p className="text-[11px] text-gray-400 leading-tight">
-                                                    {field.help}
+                                                    {t(field.helpKey, field.helpArgs)}
                                                     {field.link && (
                                                         <a
                                                             href={field.link.url}
@@ -193,7 +194,7 @@ export function EnvironmentSettings() {
                                                             rel="noopener noreferrer"
                                                             className="text-blue-500 hover:underline font-medium"
                                                         >
-                                                            {field.link.text}
+                                                            {field.link.textKey ? t(field.link.textKey) : ''}
                                                         </a>
                                                     )}
                                                 </p>
@@ -208,7 +209,7 @@ export function EnvironmentSettings() {
 
                 <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-between">
                     <div className="text-xs text-amber-600 font-medium bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 max-w-sm">
-                        ⚠️ Changes to these variables require a server restart to take effect.
+                        {t('env.restart_required_hint')}
                     </div>
                     <div className="flex gap-3">
                         <button
@@ -216,14 +217,14 @@ export function EnvironmentSettings() {
                             disabled={isRestarting}
                             className="px-6 py-2.5 bg-amber-100 text-amber-700 rounded-xl text-sm font-bold hover:bg-amber-200 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {isRestarting ? 'Restarting...' : 'Restart Server'}
+                            {isRestarting ? t('env.restarting') : t('env.restart_server')}
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={isUpdating}
                             className="px-8 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {isUpdating ? 'Saving...' : 'Save Settings'}
+                            {isUpdating ? t('common.saving') : t('env.save_settings')}
                         </button>
                     </div>
                 </div>

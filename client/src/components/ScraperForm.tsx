@@ -42,7 +42,7 @@ function useGlobalConfig() {
 }
 
 
-export function ScraperForm() {
+export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void }) {
     const { t, i18n } = useTranslation();
     const { data: providers, isLoading: isLoadingProviders } = useProviders();
     const { mutate: runScrape, isPending, isSuccess, isError, error, reset } = useRunScrape();
@@ -142,7 +142,22 @@ export function ScraperForm() {
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 space-y-6">
-            <h2 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2">{t('scraper.dashboard')}</h2>
+            <div className="flex items-center justify-between gap-3 border-b pb-2">
+                <h2 className="text-lg font-bold text-gray-800">{t('scraper.dashboard')}</h2>
+                {onOpenSettings && (
+                    <button
+                        type="button"
+                        onClick={onOpenSettings}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-indigo-600"
+                        title={t('scraper.config_title')}
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+                )}
+            </div>
 
             {/* Profile Management Section */}
             <ProfileManager
@@ -197,7 +212,7 @@ export function ScraperForm() {
                             {options.startDate 
                                 ? t('scraper.start_date_hint') 
                                 : (globalConfig?.useSmartStartDate 
-                                    ? t('scraper.smart_start_date_active', '✨ Smart start date active (will start from last successful scrape)') 
+                                    ? t('scraper.smart_start_date_active') 
                                     : t('scraper.start_date_hint'))}
                         </p>
                     </div>
@@ -237,7 +252,7 @@ export function ScraperForm() {
                                             onChange={(e) => updateOption('verbose', e.target.checked)}
                                             className="rounded border-gray-300"
                                         />
-                                        <label htmlFor="verbose" className="text-sm text-gray-700">{t('scraper.verbose', 'Verbose Logging')}</label>
+                                        <label htmlFor="verbose" className="text-sm text-gray-700">{t('scraper.verbose')}</label>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <input
@@ -257,7 +272,7 @@ export function ScraperForm() {
                                             onChange={(e) => updateOption('additionalTransactionInformation', e.target.checked)}
                                             className="rounded border-gray-300"
                                         />
-                                        <label htmlFor="additionalInfo" className="text-sm text-gray-700">{t('scraper.additional_info', 'Additional Info')}</label>
+                                        <label htmlFor="additionalInfo" className="text-sm text-gray-700">{t('scraper.additional_info')}</label>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <input
@@ -267,7 +282,7 @@ export function ScraperForm() {
                                             onChange={(e) => updateOption('includeRawTransaction', e.target.checked)}
                                             className="rounded border-gray-300"
                                         />
-                                        <label htmlFor="includeRaw" className="text-sm text-gray-700">{t('scraper.include_raw', 'Include Raw data')}</label>
+                                        <label htmlFor="includeRaw" className="text-sm text-gray-700">{t('scraper.include_raw')}</label>
                                     </div>
                                 </div>
 
@@ -282,7 +297,7 @@ export function ScraperForm() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-1">{t('scraper.navigation_retries', 'Retry Count')}</label>
+                                        <label className="block text-xs font-bold text-gray-600 mb-1">{t('scraper.navigation_retries')}</label>
                                         <input
                                             type="number"
                                             value={options.navigationRetryCount || 0}
@@ -306,7 +321,7 @@ export function ScraperForm() {
                             </div>
 
                             <div className="pt-2">
-                                <label className="block text-xs font-bold text-gray-600 mb-2">{t('scraper.opt_in_features', 'Opt-in Features')}</label>
+                                <label className="block text-xs font-bold text-gray-600 mb-2">{t('scraper.opt_in_features')}</label>
                                 <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded border border-gray-100">
                                     {[
                                         { id: 'isracard-amex:skipAdditionalTransactionInformation', label: t('scraper.feature_skip_additional_info') },
@@ -333,7 +348,7 @@ export function ScraperForm() {
                                 </div>
                                 <input
                                     type="text"
-                                    placeholder={t('scraper.custom_opt_in', 'Custom opt-in (comma separated)...')}
+                                    placeholder={t('scraper.custom_opt_in')}
                                     value={(options.optInFeatures || []).filter((f: string) => ![
                                         'isracard-amex:skipAdditionalTransactionInformation',
                                         'mizrahi:pendingIfNoIdentifier',
@@ -391,7 +406,7 @@ export function ScraperForm() {
 
                         {((error as any)?.response?.data?.error?.includes('Block Automation') || (error as any)?.response?.data?.error?.includes('429')) && (
                             <div className="mt-2 pt-2 border-t border-red-200 text-xs italic">
-                                <strong>Tip:</strong> Isracard often blocks automated requests. Try enabling <strong>"Show Browser"</strong> in Advanced Options to bypass basic bot detection.
+                                <strong>{t('common.tip')}:</strong> {t('scraper.isracard_block_tip')}
                             </div>
                         )}
                     </div>

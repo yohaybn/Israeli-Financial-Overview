@@ -37,11 +37,11 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
   const handleSave = async () => {
     // simple validation
     if (cfg?.customAI?.enabled && (!cfg.customAI.query || cfg.customAI.query.trim() === '')) {
-      setError(t('post_scrape.errors.custom_query_required', 'Custom AI query is required when enabled'));
+      setError(t('post_scrape.errors.custom_query_required'));
       return;
     }
     if (!Array.isArray(cfg.notificationChannels)) {
-      setError(t('post_scrape.errors.invalid_notifications', 'Select at least one notification channel'));
+      setError(t('post_scrape.errors.invalid_notifications'));
       return;
     }
     setSaving(true);
@@ -53,57 +53,57 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
         body: JSON.stringify(cfg),
       });
       const data = await res.json();
-      if (!data?.success) throw new Error(data?.error || 'Save failed');
+      if (!data?.success) throw new Error(data?.error || t('common.save_failed'));
       setCfg(data.data);
-      setToast(t('post_scrape.saved', 'Post-scrape settings saved'));
+      setToast(t('post_scrape.saved'));
       setTimeout(() => setToast(null), 3000);
       onClose?.();
     } catch (e) {
       // noop - simple UX
       console.error('Failed to save post-scrape config', e);
-      setError(t('post_scrape.errors.save_failed', 'Failed to save settings'));
+      setError(t('post_scrape.errors.save_failed'));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="p-4 text-sm text-gray-500">Loading...</div>;
-  if (!cfg) return <div className="p-4 text-sm text-red-500">Unable to load configuration</div>;
+  if (loading) return <div className="p-4 text-sm text-gray-500">{t('common.loading')}</div>;
+  if (!cfg) return <div className="p-4 text-sm text-red-500">{t('post_scrape.errors.unavailable')}</div>;
 
   return (
     <div className={`${isInline ? '' : 'bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col'} p-6`}>
-      <h3 className="text-lg font-bold mb-4">{t('post_scrape.title', 'Post-scrape actions')}</h3>
+      <h3 className="text-lg font-bold mb-4">{t('post_scrape.title')}</h3>
 
       <div className="space-y-4">
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={cfg.runCategorization} onChange={(e) => update({ runCategorization: e.target.checked })} />
-          <span className="text-sm">{t('post_scrape.run_categorization', 'Run AI categorization after every scrape')}</span>
+          <span className="text-sm">{t('post_scrape.run_categorization')}</span>
         </label>
 
         <div className="p-3 border rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <input type="checkbox" checked={cfg.fraudDetection?.enabled} onChange={(e) => update({ fraudDetection: { ...cfg.fraudDetection, enabled: e.target.checked } })} />
-              <span className="text-sm font-medium">{t('post_scrape.fraud_detection', 'Fraud / anomaly detection')}</span>
+              <span className="text-sm font-medium">{t('post_scrape.fraud_detection')}</span>
             </div>
-            <label className="text-xs text-gray-500">{t('post_scrape.notify_on_issue', 'Notify on issue')}</label>
+            <label className="text-xs text-gray-500">{t('post_scrape.notify_on_issue')}</label>
           </div>
           <div className="mt-3">
             <label className="flex items-center gap-3 text-sm">
               <input type="checkbox" checked={cfg.fraudDetection?.notifyOnIssue} onChange={(e) => update({ fraudDetection: { ...cfg.fraudDetection, notifyOnIssue: e.target.checked } })} />
-              <span>{t('post_scrape.fraud_notify_help', 'Send notification when potential fraud is detected')}</span>
+              <span>{t('post_scrape.fraud_notify_help')}</span>
             </label>
           </div>
           <div className="mt-3 pt-3 border-t">
-            <div className="text-xs text-gray-500 mb-2">{t('post_scrape.transaction_scope', 'Transaction Scope')}</div>
+            <div className="text-xs text-gray-500 mb-2">{t('post_scrape.transaction_scope')}</div>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="fraud_scope" checked={cfg.fraudDetection?.scope !== 'all'} onChange={() => update({ fraudDetection: { ...cfg.fraudDetection, scope: 'current' } })} />
-                <span className="text-xs">{t('post_scrape.current_scrape', 'Current scrape')}</span>
+                <span className="text-xs">{t('post_scrape.current_scrape')}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="fraud_scope" checked={cfg.fraudDetection?.scope === 'all'} onChange={() => update({ fraudDetection: { ...cfg.fraudDetection, scope: 'all' } })} />
-                <span className="text-xs">{t('post_scrape.all_transactions', 'All transactions')}</span>
+                <span className="text-xs">{t('post_scrape.all_transactions')}</span>
               </label>
             </div>
           </div>
@@ -112,32 +112,32 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
         <div className="p-3 border rounded-lg">
           <div className="flex items-center gap-3">
             <input type="checkbox" checked={cfg.customAI?.enabled} onChange={(e) => update({ customAI: { ...cfg.customAI, enabled: e.target.checked } })} />
-            <span className="text-sm font-medium">{t('post_scrape.custom_ai', 'Custom AI query')}</span>
+          <span className="text-sm font-medium">{t('post_scrape.custom_ai')}</span>
           </div>
           <div className="mt-3 space-y-2">
-            <input className="w-full p-2 border rounded-md text-sm" placeholder={t('post_scrape.custom_ai_query', 'Enter a custom query')} value={cfg.customAI?.query || ''} onChange={(e) => update({ customAI: { ...cfg.customAI, query: e.target.value } })} />
+            <input className="w-full p-2 border rounded-md text-sm" placeholder={t('post_scrape.custom_ai_query')} value={cfg.customAI?.query || ''} onChange={(e) => update({ customAI: { ...cfg.customAI, query: e.target.value } })} />
             <label className="flex items-center gap-3 text-sm">
               <input type="checkbox" checked={cfg.customAI?.notifyOnResult} onChange={(e) => update({ customAI: { ...cfg.customAI, notifyOnResult: e.target.checked } })} />
-              <span>{t('post_scrape.notify_on_result', 'Notify when custom AI returns a result')}</span>
+              <span>{t('post_scrape.notify_on_result')}</span>
             </label>
           </div>
           <div className="mt-3 pt-3 border-t">
-            <div className="text-xs text-gray-500 mb-2">{t('post_scrape.transaction_scope', 'Transaction Scope')}</div>
+            <div className="text-xs text-gray-500 mb-2">{t('post_scrape.transaction_scope')}</div>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="ai_scope" checked={cfg.customAI?.scope !== 'all'} onChange={() => update({ customAI: { ...cfg.customAI, scope: 'current' } })} />
-                <span className="text-xs">{t('post_scrape.current_scrape', 'Current scrape')}</span>
+                <span className="text-xs">{t('post_scrape.current_scrape')}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="ai_scope" checked={cfg.customAI?.scope === 'all'} onChange={() => update({ customAI: { ...cfg.customAI, scope: 'all' } })} />
-                <span className="text-xs">{t('post_scrape.all_transactions', 'All transactions')}</span>
+                <span className="text-xs">{t('post_scrape.all_transactions')}</span>
               </label>
             </div>
           </div>
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">{t('post_scrape.notification_channels', 'Notification channels')}</label>
+          <label className="text-sm font-medium">{t('post_scrape.notification_channels')}</label>
           <div className="grid grid-cols-2 gap-2 mt-2">
             {(() => {
               // Always include 'telegram' option visually; it will be disabled/grayed out unless active
@@ -163,19 +163,19 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
                         update({ notificationChannels: current });
                       }}
                     />
-                    <span className="text-sm">{ch}{disabled ? ' (not configured)' : ''}</span>
+                    <span className="text-sm">{ch}{disabled ? ` ${t('common.not_configured_suffix')}` : ''}</span>
                   </label>
                 );
               });
             })()}
           </div>
-          <p className="text-xs text-gray-400">{t('post_scrape.notification_help', 'Select one or more channels (e.g. telegram, console)')}</p>
+          <p className="text-xs text-gray-400">{t('post_scrape.notification_help')}</p>
         </div>
       </div>
 
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="px-4 py-2 rounded-md border">{t('common.cancel', 'Cancel')}</button>
-        <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-md bg-indigo-600 text-white">{saving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}</button>
+        <button onClick={onClose} className="px-4 py-2 rounded-md border">{t('common.cancel')}</button>
+        <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-md bg-indigo-600 text-white">{saving ? t('common.saving') : t('common.save')}</button>
       </div>
       {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
 

@@ -105,10 +105,10 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                             : 'bg-gray-100 text-gray-500'
                             }`}>
                             {daysUntil === 0
-                                ? t('dashboard.today', 'Today')
+                                ? t('dashboard.today')
                                 : daysUntil === 1
-                                    ? t('dashboard.tomorrow', 'Tomorrow')
-                                    : t('dashboard.in_days', { days: daysUntil, defaultValue: `in ${daysUntil}d` })}
+                                    ? t('dashboard.tomorrow')
+                                    : t('dashboard.in_days', { days: daysUntil })}
                         </span>
                     )}
                 </div>
@@ -129,7 +129,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
-                                {t('dashboard.upcoming_fixed', 'Upcoming Fixed')}
+                                {t('dashboard.upcoming_fixed')}
                             </h3>
                             <button
                                 onClick={() => setShowInfo(!showInfo)}
@@ -142,7 +142,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                             </button>
                         </div>
                         <p className="text-xs text-gray-400">
-                            {t('dashboard.upcoming_count', { count: items.length, defaultValue: `${items.length} items expected` })}
+                            {t('dashboard.upcoming_count', { count: items.length })}
                         </p>
                     </div>
                 </div>
@@ -168,7 +168,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                     <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-tighter text-gray-500">
                         <span className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                            {t('dashboard.income_received', 'Income Received')}
+                            {t('dashboard.income_received')}
                         </span>
                         <span>{Math.round(incomePercent)}%</span>
                     </div>
@@ -179,8 +179,8 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                         />
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-medium text-gray-400">
-                        <span>{formatCurrency(incomeActual)} {t('dashboard.received', 'received')}</span>
-                        <span>{formatCurrency(incomeProjected - incomeActual)} {t('dashboard.upcoming', 'upcoming')}</span>
+                        <span>{formatCurrency(incomeActual)} {t('dashboard.received')}</span>
+                        <span>{formatCurrency(incomeProjected - incomeActual)} {t('dashboard.upcoming')}</span>
                     </div>
                 </div>
 
@@ -189,7 +189,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                     <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-tighter text-gray-500">
                         <span className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-rose-400" />
-                            {t('dashboard.expense_spent', 'Actual Spend (inc. CC)')}
+                            {t('dashboard.expense_spent')}
                         </span>
                         <span>{Math.round(expensePercent)}%</span>
                     </div>
@@ -200,8 +200,8 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                         />
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-medium text-gray-400">
-                        <span>{formatCurrency(expenseActual)} {t('dashboard.spent', 'spent')}</span>
-                        <span>{formatCurrency(expenseProjected - expenseActual)} {t('dashboard.upcoming', 'upcoming')}</span>
+                        <span>{formatCurrency(expenseActual)} {t('dashboard.spent')}</span>
+                        <span>{formatCurrency(expenseProjected - expenseActual)} {t('dashboard.upcoming')}</span>
                     </div>
                 </div>
             </div>
@@ -213,7 +213,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                     <div className="flex items-center justify-between mb-4 px-2 sticky top-0 bg-white/95 backdrop-blur-sm py-2 z-10 border-b border-emerald-100/50">
                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></span>
-                            {t('dashboard.income', 'Input / Income')}
+                            {t('dashboard.income')}
                         </h4>
                         <div className="flex flex-col items-end">
                             <span className="text-xs font-black text-emerald-600">
@@ -234,7 +234,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                                 </svg>
                             </div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter opacity-70">
-                                {t('dashboard.no_income', 'No patterns found')}
+                                {t('dashboard.no_income')}
                             </p>
                         </div>
                     )}
@@ -245,7 +245,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                     <div className="flex items-center justify-between mb-4 px-2 sticky top-0 bg-white/95 backdrop-blur-sm py-2 z-10 border-b border-red-100/50">
                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-sm shadow-red-200"></span>
-                            {t('dashboard.expenses', 'Expenses / Bills')}
+                            {t('dashboard.expenses')}
                         </h4>
                         <div className="flex flex-col items-end">
                             <span className="text-xs font-black text-red-600">
@@ -266,7 +266,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                                 </svg>
                             </div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter opacity-70">
-                                {t('dashboard.no_bills', 'No patterns found')}
+                                {t('dashboard.no_bills')}
                             </p>
                         </div>
                     )}
@@ -287,7 +287,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                             <div>
                                 <h3 className="text-xl font-bold mb-1">{selectedHistory.description}</h3>
                                 <p className="text-white/80 text-sm">
-                                    {t('dashboard.history_of', 'Historical occurrences of this group')}
+                                    {t('dashboard.history_of')}
                                 </p>
                             </div>
                             <button
@@ -324,7 +324,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                                                 <p className="text-xs text-gray-400 flex items-center gap-2">
                                                     <span className="capitalize">{txn.provider}</span>
                                                     <span>•</span>
-                                                    <span>{txn.category || t('table.uncategorized', 'Other')}</span>
+                                                    <span>{txn.category || t('table.uncategorized')}</span>
                                                 </p>
                                             </div>
                                         </div>
@@ -336,7 +336,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
 
                                 {(!selectedHistory.history || selectedHistory.history.length === 0) && (
                                     <div className="text-center py-10 text-gray-400 italic">
-                                        {t('dashboard.no_history_details', 'No detailed history available for this item')}
+                                        {t('dashboard.no_history_details')}
                                     </div>
                                 )}
                             </div>
@@ -348,7 +348,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                                 onClick={() => setSelectedHistory(null)}
                                 className="px-6 py-2.5 bg-gray-900 text-white font-bold rounded-2xl hover:bg-gray-800 transition-all shadow-lg active:scale-95"
                             >
-                                {t('common.close', 'Close')}
+                                {t('common.close')}
                             </button>
                         </div>
                     </div>
