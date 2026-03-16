@@ -387,6 +387,24 @@ export function createScrapeRoutes(
         }
     });
 
+    // Update a transaction's subscription status (Unified DB only)
+    router.patch('/transactions/:transactionId/subscription', async (req, res) => {
+        try {
+            const { transactionId } = req.params;
+            const { isSubscription, interval, excludeFromSubscriptions } = req.body;
+
+            const success = await storageService.updateTransactionSubscriptionUnified(transactionId, isSubscription, interval, excludeFromSubscriptions);
+
+            if (!success) {
+                return res.status(404).json({ success: false, error: 'Transaction not found' });
+            }
+
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
     // Get all exclusion filters
     router.get('/filters', async (req, res) => {
         try {

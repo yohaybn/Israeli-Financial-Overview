@@ -12,6 +12,7 @@ interface CategoryDetailsModalProps {
     categories?: string[];
     onUpdateCategory?: (transactionId: string, category: string) => void;
     initialMonth: string; // YYYY-MM
+    customCCKeywords?: string[];
     onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export function CategoryDetailsModal({
     categories,
     onUpdateCategory,
     initialMonth,
+    customCCKeywords = [],
     onClose
 }: CategoryDetailsModalProps) {
     const { t, i18n } = useTranslation();
@@ -49,8 +51,12 @@ export function CategoryDetailsModal({
         }).format(amount);
 
     const categoryTransactions = useMemo(() => {
-        return transactions.filter(t => t.category === categoryName && !isInternalTransfer(t));
-    }, [transactions, categoryName]);
+        return transactions.filter(t => 
+            t.category === categoryName && 
+            !isInternalTransfer(t, customCCKeywords) &&
+            (t.chargedAmount || t.amount || 0) < 0 // Only expenses
+        );
+    }, [transactions, categoryName, customCCKeywords]);
 
     // Calculate chart data (Anchored to initialMonth)
     const chartData = useMemo(() => {
@@ -69,8 +75,9 @@ export function CategoryDetailsModal({
             const monthTxns = categoryTransactions.filter(t => t.date.startsWith(monthKey));
             
             const total = monthTxns.reduce((sum, txn) => {
-                if (isInternalTransfer(txn)) return sum;
+                if (isInternalTransfer(txn, customCCKeywords)) return sum;
                 const amt = txn.chargedAmount || txn.amount || 0;
+                if (amt >= 0) return sum; // Skip income/refunds
                 return sum + Math.abs(amt); 
             }, 0);
 

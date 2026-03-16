@@ -35,6 +35,7 @@ async function startServer() {
   const { telegramRoutes } = await import('./routes/telegramRoutes.js');
   const { createNotificationRoutes } = await import('./routes/notificationRoutes.js');
   const { configRoutes } = await import('./routes/configRoutes.js');
+  const { fraudRoutes } = await import('./routes/fraudRoutes.js');
 
   const app = express();
   const port = process.env.PORT || 3001;
@@ -125,6 +126,7 @@ async function startServer() {
   app.use('/api/logs', logRoutes);
   app.use('/api/notifications', createNotificationRoutes());
   app.use('/api/config', configRoutes);
+  app.use('/api/fraud', fraudRoutes);
 
   // Socket.IO connection handling
   io.on('connection', (socket) => {

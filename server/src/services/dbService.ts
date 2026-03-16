@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs-extra';
-import { Transaction } from '@app/shared';
+import { Transaction, FraudDetectorType, FraudFinding, FraudSeverity } from '@app/shared';
 import { serverLogger } from '../utils/logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
@@ -30,11 +30,32 @@ export class DbService {
                 amount REAL,
                 category TEXT,
                 isIgnored INTEGER DEFAULT 0,
+                isInternalTransfer INTEGER DEFAULT 0,
                 provider TEXT,
                 raw_data TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Migration: Add isInternalTransfer column if it doesn't exist
+        try {
+            this.db.exec('ALTER TABLE transactions ADD COLUMN isInternalTransfer INTEGER DEFAULT 0');
+        } catch (e) {
+            // Column already exists, ignore
+        }
+
+        // Migration: Add subscription columns
+        try {
+            this.db.exec('ALTER TABLE transactions ADD COLUMN isSubscription INTEGER DEFAULT 0');
+        } catch (e) {}
+
+        try {
+            this.db.exec('ALTER TABLE transactions ADD COLUMN subscriptionInterval TEXT');
+        } catch (e) {}
+
+        try {
+            this.db.exec('ALTER TABLE transactions ADD COLUMN excludeFromSubscriptions INTEGER DEFAULT 0');
+        } catch (e) {}
 
         // Create categories cache table
         this.db.exec(`
@@ -45,6 +66,21 @@ export class DbService {
             )
         `);
 
+        // Fraud findings table (local and/or AI detectors)
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS fraud_findings (
+                id TEXT PRIMARY KEY,
+                txn_id TEXT NOT NULL,
+                detector TEXT NOT NULL,
+                score REAL NOT NULL,
+                severity TEXT NOT NULL,
+                reasons_json TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        this.db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_txn ON fraud_findings(txn_id)');
+        this.db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_created_at ON fraud_findings(created_at)');
+
         serverLogger.info('Database initialized');
     }
 
@@ -53,13 +89,23 @@ export class DbService {
     addTransaction(transaction: Transaction) {
         const stmt = this.db.prepare(`
             INSERT OR IGNORE INTO transactions (
-                id, accountNumber, date, description, amount, category, provider, raw_data
+                id, accountNumber, date, description, amount, category, provider, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions, raw_data
             ) VALUES (
-                @id, @accountNumber, @date, @description, @amount, @category, @provider, @raw_data
+                @id, @accountNumber, @date, @description, @amount, @category, @provider, @isInternalTransfer, @isSubscription, @subscriptionInterval, @excludeFromSubscriptions, @raw_data
             )
         `);
 
-        const rawData = JSON.stringify(transaction);
+        let isInternalValue: number | null = null;
+        if (transaction.isInternalTransfer === true || transaction.txnType === 'internal_transfer' || transaction.type === 'internal_transfer') {
+            isInternalValue = 1;
+        } else if (transaction.isInternalTransfer === false) {
+            isInternalValue = 0;
+        }
+
+        const rawData = JSON.stringify({ 
+            ...transaction, 
+            isInternalTransfer: isInternalValue === null ? undefined : Boolean(isInternalValue) 
+        });
         stmt.run({
             id: transaction.id,
             accountNumber: transaction.accountNumber,
@@ -68,6 +114,10 @@ export class DbService {
             amount: transaction.amount,
             category: transaction.category,
             provider: transaction.provider || 'unknown',
+            isInternalTransfer: isInternalValue,
+            isSubscription: transaction.isSubscription ? 1 : 0,
+            subscriptionInterval: transaction.subscriptionInterval || null,
+            excludeFromSubscriptions: transaction.excludeFromSubscriptions ? 1 : 0,
             raw_data: rawData
         });
     }
@@ -78,7 +128,7 @@ export class DbService {
     }
 
     getAllTransactions(includeIgnored = false): Transaction[] {
-        let query = 'SELECT raw_data, category, isIgnored FROM transactions';
+        let query = 'SELECT raw_data, category, isIgnored, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions FROM transactions';
         if (!includeIgnored) {
             query += ' WHERE isIgnored = 0';
         }
@@ -92,6 +142,12 @@ export class DbService {
             // Override with DB values if they differ (e.g. category update)
             txn.category = row.category;
             txn.isIgnored = Boolean(row.isIgnored);
+            if (row.isInternalTransfer !== null) {
+                txn.isInternalTransfer = Boolean(row.isInternalTransfer);
+            }
+            txn.isSubscription = Boolean(row.isSubscription);
+            txn.subscriptionInterval = row.subscriptionInterval;
+            txn.excludeFromSubscriptions = Boolean(row.excludeFromSubscriptions);
             return txn;
         });
     }
@@ -116,11 +172,13 @@ export class DbService {
 
         if (!row) return false;
 
+        const isInternalTransfer = txnType === 'internal_transfer' ? 1 : 0;
         const txn = JSON.parse(row.raw_data);
         txn.txnType = txnType;
+        txn.isInternalTransfer = !!isInternalTransfer;
 
-        const updateStmt = this.db.prepare('UPDATE transactions SET raw_data = ? WHERE id = ?');
-        const info = updateStmt.run(JSON.stringify(txn), id);
+        const updateStmt = this.db.prepare('UPDATE transactions SET raw_data = ?, isInternalTransfer = ? WHERE id = ?');
+        const info = updateStmt.run(JSON.stringify(txn), isInternalTransfer, id);
         return info.changes > 0;
     }
 
@@ -135,6 +193,22 @@ export class DbService {
 
         const updateStmt = this.db.prepare('UPDATE transactions SET raw_data = ? WHERE id = ?');
         const info = updateStmt.run(JSON.stringify(txn), id);
+        return info.changes > 0;
+    }
+
+    updateTransactionSubscription(id: string, isSubscription: boolean, interval: string | null, excludeFromSubscriptions: boolean = false): boolean {
+        const getStmt = this.db.prepare('SELECT raw_data FROM transactions WHERE id = ?');
+        const row: any = getStmt.get(id);
+
+        if (!row) return false;
+
+        const txn = JSON.parse(row.raw_data);
+        txn.isSubscription = isSubscription;
+        txn.subscriptionInterval = interval;
+        txn.excludeFromSubscriptions = excludeFromSubscriptions;
+
+        const updateStmt = this.db.prepare('UPDATE transactions SET raw_data = ?, isSubscription = ?, subscriptionInterval = ?, excludeFromSubscriptions = ? WHERE id = ?');
+        const info = updateStmt.run(JSON.stringify(txn), isSubscription ? 1 : 0, interval, excludeFromSubscriptions ? 1 : 0, id);
         return info.changes > 0;
     }
 
@@ -182,5 +256,107 @@ export class DbService {
     clearCategoriesCache() {
         this.db.exec('DELETE FROM categories_cache');
         serverLogger.info('Categories cache cleared');
+    }
+
+    // --- Fraud Findings ---
+
+    upsertFraudFindings(findings: FraudFinding[]) {
+        if (!findings || findings.length === 0) return;
+        const stmt = this.db.prepare(`
+            INSERT INTO fraud_findings (id, txn_id, detector, score, severity, reasons_json, created_at)
+            VALUES (@id, @txn_id, @detector, @score, @severity, @reasons_json, COALESCE(@created_at, CURRENT_TIMESTAMP))
+            ON CONFLICT(id) DO UPDATE SET
+                score = excluded.score,
+                severity = excluded.severity,
+                reasons_json = excluded.reasons_json,
+                created_at = excluded.created_at
+        `);
+        const tx = this.db.transaction((rows: FraudFinding[]) => {
+            for (const f of rows) {
+                stmt.run({
+                    id: f.id,
+                    txn_id: f.transactionId,
+                    detector: f.detector,
+                    score: f.score,
+                    severity: f.severity,
+                    reasons_json: JSON.stringify(f.reasons || []),
+                    created_at: f.createdAt
+                });
+            }
+        });
+        tx(findings);
+    }
+
+    getFraudFindings(params?: { since?: string; minScore?: number; minSeverity?: FraudSeverity; detector?: FraudDetectorType }): FraudFinding[] {
+        const clauses: string[] = [];
+        const bind: any = {};
+
+        if (params?.since) {
+            clauses.push('created_at >= @since');
+            bind.since = params.since;
+        }
+        if (typeof params?.minScore === 'number') {
+            clauses.push('score >= @minScore');
+            bind.minScore = params.minScore;
+        }
+        if (params?.detector) {
+            clauses.push('detector = @detector');
+            bind.detector = params.detector;
+        }
+        if (params?.minSeverity) {
+            // severity ordering: low < medium < high
+            clauses.push(`
+                CASE severity
+                    WHEN 'low' THEN 1
+                    WHEN 'medium' THEN 2
+                    WHEN 'high' THEN 3
+                    ELSE 0
+                END >=
+                CASE @minSeverity
+                    WHEN 'low' THEN 1
+                    WHEN 'medium' THEN 2
+                    WHEN 'high' THEN 3
+                    ELSE 0
+                END
+            `);
+            bind.minSeverity = params.minSeverity;
+        }
+
+        const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+        const stmt = this.db.prepare(`
+            SELECT id, txn_id, detector, score, severity, reasons_json, created_at
+            FROM fraud_findings
+            ${where}
+            ORDER BY created_at DESC
+        `);
+        const rows = stmt.all(bind);
+        return rows.map((r: any) => ({
+            id: r.id,
+            transactionId: r.txn_id,
+            detector: r.detector,
+            score: Number(r.score),
+            severity: r.severity,
+            reasons: JSON.parse(r.reasons_json || '[]'),
+            createdAt: new Date(r.created_at).toISOString(),
+        }));
+    }
+
+    getFraudFindingsForTxn(txnId: string): FraudFinding[] {
+        const stmt = this.db.prepare(`
+            SELECT id, txn_id, detector, score, severity, reasons_json, created_at
+            FROM fraud_findings
+            WHERE txn_id = ?
+            ORDER BY created_at DESC
+        `);
+        const rows = stmt.all(txnId);
+        return rows.map((r: any) => ({
+            id: r.id,
+            transactionId: r.txn_id,
+            detector: r.detector,
+            score: Number(r.score),
+            severity: r.severity,
+            reasons: JSON.parse(r.reasons_json || '[]'),
+            createdAt: new Date(r.created_at).toISOString(),
+        }));
     }
 }

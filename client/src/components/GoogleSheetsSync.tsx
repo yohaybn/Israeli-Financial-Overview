@@ -1,15 +1,27 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useGoogleAuthUrl, useGoogleAuthStatus, useGoogleLogout, useCreateSpreadsheet, useSyncToSheets, useGoogleConfigStatus, useScrapeResult } from '../hooks/useScraper';
+import { useTranslation } from 'react-i18next';
+import { 
+    useGoogleAuthUrl, 
+    useGoogleAuthStatus, 
+    useGoogleLogout, 
+    useCreateSpreadsheet, 
+    useSyncToSheets, 
+    useGoogleConfigStatus, 
+    useScrapeResult,
+    useScrapeResults 
+} from '../hooks/useScraper';
 import { GoogleSettings } from './GoogleSettings';
 
 interface GoogleSheetsSyncProps {
-    selectedFile: string | null;
+    selectedFile?: string | null;
+    isInline?: boolean;
 }
 
 const API_BASE = '/api';
 
-export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
+export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: GoogleSheetsSyncProps) {
+    const { t } = useTranslation();
     const { data: configStatus, isLoading: isLoadingConfig } = useGoogleConfigStatus();
     const { data: folderConfig } = useQuery({
         queryKey: ['googleFolderConfig'],
@@ -22,6 +34,11 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
     const { data: authStatus, isLoading: isLoadingAuth } = useGoogleAuthStatus();
     const { refetch: getAuthUrl } = useGoogleAuthUrl();
     const { mutate: logout } = useGoogleLogout();
+    const { data: scrapeResults } = useScrapeResults();
+    
+    const [localSelectedFile, setLocalSelectedFile] = useState<string>('');
+    const effectiveFile = propSelectedFile || localSelectedFile;
+
     const { data: spreadsheets, isLoading: isLoadingSheets } = useQuery({
         queryKey: ['spreadsheets', folderConfig?.folderId],
         queryFn: async () => {
@@ -36,12 +53,17 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
     });
     const { mutate: createSheet, isPending: isCreating } = useCreateSpreadsheet();
     const { mutate: sync, isPending: isSyncing } = useSyncToSheets();
-    const { data: scrapeResult } = useScrapeResult(selectedFile);
+    const { data: scrapeResult } = useScrapeResult(effectiveFile);
 
     const [selectedSheetId, setSelectedSheetId] = useState<string>('');
     const [status, setStatus] = useState<{ message: string; type: 'info' | 'error' | 'success' } | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
+
+    const sortedFiles = useMemo(() => {
+        if (!scrapeResults) return [];
+        return [...scrapeResults].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [scrapeResults]);
 
     const handleConnect = async () => {
         const { data: url } = await getAuthUrl();
@@ -51,32 +73,32 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
     };
 
     const handleCreateSheet = () => {
-        const name = prompt('Enter spreadsheet name:', `Bank Transactions - ${new Date().toLocaleDateString()}`);
+        const name = prompt(t('google_sheets.prompt_name', 'Enter spreadsheet name:'), `Bank Transactions - ${new Date().toLocaleDateString()}`);
         if (name) {
             createSheet(name, {
                 onSuccess: (data: any) => {
                     setSelectedSheetId(data.spreadsheetId);
-                    setStatus({ message: 'Spreadsheet created successfully!', type: 'success' });
+                    setStatus({ message: t('google_sheets.create_success', 'Spreadsheet created successfully!'), type: 'success' });
                 },
                 onError: (err: any) => {
-                    setStatus({ message: `Failed to create sheet: ${err.message}`, type: 'error' });
+                    setStatus({ message: t('google_sheets.create_fail', 'Failed to create sheet: {{error}}', { error: err.message }), type: 'error' });
                 }
             });
         }
     };
 
     const handleSync = () => {
-        if (!selectedFile || !selectedSheetId) return;
+        if (!effectiveFile || !selectedSheetId) return;
 
-        setStatus({ message: 'Syncing to Google Sheets...', type: 'info' });
-        sync({ filename: selectedFile, spreadsheetId: selectedSheetId }, {
+        setStatus({ message: t('google_sheets.syncing', 'Syncing to Google Sheets...'), type: 'info' });
+        sync({ filename: effectiveFile, spreadsheetId: selectedSheetId }, {
             onSuccess: () => {
-                setStatus({ message: 'Sync complete!', type: 'success' });
+                setStatus({ message: t('google_sheets.sync_success', 'Sync complete!'), type: 'success' });
                 // Clear status after 3 seconds
                 setTimeout(() => setStatus(null), 3000);
             },
             onError: (err: any) => {
-                setStatus({ message: `Sync failed: ${err.message}`, type: 'error' });
+                setStatus({ message: t('google_sheets.sync_fail', 'Sync failed: {{error}}', { error: err.message }), type: 'error' });
             }
         });
     };
@@ -88,26 +110,28 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
     if (!configStatus?.configured) {
         return (
             <>
-                <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
+                <div className={`p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 ${isInline ? 'mt-4' : ''}`}>
                     <div className="flex items-center justify-between text-gray-700 font-semibold mb-1">
                         <div className="flex items-center gap-2">
                             <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z" />
                             </svg>
-                            Google Sheets
+                            {t('google_sheets.title', 'Google Sheets')}
                         </div>
-                        <button onClick={() => setIsHidden(true)} className="text-gray-300 hover:text-gray-500" title="Hide section">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                        {!isInline && (
+                            <button onClick={() => setIsHidden(true)} className="text-gray-300 hover:text-gray-500" title="Hide section">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
                     </div>
-                    <p className="text-[10px] text-gray-500 italic">Sync to Sheets is not configured yet.</p>
+                    <p className="text-[10px] text-gray-500 italic">{t('google_sheets.not_configured', 'Sync to Sheets is not configured yet.')}</p>
                     <button
                         onClick={() => setShowSettings(true)}
                         className="w-full py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white transition-all text-xs font-bold text-gray-600 shadow-sm"
                     >
-                        Configure Now
+                        {t('google_sheets.configure_now', 'Configure Now')}
                     </button>
                 </div>
                 <GoogleSettings isOpen={showSettings} onClose={() => setShowSettings(false)} />
@@ -118,13 +142,13 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
     if (!authStatus?.authenticated) {
         return (
             <>
-                <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
+                <div className={`p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 ${isInline ? 'mt-4' : ''}`}>
                     <div className="flex items-center justify-between text-gray-700 font-semibold mb-1">
                         <div className="flex items-center gap-2 text-gray-700 font-semibold">
                             <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z" />
                             </svg>
-                            Google Sheets Sync
+                            {t('google_sheets.sync_title', 'Google Sheets Sync')}
                         </div>
                         <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-gray-600" title="Settings">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,7 +157,7 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                             </svg>
                         </button>
                     </div>
-                    <p className="text-xs text-gray-500">Connect to your Google account to sync transactions.</p>
+                    <p className="text-xs text-gray-500">{t('google_sheets.connect_desc', 'Connect to your Google account to sync transactions.')}</p>
                     <button
                         onClick={handleConnect}
                         className="flex items-center justify-center gap-2 bg-white border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium shadow-sm"
@@ -145,7 +169,7 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
                             <path fill="none" d="M0 0h48v48H0z" />
                         </svg>
-                        Connect with Google
+                        {t('google_sheets.connect_button', 'Connect with Google')}
                     </button>
                 </div>
                 <GoogleSettings isOpen={showSettings} onClose={() => setShowSettings(false)} />
@@ -155,13 +179,13 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
 
     return (
         <>
-            <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
+            <div className={`p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 ${isInline ? 'mt-4' : ''}`}>
                 <div className="flex items-center justify-between text-gray-700 font-semibold mb-1">
                     <div className="flex items-center gap-2">
                         <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z" />
                         </svg>
-                        Google Sheets Sync
+                        {t('google_sheets.sync_title', 'Google Sheets Sync')}
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-gray-600" title="Settings">
@@ -178,11 +202,32 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                     </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
+                    {/* File Selection (Only if not provided via props) */}
+                    {!propSelectedFile && (
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                {t('google_sheets.select_source', 'Source Results')}
+                            </label>
+                            <select
+                                value={localSelectedFile}
+                                onChange={(e) => setLocalSelectedFile(e.target.value)}
+                                className="w-full text-sm border border-gray-200 rounded-lg p-2 bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
+                            >
+                                <option value="">{t('google_sheets.select_file', 'Select scrape results to sync...')}</option>
+                                {sortedFiles.map(f => (
+                                    <option key={f.filename} value={f.filename}>
+                                        {f.filename.replace('.json', '')} ({f.transactionCount} txns)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     <div className="flex flex-col gap-1">
                         <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">
-                            Target Spreadsheet
-                            {folderConfig?.folderId && <span className="text-blue-600 ml-2">(from folder)</span>}
+                            {t('google_sheets.target_spreadsheet', 'Target Spreadsheet')}
+                            {folderConfig?.folderId && <span className="text-blue-600 ml-2">({t('google_sheets.from_folder', 'from folder')})</span>}
                         </label>
                         <div className="flex gap-2">
                             <select
@@ -191,7 +236,7 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                                 className="flex-1 text-sm border border-gray-200 rounded-lg p-2 bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
                                 disabled={isLoadingSheets}
                             >
-                                <option value="">{folderConfig?.folderId ? 'Select a sheet from folder...' : 'Select a sheet...'}</option>
+                                <option value="">{folderConfig?.folderId ? t('google_sheets.select_sheet_folder', 'Select a sheet from folder...') : t('google_sheets.select_sheet', 'Select a sheet...')}</option>
                                 {spreadsheets?.map((s: any) => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
@@ -200,7 +245,7 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                                 onClick={handleCreateSheet}
                                 disabled={isCreating}
                                 className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors border border-green-100"
-                                title="Create new sheet"
+                                title={t('google_sheets.create_new', 'Create new sheet')}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -208,14 +253,14 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                             </button>
                         </div>
                         {folderConfig?.folderId && (
-                            <div className="text-[9px] text-blue-600 mt-1 px-2">📁 Showing files only from: <strong>{folderConfig.folderName || folderConfig.folderId}</strong></div>
+                            <div className="text-[9px] text-blue-600 mt-1 px-2">📁 {t('google_sheets.showing_from', 'Showing files only from:')} <strong>{folderConfig.folderName || folderConfig.folderId}</strong></div>
                         )}
                     </div>
 
                     {scrapeResult?.lastSync && (
                         <div className="pt-2 border-t border-gray-50 flex flex-col gap-1">
                             <div className="flex items-center justify-between text-[10px]">
-                                <span className="text-gray-400">Last Synced:</span>
+                                <span className="text-gray-400">{t('google_sheets.last_synced', 'Last Synced:')}</span>
                                 <span className={`font-medium ${scrapeResult.lastSync.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
                                     {new Date(scrapeResult.lastSync.timestamp).toLocaleString()}
                                 </span>
@@ -228,8 +273,8 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
 
                     <button
                         onClick={handleSync}
-                        disabled={!selectedFile || !selectedSheetId || isSyncing}
-                        className={`w-full py-2 rounded-lg text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 ${!selectedFile || !selectedSheetId || isSyncing
+                        disabled={!effectiveFile || !selectedSheetId || isSyncing}
+                        className={`w-full py-2 rounded-lg text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 ${!effectiveFile || !selectedSheetId || isSyncing
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             : 'bg-green-600 text-white hover:bg-green-700 active:scale-[0.98]'
                             }`}
@@ -237,14 +282,14 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                         {isSyncing ? (
                             <>
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Syncing...
+                                {t('google_sheets.syncing_button', 'Syncing...')}
                             </>
                         ) : (
                             <>
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
-                                Sync to Google Sheets
+                                {t('google_sheets.sync_button_text', 'Sync to Google Sheets')}
                             </>
                         )}
                     </button>
@@ -258,8 +303,8 @@ export function GoogleSheetsSync({ selectedFile }: GoogleSheetsSyncProps) {
                         </div>
                     )}
 
-                    {!selectedFile && (
-                        <p className="text-[10px] text-gray-400 italic text-center">Select a scrape result from the history to sync</p>
+                    {!effectiveFile && (
+                        <p className="text-[10px] text-gray-400 italic text-center">{t('google_sheets.select_hint', 'Select a scrape result to sync')}</p>
                     )}
                 </div>
             </div>

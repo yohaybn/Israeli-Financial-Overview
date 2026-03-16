@@ -5,10 +5,12 @@ import { ScrapeSettings } from './ScrapeSettings';
 import { MaintenancePanel } from './MaintenancePanel';
 import { SchedulerSettings } from './SchedulerSettings';
 import { GoogleSettings } from './GoogleSettings';
+import { GoogleSheetsSync } from './GoogleSheetsSync';
 import { EnvironmentSettings } from './EnvironmentSettings';
+import { FraudSettings } from './FraudSettings';
 import { TelegramSettings } from './TelegramSettings';
 
-type ConfigTab = 'ai' | 'scheduler' | 'scrape' | 'sheets' | 'telegram' | 'maintenance' | 'environment';
+type ConfigTab = 'ai' | 'scheduler' | 'scrape' | 'fraud' | 'sheets' | 'telegram' | 'maintenance' | 'environment';
 
 export function ConfigurationPanel() {
     const { t } = useTranslation();
@@ -50,6 +52,14 @@ export function ConfigurationPanel() {
                         ⚙️ {t('scraper.config_title', 'Scrape Configuration')}
                     </button>
                     <button
+                        onClick={() => setActiveTab('fraud')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+                            activeTab === 'fraud' ? 'bg-rose-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                    >
+                        🚨 {t('fraud_settings.title', 'Fraud & Alerts')}
+                    </button>
+                    <button
                         onClick={() => setActiveTab('sheets')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sheets' ? 'bg-green-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
@@ -81,7 +91,13 @@ export function ConfigurationPanel() {
                     {activeTab === 'ai' && <AISettings isInline={true} />}
                     {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
                     {activeTab === 'scrape' && <ScrapeSettings isInline={true} />}
-                    {activeTab === 'sheets' && <GoogleSettings isInline={true} />}
+                    {activeTab === 'fraud' && <FraudSettings isInline={true} />}
+                    {activeTab === 'sheets' && (
+                        <div className="space-y-6">
+                            <GoogleSettings isInline={true} />
+                            <GoogleSheetsSync isInline={true} />
+                        </div>
+                    )}
                     {activeTab === 'telegram' && <TelegramSettings isInline={true} />}
                     {activeTab === 'environment' && <EnvironmentSettings />}
                     {activeTab === 'maintenance' && <MaintenancePanel />}

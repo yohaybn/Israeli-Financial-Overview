@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { ScrapeResult, ImporterConfig, Transaction } from '@app/shared';
+import { ScrapeResult, ImporterConfig } from '@app/shared';
 
 export function useScrapeResults() {
     return useQuery({
@@ -177,10 +177,25 @@ export function useUpdateTransactionMemo() {
     });
 }
 
+export function useUpdateTransactionSubscription() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ transactionId, isSubscription, interval, excludeFromSubscriptions }: { transactionId: string; isSubscription: boolean; interval: string | null; excludeFromSubscriptions?: boolean }) => {
+            const encodedTxn = encodeURIComponent(transactionId);
+            const { data } = await api.patch<{ success: boolean }>(`/transactions/${encodedTxn}/subscription`, { isSubscription, interval, excludeFromSubscriptions });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+        },
+    });
+}
+
 export function useUnifiedAIChat() {
     return useMutation({
-        mutationFn: async ({ query, transactions, historyNote }: { query: string; transactions: Transaction[]; historyNote?: string }) => {
-            const { data } = await api.post<{ success: boolean; data: string }>('/ai/chat/unified', { query, transactions, historyNote });
+        mutationFn: async ({ query, scope, filename, historyNote }: { query: string; scope?: string; filename?: string; historyNote?: string }) => {
+            const { data } = await api.post<{ success: boolean; data: string }>('/ai/chat/unified', { query, scope, filename, historyNote });
             return data.data;
         },
     });

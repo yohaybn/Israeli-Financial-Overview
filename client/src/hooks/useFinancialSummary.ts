@@ -3,6 +3,7 @@ import { Transaction, FinancialSummary, UpcomingItem, CategoryBaseline, Historic
 
 // Built-in Israeli credit card company name patterns for detecting CC settlements
 import { isInternalTransfer } from '../utils/transactionUtils';
+import { detectSubscriptions } from '../utils/subscriptionUtils';
 
 /**
  * Detect recurring transactions by analyzing historical patterns.
@@ -45,7 +46,8 @@ const normalizeDescription = (desc: string) =>
  */
 function detectRecurring(
     transactions: Transaction[],
-    currentMonth: string
+    currentMonth: string,
+    customCCKeywords: string[] = []
 ): { upcoming: UpcomingItem[], realizedIncome: number, realizedBills: number } {
     const upcoming: UpcomingItem[] = [];
     let realizedIncome = 0;
@@ -55,7 +57,7 @@ function detectRecurring(
     // 1. Group by Normalized Description
     const byDescription = new Map<string, Transaction[]>();
     for (const txn of transactions) {
-        if (isInternalTransfer(txn)) continue;
+        if (isInternalTransfer(txn, customCCKeywords)) continue;
         const normalized = normalizeDescription(txn.description);
 
         // Skip current month transactions for PATTERN RECOGNITION (Learning Phase)
@@ -144,7 +146,7 @@ function detectRecurring(
             const monthTransactions = transactions.filter(t =>
                 normalizeDescription(t.description) === normalizedDesc &&
                 t.date.startsWith(currentMonth) &&
-                isInternalTransfer(t) === false &&
+                isInternalTransfer(t, customCCKeywords) === false &&
                 Math.abs((t.chargedAmount || t.amount || 0) - avgAmount) / Math.abs(avgAmount) <= 0.15
             );
 
@@ -203,7 +205,8 @@ function detectRecurring(
 function computeHistoricalBaseline(
     transactions: Transaction[],
     currentMonth: string,
-    forecastMonths: number
+    forecastMonths: number,
+    customCCKeywords: string[] = []
 ): HistoricalBaseline {
     const [currentYear, currentMonthNum] = currentMonth.split('-').map(Number);
 
@@ -219,7 +222,7 @@ function computeHistoricalBaseline(
     // Determine which months actually have expense data
     const monthsWithData = new Set<string>();
     for (const txn of transactions) {
-        if (isInternalTransfer(txn)) continue;
+        if (isInternalTransfer(txn, customCCKeywords)) continue;
         const amount = txn.chargedAmount || txn.amount || 0;
         if (amount >= 0) continue;
         const txnMonth = txn.date.substring(0, 7);
@@ -234,7 +237,7 @@ function computeHistoricalBaseline(
     const catMonthTotals = new Map<string, Map<string, number>>();
 
     for (const txn of transactions) {
-        if (isInternalTransfer(txn)) continue;
+        if (isInternalTransfer(txn, customCCKeywords)) continue;
         const amount = txn.chargedAmount || txn.amount || 0;
         if (amount >= 0) continue; // Only expenses
 
@@ -406,6 +409,7 @@ export function useFinancialSummary(
             expenses: { alreadySpent: 0, remainingPlanned: 0, variableForecast: 0, totalProjected: 0, byCategory: [] },
             income: { alreadyReceived: 0, expectedInflow: 0, totalProjected: 0 },
             upcomingFixed: [],
+            subscriptions: [],
             recurringRealized: { income: 0, bills: 0 },
             internalTransfers: { count: 0, total: 0, transactions: [] },
         };
@@ -480,7 +484,8 @@ export function useFinancialSummary(
 
         // Step 5: Detect recurring items not yet appearing IN THE SELECTED MONTH
         // We pass ALL real transactions to detect patterns
-        const { upcoming: upcomingFixed, realizedIncome, realizedBills } = detectRecurring(realTransactions, currentMonth);
+        const { upcoming: upcomingFixed, realizedIncome, realizedBills } = detectRecurring(realTransactions, currentMonth, customCCKeywords);
+        const subscriptions = detectSubscriptions(allTransactions);
 
         // Calculate remaining planned from upcoming bills
         const remainingPlanned = upcomingFixed
@@ -499,7 +504,7 @@ export function useFinancialSummary(
         const remainingDays = daysInMonth - daysPassed;
 
         // Step 6: Historical Baseline & Anomalies
-        const historicalBaseline = computeHistoricalBaseline(realTransactions, currentMonth, forecastMonths);
+        const historicalBaseline = computeHistoricalBaseline(realTransactions, currentMonth, forecastMonths, customCCKeywords);
         const anomalies = detectAnomalies(historicalBaseline, categorySpent, upcomingFixed);
 
         // Step 7: Build category breakdown with projections
@@ -644,6 +649,7 @@ export function useFinancialSummary(
                 expectedInflowTxns
             },
             upcomingFixed,
+            subscriptions,
             recurringRealized: {
                 income: Math.round(realizedIncome * 100) / 100,
                 bills: Math.round(realizedBills * 100) / 100,

@@ -14,6 +14,7 @@ import { AnomalyAlerts } from './AnomalyAlerts';
 import { CCPaymentDateSettings } from './CCPaymentDateSettings';
 import { DashboardAIChat } from './DashboardAIChat';
 import { CategoryDetailsModal } from './CategoryDetailsModal';
+import { SubscriptionList } from './SubscriptionList';
 
 interface FinancialCommandCenterProps {
     // Optional: if provided, uses these transactions (for backward compatibility or specific file view)
@@ -207,13 +208,21 @@ export function FinancialCommandCenter({
                     onUpdateCategory={onUpdateCategory}
                 />
             </div>
-
             {/* Internal Transfers Banner - Moved to less prominent location */}
             <div className="pt-2">
                 <TransferDetectionBanner
                     count={summary.internalTransfers.count}
                     total={summary.internalTransfers.total}
                     transactions={summary.internalTransfers.transactions}
+                />
+            </div>
+
+            {/* Subscriptions Section */}
+            <div className="pt-2 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+                <SubscriptionList 
+                    subscriptions={summary.subscriptions || []} 
+                    categories={availableCategories}
+                    onUpdateCategory={onUpdateCategory}
                 />
             </div>
 
@@ -239,6 +248,7 @@ export function FinancialCommandCenter({
                     transactions={transactions.filter(t => t.date.startsWith(selectedMonth))}
                     allTransactions={transactions}
                     onCategoryClick={setSelectedCategoryForModal}
+                    customCCKeywords={config.customCCKeywords}
                 />
             </div>
 
@@ -246,7 +256,7 @@ export function FinancialCommandCenter({
             <DashboardAIChat
                 isOpen={isChatOpen}
                 onClose={() => setIsChatOpen(false)}
-                transactions={transactions}
+                scope="all"
                 contextMonth={selectedMonth}
                 onNavigateToLogs={onNavigateToLogs}
             />
@@ -254,11 +264,12 @@ export function FinancialCommandCenter({
             {/* Category Details Modal */}
             {selectedCategoryForModal && (
                 <CategoryDetailsModal
-                    categoryName={selectedCategoryForModal}
+                    categoryName={selectedCategoryForModal!}
                     transactions={transactions}
                     categories={availableCategories}
                     onUpdateCategory={onUpdateCategory}
                     initialMonth={selectedMonth}
+                    customCCKeywords={config.customCCKeywords}
                     onClose={() => setSelectedCategoryForModal(null)}
                 />
             )}

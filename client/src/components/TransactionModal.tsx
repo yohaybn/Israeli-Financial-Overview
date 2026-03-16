@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
-import { useUpdateTransactionCategory, useUpdateTransactionType, useToggleIgnore, useAddFilter, useFilters, useRemoveFilter, useUpdateTransactionMemo } from '../hooks/useScraper';
+import { useUpdateTransactionCategory, useUpdateTransactionType, useToggleIgnore, useAddFilter, useFilters, useRemoveFilter, useUpdateTransactionMemo, useUpdateTransactionSubscription } from '../hooks/useScraper';
+import { SubscriptionInterval } from '@app/shared';
+import { Repeat } from 'lucide-react';
 
 interface TransactionModalProps {
     transaction: Transaction | null;
@@ -37,12 +39,16 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const { mutate: addFilter } = useAddFilter();
     const { mutate: removeFilter } = useRemoveFilter();
     const { mutate: updateMemo } = useUpdateTransactionMemo();
+    const { mutate: updateSubscription } = useUpdateTransactionSubscription();
 
     const [localCategory, setLocalCategory] = useState<string>('');
     const [localMemo, setLocalMemo] = useState<string>('');
     const [isEditingMemo, setIsEditingMemo] = useState(false);
     const [isInternalTransferPattern, setIsInternalTransferPattern] = useState(false);
     const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+    const [isSubscription, setIsSubscription] = useState(false);
+    const [subscriptionInterval, setSubscriptionInterval] = useState<SubscriptionInterval>('monthly');
+    const [excludeFromSubscriptions, setExcludeFromSubscriptions] = useState(false);
 
     // Sync local state when transaction changes
     useEffect(() => {
@@ -51,6 +57,9 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
             setLocalMemo(transaction.memo || '');
             setIsEditingMemo(false);
             setIsInternalTransferPattern(config.customCCKeywords?.includes(transaction.description) || false);
+            setIsSubscription(transaction.isSubscription || false);
+            setSubscriptionInterval(transaction.subscriptionInterval || 'monthly');
+            setExcludeFromSubscriptions(transaction.excludeFromSubscriptions || false);
         }
     }, [transaction, config.customCCKeywords]);
 
@@ -104,6 +113,44 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
             transactionId: transaction.id, 
             type: currentlyInternal ? 'normal' : 'internal_transfer' 
         });
+    };
+
+    const handleToggleSubscription = () => {
+        const newStatus = !isSubscription;
+        setIsSubscription(newStatus);
+        // If we mark as manual sub, we definitely don't want to exclude it
+        if (newStatus) setExcludeFromSubscriptions(false);
+        updateSubscription({ 
+            transactionId: transaction.id, 
+            isSubscription: newStatus, 
+            interval: newStatus ? subscriptionInterval : null,
+            excludeFromSubscriptions: newStatus ? false : excludeFromSubscriptions
+        });
+    };
+
+    const handleToggleExclusion = () => {
+        const newExclusion = !excludeFromSubscriptions;
+        setExcludeFromSubscriptions(newExclusion);
+        // If we exclude, it can't be a manual subscription
+        if (newExclusion) setIsSubscription(false);
+        updateSubscription({
+            transactionId: transaction.id,
+            isSubscription: newExclusion ? false : isSubscription,
+            interval: newExclusion ? null : (isSubscription ? subscriptionInterval : null),
+            excludeFromSubscriptions: newExclusion
+        });
+    };
+
+    const handleIntervalChange = (newInterval: SubscriptionInterval) => {
+        setSubscriptionInterval(newInterval);
+        if (isSubscription) {
+            updateSubscription({ 
+                transactionId: transaction.id, 
+                isSubscription: true, 
+                interval: newInterval,
+                excludeFromSubscriptions: false
+            });
+        }
     };
 
     const formatDate = (dateStr: string) => {
@@ -320,7 +367,50 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                                 onClick={handleToggleIgnore}
                                 color="rose"
                             />
+
+                            <ActionButton 
+                                icon={<Repeat size={18} />}
+                                label={isSubscription ? t('transaction_modal.is_subscription') : t('transaction_modal.mark_as_subscription')}
+                                active={isSubscription}
+                                onClick={handleToggleSubscription}
+                                color="amber"
+                            />
+
+                            <ActionButton 
+                                icon={<EyeOff size={18} />}
+                                label={excludeFromSubscriptions ? t('transaction_modal.excluded_from_subscriptions') : t('transaction_modal.not_a_subscription')}
+                                active={excludeFromSubscriptions}
+                                onClick={handleToggleExclusion}
+                                color="rose"
+                            />
                         </div>
+
+                        {isSubscription && (
+                            <div className="bg-amber-50/50 p-6 rounded-3xl border border-amber-100 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-300 mx-2 mt-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
+                                        <Repeat size={12} />
+                                        {t('transaction_modal.subscription_interval')}
+                                    </span>
+                                </div>
+                                <div className="flex gap-2 flex-wrap">
+                                    {(['daily', 'weekly', 'bi-weekly', 'monthly', 'annually'] as SubscriptionInterval[]).map((interval) => (
+                                        <button
+                                            key={interval}
+                                            onClick={() => handleIntervalChange(interval)}
+                                            className={clsx(
+                                                "px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                                                subscriptionInterval === interval 
+                                                    ? "bg-amber-500 text-white shadow-md shadow-amber-200" 
+                                                    : "bg-white text-gray-600 hover:bg-amber-100 border border-amber-100"
+                                            )}
+                                        >
+                                            {t(`common.interval.${interval}`, { defaultValue: interval })}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* History / Consistency Section (Placeholder/Future) */}

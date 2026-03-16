@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Transaction } from '@app/shared';
 import { useUnifiedAIChat, useAISettings } from '../../hooks/useScraper';
 import { AISettings } from '../AISettings';
 import { mapAIError, AIErrorDetails } from '../../utils/aiErrorMapper';
@@ -18,12 +17,12 @@ interface Message {
 interface DashboardAIChatProps {
     isOpen: boolean;
     onClose: () => void;
-    transactions: Transaction[];
+    scope: 'all' | string; // 'all' or specific filename
     contextMonth: string;
     onNavigateToLogs?: () => void;
 }
 
-export function DashboardAIChat({ isOpen, onClose, transactions, contextMonth, onNavigateToLogs }: DashboardAIChatProps) {
+export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNavigateToLogs }: DashboardAIChatProps) {
     const { t } = useTranslation();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -69,7 +68,8 @@ export function DashboardAIChat({ isOpen, onClose, transactions, contextMonth, o
         try {
             const response = await chatMutation.mutateAsync({
                 query: msgToSend,
-                transactions,
+                scope: scope === 'all' ? 'all' : undefined,
+                filename: scope !== 'all' ? scope : undefined,
                 historyNote
             });
 

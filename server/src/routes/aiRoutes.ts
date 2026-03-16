@@ -72,10 +72,22 @@ router.post('/chat', async (req, res) => {
 // Chat with the data for the unified dashboard
 router.post('/chat/unified', async (req, res) => {
     try {
-        const { query, transactions, historyNote } = req.body;
+        const { query, transactions: clientTransactions, historyNote, scope, filename } = req.body;
+
+        let transactions = clientTransactions;
+
+        // If transactions not provided in body, or if scope/filename provided, fetch from server
+        if (!transactions || scope || filename) {
+            if (scope === 'all') {
+                transactions = await storageService.getAllTransactions();
+            } else if (filename) {
+                const result = await storageService.getScrapeResult(filename);
+                transactions = result?.transactions || [];
+            }
+        }
 
         if (!transactions || !Array.isArray(transactions)) {
-            return res.status(400).json({ success: false, error: 'Transactions array required' });
+            return res.status(400).json({ success: false, error: 'Transactions data or source (scope/filename) required' });
         }
 
         const contextQuery = `

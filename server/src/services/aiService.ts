@@ -275,8 +275,8 @@ export class AiService {
             systemInstruction: "You are a professional financial analyst. Provide concise, data-driven answers based on provided transaction history."
         });
         const prompt = `
-           Transactions:
-            ${JSON.stringify(transactions, null, 2)}
+            Transactions (CSV format):
+            ${this.formatTransactionsForAI(transactions)}
             
             Question: ${query}
         `;
@@ -505,5 +505,33 @@ export class AiService {
             const sample = (candidate && candidate.length > 500) ? candidate.substring(0, 500) : candidate;
             throw new Error(`JSON parsing failed: ${sanitizedErr.message}. Candidate excerpt: ${sample}`);
         }
+    }
+
+    /**
+     * Converts transactions to a compact CSV format to save tokens.
+     * Removes irrelevant fields like 'id' and 'processedDate'.
+     */
+    private formatTransactionsForAI(transactions: Transaction[]): string {
+        if (!transactions || transactions.length === 0) return '';
+
+        // Define relevant fields to include in the CSV
+        // id, processedDate, chargedAmount, status, type, provider, accountNumber, etc. are usually less relevant for high-level analysis
+        const headers = ['date', 'description', 'amount', 'originalAmount', 'originalCurrency', 'category', 'memo', 'txnType'];
+        
+        const csvRows = transactions.map(t => {
+            return headers.map(header => {
+                const value = (t as any)[header];
+                if (value === undefined || value === null) return '';
+                
+                // Escape quotes and wrap in quotes if contains comma or newline
+                let strValue = String(value);
+                if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
+                    strValue = `"${strValue.replace(/"/g, '""')}"`;
+                }
+                return strValue;
+            }).join(',');
+        });
+
+        return [headers.join(','), ...csvRows].join('\n');
     }
 }

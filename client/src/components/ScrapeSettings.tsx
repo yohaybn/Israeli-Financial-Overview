@@ -301,6 +301,91 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                     </div>
                                 </div>
                                 <p className="text-xs text-gray-500">{t('post_scrape.fraud_notify_help')}</p>
+
+                                {/* Detector mode (local / AI / both) */}
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                        {t('post_scrape.fraud_mode_label', 'Detector Mode')}
+                                    </span>
+                                    <div className="flex gap-1 p-1 bg-gray-50 rounded-lg border border-gray-100">
+                                        {(['local', 'ai', 'both'] as const).map((mode) => {
+                                            const isActive = (config.postScrapeConfig.fraudDetection?.mode || 'local') === mode;
+                                            const labelKey =
+                                                mode === 'local'
+                                                    ? 'post_scrape.fraud_mode_local'
+                                                    : mode === 'ai'
+                                                        ? 'post_scrape.fraud_mode_ai'
+                                                        : 'post_scrape.fraud_mode_both';
+                                            return (
+                                                <button
+                                                    key={mode}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        updatePostScrape({
+                                                            fraudDetection: {
+                                                                ...config.postScrapeConfig.fraudDetection,
+                                                                mode,
+                                                            },
+                                                        })
+                                                    }
+                                                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                                                        isActive
+                                                            ? 'bg-purple-600 text-white shadow-sm'
+                                                            : 'text-gray-500 hover:text-gray-700'
+                                                    }`}
+                                                >
+                                                    {t(labelKey)}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 p-1 bg-gray-50 rounded-lg border border-gray-100 w-fit">
+                                    <button 
+                                        onClick={() => updatePostScrape({ fraudDetection: { ...config.postScrapeConfig.fraudDetection, scope: 'current' } })}
+                                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.fraudDetection?.scope !== 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        {t('post_scrape.scope_current', 'Current Run')}
+                                    </button>
+                                    <button 
+                                        onClick={() => updatePostScrape({ fraudDetection: { ...config.postScrapeConfig.fraudDetection, scope: 'all' } })}
+                                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.fraudDetection?.scope === 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        {t('post_scrape.scope_all', 'All Transactions')}
+                                    </button>
+                                </div>
+
+                                {/* Notify toggle */}
+                                <label className="flex items-center gap-2 text-xs text-gray-600 mt-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={config.postScrapeConfig.fraudDetection?.notifyOnIssue ?? true}
+                                        onChange={(e) =>
+                                            updatePostScrape({
+                                                fraudDetection: {
+                                                    ...config.postScrapeConfig.fraudDetection,
+                                                    notifyOnIssue: e.target.checked,
+                                                },
+                                            })
+                                        }
+                                        className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <span className="font-medium">
+                                        {t('post_scrape.fraud_notify_toggle', 'Notify when potential fraud is detected')}
+                                    </span>
+                                </label>
+
+                                {/* Link to advanced fraud settings */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        // fire a custom event; navigation will handle opening FraudSettings
+                                        window.dispatchEvent(new CustomEvent('open-fraud-settings'));
+                                    }}
+                                    className="mt-2 text-[11px] font-semibold text-purple-600 hover:text-purple-800 underline-offset-2 hover:underline"
+                                >
+                                    {t('post_scrape.fraud_advanced_link', 'Advanced fraud settings')}
+                                </button>
                             </div>
 
                             <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">
@@ -319,6 +404,20 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                     value={config.postScrapeConfig.customAI?.query || ''}
                                     onChange={(e) => updatePostScrape({ customAI: { ...config.postScrapeConfig.customAI, query: e.target.value } })}
                                 />
+                                <div className="flex gap-2 p-1 bg-gray-50 rounded-lg border border-gray-100 w-fit">
+                                    <button 
+                                        onClick={() => updatePostScrape({ customAI: { ...config.postScrapeConfig.customAI, scope: 'current' } })}
+                                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.customAI?.scope !== 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        {t('post_scrape.scope_current', 'Current Run')}
+                                    </button>
+                                    <button 
+                                        onClick={() => updatePostScrape({ customAI: { ...config.postScrapeConfig.customAI, scope: 'all' } })}
+                                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.customAI?.scope === 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        {t('post_scrape.scope_all', 'All Transactions')}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

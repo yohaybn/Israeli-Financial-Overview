@@ -3,7 +3,18 @@ export interface PostScrapeConfig {
     fraudDetection: {
         enabled: boolean;
         notifyOnIssue: boolean;
+        /**
+         * Which detector(s) to run:
+         * - local: deterministic server-side scoring
+         * - ai: existing Gemini-based analysis
+         * - both: run local then AI (if configured)
+         */
+        mode?: 'local' | 'ai' | 'both';
         scope?: 'current' | 'all';
+        /**
+         * Local fraud detection configuration (used when mode is local/both).
+         */
+        local?: FraudDetectionLocalConfig;
     };
     customAI: {
         enabled: boolean;
@@ -12,6 +23,77 @@ export interface PostScrapeConfig {
         scope?: 'current' | 'all';
     };
     notificationChannels: string[];
+}
+
+export type FraudSeverity = 'low' | 'medium' | 'high';
+export type FraudDetectorType = 'local' | 'ai';
+
+export interface FraudReason {
+    code: string;           // Stable identifier for programmatic grouping
+    message: string;        // Human-readable explanation
+    points: number;         // Points contributed to the final score
+    meta?: Record<string, unknown>;
+}
+
+export interface FraudFinding {
+    id: string;             // Deterministic id (e.g. hash of txnId+detector+version)
+    transactionId: string;
+    detector: FraudDetectorType;
+    score: number;          // 0..100
+    severity: FraudSeverity;
+    reasons: FraudReason[];
+    createdAt: string;      // ISO timestamp
+}
+
+export interface FraudDetectionSummary {
+    detector: FraudDetectorType;
+    analyzedCount: number;
+    flaggedCount: number;
+    maxScore: number;
+    topReasons: { code: string; count: number }[];
+}
+
+export interface FraudDetectionLocalRulesConfig {
+    enableOutlierAmount?: boolean;
+    enableNewMerchant?: boolean;
+    enableRapidRepeats?: boolean;
+    enableForeignCurrency?: boolean;
+}
+
+export interface FraudDetectionLocalThresholdsConfig {
+    minAmountForNewMerchantIls?: number;     // Only flag "new" merchants above this amount
+    foreignCurrencyMinOriginalAmount?: number;
+    rapidRepeatWindowMinutes?: number;
+    rapidRepeatCountThreshold?: number;      // # of repeats within window to flag
+    outlierMinHistoryCount?: number;         // Need at least N historical points for outlier calc
+    outlierZScore?: number;                  // Z-score threshold
+    severityLowMinScore?: number;
+    severityMediumMinScore?: number;
+    severityHighMinScore?: number;
+    notifyMinSeverity?: FraudSeverity;       // When notifyOnIssue is true
+    persistOnlyFlagged?: boolean;
+}
+
+export interface FraudDetectionLocalConfig {
+    rules?: FraudDetectionLocalRulesConfig;
+    thresholds?: FraudDetectionLocalThresholdsConfig;
+    /**
+     * Version string for deterministic finding IDs; bump when scoring logic changes materially.
+     */
+    version?: string;
+}
+
+export type SubscriptionInterval = 'daily' | 'weekly' | 'bi-weekly' | 'monthly' | 'annually';
+
+export interface Subscription {
+    description: string;
+    amount: number;
+    interval: SubscriptionInterval;
+    nextExpectedDate: string;
+    category?: string;
+    isManual?: boolean;
+    confidence: number;
+    history?: Transaction[];
 }
 
 export interface GlobalScrapeConfig {
@@ -38,6 +120,10 @@ export interface Transaction {
     accountNumber: string;
     txnType?: 'expense' | 'income' | 'internal_transfer' | 'normal'; // Classification for anti-double-counting
     isIgnored?: boolean; // Flag to exclude from calculations
+    isInternalTransfer?: boolean; // Single source of truth for internal transfers
+    isSubscription?: boolean;
+    subscriptionInterval?: SubscriptionInterval;
+    excludeFromSubscriptions?: boolean;
 }
 
 // Financial dashboard projection types
@@ -60,6 +146,7 @@ export interface FinancialSummary {
         expectedInflowTxns?: Transaction[]; // The underlying transactions (mostly virtual)
     };
     upcomingFixed: UpcomingItem[];
+    subscriptions: Subscription[];
     recurringRealized: { income: number; bills: number };
     internalTransfers: { count: number; total: number; transactions: Transaction[] };
     safeToSpend?: number; // Current month: income received - expenses spent + expected income

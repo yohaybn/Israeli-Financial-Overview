@@ -8,18 +8,24 @@ interface AnalyticsDashboardProps {
     transactions: Transaction[];
     allTransactions?: Transaction[];
     onCategoryClick?: (category: string) => void;
+    customCCKeywords?: string[];
 }
 
 type MerchantSortBy = 'amount' | 'frequency';
 type ViewRange = 'month' | 'all';
 
-export function AnalyticsDashboard({ transactions: monthTransactions, allTransactions, onCategoryClick }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ 
+    transactions: monthTransactions, 
+    allTransactions, 
+    onCategoryClick,
+    customCCKeywords = []
+}: AnalyticsDashboardProps) {
     const { t, i18n } = useTranslation();
     const [viewRange, setViewRange] = useState<ViewRange>('month');
     const [merchantSortBy, setMerchantSortBy] = useState<MerchantSortBy>('amount');
 
     const displayTransactions = viewRange === 'all' && allTransactions ? allTransactions : monthTransactions;
-    const analytics = useAnalytics(displayTransactions);
+    const analytics = useAnalytics(displayTransactions, customCCKeywords);
 
     if (!displayTransactions || displayTransactions.length === 0) {
         return (

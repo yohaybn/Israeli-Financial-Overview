@@ -28,15 +28,19 @@ export const CC_SETTLEMENT_PATTERNS = [
  * CC settlements appear as debits paying the card company from any account.
  */
 export function isInternalTransfer(txn: Transaction, customCCKeywords: string[] = []): boolean {
+    // 0. Single Source of Truth: Check if explicitly marked in DB
+    if (txn.isInternalTransfer === true) return true;
+    if (txn.isInternalTransfer === false) return false;
+
     // 1. Check if definitely internal (explicit user mark OR legacy mark)
     if (txn.txnType === 'internal_transfer' || txn.type === 'internal_transfer') return true;
-    
+
     // 2. Check if explicitly marked as normal (user override to restore an auto-detected one)
     if (txn.txnType === 'normal') return false;
 
     // 3. Category-based classification (AI assigned or human corrected)
     const category = txn.category?.toLowerCase();
-    if (category === 'העברה פנימית' || category === 'internal transfer' || category === 'העברות' || category === 'transfers') return true;
+    if (category === 'העברה פנימית' || category === 'internal transfer') return true;
 
     const desc = txn.description || '';
 

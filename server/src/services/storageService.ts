@@ -351,7 +351,10 @@ export class StorageService {
                     status: t.status,
                     category: t.category,
                     installments: (t as any).installments,
-                    txnType: (t as any).txnType
+                    txnType: (t as any).txnType,
+                    isSubscription: t.isSubscription,
+                    subscriptionInterval: t.subscriptionInterval,
+                    excludeFromSubscriptions: (t as any).excludeFromSubscriptions
                 }))
             };
         });
@@ -452,6 +455,7 @@ export class StorageService {
         await this.syncTransactionUpdateToFiles(transactionId, (t) => {
             t.txnType = txnType;
             t.type = txnType;
+            t.isInternalTransfer = txnType === 'internal_transfer';
         });
 
         return true;
@@ -465,6 +469,21 @@ export class StorageService {
         // Sync to files
         await this.syncTransactionUpdateToFiles(transactionId, (t) => {
             t.memo = memo;
+        });
+
+        return true;
+    }
+
+    async updateTransactionSubscriptionUnified(transactionId: string, isSubscription: boolean, interval: string | null, excludeFromSubscriptions: boolean = false): Promise<boolean> {
+        // Update DB
+        const success = this.dbService.updateTransactionSubscription(transactionId, isSubscription, interval, excludeFromSubscriptions);
+        if (!success) return false;
+
+        // Sync to files
+        await this.syncTransactionUpdateToFiles(transactionId, (t) => {
+            t.isSubscription = isSubscription;
+            t.subscriptionInterval = interval;
+            t.excludeFromSubscriptions = excludeFromSubscriptions;
         });
 
         return true;

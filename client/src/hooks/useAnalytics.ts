@@ -64,7 +64,7 @@ function getColorForCategory(category: string): string {
     return PALETTE[index];
 }
 
-export function useAnalytics(transactions: Transaction[]): AnalyticsData {
+export function useAnalytics(transactions: Transaction[], customCCKeywords: string[] = []): AnalyticsData {
     return useMemo(() => {
         if (!transactions || transactions.length === 0) {
             return {
@@ -82,7 +82,7 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         let totalExpenses = 0;
 
         transactions.forEach(t => {
-            if (isInternalTransfer(t)) return;
+            if (isInternalTransfer(t, customCCKeywords)) return;
             const amount = t.chargedAmount || t.amount || 0;
             if (amount > 0) {
                 totalIncome += amount;
@@ -94,9 +94,13 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         // Group by category
         const categoryMap = new Map<string, number>();
         transactions.forEach(t => {
-            if (isInternalTransfer(t)) return;
+            if (isInternalTransfer(t, customCCKeywords)) return;
             const category = t.category || 'אחר';
             const amount = Math.abs(t.chargedAmount || t.amount || 0);
+            
+            // Only include expenses (negative amounts) in the spending pie chart
+            if ((t.chargedAmount || t.amount || 0) >= 0) return;
+
             categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
         });
 
@@ -111,7 +115,7 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         // Group by month
         const monthMap = new Map<string, { income: number; expenses: number }>();
         transactions.forEach(t => {
-            if (isInternalTransfer(t)) return;
+            if (isInternalTransfer(t, customCCKeywords)) return;
             const date = new Date(t.date);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             const amount = t.chargedAmount || t.amount || 0;
@@ -139,7 +143,7 @@ export function useAnalytics(transactions: Transaction[]): AnalyticsData {
         // Top merchants
         const merchantMap = new Map<string, { count: number; total: number }>();
         transactions.forEach(t => {
-            if (isInternalTransfer(t)) return;
+            if (isInternalTransfer(t, customCCKeywords)) return;
             const desc = t.description;
             if (!merchantMap.has(desc)) {
                 merchantMap.set(desc, { count: 0, total: 0 });

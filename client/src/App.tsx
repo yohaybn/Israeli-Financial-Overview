@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { ResultsExplorer } from './components/ResultsExplorer';
 import { ScraperForm } from './components/ScraperForm';
 import { ScrapeProgress } from './components/ScrapeProgress';
-import { GoogleSheetsSync } from './components/GoogleSheetsSync';
 import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { ImportModal } from './components/ImportModal';
@@ -162,7 +161,6 @@ function App() {
                                     {t('explorer.import_files')}
                                 </button>
 
-                                <GoogleSheetsSync selectedFile={null} />
                                 <div className="p-4 bg-yellow-50 rounded border border-yellow-200 text-xs text-yellow-800">
                                     <strong>{t('common.note')}:</strong> {t('common.prototype_note')}
                                 </div>
