@@ -17,3 +17,11 @@ node_modules/
 data/app.db
 data/app.db-shm
 data/app.db-wal
+.idea/.gitignore
+.idea/israeli-bank-scraper-docker.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+favicon_extractor/download_favicons.js
+favicon_extractor/package-lock.json
+favicon_extractor/package.json
