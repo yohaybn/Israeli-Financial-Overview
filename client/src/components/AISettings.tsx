@@ -58,14 +58,14 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                     alert(t('ai_settings.recategorize_success', { count: data.count }));
                 },
                 onError: (err: any) => {
-                    alert(`Error: ${err.message}`);
+                    alert(t('common.error_with_message', { error: err.message || t('common.unknown_error') }));
                 }
             });
         }
     };
 
     const content = (
-        <div className={`${isInline ? '' : 'bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200'}`}>
+        <div className={`${isInline ? 'space-y-6' : 'bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200'}`}>
             {!isInline && (
                 <div className="p-6 bg-indigo-600 text-white flex justify-between items-center">
                     <div>
@@ -80,9 +80,9 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                 </div>
             )}
 
-            <div className="p-6 space-y-6 overflow-y-auto">
+            <div className={`space-y-6 ${isInline ? '' : 'p-6 overflow-y-auto'}`}>
                 {/* Model Selection */}
-                <div className="grid grid-cols-2 gap-4">
+                <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'} grid grid-cols-2 gap-4`}>
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('ai_settings.categorization_model')}</label>
                         <select
@@ -119,10 +119,10 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                                 )}
                         </select>
                     </div>
-                </div>
+                </section>
 
                 {/* Default Category */}
-                <div className="space-y-2">
+                <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'} space-y-2`}>
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('ai_settings.default_category')}</label>
                     <select
                         value={localSettings.defaultCategory}
@@ -133,10 +133,10 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </select>
-                </div>
+                </section>
 
                 {/* Category List */}
-                <div className="space-y-3">
+                <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'} space-y-3`}>
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('ai_settings.allowed_categories')}</label>
                     <div className="flex gap-2">
                         <input
@@ -167,10 +167,10 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                             </div>
                         ))}
                     </div>
-                </div>
+                </section>
 
                 {/* Bulk Recategorization */}
-                <div className="pt-6 border-t border-gray-100 space-y-4">
+                <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'} space-y-4`}>
                     <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
                         <h4 className="font-bold text-indigo-900 mb-1 flex items-center gap-2">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -219,10 +219,10 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                             </button>
                         </div>
                     </div>
-                </div>
+                </section>
             </div>
 
-            <div className="p-6 bg-gray-50 flex justify-end gap-3 sticky bottom-0">
+            <div className={`flex justify-end gap-3 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm py-4 border-t border-gray-200 -mx-6 px-6 z-10' : 'p-6 bg-gray-50 border-t border-gray-100'}`}>
                 <button
                     onClick={onClose}
                     className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"

@@ -143,11 +143,11 @@ export function EnvironmentSettings() {
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-8">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-900">{t('env.title')}</h3>
+                        <h3 className="text-lg font-bold text-gray-800">{t('env.title')}</h3>
                         <p className="text-sm text-gray-500 mt-1">{t('env.subtitle')}</p>
                     </div>
                 </div>
@@ -169,7 +169,7 @@ export function EnvironmentSettings() {
                                                 type={field.key.includes('KEY') || field.key.includes('SECRET') ? 'password' : 'text'}
                                                 value={form[field.key] || ''}
                                                 onChange={(e) => handleChange(field.key, e.target.value)}
-                                                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none ${errors[field.key] ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                                className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none shadow-sm ${errors[field.key] ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}
                                                 placeholder={t('env.enter_value', { key: field.key })}
                                             />
                                             {field.key === 'ENCRYPTION_KEY' && (
@@ -222,7 +222,7 @@ export function EnvironmentSettings() {
                         <button
                             onClick={handleSave}
                             disabled={isUpdating}
-                            className="px-8 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                            className="px-8 py-2.5 bg-blue-600 text-white rounded-2xl text-sm font-black shadow-lg hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
                         >
                             {isUpdating ? t('common.saving') : t('env.save_settings')}
                         </button>

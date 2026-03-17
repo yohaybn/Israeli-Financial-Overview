@@ -76,14 +76,19 @@
         "unknown_error": "Unknown error",
         "error_with_message": "Error: {{error}}",
         "automation": "Automation",
-        "automation_desc": "Schedule and trigger automated scraper runs"
+        "automation_desc": "Schedule and trigger automated scraper runs",
+        "solution": "Solution",
+        "dismiss": "Dismiss",
+        "select": "Select"
     },
     "scheduler": {
         "title": "Scheduler",
         "loading": "Loading automation settings...",
         "run_time": "Daily Run Time",
         "run_time_desc": "The scraper will run automatically at this time every day.",
-        "profiles": "Profiles to Scrape"
+        "profiles": "Profiles to Scrape",
+        "aboutTitle": "About Scheduling",
+        "aboutDescription": "The scheduler runs on the server. Make sure the container is running during the scheduled time. Notifications will be sent according to your global pipeline settings."
     },
     "scraper": {
         "config_title": "Scrape Configuration",
@@ -129,7 +134,8 @@
             "load_failed": "Failed to load settings",
             "save_failed": "Failed to save settings",
             "unavailable": "Unable to load configuration"
-        }
+        },
+        "config_desc": "Configure global scraper behavior and defaults"
     },
     "explorer": {
         "records": "Records",
@@ -185,7 +191,8 @@
         "ai_categorize_success": "Categorization completed successfully",
         "ai_categorize_failed": "Categorization failed: {{error}}",
         "select_file_and_query": "Please select a file and enter a query",
-        "ai_analyst_failed": "AI Analyst failed: {{error}}"
+        "ai_analyst_failed": "AI Analyst failed: {{error}}",
+        "supportedFormats": "XLS, XLSX, PDF, JSON"
     },
     "analyst": {
         "title": "AI Analyst",
@@ -254,7 +261,11 @@
         "merchant": "Merchant",
         "txns": "Transactions",
         "total_amount": "Total Amount",
-        "no_data": "No transactions to analyze. Select a result file first."
+        "no_data": "No transactions to analyze. Select a result file first.",
+        "all_months": "All months",
+        "this_month": "This month",
+        "click_hint": "Click a chart item to drill down",
+        "merchants_subtitle": "Where your money goes most often"
     },
     "google_settings": {
         "title": "Google Sheets Setup",
@@ -275,7 +286,15 @@
         "redirect_uri": "Redirect URI",
         "redirect_uri_hint": "Must match the Authorized redirect URI in Google Console.",
         "placeholder_client_id": "your-client-id.apps.googleusercontent.com",
-        "placeholder_client_secret": "Enter client secret"
+        "placeholder_client_secret": "Enter client secret",
+        "defaultDriveFolder": "Default Google Drive Folder",
+        "browseFolderHelp": "Browse and select a folder for auto-organization",
+        "driveRoot": "Drive",
+        "noFoldersOrFiles": "No folders or files found",
+        "noFoldersInDrive": "No folders found in Google Drive",
+        "selectedLabel": "Selected:",
+        "envFolderTipPrefix": "You can also set",
+        "envFolderTipSuffix": "in .env"
     },
     "google_sheets": {
         "title": "Google Sheets",
@@ -303,7 +322,8 @@
         "last_synced": "Last Synced:",
         "syncing_button": "Syncing...",
         "sync_button_text": "Sync to Google Sheets",
-        "select_hint": "Select a scrape result to sync"
+        "select_hint": "Select a scrape result to sync",
+        "disconnect": "Disconnect"
     },
     "post_scrape": {
         "title": "Post-Scrape Actions",
@@ -318,7 +338,26 @@
         "fraud_mode_ai": "AI Only",
         "fraud_mode_both": "Local + AI",
         "fraud_notify_toggle": "Notify when potential fraud is detected",
-        "fraud_advanced_link": "Advanced fraud settings"
+        "fraud_advanced_link": "Advanced fraud settings",
+        "current_scrape": "Current scrape",
+        "all_transactions": "All transactions",
+        "transaction_scope": "Transaction scope",
+        "scope_label": "Scope",
+        "run_categorization": "Run AI categorization",
+        "run_categorization_desc": "Categorize transactions automatically after scrape.",
+        "custom_ai": "Custom AI query",
+        "custom_ai_query": "Custom AI query",
+        "notify_on_result": "Notify on successful run",
+        "notify_on_issue": "Notify on issues",
+        "notification_channels": "Notification channels",
+        "notification_help": "Choose which channels receive post-scrape messages.",
+        "saved": "Post-scrape settings saved",
+        "errors": {
+            "custom_query_required": "Custom AI query is required when custom mode is enabled",
+            "invalid_notifications": "Invalid notification channels configuration",
+            "save_failed": "Failed to save post-scrape settings",
+            "unavailable": "Unable to load post-scrape configuration"
+        }
     },
     "fraud_settings": {
         "title": "Fraud & Alerts",
@@ -447,7 +486,45 @@
         "forecast_window_desc": "Months of data used to compute spending averages. Capped to your available data.",
         "cc_patterns": "CC Payment Patterns",
         "cc_patterns_desc": "Transactions flagged as CC payments. Remove to stop auto-detection.",
-        "of_month": "of month"
+        "of_month": "of month",
+        "this_month": "This Month",
+        "day": "day",
+        "months": "months",
+        "expenses": "Expenses",
+        "income": "Income",
+        "budget_health": "Budget Health",
+        "category_spending_details": "Category spending details",
+        "open_ai_chat": "Open AI Chat",
+        "toggle_alerts": "Toggle alerts",
+        "transactions_for": "Transactions for {{label}}",
+        "spending_for": "Spending for {{label}}",
+        "projected_monthly": "Projected monthly",
+        "based_on_avg": "Based on average",
+        "method_historical": "Historical average method",
+        "method_extrapolation": "Current-pace extrapolation method",
+        "forecast_explanation": "Projection combines current pace and historical behavior.",
+        "forecast_disclaimer": "Forecast is an estimate and may change as new transactions arrive.",
+        "no_forecast": "No forecast available",
+        "total_extra_forecast": "Total extra forecast",
+        "no_alerts": "No alerts",
+        "no_transactions_found": "No transactions found",
+        "no_transactions_month": "No transactions found for this month",
+        "safe_to_spend": "Safe to spend",
+        "above_planned": "Above planned",
+        "past_due": "Past due",
+        "paying_now": "Paying now",
+        "no_subscriptions": "No subscriptions detected",
+        "subscriptions": "Subscriptions",
+        "zoom_in": "Zoom in",
+        "zoom_out": "Zoom out",
+        "detectionConfidence": "{{confidence}}% detection confidence",
+        "howCalculated": "How is this calculated?",
+        "howDetectionWorks": "How detection works:",
+        "detectionAnalyzesHistory": "Analyzes your entire transaction history to find consistent patterns:",
+        "detectionRuleDescriptionMultiMonth": "Description appears in multiple months (3 of last 4)",
+        "detectionRuleAmountConsistent": "Amount is consistent (within 15% variance)",
+        "detectionRuleEstimatedDate": "Estimated date based on past occurrences (+/-3 days)",
+        "itemsCount": "{{count}} items"
     },
     "ai_chat": {
         "view_ai_logs": "View AI Logs ←",
@@ -504,7 +581,8 @@
         "raw_response": "Raw Response",
         "show_less": "Show Less",
         "show_more": "Show More",
-        "confirm_clear": "Clear logs older than {{days}} days?"
+        "confirm_clear": "Clear logs older than {{days}} days?",
+        "no_output": "No output available"
     },
     "telegram": {
         "settings_title": "Telegram Bot Settings",
@@ -562,7 +640,16 @@
             "remove_chat_failed": "Failed to remove chat",
             "add_user_failed": "Failed to add user",
             "remove_user_failed": "Failed to remove user"
-        }
+        },
+        "adding": "Adding...",
+        "allowed_users": "Allowed Users",
+        "allowed_users_help": "Only listed Telegram user IDs can use the bot.",
+        "no_users": "No users added yet",
+        "user_id_placeholder": "Enter Telegram user ID",
+        "bot_language": "Bot Language",
+        "bot_language_help": "Select the Telegram bot interface language.",
+        "warning_no_users": "No allowed users configured",
+        "warning_no_users_desc": "The bot will reject all commands until at least one user is added."
     },
     "transaction_modal": {
         "title": "Transaction Details",
@@ -636,14 +723,38 @@
             "google_cloud_console": "Google Cloud Console"
         },
         "fields": {
-            "gemini_api_key": { "label": "Gemini API Key", "help": "Obtain from " },
-            "google_client_id": { "label": "Google Client ID", "help": "Create \"OAuth 2.0 Client ID\" at " },
-            "google_client_secret": { "label": "Google Client Secret", "help": "Found in the same Google Cloud Console project." },
-            "google_redirect_uri": { "label": "Google Redirect URI", "help": "Must match the authorized redirect URI in Cloud Console (e.g., {{example}})" },
-            "drive_folder_id": { "label": "Drive Folder ID", "help": "The ID from the URL of your Google Drive folder where results will be saved." },
-            "encryption_key": { "label": "Encryption Key (64 hex)", "help": "Generate using: openssl rand -hex 32" },
-            "port": { "label": "Server Port", "help": "Default is 3000." },
-            "data_dir": { "label": "Data Directory", "help": "Path where profiles and results are stored. Default is ./data" }
+            "gemini_api_key": {
+                "label": "Gemini API Key",
+                "help": "Obtain from "
+            },
+            "google_client_id": {
+                "label": "Google Client ID",
+                "help": "Create \"OAuth 2.0 Client ID\" at "
+            },
+            "google_client_secret": {
+                "label": "Google Client Secret",
+                "help": "Found in the same Google Cloud Console project."
+            },
+            "google_redirect_uri": {
+                "label": "Google Redirect URI",
+                "help": "Must match the authorized redirect URI in Cloud Console (e.g., {{example}})"
+            },
+            "drive_folder_id": {
+                "label": "Drive Folder ID",
+                "help": "The ID from the URL of your Google Drive folder where results will be saved."
+            },
+            "encryption_key": {
+                "label": "Encryption Key (64 hex)",
+                "help": "Generate using: openssl rand -hex 32"
+            },
+            "port": {
+                "label": "Server Port",
+                "help": "Default is 3000."
+            },
+            "data_dir": {
+                "label": "Data Directory",
+                "help": "Path where profiles and results are stored. Default is ./data"
+            }
         },
         "validation": {
             "encryption_key_hex_64": "Encryption key must be a 64-character hex string"
@@ -667,5 +778,8 @@
         "transactions_retrieved": "{{count}} transactions retrieved",
         "completed_in_seconds": "Completed in {{seconds}}s",
         "empty": "Start a scrape to see real-time progress here."
+    },
+    "transactions": {
+        "merchant": "Merchant"
     }
 }

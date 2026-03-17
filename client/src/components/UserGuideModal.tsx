@@ -201,7 +201,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     <button
                         onClick={onClose}
                         className="text-white hover:bg-blue-800 p-2 rounded-lg transition-colors flex-shrink-0"
-                        title="Close"
+                        title={isHebrew ? 'סגור' : 'Close'}
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />

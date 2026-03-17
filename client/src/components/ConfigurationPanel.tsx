@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AISettings } from './AISettings';
 import { ScrapeSettings } from './ScrapeSettings';
@@ -37,19 +37,19 @@ export function ConfigurationPanel() {
                         onClick={() => setActiveTab('ai')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        🧠 {t('ai_settings.title')}
+                        {t('ai_settings.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('scheduler')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scheduler' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        ⏱️ {t('scheduler.title')}
+                        {t('scheduler.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('scrape')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scrape' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        ⚙️ {t('scraper.config_title')}
+                        {t('scraper.config_title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('fraud')}
@@ -57,31 +57,31 @@ export function ConfigurationPanel() {
                             activeTab === 'fraud' ? 'bg-rose-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'
                         }`}
                     >
-                        🚨 {t('fraud_settings.title')}
+                        {t('fraud_settings.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('sheets')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sheets' ? 'bg-green-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        📊 {t('google_settings.title')}
+                        {t('google_settings.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('telegram')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'telegram' ? 'bg-cyan-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        📱 {t('telegram.settings_title')}
+                        {t('telegram.settings_title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('environment')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'environment' ? 'bg-slate-700 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        🌐 {t('common.environment')}
+                        {t('common.environment')}
                     </button>
                     <button
                         onClick={() => setActiveTab('maintenance')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'maintenance' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        🛠️ {t('common.maintenance')}
+                        {t('common.maintenance')}
                     </button>
                 </nav>
             </header>

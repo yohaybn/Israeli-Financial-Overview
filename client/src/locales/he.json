@@ -76,14 +76,19 @@
         "unknown_error": "שגיאה לא ידועה",
         "error_with_message": "שגיאה: {{error}}",
         "automation": "אוטומציה",
-        "automation_desc": "תזמון והפעלה של סריקות אוטומטיות"
+        "automation_desc": "תזמון והפעלה של סריקות אוטומטיות",
+        "solution": "Solution",
+        "dismiss": "Dismiss",
+        "select": "Select"
     },
     "scheduler": {
         "title": "מתזמן",
         "loading": "טוען הגדרות אוטומציה...",
         "run_time": "שעת הרצה יומית",
         "run_time_desc": "הסריקה תרוץ אוטומטית בשעה זו כל יום.",
-        "profiles": "פרופילים לסריקה"
+        "profiles": "פרופילים לסריקה",
+        "aboutTitle": "About Scheduling",
+        "aboutDescription": "The scheduler runs on the server. Make sure the container is running during the scheduled time. Notifications will be sent according to your global pipeline settings."
     },
     "scraper": {
         "config_title": "הגדרות סריקה",
@@ -129,7 +134,8 @@
             "load_failed": "נכשלה טעינת ההגדרות",
             "save_failed": "נכשלה שמירת ההגדרות",
             "unavailable": "לא ניתן לטעון תצורה"
-        }
+        },
+        "config_desc": "Configure global scraper behavior and defaults"
     },
     "explorer": {
         "records": "רשומות",
@@ -185,7 +191,8 @@
         "ai_categorize_success": "הקטלוג הושלם בהצלחה",
         "ai_categorize_failed": "הקטלוג נכשל: {{error}}",
         "select_file_and_query": "אנא בחר קובץ והזן שאלה",
-        "ai_analyst_failed": "אנליסט AI נכשל: {{error}}"
+        "ai_analyst_failed": "אנליסט AI נכשל: {{error}}",
+        "supportedFormats": "XLS, XLSX, PDF, JSON"
     },
     "analyst": {
         "title": "אנליסט AI",
@@ -254,7 +261,11 @@
         "merchant": "ספק",
         "txns": "עסקאות",
         "total_amount": "סכום כולל",
-        "no_data": "אין עסקאות לניתוח. בחר קובץ תוצאות תחילה."
+        "no_data": "אין עסקאות לניתוח. בחר קובץ תוצאות תחילה.",
+        "all_months": "All months",
+        "this_month": "This month",
+        "click_hint": "Click a chart item to drill down",
+        "merchants_subtitle": "Where your money goes most often"
     },
     "google_settings": {
         "title": "הגדרות Google Sheets",
@@ -275,7 +286,15 @@
         "redirect_uri": "כתובת הפניה (Redirect URI)",
         "redirect_uri_hint": "חייב להתאים לכתובת ההפניה המורשית ב-Google Console.",
         "placeholder_client_id": "your-client-id.apps.googleusercontent.com",
-        "placeholder_client_secret": "הזן סוד לקוח"
+        "placeholder_client_secret": "הזן סוד לקוח",
+        "defaultDriveFolder": "Default Google Drive Folder",
+        "browseFolderHelp": "Browse and select a folder for auto-organization",
+        "driveRoot": "Drive",
+        "noFoldersOrFiles": "No folders or files found",
+        "noFoldersInDrive": "No folders found in Google Drive",
+        "selectedLabel": "Selected:",
+        "envFolderTipPrefix": "You can also set",
+        "envFolderTipSuffix": "in .env"
     },
     "google_sheets": {
         "title": "Google Sheets",
@@ -303,7 +322,8 @@
         "last_synced": "סונכרן לאחרונה:",
         "syncing_button": "מסנכרן...",
         "sync_button_text": "סנכרן ל-Google Sheets",
-        "select_hint": "בחר תוצאות סריקה לסנכרון"
+        "select_hint": "בחר תוצאות סריקה לסנכרון",
+        "disconnect": "Disconnect"
     },
     "post_scrape": {
         "title": "פעולות לאחר סריקה",
@@ -318,9 +338,28 @@
         "fraud_mode_ai": "AI בלבד",
         "fraud_mode_both": "מקומי + AI",
         "fraud_notify_toggle": "שלח התראה כאשר מזוהה חשד להונאה",
-        "fraud_advanced_link": "הגדרות הונאה מתקדמות"
+        "fraud_advanced_link": "הגדרות הונאה מתקדמות",
+        "current_scrape": "Current scrape",
+        "all_transactions": "All transactions",
+        "transaction_scope": "Transaction scope",
+        "scope_label": "Scope",
+        "run_categorization": "Run AI categorization",
+        "run_categorization_desc": "Categorize transactions automatically after scrape.",
+        "custom_ai": "Custom AI query",
+        "custom_ai_query": "Custom AI query",
+        "notify_on_result": "Notify on successful run",
+        "notify_on_issue": "Notify on issues",
+        "notification_channels": "Notification channels",
+        "notification_help": "Choose which channels receive post-scrape messages.",
+        "saved": "Post-scrape settings saved",
+        "errors": {
+            "custom_query_required": "Custom AI query is required when custom mode is enabled",
+            "invalid_notifications": "Invalid notification channels configuration",
+            "save_failed": "Failed to save post-scrape settings",
+            "unavailable": "Unable to load post-scrape configuration"
+        }
     },
-   "fraud_settings": {
+    "fraud_settings": {
         "title": "הונאות והתראות",
         "loading": "טוען הגדרות הונאה...",
         "description": "הגדרת חוקים מקומיים ו-AI לזיהוי הונאות, קריטריונים ורמות סיכון.",
@@ -447,7 +486,45 @@
         "forecast_window_desc": "מספר חודשים לחישוב ממוצעים. מוגבל לפי הנתונים הזמינים.",
         "cc_patterns": "דפוסי תשלום כרטיס אשראי",
         "cc_patterns_desc": "תנועות שסומנו כתשלומי כ״א. הסר כדי לעצור זיהוי אוטומטי.",
-        "of_month": "בחודש"
+        "of_month": "בחודש",
+        "this_month": "This Month",
+        "day": "day",
+        "months": "months",
+        "expenses": "Expenses",
+        "income": "Income",
+        "budget_health": "Budget Health",
+        "category_spending_details": "Category spending details",
+        "open_ai_chat": "Open AI Chat",
+        "toggle_alerts": "Toggle alerts",
+        "transactions_for": "Transactions for {{label}}",
+        "spending_for": "Spending for {{label}}",
+        "projected_monthly": "Projected monthly",
+        "based_on_avg": "Based on average",
+        "method_historical": "Historical average method",
+        "method_extrapolation": "Current-pace extrapolation method",
+        "forecast_explanation": "Projection combines current pace and historical behavior.",
+        "forecast_disclaimer": "Forecast is an estimate and may change as new transactions arrive.",
+        "no_forecast": "No forecast available",
+        "total_extra_forecast": "Total extra forecast",
+        "no_alerts": "No alerts",
+        "no_transactions_found": "No transactions found",
+        "no_transactions_month": "No transactions found for this month",
+        "safe_to_spend": "Safe to spend",
+        "above_planned": "Above planned",
+        "past_due": "Past due",
+        "paying_now": "Paying now",
+        "no_subscriptions": "No subscriptions detected",
+        "subscriptions": "Subscriptions",
+        "zoom_in": "Zoom in",
+        "zoom_out": "Zoom out",
+        "detectionConfidence": "{{confidence}}% detection confidence",
+        "howCalculated": "How is this calculated?",
+        "howDetectionWorks": "How detection works:",
+        "detectionAnalyzesHistory": "Analyzes your entire transaction history to find consistent patterns:",
+        "detectionRuleDescriptionMultiMonth": "Description appears in multiple months (3 of last 4)",
+        "detectionRuleAmountConsistent": "Amount is consistent (within 15% variance)",
+        "detectionRuleEstimatedDate": "Estimated date based on past occurrences (+/-3 days)",
+        "itemsCount": "{{count}} items"
     },
     "ai_logs": {
         "title": "יומן קריאות AI",
@@ -499,7 +576,8 @@
         "raw_response": "תגובה גולמית",
         "show_less": "הצג פחות",
         "show_more": "הצג יותר",
-        "confirm_clear": "למחוק יומנים ישנים מ-{{days}} ימים?"
+        "confirm_clear": "למחוק יומנים ישנים מ-{{days}} ימים?",
+        "no_output": "No output available"
     },
     "ai_chat": {
         "view_ai_logs": "צפה ביומני AI ←",
@@ -562,7 +640,16 @@
             "remove_chat_failed": "הסרת צ'אט נכשלה",
             "add_user_failed": "הוספת משתמש נכשלה",
             "remove_user_failed": "הסרת משתמש נכשלה"
-        }
+        },
+        "adding": "Adding...",
+        "allowed_users": "Allowed Users",
+        "allowed_users_help": "Only listed Telegram user IDs can use the bot.",
+        "no_users": "No users added yet",
+        "user_id_placeholder": "Enter Telegram user ID",
+        "bot_language": "Bot Language",
+        "bot_language_help": "Select the Telegram bot interface language.",
+        "warning_no_users": "No allowed users configured",
+        "warning_no_users_desc": "The bot will reject all commands until at least one user is added."
     },
     "transaction_modal": {
         "title": "פרטי עסקה",
@@ -636,14 +723,38 @@
             "google_cloud_console": "Google Cloud Console"
         },
         "fields": {
-            "gemini_api_key": { "label": "מפתח API של Gemini", "help": "השג מתוך " },
-            "google_client_id": { "label": "Google Client ID", "help": "צור \"OAuth 2.0 Client ID\" ב-" },
-            "google_client_secret": { "label": "Google Client Secret", "help": "נמצא באותו פרויקט ב-Google Cloud Console." },
-            "google_redirect_uri": { "label": "Google Redirect URI", "help": "חייב להתאים לכתובת ההפניה המורשית ב-Cloud Console (לדוגמה: {{example}})" },
-            "drive_folder_id": { "label": "Drive Folder ID", "help": "המזהה מתוך כתובת ה-URL של תיקיית Google Drive שבה יישמרו התוצאות." },
-            "encryption_key": { "label": "מפתח הצפנה (64 hex)", "help": "צור באמצעות: openssl rand -hex 32" },
-            "port": { "label": "פורט שרת", "help": "ברירת מחדל היא 3000." },
-            "data_dir": { "label": "תיקיית נתונים", "help": "נתיב שבו נשמרים פרופילים ותוצאות. ברירת מחדל היא ./data" }
+            "gemini_api_key": {
+                "label": "מפתח API של Gemini",
+                "help": "השג מתוך "
+            },
+            "google_client_id": {
+                "label": "Google Client ID",
+                "help": "צור \"OAuth 2.0 Client ID\" ב-"
+            },
+            "google_client_secret": {
+                "label": "Google Client Secret",
+                "help": "נמצא באותו פרויקט ב-Google Cloud Console."
+            },
+            "google_redirect_uri": {
+                "label": "Google Redirect URI",
+                "help": "חייב להתאים לכתובת ההפניה המורשית ב-Cloud Console (לדוגמה: {{example}})"
+            },
+            "drive_folder_id": {
+                "label": "Drive Folder ID",
+                "help": "המזהה מתוך כתובת ה-URL של תיקיית Google Drive שבה יישמרו התוצאות."
+            },
+            "encryption_key": {
+                "label": "מפתח הצפנה (64 hex)",
+                "help": "צור באמצעות: openssl rand -hex 32"
+            },
+            "port": {
+                "label": "פורט שרת",
+                "help": "ברירת מחדל היא 3000."
+            },
+            "data_dir": {
+                "label": "תיקיית נתונים",
+                "help": "נתיב שבו נשמרים פרופילים ותוצאות. ברירת מחדל היא ./data"
+            }
         },
         "validation": {
             "encryption_key_hex_64": "מפתח ההצפנה חייב להיות מחרוזת hex באורך 64 תווים"
@@ -667,5 +778,8 @@
         "transactions_retrieved": "{{count}} תנועות נמשכו",
         "completed_in_seconds": "הושלם תוך {{seconds}} שניות",
         "empty": "התחל סריקה כדי לראות כאן התקדמות בזמן אמת."
+    },
+    "transactions": {
+        "merchant": "Merchant"
     }
 }

@@ -70,6 +70,27 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     errorScraper: '❌ Error processing scraper request',
     thinkingMsg: '💭 Thinking...',
     comingSoon: 'Coming soon!',
+    unauthorizedChat: 'You are not allowed to use chat commands.',
+    unauthorizedSettings: 'You are not allowed to open settings.',
+    unauthorizedSubscribe: 'You are not allowed to subscribe to notifications.',
+    unauthorizedUnsubscribe: 'You are not allowed to unsubscribe from notifications.',
+    errorExecutingScraper: '❌ Error executing scraper',
+    errorRetrievingProfiles: '❌ Error retrieving profiles',
+    invalidStartDate: 'Invalid start date',
+    startDatePrompt: 'Send start date in format YYYY-MM-DD (example: 2026-01-01).',
+    invalidDateFormat: 'Invalid date. Please use YYYY-MM-DD.',
+    startDateSetPrefix: 'Start date set to',
+    chooseWhatToScrape: 'Choose what to scrape:',
+    scrapeAllLabel: 'Scrape ALL',
+    unauthorizedNoPermission: 'Unauthorized - you do not have permission.',
+    financialTipTitle: '🪡 <b>Financial Tip:</b>',
+    financialTipLine1: 'For detailed analysis of your transactions, please use the web dashboard where you can upload and analyze your banking data.',
+    yourQuestionPrefix: 'Your question:',
+    financialTipLine2: 'Visit the web interface to get detailed insights and AI-powered analysis of your spending patterns!',
+    noAiResponse: '❌ No response from AI',
+    errorUpdatingSettings: 'Error updating settings',
+    errorExitingChatMode: '❌ Error exiting chat mode',
+    scrapeFailedPrefix: 'Scrape failed:',
   },
   he: {
     accessDenied: '❌ <b>גישה נדחתה</b>\n\nאין לך הרשאה להשתמש בבוט זה עדיין.',
@@ -109,6 +130,27 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     errorScraper: '❌ שגיאה בעיבוד בקשת הסריקה',
     thinkingMsg: '💭 חושב...',
     comingSoon: 'בקרוב!',
+    unauthorizedChat: 'אין לך הרשאה להשתמש בפקודות צ׳אט.',
+    unauthorizedSettings: 'אין לך הרשאה לפתוח הגדרות.',
+    unauthorizedSubscribe: 'אין לך הרשאה להירשם להתראות.',
+    unauthorizedUnsubscribe: 'אין לך הרשאה לבטל הרשמה להתראות.',
+    errorExecutingScraper: '❌ שגיאה בהרצת הסורק',
+    errorRetrievingProfiles: '❌ שגיאה בטעינת פרופילים',
+    invalidStartDate: 'תאריך התחלה לא תקין',
+    startDatePrompt: 'שלח תאריך התחלה בפורמט YYYY-MM-DD (דוגמה: 2026-01-01).',
+    invalidDateFormat: 'תאריך לא תקין. נא להשתמש ב-YYYY-MM-DD.',
+    startDateSetPrefix: 'תאריך התחלה הוגדר ל-',
+    chooseWhatToScrape: 'בחר מה לסרוק:',
+    scrapeAllLabel: 'סרוק הכל',
+    unauthorizedNoPermission: 'אין לך הרשאה לפעולה זו.',
+    financialTipTitle: '🪡 <b>טיפ פיננסי:</b>',
+    financialTipLine1: 'לניתוח מפורט של העסקאות שלך, אנא השתמש בדשבורד האינטרנטי שבו ניתן להעלות ולנתח נתוני בנק.',
+    yourQuestionPrefix: 'השאלה שלך:',
+    financialTipLine2: 'פתח את ממשק הווב כדי לקבל תובנות מפורטות וניתוח מבוסס AI על דפוסי ההוצאה שלך!',
+    noAiResponse: '❌ לא התקבלה תשובה מ-AI',
+    errorUpdatingSettings: 'שגיאה בעדכון הגדרות',
+    errorExitingChatMode: '❌ שגיאה ביציאה ממצב שיחה',
+    scrapeFailedPrefix: 'הסריקה נכשלה:',
   },
 };
 
@@ -474,7 +516,7 @@ export class TelegramBotService {
         await this.handleScrapeAction(ctx, callbackData);
       } catch (error) {
         serverLogger.error('Error handling scrape callback', { error });
-        await ctx.answerCbQuery('❌ Error executing scraper');
+        await ctx.answerCbQuery(this.t('errorExecutingScraper'));
       }
     });
 
@@ -532,7 +574,7 @@ export class TelegramBotService {
         }
       } catch (error) {
         serverLogger.error('Error handling text message', { error });
-        await ctx.reply('❌ Error processing your message');
+      await ctx.reply(this.t('errorProcessing'));
       }
     });
   }
@@ -602,13 +644,13 @@ export class TelegramBotService {
         this.t('selectProfile'),
         Markup.inlineKeyboard([
           profileButtons,
-          [Markup.button.callback('Scrape ALL', 'scrape_all_default')],
+          [Markup.button.callback(this.t('scrapeAllLabel'), 'scrape_all_default')],
           [Markup.button.callback('Custom Start Date', 'scrape_custom_start')],
         ])
       );
     } catch (error) {
       serverLogger.error('Error in scrape command', { error });
-      await ctx.reply('❌ Error retrieving profiles');
+      await ctx.reply(this.t('errorRetrievingProfiles'));
     }
   }
 
@@ -640,7 +682,7 @@ export class TelegramBotService {
       const targetPart = payload.substring(11);
 
       if (!this.isValidIsoDate(datePart)) {
-        await ctx.answerCbQuery('Invalid start date');
+      await ctx.answerCbQuery(this.t('invalidStartDate'));
         return;
       }
 
@@ -678,7 +720,7 @@ export class TelegramBotService {
     state.pendingScrapeStartDate = undefined;
     this.chatStates.set(chatId, state);
 
-    await ctx.reply('Send start date in format YYYY-MM-DD (example: 2026-01-01).');
+      await ctx.reply(this.t('startDatePrompt'));
   }
 
   /**
@@ -692,7 +734,7 @@ export class TelegramBotService {
 
     const date = (text || '').trim();
     if (!this.isValidIsoDate(date)) {
-      await ctx.reply('Invalid date. Please use YYYY-MM-DD.');
+      await ctx.reply(this.t('invalidDateFormat'));
       return;
     }
 
@@ -711,10 +753,10 @@ export class TelegramBotService {
     );
 
     await ctx.reply(
-      `Start date set to ${date}. Choose what to scrape:`,
+      `${this.t('startDateSetPrefix')} ${date}. ${this.t('chooseWhatToScrape')}`,
       Markup.inlineKeyboard([
         profileButtons,
-        [Markup.button.callback('Scrape ALL', `scrape_date_${date}_all`)],
+        [Markup.button.callback(this.t('scrapeAllLabel'), `scrape_date_${date}_all`)],
       ])
     );
   }
@@ -727,7 +769,7 @@ export class TelegramBotService {
 
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, `scrape_all${startDate ? `_from_${startDate}` : ''}`);
-      await ctx.answerCbQuery('Unauthorized - you do not have permission.', { show_alert: true });
+      await ctx.answerCbQuery(this.t('unauthorizedNoPermission'), { show_alert: true });
       return;
     }
 
@@ -933,11 +975,11 @@ export class TelegramBotService {
         response = await aiService.analyzeData(contextQuery, transactions);
       } catch (err) {
         serverLogger.error('AI analyzeData failed for Telegram chat', { error: err });
-        response = `🪡 <b>Financial Tip:</b>\nFor detailed analysis of your transactions, please use the web dashboard where you can upload and analyze your banking data.\n\nYour question: "${message}"\n\nVisit the web interface to get detailed insights and AI-powered analysis of your spending patterns!`;
+        response = `${this.t('financialTipTitle')}\n${this.t('financialTipLine1')}\n\n${this.t('yourQuestionPrefix')} "${message}"\n\n${this.t('financialTipLine2')}`;
       }
 
       // Edit the thinking message with the AI response (split if too long)
-      if (!response) response = '❌ No response from AI';
+      if (!response) response = this.t('noAiResponse');
 
       // If response already contains HTML tags, use as-is; otherwise convert Markdown to HTML
       const looksLikeHtml = /<\/?\w+[^>]*>/.test(response);
@@ -990,11 +1032,11 @@ export class TelegramBotService {
       }
 
       // Fallback helpful tip when AI provider is not configured or no data available
-      const financialTips = `🪡 <b>Financial Tip:</b>\nFor detailed analysis of your transactions, please use the web dashboard where you can upload and analyze your banking data.\n\nYour question: "${message}"\n\nVisit the web interface to get detailed insights and AI-powered analysis of your spending patterns!`;
+      const financialTips = `${this.t('financialTipTitle')}\n${this.t('financialTipLine1')}\n\n${this.t('yourQuestionPrefix')} "${message}"\n\n${this.t('financialTipLine2')}`;
       return financialTips;
     } catch (error) {
       serverLogger.error('Error getting AI response', { error });
-      return `❌ Error getting AI response. Please try again later or check the web dashboard.`;
+      return this.t('errorProcessing');
     }
   }
 
@@ -1032,7 +1074,7 @@ export class TelegramBotService {
       // Check authorization
       if (!this.isUserAuthorized(userId)) {
         this.logUnauthorizedAttempt(ctx, `scrape_profile_${profileId}`);
-        await ctx.answerCbQuery('❌ Unauthorized - you do not have permission.', { show_alert: true });
+        await ctx.answerCbQuery(this.t('unauthorizedNoPermission'), { show_alert: true });
         return;
       }
 
@@ -1048,7 +1090,7 @@ export class TelegramBotService {
 
       } catch (scraperError: any) {
         serverLogger.error('Scraper execution failed', { scraperError });
-        await ctx.reply(`❌ ${scraperError.message}`);
+        await ctx.reply(`${this.t('errorScraper')}: ${scraperError.message}`);
       }
     } catch (error) {
       serverLogger.error('Error handling scrape callback', { error });
@@ -1085,7 +1127,7 @@ export class TelegramBotService {
     });
     const result = await scraperService.runScrape(scrapeRequest);
     if (!result.success) {
-      await ctx.reply(`Scrape failed: ${result.error || this.t('errorScraper')}`);
+      await ctx.reply(`${this.t('scrapeFailedPrefix')} ${result.error || this.t('errorScraper')}`);
       return;
     }
     const txnCount = result.transactions?.length || 0;
@@ -1119,7 +1161,7 @@ export class TelegramBotService {
       // Check authorization
       if (!this.isUserAuthorized(userId)) {
         this.logUnauthorizedAttempt(ctx, 'settings_notifications_callback');
-        await ctx.answerCbQuery('❌ Unauthorized - you do not have permission.', { show_alert: true });
+        await ctx.answerCbQuery(this.t('unauthorizedNoPermission'), { show_alert: true });
         return;
       }
 
@@ -1151,7 +1193,7 @@ export class TelegramBotService {
       await ctx.editMessageText(`📬 ${this.t('settingsBtnNotif')} ${status}`);
     } catch (error) {
       serverLogger.error('Error handling notification settings', { error });
-      await ctx.answerCbQuery('Error updating settings');
+      await ctx.answerCbQuery(this.t('errorUpdatingSettings'));
     }
   }
 
@@ -1179,7 +1221,7 @@ export class TelegramBotService {
       await ctx.reply(this.t('exitedChatMode'));
     } catch (error) {
       serverLogger.error('Error handling done command', { error });
-      await ctx.reply('❌ Error exiting chat mode');
+      await ctx.reply(this.t('errorExitingChatMode'));
     }
   }
 

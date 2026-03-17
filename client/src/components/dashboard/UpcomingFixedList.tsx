@@ -90,7 +90,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                                 className={`w-1.5 h-1.5 rounded-full ${item.confidence > 0.7 ? 'bg-green-400' :
                                     item.confidence > 0.4 ? 'bg-amber-400' : 'bg-red-400'
                                     }`}
-                                title={`${Math.round(item.confidence * 100)}% detection confidence`}
+                                title={t('dashboard.detectionConfidence', { confidence: Math.round(item.confidence * 100) })}
                             />
                         </div>
                     </div>
@@ -134,7 +134,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                             <button
                                 onClick={() => setShowInfo(!showInfo)}
                                 className="text-gray-400 hover:text-blue-500 transition-colors"
-                                title="How is this calculated?"
+                                title={t('dashboard.howCalculated')}
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -151,13 +151,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
             {/* Info Panel */}
             {showInfo && (
                 <div className="mb-8 bg-blue-50/80 p-4 rounded-2xl border border-blue-100 text-xs text-blue-800 animate-in fade-in slide-in-from-top-2">
-                    <h4 className="font-bold mb-1">How detection works:</h4>
-                    <p>Analyzes your entire transaction history to find consistent patterns:</p>
-                    <ul className="list-disc pl-4 mt-1 space-y-0.5 opacity-80">
-                        <li>Description appears in multiple months (3 of last 4)</li>
-                        <li>Amount is consistent (within 15% variance)</li>
-                        <li>Estimated date based on past occurrences (±3 days)</li>
-                    </ul>
+                    <h4 className="font-bold mb-1">{t('dashboard.howDetectionWorks')}</h4>`r`n                    <p>{t('dashboard.detectionAnalyzesHistory')}</p>`r`n                    <ul className="list-disc pl-4 mt-1 space-y-0.5 opacity-80">`r`n                        <li>{t('dashboard.detectionRuleDescriptionMultiMonth')}</li>`r`n                        <li>{t('dashboard.detectionRuleAmountConsistent')}</li>`r`n                        <li>{t('dashboard.detectionRuleEstimatedDate')}</li>`r`n                    </ul>
                 </div>
             )}
 
@@ -219,7 +213,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                             <span className="text-xs font-black text-emerald-600">
                                 +{formatCurrency(totalIncome)}
                             </span>
-                            <span className="text-[9px] text-gray-300 font-medium">{income.length} items</span>
+                            <span className="text-[9px] text-gray-300 font-medium">{t('dashboard.itemsCount', { count: income.length })}</span>
                         </div>
                     </div>
                     {income.length > 0 ? (
@@ -251,7 +245,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                             <span className="text-xs font-black text-red-600">
                                 -{formatCurrency(totalBills)}
                             </span>
-                            <span className="text-[9px] text-gray-300 font-medium">{bills.length} items</span>
+                            <span className="text-[9px] text-gray-300 font-medium">{t('dashboard.itemsCount', { count: bills.length })}</span>
                         </div>
                     </div>
                     {bills.length > 0 ? (
@@ -364,3 +358,4 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
         </div>
     );
 }
+

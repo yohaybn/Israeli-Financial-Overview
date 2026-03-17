@@ -113,7 +113,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
     if (!configStatus?.configured) {
         return (
             <>
-                <div className={`p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 ${isInline ? 'mt-4' : ''}`}>
+                <div className={`p-6 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4 ${isInline ? '' : 'mt-4'}`}>
                     <div className="flex items-center justify-between text-gray-700 font-semibold mb-1">
                         <div className="flex items-center gap-2">
                             <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
@@ -129,10 +129,10 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                             </button>
                         )}
                     </div>
-                    <p className="text-[10px] text-gray-500 italic">{t('google_sheets.not_configured')}</p>
+                    <p className="text-xs text-gray-500 italic">{t('google_sheets.not_configured')}</p>
                     <button
                         onClick={() => setShowSettings(true)}
-                        className="w-full py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white transition-all text-xs font-bold text-gray-600 shadow-sm"
+                        className="w-full py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all text-sm font-bold text-gray-700 shadow-sm"
                     >
                         {t('google_sheets.configure_now')}
                     </button>
@@ -145,7 +145,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
     if (!authStatus?.authenticated) {
         return (
             <>
-                <div className={`p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 ${isInline ? 'mt-4' : ''}`}>
+                <div className={`p-6 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4 ${isInline ? '' : 'mt-4'}`}>
                     <div className="flex items-center justify-between text-gray-700 font-semibold mb-1">
                         <div className="flex items-center gap-2 text-gray-700 font-semibold">
                             <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
@@ -160,10 +160,10 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                             </svg>
                         </button>
                     </div>
-                    <p className="text-xs text-gray-500">{t('google_sheets.connect_desc')}</p>
+                    <p className="text-sm text-gray-500">{t('google_sheets.connect_desc')}</p>
                     <button
                         onClick={handleConnect}
-                        className="flex items-center justify-center gap-2 bg-white border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium shadow-sm"
+                        className="flex items-center justify-center gap-2 bg-white border border-gray-300 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-sm font-bold shadow-sm"
                     >
                         <svg className="w-4 h-4" viewBox="0 0 48 48">
                             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
@@ -182,7 +182,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
 
     return (
         <>
-            <div className={`p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 ${isInline ? 'mt-4' : ''}`}>
+            <div className={`p-6 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4 ${isInline ? '' : 'mt-4'}`}>
                 <div className="flex items-center justify-between text-gray-700 font-semibold mb-1">
                     <div className="flex items-center gap-2">
                         <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
@@ -191,13 +191,13 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                         {t('google_sheets.sync_title')}
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-gray-600" title="Settings">
+                        <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-gray-600" title={t('common.settings')}>
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                         </button>
-                        <button onClick={() => logout()} title="Disconnect" className="text-gray-400 hover:text-red-500">
+                        <button onClick={() => logout()} title={t('google_sheets.disconnect')} className="text-gray-400 hover:text-red-500">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                             </svg>
@@ -215,7 +215,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                             <select
                                 value={localSelectedFile}
                                 onChange={(e) => setLocalSelectedFile(e.target.value)}
-                                className="w-full text-sm border border-gray-200 rounded-lg p-2 bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
+                                className="w-full text-sm border border-gray-200 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-green-500 outline-none shadow-sm"
                             >
                                 <option value="">{t('google_sheets.select_file')}</option>
                                 {sortedFiles.map(f => (
@@ -236,7 +236,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                             <select
                                 value={selectedSheetId}
                                 onChange={(e) => setSelectedSheetId(e.target.value)}
-                                className="flex-1 text-sm border border-gray-200 rounded-lg p-2 bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
+                                className="flex-1 text-sm border border-gray-200 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-green-500 outline-none shadow-sm"
                                 disabled={isLoadingSheets}
                             >
                                 <option value="">{folderConfig?.folderId ? t('google_sheets.select_sheet_folder') : t('google_sheets.select_sheet')}</option>
@@ -247,7 +247,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                             <button
                                 onClick={handleCreateSheet}
                                 disabled={isCreating}
-                                className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors border border-green-100"
+                                className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors border border-green-100"
                                 title={t('google_sheets.create_new')}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,7 +269,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                                 </span>
                             </div>
                             {scrapeResult.lastSync.status === 'failed' && (
-                                <p className="text-[9px] text-red-500 italic">Error: {scrapeResult.lastSync.error}</p>
+                                <p className="text-[9px] text-red-500 italic">{t('common.error_with_message', { error: scrapeResult.lastSync.error })}</p>
                             )}
                         </div>
                     )}
@@ -277,7 +277,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                     <button
                         onClick={handleSync}
                         disabled={!effectiveFile || !selectedSheetId || isSyncing}
-                        className={`w-full py-2 rounded-lg text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 ${!effectiveFile || !selectedSheetId || isSyncing
+                        className={`w-full py-2.5 rounded-2xl text-sm font-black transition-all shadow-lg flex items-center justify-center gap-2 ${!effectiveFile || !selectedSheetId || isSyncing
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             : 'bg-green-600 text-white hover:bg-green-700 active:scale-[0.98]'
                             }`}

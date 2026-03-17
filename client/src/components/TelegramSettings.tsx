@@ -275,7 +275,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
 
     return (
         <div className="space-y-6">
-            <div className={`${isInline ? '' : 'bg-white rounded-lg shadow-lg p-6'}`}>
+            <div className={`${isInline ? 'space-y-6' : 'bg-white rounded-3xl shadow-2xl w-full max-w-4xl p-6 overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-200'}`}>
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                         <Settings className="w-6 h-6 text-blue-600" />
@@ -296,7 +296,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                 {/* Notification */}
                 {notification && (
                     <div
-                        className={`mb-4 p-4 rounded-lg flex items-center gap-2 ${notification.type === 'success'
+                        className={`mb-4 p-4 rounded-xl border flex items-center gap-2 ${notification.type === 'success'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
                             }`}
@@ -315,7 +315,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                     <div className="text-gray-500 mb-4">{t('telegram.loading_status')}</div>
                 ) : (
                     <>
-                        <div className={`mb-6 p-4 rounded-lg ${status?.isActive ? 'bg-green-100 border-l-4 border-green-600' : 'bg-gray-100 border-l-4 border-gray-400'}`}>
+                        <div className={`mb-6 p-4 rounded-2xl border ${status?.isActive ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-300'}`}>
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="font-semibold">
@@ -332,7 +332,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                         <button
                                             onClick={() => handleStartBot()}
                                             disabled={isStarting || (!botToken && !status?.hasToken)}
-                                            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+                                            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-2xl hover:bg-green-700 disabled:bg-gray-400"
                                         >
                                             <Play className="w-4 h-4" />
                                             {isStarting ? t('telegram.starting') : t('telegram.start')}
@@ -341,7 +341,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                         <button
                                             onClick={() => stopBot()}
                                             disabled={isStopping}
-                                            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-400"
+                                            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-2xl hover:bg-red-700 disabled:bg-gray-400"
                                         >
                                             <Square className="w-4 h-4" />
                                             {isStopping ? t('telegram.stopping') : t('telegram.stop')}
@@ -353,7 +353,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
 
                         {/* Warning if no users configured */}
                         {!status?.usersConfigured && (
-                            <div className="mb-6 p-4 rounded-lg bg-amber-100 border-l-4 border-amber-600 flex items-start gap-3">
+                            <div className="mb-6 p-4 rounded-2xl bg-amber-100 border border-amber-300 flex items-start gap-3">
                                 <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
                                 <div>
                                     <p className="font-semibold text-amber-900">
@@ -379,14 +379,14 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                             <button
                                 type="button"
                                 onClick={() => { setBotLanguage('en'); updateConfig({ language: 'en' }); }}
-                                className={`px-5 py-2 rounded-lg text-sm font-bold border transition-all ${botLanguage === 'en' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                                className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${botLanguage === 'en' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                             >
                                 🇬🇧 English
                             </button>
                             <button
                                 type="button"
                                 onClick={() => { setBotLanguage('he'); updateConfig({ language: 'he' }); }}
-                                className={`px-5 py-2 rounded-lg text-sm font-bold border transition-all ${botLanguage === 'he' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                                className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${botLanguage === 'he' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                             >
                                 🇮🇱 עברית
                             </button>
@@ -410,12 +410,12 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 value={botToken}
                                 onChange={(e) => setBotToken(e.target.value)}
                                 placeholder={t('telegram.token_placeholder')}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                             />
                             <button
                                 onClick={handleSaveToken}
                                 disabled={isUpdating || !botToken}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
                             >
                                 {isUpdating ? t('telegram.saving') : t('telegram.save')}
                             </button>
@@ -438,12 +438,12 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                     value={chatId}
                                     onChange={(e) => setChatId(e.target.value)}
                                     placeholder={t('telegram.chat_id_placeholder')}
-                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                                 />
                                 <button
                                     onClick={() => testConnection()}
                                     disabled={isTesting || !botToken || !chatId}
-                                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+                                    className="bg-green-600 text-white px-4 py-2.5 rounded-xl hover:bg-green-700 disabled:bg-gray-400 font-bold"
                                 >
                                     {isTesting ? t('telegram.testing') : t('telegram.test')}
                                 </button>
@@ -472,12 +472,12 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 value={chatId}
                                 onChange={(e) => setChatId(e.target.value)}
                                 placeholder={t('telegram.chat_id_placeholder')}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                             />
                             <button
                                 onClick={() => addNotificationChat()}
                                 disabled={!chatId.trim()}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
                             >
                                 {t('telegram.add')}
                             </button>
@@ -489,7 +489,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 {notificationChats.map((id: string) => (
                                     <div
                                         key={id}
-                                        className="flex items-center justify-between bg-gray-100 p-3 rounded-lg"
+                                        className="flex items-center justify-between bg-gray-50 border border-gray-200 p-3 rounded-xl"
                                     >
                                         <div className="flex items-center gap-2">
                                             <code className="bg-white px-2 py-1 rounded text-sm">{id}</code>
@@ -505,7 +505,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                         </div>
                                         <button
                                             onClick={() => removeNotificationChat(id)}
-                                            className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
+                                            className="bg-red-600 text-white px-3 py-1.5 rounded-xl hover:bg-red-700 text-sm font-bold"
                                         >
                                             {t('telegram.remove')}
                                         </button>
@@ -537,12 +537,12 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 value={newAllowedUser}
                                 onChange={(e) => setNewAllowedUser(e.target.value)}
                                 placeholder={t('telegram.user_id_placeholder')}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                             />
                             <button
                                 onClick={() => addAllowedUser()}
                                 disabled={!newAllowedUser.trim() || isAddingUser}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
                             >
                                 {isAddingUser ? t('telegram.adding') : t('telegram.add')}
                             </button>
@@ -554,7 +554,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 {allowedUsers.map((userId: string) => (
                                     <div
                                         key={userId}
-                                        className="flex items-center justify-between bg-gray-100 p-3 rounded-lg"
+                                        className="flex items-center justify-between bg-gray-50 border border-gray-200 p-3 rounded-xl"
                                     >
                                         <div className="flex items-center gap-2">
                                             <code className="bg-white px-2 py-1 rounded text-sm">{userId}</code>
@@ -570,7 +570,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                         </div>
                                         <button
                                             onClick={() => removeAllowedUser(userId)}
-                                            className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
+                                            className="bg-red-600 text-white px-3 py-1.5 rounded-xl hover:bg-red-700 text-sm font-bold"
                                         >
                                             {t('telegram.remove')}
                                         </button>

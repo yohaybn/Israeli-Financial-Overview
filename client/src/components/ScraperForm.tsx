@@ -459,7 +459,7 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
                                         <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">{t('scraper.custom_opt_in')}</label>
                                         <input
                                             type="text"
-                                            placeholder="feature1, feature2..."
+                                            placeholder={t('scraper.custom_opt_in')}
                                             value={(options.optInFeatures || []).filter((f: string) => ![
                                                 'isracard-amex:skipAdditionalTransactionInformation',
                                                 'mizrahi:pendingIfNoIdentifier',
