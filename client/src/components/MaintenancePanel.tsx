@@ -1,4 +1,4 @@
-﻿import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { useReloadDatabase, useResetToDefaults } from '../hooks/useScraper';
 
 export function MaintenancePanel() {

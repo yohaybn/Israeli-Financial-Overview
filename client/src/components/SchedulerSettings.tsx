@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSchedulerConfig, useUpdateSchedulerConfig } from '../hooks/useScraper';
 import { useProfiles } from '../hooks/useProfiles';
