@@ -118,6 +118,7 @@ export interface TelegramChatState {
   isNotificationEnabled: boolean;
   isAdmin: boolean;
   conversationContext?: string;
+  pendingScrapeStartDate?: string;
 }
 
 export class TelegramBotService {
@@ -469,8 +470,8 @@ export class TelegramBotService {
     // Handle callback queries from inline buttons
     this.bot.action(/^scrape_/, async (ctx) => {
       try {
-        const profileId = ctx.match?.input?.replace('scrape_', '') || '';
-        await this.handleScraperExecution(ctx, profileId);
+        const callbackData = (ctx.match?.input || '') as string;
+        await this.handleScrapeAction(ctx, callbackData);
       } catch (error) {
         serverLogger.error('Error handling scrape callback', { error });
         await ctx.answerCbQuery('❌ Error executing scraper');
@@ -504,6 +505,12 @@ export class TelegramBotService {
         // If in chat mode, handle as AI query
         if (state?.conversationContext === 'chat') {
           await this.handleAIChat(ctx, ctx.message.text);
+          return;
+        }
+
+        // If awaiting custom scrape start date input
+        if (state?.conversationContext === 'scrape_start_date') {
+          await this.handleCustomScrapeStartDateInput(ctx, ctx.message.text);
           return;
         }
 
@@ -587,18 +594,164 @@ export class TelegramBotService {
         return;
       }
 
-      const buttons = profiles.map((profile: Profile) =>
-        Markup.button.callback(profile.name || profile.id, `scrape_${profile.id}`)
+      const profileButtons = profiles.map((profile: Profile) =>
+        Markup.button.callback(profile.name || profile.id, `scrape_default_${profile.id}`)
       );
 
       await ctx.reply(
         this.t('selectProfile'),
-        Markup.inlineKeyboard([buttons])
+        Markup.inlineKeyboard([
+          profileButtons,
+          [Markup.button.callback('Scrape ALL', 'scrape_all_default')],
+          [Markup.button.callback('Custom Start Date', 'scrape_custom_start')],
+        ])
       );
     } catch (error) {
       serverLogger.error('Error in scrape command', { error });
       await ctx.reply('❌ Error retrieving profiles');
     }
+  }
+
+  /**
+   * Route scrape callback actions
+   */
+  private async handleScrapeAction(ctx: Context, callbackData: string): Promise<void> {
+    if (!callbackData) return;
+
+    if (callbackData === 'scrape_custom_start') {
+      await this.handleCustomScrapeStartDatePrompt(ctx);
+      return;
+    }
+
+    if (callbackData === 'scrape_all_default') {
+      await this.handleScrapeAllExecution(ctx);
+      return;
+    }
+
+    if (callbackData.startsWith('scrape_default_')) {
+      const profileId = callbackData.replace('scrape_default_', '');
+      await this.handleScraperExecution(ctx, profileId);
+      return;
+    }
+
+    if (callbackData.startsWith('scrape_date_')) {
+      const payload = callbackData.replace('scrape_date_', '');
+      const datePart = payload.substring(0, 10);
+      const targetPart = payload.substring(11);
+
+      if (!this.isValidIsoDate(datePart)) {
+        await ctx.answerCbQuery('Invalid start date');
+        return;
+      }
+
+      if (targetPart === 'all') {
+        await this.handleScrapeAllExecution(ctx, datePart);
+        return;
+      }
+
+      await this.handleScraperExecution(ctx, targetPart, datePart);
+      return;
+    }
+
+    // Backward compatibility with old callback format.
+    if (callbackData.startsWith('scrape_')) {
+      const profileId = callbackData.replace('scrape_', '');
+      await this.handleScraperExecution(ctx, profileId);
+    }
+  }
+
+  /**
+   * Prompt user for custom scrape start date.
+   */
+  private async handleCustomScrapeStartDatePrompt(ctx: Context): Promise<void> {
+    await ctx.answerCbQuery();
+    const chatId = ctx.chat?.id?.toString();
+    if (!chatId) return;
+
+    const state = this.chatStates.get(chatId) || {
+      chatId,
+      userId: ctx.from?.id?.toString() || '',
+      isNotificationEnabled: false,
+      isAdmin: false,
+    };
+    state.conversationContext = 'scrape_start_date';
+    state.pendingScrapeStartDate = undefined;
+    this.chatStates.set(chatId, state);
+
+    await ctx.reply('Send start date in format YYYY-MM-DD (example: 2026-01-01).');
+  }
+
+  /**
+   * Handle custom start date text input from chat.
+   */
+  private async handleCustomScrapeStartDateInput(ctx: Context, text: string): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    if (!chatId) return;
+    const state = this.chatStates.get(chatId);
+    if (!state) return;
+
+    const date = (text || '').trim();
+    if (!this.isValidIsoDate(date)) {
+      await ctx.reply('Invalid date. Please use YYYY-MM-DD.');
+      return;
+    }
+
+    state.conversationContext = undefined;
+    state.pendingScrapeStartDate = date;
+    this.chatStates.set(chatId, state);
+
+    const profiles = await this.getProfileService().getProfiles();
+    if (profiles.length === 0) {
+      await ctx.reply(this.t('noProfiles'));
+      return;
+    }
+
+    const profileButtons = profiles.map((profile: Profile) =>
+      Markup.button.callback(profile.name || profile.id, `scrape_date_${date}_${profile.id}`)
+    );
+
+    await ctx.reply(
+      `Start date set to ${date}. Choose what to scrape:`,
+      Markup.inlineKeyboard([
+        profileButtons,
+        [Markup.button.callback('Scrape ALL', `scrape_date_${date}_all`)],
+      ])
+    );
+  }
+
+  /**
+   * Execute scrape for all profiles in sequence.
+   */
+  private async handleScrapeAllExecution(ctx: Context, startDate?: string): Promise<void> {
+    const userId = ctx.from?.id.toString() || '';
+
+    if (!this.isUserAuthorized(userId)) {
+      this.logUnauthorizedAttempt(ctx, `scrape_all${startDate ? `_from_${startDate}` : ''}`);
+      await ctx.answerCbQuery('Unauthorized - you do not have permission.', { show_alert: true });
+      return;
+    }
+
+    await ctx.answerCbQuery(this.t('scraperStarting'));
+
+    const profiles = await this.getProfileService().getProfiles();
+    if (profiles.length === 0) {
+      await ctx.reply(this.t('noProfiles'));
+      return;
+    }
+
+    for (const profile of profiles) {
+      await this.executeScrapeForProfile(ctx, profile, userId, startDate);
+    }
+  }
+
+  /**
+   * Validate strict ISO date format YYYY-MM-DD.
+   */
+  private isValidIsoDate(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed.toISOString().startsWith(value);
   }
 
   /**
@@ -872,7 +1025,7 @@ export class TelegramBotService {
   /**
    * Handle scraper execution from Telegram
    */
-  private async handleScraperExecution(ctx: Context, profileId: string): Promise<void> {
+  private async handleScraperExecution(ctx: Context, profileId: string, startDate?: string): Promise<void> {
     try {
       const userId = ctx.from?.id.toString() || '';
 
@@ -884,7 +1037,6 @@ export class TelegramBotService {
       }
 
       await ctx.answerCbQuery(this.t('scraperStarting'));
-      const statusMsg = await ctx.reply(this.t('scraperExecuting'));
 
       try {
         const profile = await this.getProfileService().getProfile(profileId);
@@ -892,50 +1044,7 @@ export class TelegramBotService {
           await ctx.reply(this.t('profileNotFound'));
           return;
         }
-
-        const scraperService = this.getScraperService();
-        const scrapeRequest: ScrapeRequest = {
-          companyId: profile.companyId,
-          credentials: profile.credentials,
-          profileId: profile.id,
-          profileName: profile.name,
-          options: {
-            combineInstallments: true,
-            showBrowser: false,
-            timeout: 30000
-          }
-        };
-        // Annotate request so post-scrape can notify the initiating Telegram chat
-        try {
-          const chatId = ctx.chat?.id?.toString();
-          if (chatId) {
-            (scrapeRequest.options as any).postScrape = { telegramChatId: chatId, initiatedBy: `telegram:${userId}` };
-          }
-        } catch (e) { }
-
-        serverLogger.info(`[Telegram] Starting scraper for profile: ${profileId}`);
-        const result = await scraperService.runScrape(scrapeRequest);
-        const txnCount = result.transactions?.length || 0;
-
-        // Attempt to persist the scrape result to the results folder
-        let savedFilename: string | null = null;
-        try {
-          const storage = this.getStorageService();
-          // Use profile name if available as provider identifier, fallback to companyId
-          const provider = (profile && (profile.name || profile.companyId)) || 'telegram';
-          savedFilename = await storage.saveScrapeResult(result, provider);
-          serverLogger.info('Saved scrape result from Telegram', { filename: savedFilename, profileId });
-        } catch (saveErr) {
-          serverLogger.warn('Failed to save scrape result from Telegram', { error: saveErr });
-        }
-
-        const accountCount = result.accounts?.length || 0;
-        let msg = `${this.t('scraperSuccess')}\n${this.t('profileLabel')}: ${profile.name}\n${this.t('accountsLabel')}: ${accountCount}\n${this.t('transactionsLabel')}: ${txnCount}`;
-        if (savedFilename) {
-          msg += `\n${this.t('savedLabel')}: ${savedFilename}`;
-        }
-
-        await ctx.reply(msg);
+        await this.executeScrapeForProfile(ctx, profile, userId, startDate);
 
       } catch (scraperError: any) {
         serverLogger.error('Scraper execution failed', { scraperError });
@@ -945,6 +1054,59 @@ export class TelegramBotService {
       serverLogger.error('Error handling scrape callback', { error });
       await ctx.reply(this.t('errorScraper'));
     }
+  }
+
+  /**
+   * Execute scrape for a single profile.
+   */
+  private async executeScrapeForProfile(ctx: Context, profile: Profile, userId: string, startDate?: string): Promise<void> {
+    const scraperService = this.getScraperService();
+    const scrapeRequest: ScrapeRequest = {
+      companyId: profile.companyId,
+      credentials: profile.credentials,
+      profileId: profile.id,
+      profileName: profile.name,
+      options: {
+        showBrowser: false,
+        aggregateTelegramNotifications: true,
+        ...(startDate ? { startDate } : {}),
+      }
+    };
+    try {
+      const chatId = ctx.chat?.id?.toString();
+      if (chatId) {
+        (scrapeRequest.options as any).postScrape = { telegramChatId: chatId, initiatedBy: `telegram:${userId}` };
+      }
+    } catch (e) { }
+
+    serverLogger.info(`[Telegram] Starting scraper for profile: ${profile.id}`, {
+      startDate: startDate || 'global-default',
+      mode: 'telegram',
+    });
+    const result = await scraperService.runScrape(scrapeRequest);
+    if (!result.success) {
+      await ctx.reply(`Scrape failed: ${result.error || this.t('errorScraper')}`);
+      return;
+    }
+    const txnCount = result.transactions?.length || 0;
+
+    // Attempt to persist the scrape result to the results folder
+    let savedFilename: string | null = null;
+    try {
+      const storage = this.getStorageService();
+      const provider = (profile && (profile.name || profile.companyId)) || 'telegram';
+      savedFilename = await storage.saveScrapeResult(result, provider);
+      serverLogger.info('Saved scrape result from Telegram', { filename: savedFilename, profileId: profile.id });
+    } catch (saveErr) {
+      serverLogger.warn('Failed to save scrape result from Telegram', { error: saveErr });
+    }
+
+    serverLogger.info('Telegram scrape completed; aggregated Telegram notification is sent by post-scrape flow', {
+      profileId: profile.id,
+      transactionCount: txnCount,
+      savedFilename,
+      startDate: startDate || 'global-default',
+    });
   }
 
   /**
@@ -1063,3 +1225,4 @@ export class TelegramBotService {
 
 // Export singleton instance
 export const telegramBotService = new TelegramBotService();
+

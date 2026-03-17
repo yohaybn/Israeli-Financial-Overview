@@ -50,6 +50,105 @@ export class PostScrapeService {
     return global.postScrapeConfig;
   }
 
+  private shouldAggregateTelegram(request?: ScrapeRequest): boolean {
+    return Boolean((request as any)?.options?.aggregateTelegramNotifications);
+  }
+
+  private getTelegramAggregationBuffer(request?: ScrapeRequest): NotificationPayload[] | null {
+    if (!this.shouldAggregateTelegram(request) || !request) return null;
+    const reqAny = request as any;
+    if (!reqAny.__telegramAggregationPayloads) {
+      reqAny.__telegramAggregationPayloads = [];
+    }
+    return reqAny.__telegramAggregationPayloads as NotificationPayload[];
+  }
+
+  private async notifyWithTelegramAggregation(
+    channels: string[],
+    payload: NotificationPayload,
+    request?: ScrapeRequest
+  ): Promise<void> {
+    const buffer = this.getTelegramAggregationBuffer(request);
+    if (!buffer) {
+      await notificationService.notify(channels, payload);
+      return;
+    }
+
+    const nonTelegramChannels = channels.filter((c) => c !== 'telegram');
+    if (nonTelegramChannels.length > 0) {
+      await notificationService.notify(nonTelegramChannels, payload);
+    }
+
+    const tgNotifier = notificationService.getNotifier('telegram');
+    const shouldCollectTelegram = channels.includes('telegram') || Boolean(tgNotifier && tgNotifier.isEnabled());
+    if (shouldCollectTelegram) {
+      buffer.push(payload);
+    }
+  }
+
+  async flushAggregatedTelegramNotification(request?: ScrapeRequest): Promise<void> {
+    const buffer = this.getTelegramAggregationBuffer(request);
+    if (!buffer || buffer.length === 0) return;
+
+    const bySeverity = { success: 1, warning: 2, failure: 3 } as const;
+    const finalStatus = buffer.reduce<'success' | 'warning' | 'failure'>((current, p) => {
+      return bySeverity[p.status] > bySeverity[current] ? p.status : current;
+    }, 'success');
+
+    const insights = buffer
+      .flatMap((p) => p.summary?.insights || [])
+      .filter((s) => !!s)
+      .slice(0, 12);
+
+    const scrapePayload =
+      [...buffer].reverse().find((p) => p.summary?.transactionCount != null || p.summary?.accounts != null) ||
+      buffer[buffer.length - 1];
+
+    const combinedPayload: NotificationPayload = {
+      pipelineId: request?.profileName || request?.companyId || scrapePayload.pipelineId || 'scrape',
+      status: finalStatus,
+      timestamp: new Date(),
+      detailLevel: 'normal',
+      summary: {
+        durationMs: Math.max(...buffer.map((p) => p.summary?.durationMs || 0)),
+        stagesRun: ['scrape', 'post-scrape'],
+        successfulStages: finalStatus === 'failure' ? ['scrape'] : ['scrape', 'post-scrape'],
+        failedStage: finalStatus === 'failure' ? 'post-scrape' : undefined,
+        transactionCount: scrapePayload.summary?.transactionCount,
+        accounts: scrapePayload.summary?.accounts,
+        balance: scrapePayload.summary?.balance,
+        insights,
+      },
+      errorDetails: finalStatus === 'failure'
+        ? {
+          stage: 'post-scrape',
+          message: buffer
+            .map((p) => p.errorDetails?.message)
+            .find((m) => !!m) || 'Post-scrape failed',
+        }
+        : undefined,
+    };
+
+    const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
+    if (tgChatId) {
+      const tgNotifier = notificationService.getNotifier('telegram') as any;
+      if (tgNotifier && typeof tgNotifier.addChatId === 'function') {
+        try {
+          tgNotifier.addChatId(String(tgChatId));
+          await tgNotifier.send(combinedPayload);
+        } finally {
+          try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) { }
+        }
+      } else {
+        await notificationService.notify(['telegram'], combinedPayload);
+      }
+    } else {
+      await notificationService.notify(['telegram'], combinedPayload);
+    }
+
+    (request as any).__telegramAggregationPayloads = [];
+  }
+
   /**
    * Send an error notification for a failed post-scrape action.
    */
@@ -84,7 +183,7 @@ export class PostScrapeService {
         },
       };
 
-      await notificationService.notify(channels, payload);
+      await this.notifyWithTelegramAggregation(channels, payload, request);
       logger.info(`Post-scrape error notification sent for ${stage}`);
     } catch (notifyErr) {
       logger.warn('Failed to send post-scrape error notification', { error: (notifyErr as Error).message });
@@ -182,7 +281,7 @@ export class PostScrapeService {
                   );
 
                   if (shouldNotify) {
-                    const channels = cfg.notificationChannels || ['console'];
+                    const channels = [...(cfg.notificationChannels || ['console'])];
                     const top = [...findings].sort((a, b) => b.score - a.score).slice(0, 5);
                     const lines = top.map((f) => {
                       const txn = transactions.find((t) => t.id === f.transactionId);
@@ -211,7 +310,7 @@ export class PostScrapeService {
                       },
                     };
 
-                    await notificationService.notify(channels, payload);
+                    await this.notifyWithTelegramAggregation(channels, payload, request);
                     logger.info('Post-scrape: local fraud notification sent');
                   }
                 }
@@ -245,7 +344,7 @@ export class PostScrapeService {
                 const lower = (fraudResult || '').toLowerCase();
                 const suspicious = /suspicious|fraud|anomaly|chargeback|dispute|unauthorized/.test(lower);
                 if (suspicious && cfg.fraudDetection.notifyOnIssue) {
-                  const channels = cfg.notificationChannels || ['console'];
+                  const channels = [...(cfg.notificationChannels || ['console'])];
                   const payload: NotificationPayload = {
                     pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
                     status: 'warning' as any,
@@ -262,30 +361,10 @@ export class PostScrapeService {
                     },
                   };
 
-                  // Notify global channels
-                  await notificationService.notify(channels, {
+                  await this.notifyWithTelegramAggregation(channels, {
                     ...payload,
                     summary: { ...payload.summary, insights: [ fraudResult.substring(0, 1000) ] },
-                  } as any);
-
-                  // If scrape was triggered from Telegram, notify the initiating chat directly
-                  // (Note: notificationService.notify already handles global channels including telegram if registered)
-                  const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
-                  if (tgChatId) {
-                    const tgNotifier = notificationService.getNotifier('telegram') as any;
-                    // Only send if it's NOT already in the global notification channels to avoid duplicates
-                    const globalChannels = channels;
-                    if (tgNotifier && typeof tgNotifier.addChatId === 'function' && !globalChannels.includes('telegram')) {
-                      try {
-                        tgNotifier.addChatId(String(tgChatId));
-                        await tgNotifier.send({ ...payload, summary: { ...payload.summary, insights: [ fraudResult.substring(0, 1000) ] } } as any);
-                      } catch (err) {
-                        logger.warn('Failed to send direct Telegram fraud notification (AI)', { error: (err as Error).message });
-                      } finally {
-                        try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) {}
-                      }
-                    }
-                  }
+                  } as any, request);
 
                   logger.info('Post-scrape: AI fraud notification sent');
                 }
@@ -320,7 +399,7 @@ export class PostScrapeService {
               logger.info('Post-scrape: custom AI query completed');
 
               if (cfg.customAI.notifyOnResult) {
-                const channels = cfg.notificationChannels || ['console'];
+                const channels = [...(cfg.notificationChannels || ['console'])];
                 const payload: NotificationPayload = {
                   pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
                   status: 'success',
@@ -337,26 +416,10 @@ export class PostScrapeService {
                   },
                 };
 
-                await notificationService.notify(channels, {
+                await this.notifyWithTelegramAggregation(channels, {
                   ...payload,
                   summary: { ...payload.summary, insights: [ aiResult.substring(0, 1000) ] },
-                } as any);
-
-                const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
-                if (tgChatId) {
-                  const tgNotifier = notificationService.getNotifier('telegram') as any;
-                  // Only send if it's NOT already in the global notification channels to avoid duplicates
-                  if (tgNotifier && typeof tgNotifier.addChatId === 'function' && !channels.includes('telegram')) {
-                    try {
-                      tgNotifier.addChatId(String(tgChatId));
-                      await tgNotifier.send({ ...payload, summary: { ...payload.summary, insights: [ aiResult.substring(0, 1000) ] } } as any);
-                    } catch (err) {
-                      logger.warn('Failed to send direct Telegram custom-AI notification', { error: (err as Error).message });
-                    } finally {
-                      try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) {}
-                    }
-                  }
-                }
+                } as any, request);
 
                 logger.info('Post-scrape: custom AI notification sent');
               }
@@ -425,7 +488,7 @@ export class PostScrapeService {
         } : undefined,
       };
 
-      await notificationService.notify(channels, payload);
+      await this.notifyWithTelegramAggregation(channels, payload, request);
       logger.info('Scrape notification sent', { success, channels });
     } catch (err) {
       logger.warn('Failed to send scrape notification', { error: (err as Error).message });

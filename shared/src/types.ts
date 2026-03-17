@@ -292,6 +292,8 @@ export interface ScraperOptions {
     includeRawTransaction?: boolean;
     navigationRetryCount?: number;
     optInFeatures?: string[];
+    suppressTelegramNotifications?: boolean;
+    aggregateTelegramNotifications?: boolean;
 }
 
 // Provider-specific credential field definitions

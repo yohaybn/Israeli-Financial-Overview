@@ -90,10 +90,13 @@ export class TelegramNotifier extends BaseNotifier {
     }
 
     const message = this.formatMessage(payload);
+    const chunks = this.splitMessageForTelegram(message, 4000);
 
     for (const chatId of this.chatIds) {
       try {
-        await this.sendMessage(chatId, message);
+        for (const chunk of chunks) {
+          await this.sendMessage(chatId, chunk);
+        }
         serverLogger.debug(`Telegram notification sent to chat ${chatId}`);
       } catch (error) {
         this.onError(error as Error, payload);
@@ -132,6 +135,65 @@ export class TelegramNotifier extends BaseNotifier {
     if (status === 'success') return this.L('successStatus');
     if (status === 'failure') return this.L('failureStatus');
     return this.L('warningStatus');
+  }
+
+  /**
+   * Split long messages into chunks within Telegram-safe size.
+   * Prefer split points at newline, sentence boundary, then whitespace.
+   */
+  private splitMessageForTelegram(message: string, maxLen: number): string[] {
+    const text = String(message || '');
+    if (text.length <= maxLen) return [text];
+
+    const chunks: string[] = [];
+    let remaining = text;
+
+    while (remaining.length > maxLen) {
+      let splitAt = this.findBestSplitPoint(remaining, maxLen);
+      if (splitAt <= 0 || splitAt > remaining.length) {
+        splitAt = maxLen;
+      }
+
+      const chunk = remaining.slice(0, splitAt).trim();
+      if (chunk.length > 0) {
+        chunks.push(chunk);
+      }
+      remaining = remaining.slice(splitAt).trim();
+    }
+
+    if (remaining.length > 0) {
+      chunks.push(remaining);
+    }
+
+    return chunks;
+  }
+
+  private findBestSplitPoint(text: string, maxLen: number): number {
+    const candidate = text.slice(0, maxLen + 1);
+
+    // Prefer newline boundaries.
+    const newline = candidate.lastIndexOf('\n');
+    if (newline >= Math.floor(maxLen * 0.6)) {
+      return newline;
+    }
+
+    // Prefer sentence boundaries.
+    for (let i = maxLen; i >= Math.floor(maxLen * 0.6); i--) {
+      const c = candidate[i];
+      if (!c) continue;
+      if (c === '.' || c === '!' || c === '?' || c === '…' || c === ';') {
+        return i + 1;
+      }
+    }
+
+    // Fallback to whitespace boundary.
+    const ws = Math.max(candidate.lastIndexOf(' '), candidate.lastIndexOf('\t'));
+    if (ws >= Math.floor(maxLen * 0.6)) {
+      return ws;
+    }
+
+    // Last resort hard split.
+    return maxLen;
   }
 
   /**

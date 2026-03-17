@@ -81,6 +81,7 @@ export class ScraperService {
     async runScrape(request: ScrapeRequest): Promise<ScrapeResult> {
         const logs: string[] = [];
         const startTime = Date.now();
+        const aggregateTelegramNotifications = Boolean((request.options as any)?.aggregateTelegramNotifications);
 
         const addLog = (msg: string) => {
             const logEntry = `[${new Date().toISOString()}] ${msg}`;
@@ -238,16 +239,34 @@ export class ScraperService {
                     executionTimeMs,
                 };
 
-                // Run post-scrape actions asynchronously (categorization, fraud check, custom AI, notifications)
-                postScrapeService.handleResult(successResult, request).catch((err: any) => {
-                    // Log but don't fail the scrape
-                    this.emitLog(`Post-scrape actions failed: ${err?.message || err}`);
-                });
+                if (aggregateTelegramNotifications) {
+                    try {
+                        await postScrapeService.handleResult(successResult, request);
+                    } catch (err: any) {
+                        this.emitLog(`Post-scrape actions failed: ${err?.message || err}`);
+                    }
+                    try {
+                        await postScrapeService.sendScrapeNotification(successResult, request);
+                    } catch (err: any) {
+                        this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                    }
+                    try {
+                        await postScrapeService.flushAggregatedTelegramNotification(request);
+                    } catch (err: any) {
+                        this.emitLog(`Aggregated Telegram notification failed: ${err?.message || err}`);
+                    }
+                } else {
+                    // Run post-scrape actions asynchronously (categorization, fraud check, custom AI, notifications)
+                    postScrapeService.handleResult(successResult, request).catch((err: any) => {
+                        // Log but don't fail the scrape
+                        this.emitLog(`Post-scrape actions failed: ${err?.message || err}`);
+                    });
 
-                // Notify configured channels (Telegram, etc.) about the scrape result
-                postScrapeService.sendScrapeNotification(successResult, request).catch((err: any) => {
-                    this.emitLog(`Scrape notification failed: ${err?.message || err}`);
-                });
+                    // Notify configured channels (Telegram, etc.) about the scrape result
+                    postScrapeService.sendScrapeNotification(successResult, request).catch((err: any) => {
+                        this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                    });
+                }
 
                 return successResult;
             } else {
@@ -270,10 +289,19 @@ export class ScraperService {
                     executionTimeMs,
                 };
 
-                // Notify configured channels about the failed scrape
-                postScrapeService.sendScrapeNotification(failResult, request).catch((err: any) => {
-                    this.emitLog(`Scrape notification failed: ${err?.message || err}`);
-                });
+                if (aggregateTelegramNotifications) {
+                    try {
+                        await postScrapeService.sendScrapeNotification(failResult, request);
+                        await postScrapeService.flushAggregatedTelegramNotification(request);
+                    } catch (err: any) {
+                        this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                    }
+                } else {
+                    // Notify configured channels about the failed scrape
+                    postScrapeService.sendScrapeNotification(failResult, request).catch((err: any) => {
+                        this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                    });
+                }
 
                 return failResult;
             }
@@ -299,8 +327,17 @@ export class ScraperService {
                 executionTimeMs,
             };
 
-            // Notify configured channels about the critical error
-            postScrapeService.sendScrapeNotification(errorResult, request).catch(() => {});
+            if (aggregateTelegramNotifications) {
+                try {
+                    await postScrapeService.sendScrapeNotification(errorResult, request);
+                    await postScrapeService.flushAggregatedTelegramNotification(request);
+                } catch (err: any) {
+                    this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                }
+            } else {
+                // Notify configured channels about the critical error
+                postScrapeService.sendScrapeNotification(errorResult, request).catch(() => {});
+            }
 
             return errorResult;
         }
