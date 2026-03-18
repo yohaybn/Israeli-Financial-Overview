@@ -6,7 +6,7 @@ import path from 'path'
 export default defineConfig(({ mode }) => {
     // Load env variables from the root .env file
     const env = loadEnv(mode, path.resolve(__dirname, '..'), '')
-    const targetPort = env.PORT || 3001
+    const targetPort = env.PORT || 3000
 
     return {
         plugins: [

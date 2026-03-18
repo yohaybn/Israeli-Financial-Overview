@@ -21,7 +21,11 @@ logRoutes.get('/', async (req, res) => {
         const filePath = path.join(LOGS_DIR, fileName);
 
         if (!await fs.pathExists(filePath)) {
-            return res.status(404).json({ error: 'Log file not found' });
+            return res.json({
+                type,
+                lines: '',
+                totalLines: 0
+            });
         }
 
         const content = await fs.readFile(filePath, 'utf-8');

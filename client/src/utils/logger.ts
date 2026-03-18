@@ -1,11 +1,11 @@
-import axios from 'axios';
+import { api } from '../lib/api';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 class RemoteLogger {
     private endpoint: string;
 
-    constructor(endpoint: string = '/api/logs') {
+    constructor(endpoint: string = '/logs') {
         this.endpoint = endpoint;
     }
 
@@ -15,7 +15,7 @@ class RemoteLogger {
         consoleMethod(`[Remote] ${message}`, metadata);
 
         try {
-            await axios.post(this.endpoint, {
+            await api.post(this.endpoint, {
                 level,
                 message,
                 timestamp: new Date().toISOString(),

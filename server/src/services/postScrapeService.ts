@@ -63,6 +63,20 @@ export class PostScrapeService {
     return reqAny.__telegramAggregationPayloads as NotificationPayload[];
   }
 
+  private getRunSource(request?: ScrapeRequest): 'telegram_bot' | 'scheduler' | 'manual' {
+    const reqAny = request as any;
+    const options = reqAny?.options || {};
+    const explicit = options.runSource;
+    if (explicit === 'telegram_bot' || explicit === 'scheduler' || explicit === 'manual') {
+      return explicit;
+    }
+
+    const initiatedBy = String(options?.postScrape?.initiatedBy || options?.initiatedBy || '').toLowerCase();
+    if (initiatedBy.startsWith('telegram')) return 'telegram_bot';
+    if (initiatedBy.startsWith('scheduler')) return 'scheduler';
+    return 'manual';
+  }
+
   private async notifyWithTelegramAggregation(
     channels: string[],
     payload: NotificationPayload,
@@ -109,6 +123,7 @@ export class PostScrapeService {
       status: finalStatus,
       timestamp: new Date(),
       detailLevel: 'normal',
+      runSource: this.getRunSource(request),
       summary: {
         durationMs: Math.max(...buffer.map((p) => p.summary?.durationMs || 0)),
         stagesRun: ['scrape', 'post-scrape'],
@@ -170,6 +185,7 @@ export class PostScrapeService {
         status: 'failure',
         timestamp: new Date(),
         detailLevel: 'normal',
+        runSource: this.getRunSource(request),
         summary: {
           durationMs: 0,
           stagesRun: ['scrape', stage],
@@ -296,6 +312,7 @@ export class PostScrapeService {
                       status: 'warning' as any,
                       timestamp: new Date(),
                       detailLevel: 'normal',
+                      runSource: this.getRunSource(request),
                       summary: {
                         durationMs: result.executionTimeMs || 0,
                         stagesRun: ['scrape'],
@@ -350,6 +367,7 @@ export class PostScrapeService {
                     status: 'warning' as any,
                     timestamp: new Date(),
                     detailLevel: 'normal',
+                    runSource: this.getRunSource(request),
                     summary: {
                       durationMs: result.executionTimeMs || 0,
                       stagesRun: ['scrape'],
@@ -405,6 +423,7 @@ export class PostScrapeService {
                   status: 'success',
                   timestamp: new Date(),
                   detailLevel: 'normal',
+                  runSource: this.getRunSource(request),
                   summary: {
                     durationMs: result.executionTimeMs || 0,
                     stagesRun: ['scrape'],
@@ -473,6 +492,7 @@ export class PostScrapeService {
         status: success ? 'success' : 'failure',
         timestamp: new Date(),
         detailLevel: 'normal',
+        runSource: this.getRunSource(request),
         summary: {
           durationMs: result.executionTimeMs || 0,
           stagesRun: ['scrape'],

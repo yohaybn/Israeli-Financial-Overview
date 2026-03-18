@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
 import { useFinancialSummary } from '../../hooks/useFinancialSummary';
@@ -8,7 +8,7 @@ import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { ExpenseProgressCenter } from './ExpenseProgressCenter';
 import { IncomeProgressCenter } from './IncomeProgressCenter';
 import { TransferDetectionBanner } from './TransferDetectionBanner';
-import { AnalyticsDashboard } from '../AnalyticsDashboard';
+import { AnalyticsDashboard, AnalyticsDayFilter } from '../AnalyticsDashboard';
 import { BudgetHealthScore } from './BudgetHealthScore';
 import { AnomalyAlerts } from './AnomalyAlerts';
 import { CCPaymentDateSettings } from './CCPaymentDateSettings';
@@ -16,6 +16,7 @@ import { DashboardAIChat } from './DashboardAIChat';
 import { CategoryDetailsModal } from './CategoryDetailsModal';
 import { SubscriptionList } from './SubscriptionList';
 import { MonthlyTransactionsCard } from './MonthlyTransactionsCard';
+import { DayTransactionsModal } from './DayTransactionsModal';
 
 interface FinancialCommandCenterProps {
     // Optional: if provided, uses these transactions (for backward compatibility or specific file view)
@@ -40,6 +41,8 @@ export function FinancialCommandCenter({
     const [showAnomalies, setShowAnomalies] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<string | null>(null);
+    const [analyticsViewRange, setAnalyticsViewRange] = useState<'month' | 'all'>('month');
+    const [analyticsDayFilter, setAnalyticsDayFilter] = useState<AnalyticsDayFilter | null>(null);
 
     // If props provided, use them. Otherwise fetch unified data.
     const { data: unifiedTransactions, isLoading /*, error*/ } = useUnifiedData();
@@ -77,6 +80,47 @@ export function FinancialCommandCenter({
         const newMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         onMonthChange(newMonth);
     };
+
+    const parseTransactionDate = (dateValue: string) => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+            return new Date(`${dateValue}T12:00:00`);
+        }
+        return new Date(dateValue);
+    };
+
+    const monthTransactions = useMemo(
+        () => transactions.filter(t => t.date.startsWith(selectedMonth)),
+        [transactions, selectedMonth]
+    );
+
+    const transactionsForTable = useMemo(() => {
+        const base = analyticsViewRange === 'all' ? transactions : monthTransactions;
+        if (!analyticsDayFilter) return base;
+
+        return base.filter((transaction) => {
+            const amount = transaction.chargedAmount ?? transaction.amount ?? 0;
+            if (amount >= 0) return false;
+
+            const date = parseTransactionDate(transaction.date);
+            if (analyticsDayFilter.kind === 'weekday') {
+                return date.getDay() === analyticsDayFilter.value;
+            }
+            return date.getDate() === analyticsDayFilter.value;
+        });
+    }, [transactions, monthTransactions, analyticsViewRange, analyticsDayFilter]);
+
+    const tableScopeLabel = analyticsViewRange === 'all' ? t('analytics.all_months') : t('analytics.this_month');
+    const tableFilterLabel = analyticsDayFilter
+        ? t(
+            analyticsDayFilter.kind === 'weekday'
+                ? 'analytics.weekday_filter_label'
+                : 'analytics.month_day_filter_label',
+            { label: analyticsDayFilter.label }
+        )
+        : undefined;
+    const dayModalTitle = analyticsDayFilter
+        ? t('analytics.transactions_for_day_scope', { filter: tableFilterLabel, scope: tableScopeLabel })
+        : '';
 
     if (isLoading && !propTransactions) {
         return (
@@ -227,9 +271,12 @@ export function FinancialCommandCenter({
                         onUpdateCategory={onUpdateCategory}
                     />
                     <MonthlyTransactionsCard
-                        transactions={transactions.filter(t => t.date.startsWith(selectedMonth))}
+                        transactions={transactionsForTable}
                         categories={availableCategories}
                         onUpdateCategory={onUpdateCategory}
+                        scopeLabel={tableScopeLabel}
+                        filterLabel={tableFilterLabel}
+                        onClearFilter={() => setAnalyticsDayFilter(null)}
                     />
                 </div>
             </div>
@@ -253,10 +300,13 @@ export function FinancialCommandCenter({
                     transactions passed to AnalyticsDashboard to match the selected month.
                 */}
                 <AnalyticsDashboard
-                    transactions={transactions.filter(t => t.date.startsWith(selectedMonth))}
+                    transactions={monthTransactions}
                     allTransactions={transactions}
                     onCategoryClick={setSelectedCategoryForModal}
                     customCCKeywords={config.customCCKeywords}
+                    onViewRangeChange={setAnalyticsViewRange}
+                    onDayFilterChange={setAnalyticsDayFilter}
+                    activeDayFilter={analyticsDayFilter}
                 />
             </div>
 
@@ -279,6 +329,16 @@ export function FinancialCommandCenter({
                     initialMonth={selectedMonth}
                     customCCKeywords={config.customCCKeywords}
                     onClose={() => setSelectedCategoryForModal(null)}
+                />
+            )}
+
+            {analyticsDayFilter && (
+                <DayTransactionsModal
+                    title={dayModalTitle}
+                    transactions={transactionsForTable}
+                    categories={availableCategories}
+                    onUpdateCategory={onUpdateCategory}
+                    onClose={() => setAnalyticsDayFilter(null)}
                 />
             )}
 

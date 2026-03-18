@@ -1111,6 +1111,8 @@ export class TelegramBotService {
       options: {
         showBrowser: false,
         aggregateTelegramNotifications: true,
+        runSource: 'telegram_bot',
+        initiatedBy: `telegram:${userId}`,
         ...(startDate ? { startDate } : {}),
       }
     };

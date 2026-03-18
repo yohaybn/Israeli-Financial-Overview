@@ -6,6 +6,7 @@ import { SchedulerConfig, DEFAULT_SCHEDULER_CONFIG, Profile } from '@app/shared'
 import { serviceLogger as logger } from '../utils/logger.js';
 import { ScraperService } from './scraperService.js';
 import { ProfileService } from './profileService.js';
+import { BackupService } from './backupService.js';
 // PipelineController removed - scheduler will run scrapes and rely on post-scrape actions
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,10 +15,20 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
 const SCHEDULER_CONFIG_PATH = path.join(DATA_DIR, 'scheduler_config.json');
 
+type SchedulerBackupConfig = {
+    enabled: boolean;
+    destination: 'local' | 'google-drive';
+};
+
+type SchedulerConfigWithBackup = SchedulerConfig & {
+    backupSchedule?: SchedulerBackupConfig;
+};
+
 export class SchedulerService {
-    private config: SchedulerConfig;
+    private config: SchedulerConfigWithBackup;
     private scraperService: ScraperService;
     private profileService: ProfileService;
+    private backupService: BackupService;
     
     private currentJob: cron.ScheduledTask | null = null;
     private isRunning: boolean = false;
@@ -25,19 +36,28 @@ export class SchedulerService {
     constructor(scraperService: ScraperService, profileService: ProfileService) {
         this.scraperService = scraperService;
         this.profileService = profileService;
+        this.backupService = new BackupService();
         this.config = this.loadConfig();
         this.initialize();
     }
 
-    private loadConfig(): SchedulerConfig {
+    private loadConfig(): SchedulerConfigWithBackup {
         try {
             if (fs.existsSync(SCHEDULER_CONFIG_PATH)) {
-                return JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'));
+                const stored = JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'));
+                return {
+                    ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigWithBackup),
+                    ...stored,
+                    backupSchedule: {
+                        ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigWithBackup).backupSchedule,
+                        ...stored.backupSchedule
+                    }
+                };
             }
         } catch (error) {
             logger.error('Failed to load scheduler config, using defaults', { error });
         }
-        return { ...DEFAULT_SCHEDULER_CONFIG };
+        return { ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigWithBackup) };
     }
 
     private saveConfig() {
@@ -58,8 +78,15 @@ export class SchedulerService {
         return { ...this.config };
     }
 
-    public updateConfig(newConfig: Partial<SchedulerConfig>) {
-        this.config = { ...this.config, ...newConfig };
+    public updateConfig(newConfig: Partial<SchedulerConfigWithBackup>) {
+        this.config = {
+            ...this.config,
+            ...newConfig,
+            backupSchedule: {
+                enabled: newConfig.backupSchedule?.enabled ?? this.config.backupSchedule?.enabled ?? false,
+                destination: newConfig.backupSchedule?.destination ?? this.config.backupSchedule?.destination ?? 'local'
+            }
+        };
         this.saveConfig();
 
         // Restart job if enabled or schedule changed
@@ -130,6 +157,8 @@ export class SchedulerService {
                     options: {
                         ...profile.options,
                         headless: true,
+                        runSource: 'scheduler',
+                        initiatedBy: 'scheduler',
                     } as any
                 };
 
@@ -139,6 +168,21 @@ export class SchedulerService {
                     logger.info(`Scheduled scrape completed for profile: ${profile.name}`);
                 } catch (error) {
                     logger.error(`Scheduled scrape failed for profile: ${profile.name}`, { error });
+                }
+            }
+
+            if (this.config.backupSchedule?.enabled) {
+                try {
+                    const destination = this.config.backupSchedule.destination || 'local';
+                    const localBackup = await this.backupService.createLocalBackup();
+                    logger.info(`Scheduled backup created locally: ${localBackup.filename}`);
+
+                    if (destination === 'google-drive') {
+                        const driveFile = await this.backupService.uploadLatestSnapshotToGoogleDrive(localBackup.path);
+                        logger.info(`Scheduled backup uploaded to Google Drive: ${driveFile.id || driveFile.name}`);
+                    }
+                } catch (backupError) {
+                    logger.error('Scheduled backup failed', { error: backupError });
                 }
             }
 

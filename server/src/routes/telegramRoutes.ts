@@ -188,7 +188,7 @@ router.post('/test', async (req: Request, res: Response) => {
 
     await testBot.telegram.sendMessage(
       chatId,
-      '✅ Telegram bot configuration test successful!'
+      'âœ… Telegram bot configuration test successful!'
     );
 
     res.json({ success: true, message: 'Test message sent' });
@@ -269,6 +269,50 @@ router.get('/notification-chats', async (req: Request, res: Response) => {
     res.json({ success: true, data: notificationChatIds });
   } catch (error: any) {
     serverLogger.error('Error getting notification chats', { error });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/telegram/user-labels
+ * Best-effort display labels for user/chat IDs
+ */
+router.post('/user-labels', async (req: Request, res: Response) => {
+  try {
+    const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids.map((id: any) => String(id)) : [];
+    const uniqueIds: string[] = Array.from(new Set(ids.filter(Boolean)));
+
+    if (uniqueIds.length === 0) {
+      return res.json({ success: true, data: {} });
+    }
+
+    const config = telegramBotService.getConfig();
+    if (!config.botToken) {
+      return res.json({ success: true, data: {} });
+    }
+
+    const { Telegraf } = await import('telegraf');
+    const bot = new Telegraf(config.botToken);
+    const labels: Record<string, string> = {};
+
+    await Promise.all(
+      uniqueIds.map(async (id) => {
+        try {
+          const chat = await bot.telegram.getChat(id);
+          const username = (chat as any)?.username ? `@${(chat as any).username}` : null;
+          const firstName = (chat as any)?.first_name || '';
+          const lastName = (chat as any)?.last_name || '';
+          const title = (chat as any)?.title || '';
+          labels[id] = username || `${firstName} ${lastName}`.trim() || title || id;
+        } catch {
+          labels[id] = id;
+        }
+      })
+    );
+
+    res.json({ success: true, data: labels });
+  } catch (error: any) {
+    serverLogger.error('Error resolving telegram user labels', { error });
     res.status(500).json({ success: false, error: error.message });
   }
 });

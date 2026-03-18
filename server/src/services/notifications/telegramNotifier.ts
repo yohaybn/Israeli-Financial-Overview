@@ -35,6 +35,10 @@ const LABELS: Record<'en' | 'he', Record<string, string>> = {
     failed: 'Failed',
     timestamp: 'Timestamp',
     insights: 'Insights',
+    source: 'Source',
+    sourceTelegramBot: 'Telegram bot',
+    sourceScheduler: 'Scheduler',
+    sourceManual: 'Manual',
     successStatus: '✅ SUCCESS',
     failureStatus: '❌ FAILURE',
     warningStatus: '⚠️ WARNING',
@@ -53,6 +57,10 @@ const LABELS: Record<'en' | 'he', Record<string, string>> = {
     failed: 'נכשל',
     timestamp: 'זמן',
     insights: 'תובנות',
+    source: '\u05DE\u05E7\u05D5\u05E8',
+    sourceTelegramBot: '\u05D1\u05D5\u05D8 \u05D8\u05DC\u05D2\u05E8\u05DD',
+    sourceScheduler: '\u05DE\u05EA\u05D6\u05DE\u05DF',
+    sourceManual: '\u05D9\u05D3\u05E0\u05D9',
     successStatus: '✅ הצלחה',
     failureStatus: '❌ כישלון',
     warningStatus: '⚠️ אזהרה',
@@ -137,6 +145,12 @@ export class TelegramNotifier extends BaseNotifier {
     return this.L('warningStatus');
   }
 
+  private runSourceText(source?: string): string {
+    if (source === 'telegram_bot') return this.L('sourceTelegramBot');
+    if (source === 'scheduler') return this.L('sourceScheduler');
+    return this.L('sourceManual');
+  }
+
   /**
    * Split long messages into chunks within Telegram-safe size.
    * Prefer split points at newline, sentence boundary, then whitespace.
@@ -201,16 +215,18 @@ export class TelegramNotifier extends BaseNotifier {
    */
   private formatMessage(payload: NotificationPayload): string {
     const statusLine = `${this.statusText(payload.status)}`;
-    const title = `*${escMDV2(this.L('scrapeNotification'))} \\— ${escMDV2(statusLine)}*`;
+    const title = `*${escMDV2(this.L('scrapeNotification'))} \\- ${escMDV2(statusLine)}*`;
     const durationStr = `${(payload.summary.durationMs / 1000).toFixed(2)}${this.L('seconds')}`;
+    const sourceStr = this.runSourceText(payload.runSource);
 
     switch (payload.detailLevel) {
       case 'minimal':
-        return `${title}\n⏱ ${escMDV2(durationStr)}`;
+        return `${title}\n*${escMDV2(this.L('source'))}:* ${escMDV2(sourceStr)}\n⏱ ${escMDV2(durationStr)}`;
 
       case 'normal': {
         const lines: string[] = [title];
         lines.push(`*${escMDV2(this.L('profile'))}:* \`${escMDV2(payload.pipelineId)}\``);
+        lines.push(`*${escMDV2(this.L('source'))}:* ${escMDV2(sourceStr)}`);
         lines.push(`*${escMDV2(this.L('duration'))}:* ${escMDV2(durationStr)}`);
         if (payload.summary.transactionCount != null) {
           lines.push(`*${escMDV2(this.L('transactions'))}:* ${escMDV2(String(payload.summary.transactionCount))}`);
@@ -231,6 +247,7 @@ export class TelegramNotifier extends BaseNotifier {
       case 'detailed': {
         const lines: string[] = [title];
         lines.push(`*${escMDV2(this.L('profile'))}:* \`${escMDV2(payload.pipelineId)}\``);
+        lines.push(`*${escMDV2(this.L('source'))}:* ${escMDV2(sourceStr)}`);
         lines.push(`*${escMDV2(this.L('timestamp'))}:* ${escMDV2(payload.timestamp.toISOString())}`);
         lines.push(`*${escMDV2(this.L('duration'))}:* ${escMDV2(durationStr)}`);
         if (payload.summary.stagesRun.length) {

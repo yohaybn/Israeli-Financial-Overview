@@ -5,7 +5,7 @@ declare const __BACKEND_PORT__: string;
 const getBaseUrl = () => {
     // @ts-ignore: Vite injects import.meta.env
     if (import.meta.env.DEV) {
-        return `http://${window.location.hostname}:${typeof __BACKEND_PORT__ !== 'undefined' ? __BACKEND_PORT__ : 3001}/api`;
+        return `http://${window.location.hostname}:${typeof __BACKEND_PORT__ !== 'undefined' ? __BACKEND_PORT__ : 3000}/api`;
     }
     return '/api';
 };

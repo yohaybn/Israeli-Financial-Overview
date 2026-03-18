@@ -1,45 +1,55 @@
 import { Transaction, Subscription, SubscriptionInterval } from '@app/shared';
+import { isInternalTransfer } from './transactionUtils';
 
-const SUBSCRIPTION_KEYWORDS = [
-  'netflix', 'spotify', 'apple', 'google', 'microsoft', 'aws', 'azure', 'github',
-  'disney', 'amazon prime', 'hulu', 'hbo', 'youtube', 'adobe', 'dropbox', 'slack',
-  'zoom', 'linkedin', 'canva', 'shopify', 'wix', 'squarespace', 'mailchimp',
-  'gym', 'club', 'fitness', 'insurance', 'health', 'bituach', 'cellular', 'mobile',
-  'internet', 'cable', 'bezeq', 'hot', 'yes', 'partner', 'cellcom', 'extra'
+const STRONG_SUBSCRIPTION_KEYWORDS = [
+  'netflix', 'spotify', 'apple music', 'apple tv', 'icloud', 'youtube premium',
+  'amazon prime', 'disney', 'hulu', 'hbo', 'adobe', 'dropbox', 'canva', 'wix',
+  'squarespace', 'mailchimp', 'github', 'chatgpt', 'openai'
+];
+
+const RECURRING_SERVICE_KEYWORDS = [
+  'gym', 'fitness', 'insurance', 'bituach', 'cellular', 'mobile', 'internet',
+  'bezeq', 'hot', 'yes', 'partner', 'cellcom', 'pelephone', 'pelphone'
 ];
 
 export function detectSubscriptions(transactions: Transaction[]): Subscription[] {
   const subscriptions: Subscription[] = [];
 
-  // 1. Group transactions by description
+  // 1. Group transactions by a normalized merchant key.
   const groupedByDesc = new Map<string, Transaction[]>();
   transactions.forEach(t => {
     if (t.isIgnored || t.excludeFromSubscriptions) return;
 
-    // Exclude installments and income
+    // Exclude installments, income, and internal transfers.
     if (t.type === 'installment' || t.type === 'installments' || t.amount > 0) return;
+    if (isInternalTransfer(t)) return;
 
-    const desc = t.description.toLowerCase();
-    if (!groupedByDesc.has(desc)) {
-      groupedByDesc.set(desc, []);
+    const merchantKey = normalizeMerchantKey(t.description);
+    if (!merchantKey) return;
+
+    if (!groupedByDesc.has(merchantKey)) {
+      groupedByDesc.set(merchantKey, []);
     }
-    groupedByDesc.get(desc)!.push(t);
+    groupedByDesc.get(merchantKey)!.push(t);
   });
 
   // 2. Process each group
-  for (const [desc, txns] of groupedByDesc.entries()) {
+  for (const [, txns] of groupedByDesc.entries()) {
     // Sort transactions by date
     const sortedTxns = [...txns].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const latestTxn = sortedTxns[sortedTxns.length - 1];
+    const representativeDescription = pickRepresentativeDescription(sortedTxns);
 
     // Check for manual marking
-    const manualSub = sortedTxns.find(t => t.isSubscription);
-    if (manualSub && manualSub.subscriptionInterval) {
+    const manualSub = [...sortedTxns].reverse().find(t => t.isSubscription);
+    if (manualSub) {
+      const manualInterval = manualSub.subscriptionInterval || 'monthly';
       subscriptions.push({
-        description: manualSub.description,
-        amount: Math.abs(manualSub.amount),
-        interval: manualSub.subscriptionInterval,
-        nextExpectedDate: calculateNextDate(manualSub.date, manualSub.subscriptionInterval),
-        category: manualSub.category,
+        description: representativeDescription,
+        amount: Math.abs(latestTxn.amount),
+        interval: manualInterval,
+        nextExpectedDate: calculateNextDate(latestTxn.date, manualInterval),
+        category: latestTxn.category,
         isManual: true,
         confidence: 1,
         history: sortedTxns
@@ -48,17 +58,17 @@ export function detectSubscriptions(transactions: Transaction[]): Subscription[]
     }
 
     if (sortedTxns.length < 2) {
-      // Check for keywords if only one transaction
-      const isKeywordMatch = SUBSCRIPTION_KEYWORDS.some(word => desc.includes(word));
-      if (isKeywordMatch) {
-        // Default to monthly for keyword match if only 1 txn
+      // Conservative fallback: only strong-brand keywords can trigger a single-transaction subscription.
+      const normalizedDesc = normalizeMerchantKey(latestTxn.description);
+      const isStrongKeywordMatch = STRONG_SUBSCRIPTION_KEYWORDS.some(word => normalizedDesc.includes(word));
+      if (isStrongKeywordMatch && isActiveByInterval(latestTxn.date, 'monthly')) {
         subscriptions.push({
-          description: sortedTxns[0].description,
-          amount: Math.abs(sortedTxns[0].amount),
+          description: representativeDescription,
+          amount: Math.abs(latestTxn.amount),
           interval: 'monthly',
-          nextExpectedDate: calculateNextDate(sortedTxns[0].date, 'monthly'),
-          category: sortedTxns[0].category,
-          confidence: 0.7,
+          nextExpectedDate: calculateNextDate(latestTxn.date, 'monthly'),
+          category: latestTxn.category,
+          confidence: 0.65,
           history: sortedTxns
         });
       }
@@ -66,7 +76,7 @@ export function detectSubscriptions(transactions: Transaction[]): Subscription[]
     }
 
     // Analyze rhythm and amount
-    const analysis = analyzeRecurringPattern(sortedTxns);
+    const analysis = analyzeRecurringPattern(sortedTxns, representativeDescription);
     if (analysis) {
       subscriptions.push({
         ...analysis,
@@ -75,21 +85,20 @@ export function detectSubscriptions(transactions: Transaction[]): Subscription[]
     }
   }
 
-  // 3. Filter out inactive subscriptions (longer than 2 months ago)
-  const twoMonthsAgo = new Date();
-  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-
+  // 3. Filter out inactive subscriptions using interval-aware windows.
   return subscriptions.filter(sub => {
     if (!sub.history || sub.history.length === 0) return true;
-    const lastTxnDate = new Date(sub.history[sub.history.length - 1].date);
-    return lastTxnDate >= twoMonthsAgo;
+    const lastTxnDate = sub.history[sub.history.length - 1].date;
+    return isActiveByInterval(lastTxnDate, sub.interval);
   });
 }
 
-function analyzeRecurringPattern(txns: Transaction[]): Omit<Subscription, 'history'> | null {
+function analyzeRecurringPattern(
+  txns: Transaction[],
+  description: string
+): Omit<Subscription, 'history'> | null {
   if (txns.length < 2) return null;
 
-  // Implementation of rhythm check
   const diffsInDays: number[] = [];
   for (let i = 1; i < txns.length; i++) {
     const d1 = new Date(txns[i - 1].date).getTime();
@@ -97,41 +106,126 @@ function analyzeRecurringPattern(txns: Transaction[]): Omit<Subscription, 'histo
     diffsInDays.push(Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
   }
 
-  const avgInterval = diffsInDays.reduce((a, b) => a + b, 0) / diffsInDays.length;
-  const avgAmount = txns.reduce((a, b) => a + Math.abs(b.amount), 0) / txns.length;
+  const amounts = txns.map(t => Math.abs(t.amount)).sort((a, b) => a - b);
+  const medianAmount = amounts[Math.floor(amounts.length / 2)] || 0;
+  if (medianAmount <= 0) return null;
 
-  // Variance checks
-  const amountVariance = txns.every(t => Math.abs(Math.abs(t.amount) - avgAmount) / avgAmount < 0.05);
+  // Allow moderate amount drift (pricing/tax deltas) with both relative and absolute tolerances.
+  const amountStable = txns.every(t => {
+    const current = Math.abs(t.amount);
+    const relativeDelta = Math.abs(current - medianAmount) / medianAmount;
+    const absoluteDelta = Math.abs(current - medianAmount);
+    return relativeDelta <= 0.12 || absoluteDelta <= 12;
+  });
+  if (!amountStable) return null;
 
-  let interval: SubscriptionInterval | null = null;
-  let confidence = 0.5;
+  const bestInterval = detectBestInterval(diffsInDays);
+  if (!bestInterval) return null;
 
-  if (avgInterval >= 27 && avgInterval <= 33) {
-    interval = 'monthly';
-    confidence = txns.length >= 3 ? 0.9 : 0.7;
-  } else if (avgInterval >= 360 && avgInterval <= 370) {
-    interval = 'annually';
-    confidence = 0.9;
-  } else if (avgInterval >= 6 && avgInterval <= 8) {
-    interval = 'weekly';
-    confidence = txns.length >= 4 ? 0.8 : 0.6;
-  } else if (avgInterval >= 13 && avgInterval <= 15) {
-    interval = 'bi-weekly';
-    confidence = txns.length >= 3 ? 0.8 : 0.6;
+  const keywordHint = hasRecurringKeyword(description) ? 0.05 : 0;
+  const confidence = Math.min(
+    0.98,
+    bestInterval.matchRatio * 0.7 + Math.min(txns.length, 6) * 0.05 + keywordHint
+  );
+
+  // Require stronger evidence for non-branded recurring services.
+  if (txns.length < 3 && confidence < 0.8) return null;
+
+  return {
+    description,
+    amount: medianAmount,
+    interval: bestInterval.interval,
+    nextExpectedDate: calculateNextDate(txns[txns.length - 1].date, bestInterval.interval),
+    category: txns[txns.length - 1].category,
+    confidence
+  };
+}
+
+function detectBestInterval(
+  diffsInDays: number[]
+): { interval: SubscriptionInterval; matchRatio: number } | null {
+  if (diffsInDays.length === 0) return null;
+
+  const intervalMatchers: Array<{
+    interval: SubscriptionInterval;
+    matches: (diff: number) => boolean;
+  }> = [
+    { interval: 'daily', matches: d => d >= 1 && d <= 2 },
+    { interval: 'weekly', matches: d => Math.abs(d - 7) <= 1 },
+    { interval: 'bi-weekly', matches: d => Math.abs(d - 14) <= 2 },
+    {
+      interval: 'monthly',
+      matches: d => {
+        const cycles = Math.round(d / 30);
+        if (cycles < 1 || cycles > 3) return false;
+        return Math.abs(d - cycles * 30) <= 4 * cycles;
+      }
+    },
+    { interval: 'annually', matches: d => Math.abs(d - 365) <= 10 }
+  ];
+
+  let best: { interval: SubscriptionInterval; matchRatio: number } | null = null;
+  for (const matcher of intervalMatchers) {
+    const matches = diffsInDays.filter(d => matcher.matches(d)).length;
+    const ratio = matches / diffsInDays.length;
+    if (!best || ratio > best.matchRatio) {
+      best = { interval: matcher.interval, matchRatio: ratio };
+    }
   }
 
-  if (interval && amountVariance) {
-    return {
-      description: txns[0].description,
-      amount: avgAmount,
-      interval,
-      nextExpectedDate: calculateNextDate(txns[txns.length - 1].date, interval),
-      category: txns[0].category,
-      confidence
-    };
-  }
+  if (!best) return null;
+  if (best.matchRatio < 0.7) return null;
+  return best;
+}
 
-  return null;
+function normalizeMerchantKey(description: string): string {
+  return description
+    .toLowerCase()
+    .replace(/[^\u0590-\u05FFa-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(token => token.length >= 2 && !/^\d+$/.test(token))
+    .join(' ')
+    .trim();
+}
+
+function pickRepresentativeDescription(txns: Transaction[]): string {
+  const counts = new Map<string, number>();
+  txns.forEach(txn => {
+    const key = txn.description.trim();
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  let winner = txns[txns.length - 1]?.description || '';
+  let best = -1;
+  counts.forEach((count, desc) => {
+    if (count > best) {
+      best = count;
+      winner = desc;
+    }
+  });
+  return winner;
+}
+
+function hasRecurringKeyword(description: string): boolean {
+  const normalized = normalizeMerchantKey(description);
+  return (
+    STRONG_SUBSCRIPTION_KEYWORDS.some(word => normalized.includes(word)) ||
+    RECURRING_SERVICE_KEYWORDS.some(word => normalized.includes(word))
+  );
+}
+
+function isActiveByInterval(lastDate: string, interval: SubscriptionInterval): boolean {
+  const date = new Date(lastDate);
+  const now = new Date();
+  const graceDaysByInterval: Record<SubscriptionInterval, number> = {
+    daily: 3,
+    weekly: 21,
+    'bi-weekly': 35,
+    monthly: 75,
+    annually: 430
+  };
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  return diffDays <= graceDaysByInterval[interval];
 }
 
 function calculateNextDate(lastDate: string, interval: SubscriptionInterval): string {

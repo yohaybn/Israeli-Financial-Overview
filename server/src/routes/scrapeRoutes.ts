@@ -5,6 +5,7 @@ import { StorageService } from '../services/storageService.js';
 import { FilterService } from '../services/filterService.js';
 import { AiService } from '../services/aiService.js';
 import { ImportService } from '../services/importService.js';
+import { BackupService } from '../services/backupService.js';
 import { ScrapeRequest, PROVIDERS } from '@app/shared';
 import { Server } from 'socket.io';
 import multer from 'multer';
@@ -19,6 +20,7 @@ export function createScrapeRoutes(
     io: Server
 ) {
     const router = Router();
+    const backupService = new BackupService();
 
     const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
     const RESULTS_DIR = path.join(DATA_DIR, 'results');
@@ -59,6 +61,15 @@ export function createScrapeRoutes(
     // Run a scrape with full options
     router.post('/scrape', async (req, res) => {
         const request: ScrapeRequest = req.body;
+        if (!request.options) {
+            (request as any).options = {};
+        }
+        if (!(request as any).options.runSource) {
+            (request as any).options.runSource = 'manual';
+        }
+        if (!(request as any).options.initiatedBy) {
+            (request as any).options.initiatedBy = 'manual';
+        }
 
         // Validate required fields
         if (!request.companyId || (!request.credentials && !request.profileId)) {
@@ -489,6 +500,122 @@ export function createScrapeRoutes(
             res.json({ success: true, message: 'All user changes have been reset to defaults' });
         } catch (error: any) {
             console.error('[API] Reset failed:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // List local backups
+    router.get('/backups/local', async (req, res) => {
+        try {
+            const backups = await backupService.listLocalBackups();
+            res.json({ success: true, data: backups });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // Download a local backup file
+    router.get('/backups/local/:filename/download', async (req, res) => {
+        try {
+            const backupPath = backupService.getLocalBackupPath(req.params.filename);
+            if (!await fs.pathExists(backupPath)) {
+                return res.status(404).json({ success: false, error: 'Backup file not found' });
+            }
+            return res.download(backupPath, path.basename(backupPath));
+        } catch (error: any) {
+            return res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // Create backup (local or Google Drive)
+    router.post('/backups/create', async (req, res) => {
+        try {
+            const destination = req.body?.destination === 'google-drive' ? 'google-drive' : 'local';
+            const folderId = typeof req.body?.folderId === 'string' ? req.body.folderId : undefined;
+
+            const localBackup = await backupService.createLocalBackup();
+            if (destination === 'local') {
+                return res.json({
+                    success: true,
+                    data: {
+                        destination,
+                        local: localBackup
+                    }
+                });
+            }
+
+            const driveFile = await backupService.uploadLatestSnapshotToGoogleDrive(localBackup.path, folderId);
+            res.json({
+                success: true,
+                data: {
+                    destination,
+                    local: localBackup,
+                    drive: driveFile
+                }
+            });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // Restore from local backup file
+    router.post('/backups/restore/local', async (req, res) => {
+        try {
+            const filename = req.body?.filename;
+            if (!filename || typeof filename !== 'string') {
+                return res.status(400).json({ success: false, error: 'filename is required' });
+            }
+
+            await backupService.restoreFromLocalBackup(filename);
+            await storageService.reloadTransactionsFromFiles();
+            res.json({ success: true, message: 'Restore completed from local backup' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // List backups in Google Drive
+    router.get('/backups/drive', async (req, res) => {
+        try {
+            const folderId = typeof req.query.folderId === 'string' ? req.query.folderId : undefined;
+            const files = await backupService.listDriveBackups(folderId);
+            res.json({ success: true, data: files });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // Restore from Google Drive backup file
+    router.post('/backups/restore/drive', async (req, res) => {
+        try {
+            const fileId = req.body?.fileId;
+            if (!fileId || typeof fileId !== 'string') {
+                return res.status(400).json({ success: false, error: 'fileId is required' });
+            }
+
+            await backupService.restoreFromDriveBackup(fileId);
+            await storageService.reloadTransactionsFromFiles();
+            res.json({ success: true, message: 'Restore completed from Google Drive backup' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // Restore from uploaded backup snapshot JSON
+    router.post('/backups/restore/upload', upload.single('file'), async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, error: 'No backup file uploaded' });
+            }
+
+            await backupService.restoreFromUploadedBackup(req.file.path);
+            await storageService.reloadTransactionsFromFiles();
+            await fs.remove(req.file.path).catch(() => {});
+            res.json({ success: true, message: 'Restore completed from uploaded backup' });
+        } catch (error: any) {
+            if (req.file?.path) {
+                await fs.remove(req.file.path).catch(() => {});
+            }
             res.status(500).json({ success: false, error: error.message });
         }
     });

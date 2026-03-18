@@ -5,12 +5,14 @@
 
 export type NotificationStatus = 'success' | 'failure' | 'warning';
 export type NotificationDetailLevel = 'minimal' | 'normal' | 'detailed' | 'verbose';
+export type NotificationRunSource = 'telegram_bot' | 'scheduler' | 'manual';
 
 export interface NotificationPayload {
   pipelineId: string;
   status: NotificationStatus;
   timestamp: Date;
   detailLevel: NotificationDetailLevel;
+  runSource?: NotificationRunSource;
   summary: {
     durationMs: number;
     stagesRun: string[];

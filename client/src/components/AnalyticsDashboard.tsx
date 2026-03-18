@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { Transaction } from '@app/shared';
@@ -9,23 +9,49 @@ interface AnalyticsDashboardProps {
     allTransactions?: Transaction[];
     onCategoryClick?: (category: string) => void;
     customCCKeywords?: string[];
+    onViewRangeChange?: (range: ViewRange) => void;
+    onDayFilterChange?: (filter: AnalyticsDayFilter | null) => void;
+    activeDayFilter?: AnalyticsDayFilter | null;
 }
 
 type MerchantSortBy = 'amount' | 'frequency';
 type ViewRange = 'month' | 'all';
+export type DayFilterKind = 'weekday' | 'monthday';
+export interface AnalyticsDayFilter {
+    kind: DayFilterKind;
+    value: number;
+    viewRange: ViewRange;
+    label: string;
+}
 
-export function AnalyticsDashboard({ 
-    transactions: monthTransactions, 
-    allTransactions, 
+export function AnalyticsDashboard({
+    transactions: monthTransactions,
+    allTransactions,
     onCategoryClick,
-    customCCKeywords = []
+    customCCKeywords = [],
+    onViewRangeChange,
+    onDayFilterChange,
+    activeDayFilter
 }: AnalyticsDashboardProps) {
     const { t, i18n } = useTranslation();
     const [viewRange, setViewRange] = useState<ViewRange>('month');
     const [merchantSortBy, setMerchantSortBy] = useState<MerchantSortBy>('amount');
+    const [selectedDayFilter, setSelectedDayFilter] = useState<{ kind: DayFilterKind; value: number } | null>(null);
 
     const displayTransactions = viewRange === 'all' && allTransactions ? allTransactions : monthTransactions;
     const analytics = useAnalytics(displayTransactions, customCCKeywords);
+
+    useEffect(() => {
+        if (!activeDayFilter) {
+            setSelectedDayFilter(null);
+            return;
+        }
+
+        setSelectedDayFilter({
+            kind: activeDayFilter.kind,
+            value: activeDayFilter.value
+        });
+    }, [activeDayFilter]);
 
     if (!displayTransactions || displayTransactions.length === 0) {
         return (
@@ -42,13 +68,42 @@ export function AnalyticsDashboard({
             maximumFractionDigits: 0
         }).format(value);
 
+    const getWeekdayLabel = (dayIndex: number) => {
+        const baseSunday = new Date(Date.UTC(2024, 0, 7 + dayIndex));
+        return new Intl.DateTimeFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
+            weekday: 'short'
+        }).format(baseSunday);
+    };
+
+    const handleViewRangeChange = (range: ViewRange) => {
+        setViewRange(range);
+        setSelectedDayFilter(null);
+        onViewRangeChange?.(range);
+        onDayFilterChange?.(null);
+    };
+
+    const handleDayFilterClick = (kind: DayFilterKind, value: number, label: string) => {
+        if (selectedDayFilter?.kind === kind && selectedDayFilter.value === value) {
+            setSelectedDayFilter(null);
+            onDayFilterChange?.(null);
+            return;
+        }
+
+        setSelectedDayFilter({ kind, value });
+        onDayFilterChange?.({
+            kind,
+            value,
+            viewRange,
+            label
+        });
+    };
+
     return (
         <div className="space-y-6 p-4">
-            {/* Range Selector */}
             <div className="flex justify-end mb-2">
                 <div className="inline-flex bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-sm">
                     <button
-                        onClick={() => setViewRange('month')}
+                        onClick={() => handleViewRangeChange('month')}
                         className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${viewRange === 'month'
                             ? 'bg-white text-blue-600 shadow-sm'
                             : 'text-gray-500 hover:text-gray-700'
@@ -57,7 +112,7 @@ export function AnalyticsDashboard({
                         {t('analytics.this_month')}
                     </button>
                     <button
-                        onClick={() => setViewRange('all')}
+                        onClick={() => handleViewRangeChange('all')}
                         className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${viewRange === 'all'
                             ? 'bg-white text-blue-600 shadow-sm'
                             : 'text-gray-500 hover:text-gray-700'
@@ -68,9 +123,7 @@ export function AnalyticsDashboard({
                 </div>
             </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Category Pie Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_category')}</h3>
                     <ResponsiveContainer width="100%" height={300}>
@@ -105,27 +158,26 @@ export function AnalyticsDashboard({
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                 formatter={(value) => formatCurrency(Number(value))}
                             />
-                            <Legend 
-                                layout="horizontal" 
-                                verticalAlign="bottom" 
+                            <Legend
+                                layout="horizontal"
+                                verticalAlign="bottom"
                                 align="center"
                                 wrapperStyle={{ paddingTop: '20px', fontSize: '11px' }}
                             />
                         </PieChart>
                     </ResponsiveContainer>
                     <p className="text-[10px] text-center text-gray-400 mt-2">
-                        💡 {t('analytics.click_hint')}
+                        {t('analytics.click_hint')}
                     </p>
                 </div>
 
-                {/* Monthly Bar Chart */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.monthly_spending_trend')}</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={analytics.byMonth}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₪${v / 1000}k`} />
+                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
                             <Tooltip
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                 formatter={(value) => formatCurrency(Number(value))}
@@ -136,9 +188,85 @@ export function AnalyticsDashboard({
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_weekday')}</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={analytics.byWeekday}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                            <XAxis
+                                dataKey="dayIndex"
+                                tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(value) => getWeekdayLabel(Number(value))}
+                            />
+                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                labelFormatter={(value) => getWeekdayLabel(Number(value))}
+                                formatter={(value) => formatCurrency(Number(value))}
+                            />
+                            <Bar
+                                dataKey="value"
+                                name={t('analytics.expenses')}
+                                radius={[4, 4, 0, 0]}
+                                onClick={(data: any) => {
+                                    if (!data) return;
+                                    handleDayFilterClick('weekday', data.dayIndex, getWeekdayLabel(data.dayIndex));
+                                }}
+                            >
+                                {analytics.byWeekday.map((entry) => {
+                                    const isSelected = selectedDayFilter?.kind === 'weekday' && selectedDayFilter.value === entry.dayIndex;
+                                    return (
+                                        <Cell
+                                            key={`weekday-${entry.dayIndex}`}
+                                            fill={isSelected ? '#2563eb' : '#60a5fa'}
+                                            className="cursor-pointer"
+                                        />
+                                    );
+                                })}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_month_day')}</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={analytics.byMonthDay}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                            <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={2} />
+                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                formatter={(value) => formatCurrency(Number(value))}
+                            />
+                            <Bar
+                                dataKey="value"
+                                name={t('analytics.expenses')}
+                                radius={[3, 3, 0, 0]}
+                                onClick={(data: any) => {
+                                    if (!data) return;
+                                    handleDayFilterClick('monthday', data.day, String(data.day));
+                                }}
+                            >
+                                {analytics.byMonthDay.map((entry) => {
+                                    const isSelected = selectedDayFilter?.kind === 'monthday' && selectedDayFilter.value === entry.day;
+                                    return (
+                                        <Cell
+                                            key={`monthday-${entry.day}`}
+                                            fill={isSelected ? '#ea580c' : '#fb923c'}
+                                            className="cursor-pointer"
+                                        />
+                                    );
+                                })}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
 
-            {/* Top Merchants Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                 <div className="flex items-center justify-between mb-6">
                     <div>

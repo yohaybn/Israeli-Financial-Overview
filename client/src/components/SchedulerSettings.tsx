@@ -12,6 +12,8 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
     const [enabled, setEnabled] = useState(false);
     const [runTime, setRunTime] = useState('00:00');
     const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
+    const [backupEnabled, setBackupEnabled] = useState(false);
+    const [backupDestination, setBackupDestination] = useState<'local' | 'google-drive'>('local');
     const [successMessage, setSuccessMessage] = useState(false);
 
     useEffect(() => {
@@ -22,6 +24,8 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                 setRunTime(`${parts[1].padStart(2, '0')}:${parts[0].padStart(2, '0')}`);
             }
             setSelectedProfiles(config.selectedProfiles || []);
+            setBackupEnabled(config.backupSchedule?.enabled ?? false);
+            setBackupDestination(config.backupSchedule?.destination === 'google-drive' ? 'google-drive' : 'local');
         }
     }, [config]);
 
@@ -34,6 +38,10 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                 enabled,
                 cronExpression: newCron,
                 selectedProfiles,
+                backupSchedule: {
+                    enabled: backupEnabled,
+                    destination: backupDestination
+                }
             },
             {
                 onSuccess: () => {
@@ -108,6 +116,32 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                                     </div>
                                 </button>
                             ))}
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm font-bold text-gray-700">{t('scheduler.backup_title')}</label>
+                            <button
+                                type="button"
+                                onClick={() => setBackupEnabled(!backupEnabled)}
+                                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${backupEnabled ? 'bg-emerald-600' : 'bg-gray-300'}`}
+                            >
+                                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${backupEnabled ? 'translate-x-8' : 'translate-x-1'}`} />
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-3">{t('scheduler.backup_desc')}</p>
+
+                        <div className={`transition-opacity duration-200 ${backupEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">{t('scheduler.backup_destination')}</label>
+                            <select
+                                value={backupDestination}
+                                onChange={(e) => setBackupDestination(e.target.value as 'local' | 'google-drive')}
+                                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                            >
+                                <option value="local">{t('scheduler.backup_local')}</option>
+                                <option value="google-drive">{t('scheduler.backup_drive')}</option>
+                            </select>
                         </div>
                     </div>
                 </div>

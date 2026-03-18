@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Play, Square, AlertCircle, CheckCircle, Copy } from 'lucide-react';
+import { Settings, Play, Square, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface TelegramSettingsProps {
     isOpen?: boolean;
@@ -14,12 +14,13 @@ const API_BASE = '/api';
 export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettingsProps) {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
+    const isEnabled = isInline || !!isOpen;
 
     const [botToken, setBotToken] = useState('');
     const [chatId, setChatId] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-    const [newAllowedUser, setNewAllowedUser] = useState('');
+    const [newUserId, setNewUserId] = useState('');
     const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
     const [botLanguage, setBotLanguage] = useState<'en' | 'he'>('en');
 
@@ -28,7 +29,6 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         setTimeout(() => setNotification(null), 5000);
     }, []);
 
-    // Fetch Telegram config
     const { data: config } = useQuery({
         queryKey: ['telegramConfig'],
         queryFn: async () => {
@@ -36,10 +36,9 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             const data = await res.json();
             return data.data;
         },
-        enabled: isOpen,
+        enabled: isEnabled,
     });
 
-    // Load config data when available
     useEffect(() => {
         if (config) {
             if (config.botToken && !config.botToken.startsWith('***')) {
@@ -54,7 +53,6 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         }
     }, [config]);
 
-    // Fetch Telegram status
     const { data: status, isLoading: isLoadingStatus } = useQuery({
         queryKey: ['telegramStatus'],
         queryFn: async () => {
@@ -62,11 +60,10 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             const data = await res.json();
             return data.data;
         },
-        enabled: isOpen,
+        enabled: isEnabled,
         refetchInterval: 5000,
     });
 
-    // Fetch notification chats
     const { data: notificationChats } = useQuery({
         queryKey: ['telegramNotificationChats'],
         queryFn: async () => {
@@ -74,10 +71,29 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             const data = await res.json();
             return data.data || [];
         },
-        enabled: isOpen,
+        enabled: isEnabled,
     });
 
-    // Start bot mutation
+    const userRows = useMemo(() => {
+        const users = new Set<string>([...(allowedUsers || []), ...((notificationChats as string[]) || [])]);
+        return Array.from(users).sort((a, b) => a.localeCompare(b));
+    }, [allowedUsers, notificationChats]);
+
+    const { data: userLabels } = useQuery({
+        queryKey: ['telegramUserLabels', userRows],
+        queryFn: async () => {
+            if (userRows.length === 0) return {} as Record<string, string>;
+            const res = await fetch(`${API_BASE}/telegram/user-labels`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: userRows }),
+            });
+            const data = await res.json();
+            return (data.data || {}) as Record<string, string>;
+        },
+        enabled: isEnabled && userRows.length > 0,
+    });
+
     const { mutate: startBot, isPending: isStarting } = useMutation({
         mutationFn: async () => {
             const res = await fetch(`${API_BASE}/telegram/start`, {
@@ -99,7 +115,6 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
     });
 
-    // Stop bot mutation
     const { mutate: stopBot, isPending: isStopping } = useMutation({
         mutationFn: async () => {
             const res = await fetch(`${API_BASE}/telegram/stop`, {
@@ -119,7 +134,6 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
     });
 
-    // Update config mutation
     const { mutate: updateConfig, isPending: isUpdating } = useMutation({
         mutationFn: async (newConfig: any) => {
             const res = await fetch(`${API_BASE}/telegram/config`, {
@@ -133,6 +147,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['telegramConfig'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
             showNotification('success', t('telegram.config_saved'));
         },
         onError: (err: any) => {
@@ -140,7 +155,6 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
     });
 
-    // Test connection mutation
     const { mutate: testConnection, isPending: isTesting } = useMutation({
         mutationFn: async () => {
             if (!botToken || !chatId) {
@@ -163,94 +177,49 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
     });
 
-    // Add notification chat mutation
-    const { mutate: addNotificationChat } = useMutation({
-        mutationFn: async () => {
-            if (!chatId) throw new Error('Chat ID is required');
-            const res = await fetch(`${API_BASE}/telegram/notification-chat/add`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || t('telegram.errors.add_chat_failed'));
-            return data;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['telegramNotificationChats'] });
-            setChatId('');
-            showNotification('success', t('telegram.chat_added'));
-        },
-        onError: (err: any) => {
-            showNotification('error', err.message || t('telegram.errors.add_chat_failed'));
-        },
-    });
-
-    // Remove notification chat mutation
-    const { mutate: removeNotificationChat } = useMutation({
-        mutationFn: async (id: string) => {
-            const res = await fetch(`${API_BASE}/telegram/notification-chat/remove`, {
+    const { mutate: setNotificationChat } = useMutation({
+        mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+            const endpoint = enabled ? 'add' : 'remove';
+            const res = await fetch(`${API_BASE}/telegram/notification-chat/${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId: id }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || t('telegram.errors.remove_chat_failed'));
+            if (!res.ok) throw new Error(data.error || t('telegram.errors.update_config_failed'));
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (_, vars) => {
             queryClient.invalidateQueries({ queryKey: ['telegramNotificationChats'] });
-            showNotification('success', t('telegram.chat_removed'));
+            queryClient.invalidateQueries({ queryKey: ['telegramUserLabels'] });
+            showNotification('success', vars.enabled ? t('telegram.chat_added') : t('telegram.chat_removed'));
         },
         onError: (err: any) => {
-            showNotification('error', err.message || t('telegram.errors.remove_chat_failed'));
+            showNotification('error', err.message || t('telegram.errors.update_config_failed'));
         },
     });
 
-    // Add allowed user mutation
-    const { mutate: addAllowedUser, isPending: isAddingUser } = useMutation({
-        mutationFn: async () => {
-            if (!newAllowedUser.trim()) throw new Error('User ID is required');
-            const updatedUsers = [...allowedUsers, newAllowedUser.trim()];
+    const { mutate: setAllowedUser, isPending: isUpdatingAllowedUser } = useMutation({
+        mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+            const updatedUsers = enabled ? Array.from(new Set([...(allowedUsers || []), id])) : allowedUsers.filter((u) => u !== id);
             const res = await fetch(`${API_BASE}/telegram/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ allowedUsers: updatedUsers }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || t('telegram.errors.add_user_failed'));
-            return data;
+            if (!res.ok) throw new Error(data.error || t('telegram.errors.update_config_failed'));
+            return { data, updatedUsers };
         },
-        onSuccess: () => {
-            setAllowedUsers([...allowedUsers, newAllowedUser.trim()]);
-            setNewAllowedUser('');
-            queryClient.invalidateQueries({ queryKey: ['telegramConfig', 'telegramStatus'] });
-            showNotification('success', t('telegram.user_added'));
-        },
-        onError: (err: any) => {
-            showNotification('error', err.message || t('telegram.errors.add_user_failed'));
-        },
-    });
-
-    // Remove allowed user mutation
-    const { mutate: removeAllowedUser } = useMutation({
-        mutationFn: async (userId: string) => {
-            const updatedUsers = allowedUsers.filter(id => id !== userId);
-            const res = await fetch(`${API_BASE}/telegram/config`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ allowedUsers: updatedUsers }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || t('telegram.errors.remove_user_failed'));
-            return data;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['telegramConfig', 'telegramStatus'] });
-            showNotification('success', t('telegram.user_removed'));
+        onSuccess: ({ updatedUsers }, vars) => {
+            setAllowedUsers(updatedUsers);
+            queryClient.invalidateQueries({ queryKey: ['telegramConfig'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramUserLabels'] });
+            showNotification('success', vars.enabled ? t('telegram.user_added') : t('telegram.user_removed'));
         },
         onError: (err: any) => {
-            showNotification('error', err.message || t('telegram.errors.remove_user_failed'));
+            showNotification('error', err.message || t('telegram.errors.update_config_failed'));
         },
     });
 
@@ -263,12 +232,23 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     };
 
     const handleStartBot = () => {
-        // Allow starting when the server already has a configured token
         if (!botToken.trim() && !status?.hasToken) {
             showNotification('error', 'Bot token is required');
             return;
         }
         startBot();
+    };
+
+    const handleAddUser = () => {
+        const id = newUserId.trim();
+        if (!id) return;
+        setAllowedUser({ id, enabled: true });
+        setNewUserId('');
+    };
+
+    const getLabel = (id: string) => {
+        const label = (userLabels as Record<string, string> | undefined)?.[id];
+        return label && label !== id ? label : id;
     };
 
     if (!isInline && !isOpen) return null;
@@ -279,38 +259,22 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                         <Settings className="w-6 h-6 text-blue-600" />
-                        <h2 className="text-2xl font-bold">
-                            {t('telegram.settings_title')}
-                        </h2>
+                        <h2 className="text-2xl font-bold">{t('telegram.settings_title')}</h2>
                     </div>
                     {!isInline && onClose && (
-                        <button
-                            onClick={onClose}
-                            className="text-gray-500 hover:text-gray-700"
-                        >
-                            ✕
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                            x
                         </button>
                     )}
                 </div>
 
-                {/* Notification */}
                 {notification && (
-                    <div
-                        className={`mb-4 p-4 rounded-xl border flex items-center gap-2 ${notification.type === 'success'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                    >
-                        {notification.type === 'success' ? (
-                            <CheckCircle className="w-5 h-5" />
-                        ) : (
-                            <AlertCircle className="w-5 h-5" />
-                        )}
+                    <div className={`mb-4 p-4 rounded-xl border flex items-center gap-2 ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {notification.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                         {notification.message}
                     </div>
                 )}
 
-                {/* Status */}
                 {isLoadingStatus ? (
                     <div className="text-gray-500 mb-4">{t('telegram.loading_status')}</div>
                 ) : (
@@ -318,19 +282,15 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                         <div className={`mb-6 p-4 rounded-2xl border ${status?.isActive ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-300'}`}>
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="font-semibold">
-                                        {t('telegram.bot_status')}
-                                    </p>
+                                    <p className="font-semibold">{t('telegram.bot_status')}</p>
                                     <p className={`text-sm ${status?.isActive ? 'text-green-700' : 'text-gray-700'}`}>
-                                        {status?.isActive
-                                            ? t('telegram.status_active')
-                                            : t('telegram.status_inactive')}
+                                        {status?.isActive ? t('telegram.status_active') : t('telegram.status_inactive')}
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
                                     {!status?.isActive ? (
                                         <button
-                                            onClick={() => handleStartBot()}
+                                            onClick={handleStartBot}
                                             disabled={isStarting || (!botToken && !status?.hasToken)}
                                             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-2xl hover:bg-green-700 disabled:bg-gray-400"
                                         >
@@ -351,291 +311,191 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                             </div>
                         </div>
 
-                        {/* Warning if no users configured */}
                         {!status?.usersConfigured && (
                             <div className="mb-6 p-4 rounded-2xl bg-amber-100 border border-amber-300 flex items-start gap-3">
                                 <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="font-semibold text-amber-900">
-                                        {t('telegram.warning_no_users')}
-                                    </p>
-                                    <p className="text-sm text-amber-800 mt-1">
-                                        {t('telegram.warning_no_users_desc')}
-                                    </p>
+                                    <p className="font-semibold text-amber-900">{t('telegram.warning_no_users')}</p>
+                                    <p className="text-sm text-amber-800 mt-1">{t('telegram.warning_no_users_desc')}</p>
                                 </div>
                             </div>
                         )}
                     </>
                 )}
 
-
-                {/* Bot Language */}
                 <div className="space-y-4 mb-6">
-                    <div>
-                        <label className="block text-sm font-semibold mb-2">
-                            {t('telegram.bot_language')}
-                        </label>
-                        <div className="flex gap-3 items-center">
-                            <button
-                                type="button"
-                                onClick={() => { setBotLanguage('en'); updateConfig({ language: 'en' }); }}
-                                className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${botLanguage === 'en' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                            >
-                                🇬🇧 English
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setBotLanguage('he'); updateConfig({ language: 'he' }); }}
-                                className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${botLanguage === 'he' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                            >
-                                🇮🇱 עברית
-                            </button>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                            {t('telegram.bot_language_help')}
-                        </p>
+                    <label className="block text-sm font-semibold mb-2">{t('telegram.bot_language')}</label>
+                    <div className="flex gap-3 items-center">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setBotLanguage('en');
+                                updateConfig({ language: 'en' });
+                            }}
+                            className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${botLanguage === 'en' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                        >
+                            English
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setBotLanguage('he');
+                                updateConfig({ language: 'he' });
+                            }}
+                            className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${botLanguage === 'he' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                        >
+                            עברית
+                        </button>
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">{t('telegram.bot_language_help')}</p>
                 </div>
 
-                {/* Bot Token Configuration */}
-                <div className="space-y-4 mb-6">
-                    <div>
-                        <label className="block text-sm font-semibold mb-2">
-                            {t('telegram.bot_token')}
-                            <span className="text-red-600"> *</span>
-                        </label>
-                        <div className="flex gap-2">
-                            <input
-                                type="password"
-                                value={botToken}
-                                onChange={(e) => setBotToken(e.target.value)}
-                                placeholder={t('telegram.token_placeholder')}
-                                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                            />
-                            <button
-                                onClick={handleSaveToken}
-                                disabled={isUpdating || !botToken}
-                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
-                            >
-                                {isUpdating ? t('telegram.saving') : t('telegram.save')}
-                            </button>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                            {t('telegram.token_help')}
-                        </p>
-                    </div>
-
-
-                    {/* Test Connection */}
-                    {botToken && (
+                {!status?.isActive ? (
+                    <div className="space-y-4 mb-6">
                         <div>
                             <label className="block text-sm font-semibold mb-2">
-                                {t('telegram.test_connection')}
+                                {t('telegram.bot_token')}
+                                <span className="text-red-600"> *</span>
                             </label>
                             <div className="flex gap-2">
                                 <input
-                                    type="text"
-                                    value={chatId}
-                                    onChange={(e) => setChatId(e.target.value)}
-                                    placeholder={t('telegram.chat_id_placeholder')}
+                                    type="password"
+                                    value={botToken}
+                                    onChange={(e) => setBotToken(e.target.value)}
+                                    placeholder={t('telegram.token_placeholder')}
                                     className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                                 />
                                 <button
-                                    onClick={() => testConnection()}
-                                    disabled={isTesting || !botToken || !chatId}
-                                    className="bg-green-600 text-white px-4 py-2.5 rounded-xl hover:bg-green-700 disabled:bg-gray-400 font-bold"
+                                    onClick={handleSaveToken}
+                                    disabled={isUpdating || !botToken}
+                                    className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
                                 >
-                                    {isTesting ? t('telegram.testing') : t('telegram.test')}
+                                    {isUpdating ? t('telegram.saving') : t('telegram.save')}
                                 </button>
                             </div>
                             <p className="text-xs text-gray-600 mt-1">
-                                {t('telegram.chat_id_help')}
+                                {t('telegram.token_help')}{' '}
+                                <a href="https://t.me/botfather" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-semibold">
+                                    @BotFather
+                                </a>
                             </p>
                         </div>
-                    )}
-                </div>
 
-                {/* Notification Chats */}
-                <div className="space-y-4 mb-6">
-                    <div>
-                        <h3 className="text-lg font-semibold mb-3">
-                            {t('telegram.notification_chats')}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-3">
-                            {t('telegram.notification_chats_help')}
-                        </p>
-
-                        {/* Add chat */}
-                        <div className="flex gap-2 mb-4">
-                            <input
-                                type="text"
-                                value={chatId}
-                                onChange={(e) => setChatId(e.target.value)}
-                                placeholder={t('telegram.chat_id_placeholder')}
-                                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                            />
-                            <button
-                                onClick={() => addNotificationChat()}
-                                disabled={!chatId.trim()}
-                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
-                            >
-                                {t('telegram.add')}
-                            </button>
-                        </div>
-
-                        {/* List of chats */}
-                        {notificationChats && notificationChats.length > 0 ? (
-                            <div className="space-y-2">
-                                {notificationChats.map((id: string) => (
-                                    <div
-                                        key={id}
-                                        className="flex items-center justify-between bg-gray-50 border border-gray-200 p-3 rounded-xl"
+                        {botToken && (
+                            <div>
+                                <label className="block text-sm font-semibold mb-2">{t('telegram.test_connection')}</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={chatId}
+                                        onChange={(e) => setChatId(e.target.value)}
+                                        placeholder={t('telegram.chat_id_placeholder')}
+                                        className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                    />
+                                    <button
+                                        onClick={() => testConnection()}
+                                        disabled={isTesting || !botToken || !chatId}
+                                        className="bg-green-600 text-white px-4 py-2.5 rounded-xl hover:bg-green-700 disabled:bg-gray-400 font-bold"
                                     >
-                                        <div className="flex items-center gap-2">
-                                            <code className="bg-white px-2 py-1 rounded text-sm">{id}</code>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(id);
-                                                    showNotification('success', t('telegram.copied'));
-                                                }}
-                                                className="text-blue-600 hover:text-blue-700"
-                                            >
-                                                <Copy className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                        <button
-                                            onClick={() => removeNotificationChat(id)}
-                                            className="bg-red-600 text-white px-3 py-1.5 rounded-xl hover:bg-red-700 text-sm font-bold"
-                                        >
-                                            {t('telegram.remove')}
-                                        </button>
-                                    </div>
-                                ))}
+                                        {isTesting ? t('telegram.testing') : t('telegram.test')}
+                                    </button>
+                                </div>
                             </div>
-                        ) : (
-                            <p className="text-gray-500 text-center py-4">
-                                {t('telegram.no_chats')}
-                            </p>
                         )}
+                    </div>
+                ) : (
+                    <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+                        Bot token is hidden while the bot is running. Stop the bot to edit the token.
+                    </div>
+                )}
+
+                <div className="space-y-4 mb-6">
+                    <h3 className="text-lg font-semibold">Users</h3>
+                    <p className="text-sm text-gray-600">Toggle access and notifications per user/chat. Usernames are shown when Telegram can resolve them.</p>
+
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={newUserId}
+                            onChange={(e) => setNewUserId(e.target.value)}
+                            placeholder={t('telegram.user_id_placeholder')}
+                            className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        />
+                        <button
+                            onClick={handleAddUser}
+                            disabled={!newUserId.trim() || isUpdatingAllowedUser}
+                            className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
+                        >
+                            {isUpdatingAllowedUser ? t('telegram.adding') : t('telegram.add')}
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="text-left px-4 py-2.5 font-semibold text-gray-700">UserName</th>
+                                    <th className="text-center px-4 py-2.5 font-semibold text-gray-700">Allowed chat</th>
+                                    <th className="text-center px-4 py-2.5 font-semibold text-gray-700">Notification</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {userRows.length === 0 && (
+                                    <tr>
+                                        <td colSpan={3} className="px-4 py-6 text-center text-gray-500">
+                                            {t('telegram.no_users')}
+                                        </td>
+                                    </tr>
+                                )}
+                                {userRows.map((id) => {
+                                    const isAllowed = allowedUsers.includes(id);
+                                    const isNotify = ((notificationChats as string[]) || []).includes(id);
+                                    const label = getLabel(id);
+                                    return (
+                                        <tr key={id} className="border-b border-gray-100 last:border-b-0">
+                                            <td className="px-4 py-2.5">
+                                                <div className="font-medium text-gray-800">{label}</div>
+                                                {label !== id && <div className="text-xs text-gray-500">{id}</div>}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isAllowed}
+                                                    onChange={(e) => setAllowedUser({ id, enabled: e.target.checked })}
+                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isNotify}
+                                                    onChange={(e) => setNotificationChat({ id, enabled: e.target.checked })}
+                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                {/* Allowed Users */}
-                <div className="space-y-4 mb-6">
-                    <div>
-                        <h3 className="text-lg font-semibold mb-3">
-                            {t('telegram.allowed_users')}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-3">
-                            {t('telegram.allowed_users_help')}
-                        </p>
-
-                        {/* Add user */}
-                        <div className="flex gap-2 mb-4">
-                            <input
-                                type="text"
-                                value={newAllowedUser}
-                                onChange={(e) => setNewAllowedUser(e.target.value)}
-                                placeholder={t('telegram.user_id_placeholder')}
-                                className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                            />
-                            <button
-                                onClick={() => addAllowedUser()}
-                                disabled={!newAllowedUser.trim() || isAddingUser}
-                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 font-bold"
-                            >
-                                {isAddingUser ? t('telegram.adding') : t('telegram.add')}
-                            </button>
-                        </div>
-
-                        {/* List of users */}
-                        {allowedUsers && allowedUsers.length > 0 ? (
-                            <div className="space-y-2">
-                                {allowedUsers.map((userId: string) => (
-                                    <div
-                                        key={userId}
-                                        className="flex items-center justify-between bg-gray-50 border border-gray-200 p-3 rounded-xl"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <code className="bg-white px-2 py-1 rounded text-sm">{userId}</code>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(userId);
-                                                    showNotification('success', t('telegram.copied'));
-                                                }}
-                                                className="text-blue-600 hover:text-blue-700"
-                                            >
-                                                <Copy className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                        <button
-                                            onClick={() => removeAllowedUser(userId)}
-                                            className="bg-red-600 text-white px-3 py-1.5 rounded-xl hover:bg-red-700 text-sm font-bold"
-                                        >
-                                            {t('telegram.remove')}
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-gray-500 text-center py-4">
-                                {t('telegram.no_users')}
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Advanced Settings */}
                 <div className="border-t pt-4">
-                    <button
-                        onClick={() => setShowAdvanced(!showAdvanced)}
-                        className="text-blue-600 hover:text-blue-700 font-semibold text-sm"
-                    >
-                        {showAdvanced
-                            ? t('telegram.hide_advanced')
-                            : t('telegram.show_advanced')}
+                    <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
+                        {showAdvanced ? t('telegram.hide_advanced') : t('telegram.show_advanced')}
                     </button>
 
                     {showAdvanced && (
                         <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
                             <div>
-                                <h4 className="font-semibold mb-2">
-                                    {t('telegram.bot_features')}
-                                </h4>
+                                <h4 className="font-semibold mb-2">{t('telegram.bot_features')}</h4>
                                 <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
                                     <li>{t('telegram.feature_notifications')}</li>
                                     <li>{t('telegram.feature_ai_chat')}</li>
                                     <li>{t('telegram.feature_scraper_control')}</li>
                                     <li>{t('telegram.feature_settings_mgmt')}</li>
                                 </ul>
-                            </div>
-
-                            <div>
-                                <h4 className="font-semibold mb-2">
-                                    {t('telegram.bot_commands')}
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                    <div>
-                                        <code className="bg-white px-2 py-1 rounded">/start</code>
-                                        <span className="ml-2 text-gray-600">{t('telegram.cmd_start')}</span>
-                                    </div>
-                                    <div>
-                                        <code className="bg-white px-2 py-1 rounded">/help</code>
-                                        <span className="ml-2 text-gray-600">{t('telegram.cmd_help')}</span>
-                                    </div>
-                                    <div>
-                                        <code className="bg-white px-2 py-1 rounded">/scrape</code>
-                                        <span className="ml-2 text-gray-600">{t('telegram.cmd_scrape')}</span>
-                                    </div>
-                                    <div>
-                                        <code className="bg-white px-2 py-1 rounded">/chat</code>
-                                        <span className="ml-2 text-gray-600">{t('telegram.cmd_chat')}</span>
-                                    </div>
-                                    <div>
-                                        <code className="bg-white px-2 py-1 rounded">/settings</code>
-                                        <span className="ml-2 text-gray-600">{t('telegram.cmd_settings')}</span>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     )}

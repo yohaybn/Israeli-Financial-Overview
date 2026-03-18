@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ENV_PATH = path.resolve(__dirname, '../../../.env');
+const RESTART_TRIGGER_PATH = path.resolve(__dirname, '../restart-trigger.json');
 
 export class ConfigService {
     private readonly allowedKeys = [
@@ -89,9 +90,18 @@ export class ConfigService {
 
     restart(): void {
         console.log('Restarting server as requested...');
+
+        // In development, nodemon watches src/**/*.ts,json. Touching a watched
+        // file triggers a clean restart; exiting would leave nodemon waiting.
+        if (process.env.NODEMON === 'true') {
+            fs.writeJsonSync(RESTART_TRIGGER_PATH, { requestedAt: new Date().toISOString() });
+            return;
+        }
+
         setTimeout(() => {
-            process.exit(0);
-        }, 1000);
+            // Exit non-zero so supervisors configured with on-failure also restart us.
+            process.exit(1);
+        }, 500);
     }
 
     private maskValue(value: string): string {

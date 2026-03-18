@@ -8,6 +8,8 @@ interface AnalyticsData {
     netBalance: number;
     byCategory: { name: string; value: number; color: string }[];
     byMonth: { month: string; income: number; expenses: number }[];
+    byWeekday: { dayIndex: number; dayLabel: string; value: number }[];
+    byMonthDay: { day: number; value: number }[];
     topMerchants: { description: string; count: number; total: number }[];
 }
 
@@ -64,6 +66,13 @@ function getColorForCategory(category: string): string {
     return PALETTE[index];
 }
 
+function parseTransactionDate(dateValue: string): Date {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        return new Date(`${dateValue}T12:00:00`);
+    }
+    return new Date(dateValue);
+}
+
 export function useAnalytics(transactions: Transaction[], customCCKeywords: string[] = []): AnalyticsData {
     return useMemo(() => {
         if (!transactions || transactions.length === 0) {
@@ -73,6 +82,8 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
                 netBalance: 0,
                 byCategory: [],
                 byMonth: [],
+                byWeekday: [],
+                byMonthDay: [],
                 topMerchants: [],
             };
         }
@@ -140,6 +151,42 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
             }))
             .sort((a, b) => a.month.localeCompare(b.month));
 
+        // Spending by weekday (expenses only)
+        const weekdayMap = new Map<number, number>();
+        transactions.forEach(t => {
+            if (isInternalTransfer(t, customCCKeywords)) return;
+            const amount = t.chargedAmount || t.amount || 0;
+            if (amount >= 0) return;
+
+            const dayIndex = parseTransactionDate(t.date).getDay();
+            weekdayMap.set(dayIndex, (weekdayMap.get(dayIndex) || 0) + Math.abs(amount));
+        });
+
+        const byWeekday = Array.from({ length: 7 }, (_, dayIndex) => ({
+            dayIndex,
+            dayLabel: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex],
+            value: Math.round((weekdayMap.get(dayIndex) || 0) * 100) / 100,
+        }));
+
+        // Spending by day in month (1-31, expenses only)
+        const monthDayMap = new Map<number, number>();
+        transactions.forEach(t => {
+            if (isInternalTransfer(t, customCCKeywords)) return;
+            const amount = t.chargedAmount || t.amount || 0;
+            if (amount >= 0) return;
+
+            const day = parseTransactionDate(t.date).getDate();
+            monthDayMap.set(day, (monthDayMap.get(day) || 0) + Math.abs(amount));
+        });
+
+        const byMonthDay = Array.from({ length: 31 }, (_, idx) => {
+            const day = idx + 1;
+            return {
+                day,
+                value: Math.round((monthDayMap.get(day) || 0) * 100) / 100,
+            };
+        });
+
         // Top merchants
         const merchantMap = new Map<string, { count: number; total: number }>();
         transactions.forEach(t => {
@@ -168,7 +215,9 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
             netBalance: Math.round((totalIncome - totalExpenses) * 100) / 100,
             byCategory,
             byMonth,
+            byWeekday,
+            byMonthDay,
             topMerchants,
         };
-    }, [transactions]);
+    }, [transactions, customCCKeywords]);
 }

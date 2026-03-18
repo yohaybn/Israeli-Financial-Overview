@@ -573,3 +573,115 @@ export function useResetToDefaults() {
         },
     });
 }
+
+export function useLocalBackups() {
+    return useQuery({
+        queryKey: ['backups', 'local'],
+        queryFn: async () => {
+            const { data } = await api.get<{ success: boolean; data: Array<{ filename: string; size: number; createdAt: string }> }>('/backups/local');
+            return data.data;
+        },
+    });
+}
+
+export function useDriveBackups(enabled = false) {
+    return useQuery({
+        queryKey: ['backups', 'drive'],
+        queryFn: async () => {
+            const { data } = await api.get<{ success: boolean; data: Array<{ id: string; name: string; createdTime: string; size?: string }> }>('/backups/drive');
+            return data.data;
+        },
+        enabled
+    });
+}
+
+export function useCreateBackup() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (destination: 'local' | 'google-drive') => {
+            const { data } = await api.post<{ success: boolean; data: any }>('/backups/create', { destination });
+            return data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['backups', 'local'] });
+            queryClient.invalidateQueries({ queryKey: ['backups', 'drive'] });
+        }
+    });
+}
+
+export function useRestoreLocalBackup() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (filename: string) => {
+            const { data } = await api.post<{ success: boolean; message: string }>('/backups/restore/local', { filename });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['results/all'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['backups', 'local'] });
+            queryClient.invalidateQueries({ queryKey: ['filters'] });
+        }
+    });
+}
+
+export function useRestoreDriveBackup() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (fileId: string) => {
+            const { data } = await api.post<{ success: boolean; message: string }>('/backups/restore/drive', { fileId });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['results/all'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['backups', 'drive'] });
+            queryClient.invalidateQueries({ queryKey: ['filters'] });
+        }
+    });
+}
+
+export function useRestoreUploadedBackup() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (file: File) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            const { data } = await api.post<{ success: boolean; message: string }>('/backups/restore/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['results/all'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['filters'] });
+        }
+    });
+}
+
+export function useDownloadLocalBackup() {
+    return useMutation({
+        mutationFn: async (filename: string) => {
+            const encoded = encodeURIComponent(filename);
+            const response = await api.get(`/backups/local/${encoded}/download`, {
+                responseType: 'blob'
+            });
+
+            const blob = response.data as Blob;
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        }
+    });
+}

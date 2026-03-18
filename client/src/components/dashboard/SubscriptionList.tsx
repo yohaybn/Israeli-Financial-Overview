@@ -1,8 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Subscription, Transaction } from '@app/shared';
-import { CreditCard, ArrowRight, Clock } from 'lucide-react';
+import { CreditCard, ArrowRight, Clock, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import { TransactionModal } from '../TransactionModal';
 import { TransactionTable } from '../TransactionTable';
@@ -11,10 +11,13 @@ interface SubscriptionListProps {
     subscriptions: Subscription[];
     categories?: string[];
     onUpdateCategory?: (txnId: string, category: string) => void;
+    defaultCollapsed?: boolean;
 }
 
-export function SubscriptionList({ subscriptions, categories, onUpdateCategory }: SubscriptionListProps) {
+export function SubscriptionList({ subscriptions, categories, onUpdateCategory, defaultCollapsed = false }: SubscriptionListProps) {
     const { t, i18n } = useTranslation();
+    const [showInfo, setShowInfo] = useState(false);
+    const [collapsed, setCollapsed] = useState(defaultCollapsed);
     const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
     const [selectedHistorySub, setSelectedHistorySub] = useState<Subscription | null>(null);
 
@@ -47,114 +50,166 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
     };
 
     return (
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/20 p-8 overflow-hidden relative group">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform duration-500">
-                        <CreditCard className="text-white w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-black text-gray-800 uppercase tracking-tight">
-                            {t('dashboard.subscriptions')}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-indigo-500">
-                                {subscriptions.length} {t('dashboard.paying_now')}
-                            </span>
-                            <span className="text-[10px] text-gray-300">•</span>
-                            <span className="text-xs font-medium text-gray-400">
-                                ~{formatCurrency(totalMonthlyCost)}/{t('common.month')}
-                            </span>
+        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden relative group">
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setCollapsed(v => !v)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setCollapsed(v => !v);
+                    }
+                }}
+                className="w-full text-left p-8 hover:bg-white/40 transition-colors"
+            >
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform duration-500">
+                            <CreditCard className="text-white w-6 h-6" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-lg font-black text-gray-800 uppercase tracking-tight">
+                                    {t('dashboard.subscriptions')}
+                                </h3>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowInfo(!showInfo);
+                                    }}
+                                    className="text-gray-400 hover:text-indigo-500 transition-colors"
+                                    title={t('dashboard.subscriptions_logic_info')}
+                                    aria-label={t('dashboard.subscriptions_logic_info')}
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-indigo-500">
+                                    {subscriptions.length} {t('dashboard.paying_now')}
+                                </span>
+                                <span className="text-[10px] text-gray-300">•</span>
+                                <span className="text-xs font-medium text-gray-400">
+                                    ~{formatCurrency(totalMonthlyCost)}/{t('common.month')}
+                                </span>
+                            </div>
                         </div>
                     </div>
+
+                    <ChevronDown
+                        className={clsx(
+                            'w-5 h-5 text-gray-400 transition-transform',
+                            collapsed ? '-rotate-90' : 'rotate-0',
+                            i18n.language === 'he' ? 'scale-x-[-1]' : ''
+                        )}
+                    />
                 </div>
             </div>
 
-            {/* List */}
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                {subscriptions.length > 0 ? (
-                    subscriptions
-                        .sort((a, b) => getRemainingDays(a.nextExpectedDate) - getRemainingDays(b.nextExpectedDate))
-                        .map((sub, idx) => {
-                            const daysLeft = getRemainingDays(sub.nextExpectedDate);
-                            return (
-                                <div 
-                                    key={`${sub.description}-${idx}`}
-                                    className="relative flex items-center justify-between p-5 rounded-[2rem] bg-gray-50/50 border border-gray-100 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 group/item cursor-pointer"
-                                    onClick={() => setSelectedHistorySub(sub)}
-                                >
-                                    <div className="flex items-center gap-5">
-                                        <div className={clsx(
-                                            "w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm transition-colors duration-500",
-                                            sub.isManual ? "bg-amber-100 text-amber-600" : "bg-indigo-100 text-indigo-600"
-                                        )}>
-                                            {sub.description.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-black text-gray-800 tracking-tight group-hover/item:text-indigo-600 transition-colors">
-                                                {sub.description}
-                                            </p>
-                                            <div className="flex items-center gap-3 mt-1">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                                    <Clock size={10} />
-                                                    {formatInterval(sub.interval)}
-                                                </span>
-                                                {sub.isManual && (
-                                                    <span className="bg-amber-100/50 text-amber-600 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-200/50">
-                                                        {t('common.manual')}
-                                                    </span>
-                                                )}
+            {!collapsed && (
+                <div className="px-6 pb-8">
+                    {showInfo && (
+                        <div className="mb-6 bg-indigo-50/80 p-4 rounded-2xl border border-indigo-100 text-xs text-indigo-900 animate-in fade-in slide-in-from-top-2">
+                            <h4 className="font-bold mb-1">{t('dashboard.subscriptions_logic_title')}</h4>
+                            <p>{t('dashboard.subscriptions_logic_intro')}</p>
+                            <ul className="list-disc pl-4 mt-1 space-y-0.5 opacity-90">
+                                <li>{t('dashboard.subscriptions_logic_rule_manual')}</li>
+                                <li>{t('dashboard.subscriptions_logic_rule_pattern')}</li>
+                                <li>{t('dashboard.subscriptions_logic_rule_exclusions')}</li>
+                                <li>{t('dashboard.subscriptions_logic_rule_active')}</li>
+                            </ul>
+                        </div>
+                    )}
+
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                        {subscriptions.length > 0 ? (
+                            subscriptions
+                                .sort((a, b) => getRemainingDays(a.nextExpectedDate) - getRemainingDays(b.nextExpectedDate))
+                                .map((sub, idx) => {
+                                    const daysLeft = getRemainingDays(sub.nextExpectedDate);
+                                    return (
+                                        <div
+                                            key={`${sub.description}-${idx}`}
+                                            className="relative flex items-center justify-between p-5 rounded-[2rem] bg-gray-50/50 border border-gray-100 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 group/item cursor-pointer"
+                                            onClick={() => setSelectedHistorySub(sub)}
+                                        >
+                                            <div className="flex items-center gap-5">
+                                                <div className={clsx(
+                                                    'w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm transition-colors duration-500',
+                                                    sub.isManual ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
+                                                )}>
+                                                    {sub.description.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-gray-800 tracking-tight group-hover/item:text-indigo-600 transition-colors">
+                                                        {sub.description}
+                                                    </p>
+                                                    <div className="flex items-center gap-3 mt-1">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                                            <Clock size={10} />
+                                                            {formatInterval(sub.interval)}
+                                                        </span>
+                                                        {sub.isManual && (
+                                                            <span className="bg-amber-100/50 text-amber-600 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-200/50">
+                                                                {t('common.manual')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-6">
+                                                <div className="text-right">
+                                                    <p className="text-sm font-black text-gray-900">
+                                                        {formatCurrency(sub.amount)}
+                                                    </p>
+                                                    <p className={clsx(
+                                                        'text-[10px] font-bold uppercase tracking-tighter mt-0.5',
+                                                        daysLeft <= 3 ? 'text-rose-500 animate-pulse' : 'text-gray-400'
+                                                    )}>
+                                                        {daysLeft === 0
+                                                            ? t('dashboard.today')
+                                                            : daysLeft === 1
+                                                                ? t('dashboard.tomorrow')
+                                                                : daysLeft < 0
+                                                                    ? t('dashboard.past_due')
+                                                                    : t('dashboard.in_days', { days: daysLeft })}
+                                                    </p>
+                                                </div>
+                                                <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                    <ArrowRight size={16} className="text-indigo-400" />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-6">
-                                        <div className="text-right">
-                                            <p className="text-sm font-black text-gray-900">
-                                                {formatCurrency(sub.amount)}
-                                            </p>
-                                            <p className={clsx(
-                                                "text-[10px] font-bold uppercase tracking-tighter mt-0.5",
-                                                daysLeft <= 3 ? "text-rose-500 animate-pulse" : "text-gray-400"
-                                            )}>
-                                                {daysLeft === 0 
-                                                    ? t('dashboard.today')
-                                                    : daysLeft === 1 
-                                                        ? t('dashboard.tomorrow')
-                                                        : daysLeft < 0
-                                                            ? t('dashboard.past_due')
-                                                            : t('dashboard.in_days', { days: daysLeft })}
-                                            </p>
-                                        </div>
-                                        <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                            <ArrowRight size={16} className="text-indigo-400" />
-                                        </div>
-                                    </div>
+                                    );
+                                })
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-100 rounded-[2.5rem] bg-gray-50/30 text-center space-y-4">
+                                <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm">
+                                    <CreditCard className="w-8 h-8 text-gray-200" />
                                 </div>
-                            );
-                        })
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-100 rounded-[2.5rem] bg-gray-50/30 text-center space-y-4">
-                        <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm">
-                            <CreditCard className="w-8 h-8 text-gray-200" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-black text-gray-400 uppercase tracking-tight">
-                                {t('dashboard.no_subscriptions')}
-                            </p>
-                            <p className="text-[10px] text-gray-300 mt-1 max-w-[200px] mx-auto">
-                                {t('dashboard.subscription_hint')}
-                            </p>
-                        </div>
+                                <div>
+                                    <p className="text-sm font-black text-gray-400 uppercase tracking-tight">
+                                        {t('dashboard.no_subscriptions')}
+                                    </p>
+                                    <p className="text-[10px] text-gray-300 mt-1 max-w-[200px] mx-auto">
+                                        {t('dashboard.subscription_hint')}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Subscription History Modal */}
             {selectedHistorySub && createPortal(
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
-                    <div 
+                    <div
                         className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
                         onClick={() => setSelectedHistorySub(null)}
                     />
@@ -169,17 +224,17 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
                                     <p className="text-xs font-bold uppercase tracking-widest opacity-80 mt-1">{t('transaction_modal.history')}</p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setSelectedHistorySub(null)}
                                 className="absolute top-8 right-8 bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-all border border-white/10"
                             >
                                 <ArrowRight className="rotate-180" size={18} />
                             </button>
                         </div>
-                        
+
                         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-gray-50/30">
                             {selectedHistorySub.history && selectedHistorySub.history.length > 0 ? (
-                                <TransactionTable 
+                                <TransactionTable
                                     transactions={selectedHistorySub.history}
                                     categories={categories}
                                     onUpdateCategory={onUpdateCategory}
@@ -190,7 +245,7 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="p-6 bg-white border-t border-gray-100 flex justify-end">
                             <button
                                 onClick={() => setSelectedHistorySub(null)}
@@ -205,7 +260,7 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
             )}
 
             {/* Transaction Detail Modal */}
-            <TransactionModal 
+            <TransactionModal
                 transaction={selectedTxn}
                 isOpen={!!selectedTxn}
                 onClose={() => setSelectedTxn(null)}
@@ -214,3 +269,5 @@ export function SubscriptionList({ subscriptions, categories, onUpdateCategory }
         </div>
     );
 }
+
+
