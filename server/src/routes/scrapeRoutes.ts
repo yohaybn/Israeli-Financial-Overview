@@ -566,9 +566,11 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'filename is required' });
             }
 
-            await backupService.restoreFromLocalBackup(filename);
-            await storageService.reloadTransactionsFromFiles();
-            res.json({ success: true, message: 'Restore completed from local backup' });
+            const dbRestored = await backupService.restoreFromLocalBackup(filename);
+            if (!dbRestored) {
+                await storageService.reloadTransactionsFromFiles();
+            }
+            res.json({ success: true, message: 'Restore completed from local backup', dbRestored });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -593,9 +595,11 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'fileId is required' });
             }
 
-            await backupService.restoreFromDriveBackup(fileId);
-            await storageService.reloadTransactionsFromFiles();
-            res.json({ success: true, message: 'Restore completed from Google Drive backup' });
+            const dbRestored = await backupService.restoreFromDriveBackup(fileId);
+            if (!dbRestored) {
+                await storageService.reloadTransactionsFromFiles();
+            }
+            res.json({ success: true, message: 'Restore completed from Google Drive backup', dbRestored });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -608,10 +612,12 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'No backup file uploaded' });
             }
 
-            await backupService.restoreFromUploadedBackup(req.file.path);
-            await storageService.reloadTransactionsFromFiles();
+            const dbRestored = await backupService.restoreFromUploadedBackup(req.file.path);
+            if (!dbRestored) {
+                await storageService.reloadTransactionsFromFiles();
+            }
             await fs.remove(req.file.path).catch(() => {});
-            res.json({ success: true, message: 'Restore completed from uploaded backup' });
+            res.json({ success: true, message: 'Restore completed from uploaded backup', dbRestored });
         } catch (error: any) {
             if (req.file?.path) {
                 await fs.remove(req.file.path).catch(() => {});

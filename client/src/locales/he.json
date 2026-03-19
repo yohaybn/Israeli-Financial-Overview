@@ -259,6 +259,7 @@
         "backup_restore_drive_success": "השחזור מהגיבוי ב-Google Drive הושלם.",
         "backup_restore_upload_success": "השחזור מקובץ הגיבוי הושלם.",
         "backup_restore_failed": "השחזור נכשל: {{error}}",
+        "backup_restore_restart_notice": "מסד הנתונים שוחזר. הדף יטען מחדש כדי להחיל שינויים.",
         "backup_download_button": "הורדה",
         "backup_download_failed": "ההורדה נכשלה: {{error}}"
     },
@@ -303,7 +304,7 @@
         "transactions_for_day_scope": "עסקאות עבור {{filter}} ({{scope}})"
     },
     "google_settings": {
-        "title": "הגדרות Google Sheets",
+        "title": "הגדרות Google Drive",
         "description": "ניתן לקבל נתונים אלו מ-Google Cloud Console.",
         "description_prefix": "ניתן לקבל נתונים אלו מתוך",
         "google_cloud_console": "Google Cloud Console",

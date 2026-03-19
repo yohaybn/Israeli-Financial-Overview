@@ -84,8 +84,13 @@ export function MaintenancePanel() {
         }
 
         restoreLocalBackup(selectedLocalBackup, {
-            onSuccess: () => {
-                alert(t('maintenance.backup_restore_local_success'));
+            onSuccess: (result) => {
+                if (result.dbRestored) {
+                    alert(t('maintenance.backup_restore_local_success') + '\n\n' + t('maintenance.backup_restore_restart_notice'));
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    alert(t('maintenance.backup_restore_local_success'));
+                }
             },
             onError: (err: any) => {
                 const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
@@ -118,8 +123,13 @@ export function MaintenancePanel() {
         }
 
         restoreDriveBackup(selectedDriveBackupId, {
-            onSuccess: () => {
-                alert(t('maintenance.backup_restore_drive_success'));
+            onSuccess: (result) => {
+                if (result.dbRestored) {
+                    alert(t('maintenance.backup_restore_drive_success') + '\n\n' + t('maintenance.backup_restore_restart_notice'));
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    alert(t('maintenance.backup_restore_drive_success'));
+                }
             },
             onError: (err: any) => {
                 const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
@@ -135,8 +145,13 @@ export function MaintenancePanel() {
         }
 
         restoreUploadedBackup(file, {
-            onSuccess: () => {
-                alert(t('maintenance.backup_restore_upload_success'));
+            onSuccess: (result) => {
+                if (result.dbRestored) {
+                    alert(t('maintenance.backup_restore_upload_success') + '\n\n' + t('maintenance.backup_restore_restart_notice'));
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    alert(t('maintenance.backup_restore_upload_success'));
+                }
                 refetchLocalBackups();
                 refetchDriveBackups();
             },

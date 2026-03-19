@@ -61,7 +61,18 @@ function maskSensitiveData(text: string, config: MaskingConfig = DEFAULT_MASKING
   }
 
   if (config.maskPhoneNumbers) {
-    masked = masked.replace(/\+?\d{1,3}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g, '[PHONE_REDACTED]');
+    masked = masked.replace(/(?<!\d)\+?\d{1,3}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}(?!\d)/g, (match) => {
+      // Don't mask if it looks like a date (YYYY-MM-DD, DD/MM/YYYY, etc.)
+      if (/^\d{2,4}[-./]\d{2}[-./]\d{2,4}/.test(match)) {
+        return match;
+      }
+      // Ensure it's long enough to be a phone number (at least 8 digits)
+      const digitCount = match.replace(/\D/g, '').length;
+      if (digitCount < 8 || digitCount > 15) {
+        return match;
+      }
+      return '[PHONE_REDACTED]';
+    });
   }
 
   if (config.maskTransactionDetails) {

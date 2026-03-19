@@ -613,7 +613,7 @@ export function useRestoreLocalBackup() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (filename: string) => {
-            const { data } = await api.post<{ success: boolean; message: string }>('/backups/restore/local', { filename });
+            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean }>('/backups/restore/local', { filename });
             return data;
         },
         onSuccess: () => {
@@ -630,7 +630,7 @@ export function useRestoreDriveBackup() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (fileId: string) => {
-            const { data } = await api.post<{ success: boolean; message: string }>('/backups/restore/drive', { fileId });
+            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean }>('/backups/restore/drive', { fileId });
             return data;
         },
         onSuccess: () => {
@@ -649,7 +649,7 @@ export function useRestoreUploadedBackup() {
         mutationFn: async (file: File) => {
             const formData = new FormData();
             formData.append('file', file);
-            const { data } = await api.post<{ success: boolean; message: string }>('/backups/restore/upload', formData, {
+            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean }>('/backups/restore/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }

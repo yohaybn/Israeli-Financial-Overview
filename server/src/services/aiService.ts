@@ -158,9 +158,14 @@ export class AiService {
         // Prepare prompt
         const descriptions = Array.from(new Set(uncategorized.map(t => t.description)));
         const prompt = `
-            You are a professional financial assistant specializing in Israeli banking. 
-            Your task is to categorize the following transaction descriptions into the most appropriate category.
+            Analyze the Objective: You are a professional financial assistant specializing in Israeli banking. 
+            Your core task is to categorize the following transaction descriptions into the most appropriate category.
 
+            ---
+            ${descriptions.join('\n')}
+            ---
+
+            Constraints & Output Format:
             AVAILABLE CATEGORIES:
             ${this.settings.categories.join(', ')}
 
@@ -177,9 +182,8 @@ export class AiService {
                 "AMAZON MKT PLC": "General",
                 "YELLOW": "Transport"
             }
-
-            TRANSACTION DESCRIPTIONS TO CATEGORIZE:
-            ${descriptions.join('\n')}
+            
+            Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
         `;
 
         let startTime = Date.now();
@@ -275,10 +279,17 @@ export class AiService {
             systemInstruction: "You are a professional financial analyst. Provide concise, data-driven answers based on provided transaction history."
         });
         const prompt = `
-            Transactions (CSV format):
-            ${this.formatTransactionsForAI(transactions)}
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
             
             Question: ${query}
+
+            ---
+            CSV:
+            ${this.formatTransactionsForAI(transactions)}
+            ---
+            
+            Constraints & Output Format:
+            Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
         `;
 
         let startTime = Date.now();
@@ -336,9 +347,16 @@ export class AiService {
         const model = this.genAI.getGenerativeModel({ model: this.settings.categorizationModel });
 
         const prompt = `
-            You are a financial data extraction expert. Extract all bank/credit card transactions from the provided text.
+            Analyze the Objective: You are a financial data extraction expert. Your core task is to extract all bank/credit card transactions from the provided text.
             The text might contain multiple files or accounts. Please extract all of them.
             
+            ---
+            <data>
+            ${text.substring(0, 100000)}
+            </data>
+            ---
+
+            Constraints & Output Format:
             IMPORTANT RULES FOR AMOUNTS:
             - For EXPENSES, CHARGES, or MONEY GOING OUT: Use NEGATIVE numbers (e.g., -150.50).
             - For INCOME, REFUNDS, PAYMENTS RECEIVED, or MONEY COMING IN: Use POSITIVE numbers (e.g., 2000.00).
@@ -368,9 +386,8 @@ export class AiService {
                  { "accountNumber": "123", "provider": "bank name" }
               ]
             }
-
-            Text to parse:
-            ${text.substring(0, 100000)} 
+            
+            Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
         `;
 
         try {

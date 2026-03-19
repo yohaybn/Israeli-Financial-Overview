@@ -259,6 +259,7 @@
         "backup_restore_drive_success": "Restore completed from Google Drive backup.",
         "backup_restore_upload_success": "Restore completed from uploaded backup file.",
         "backup_restore_failed": "Restore failed: {{error}}",
+        "backup_restore_restart_notice": "The database was restored. The page will reload to apply changes.",
         "backup_download_button": "Download",
         "backup_download_failed": "Download failed: {{error}}"
     },
@@ -303,7 +304,7 @@
         "transactions_for_day_scope": "Transactions for {{filter}} ({{scope}})"
     },
     "google_settings": {
-        "title": "Google Sheets Setup",
+        "title": "Google Drive Setup",
         "description": "Obtain these from the Google Cloud Console.",
         "description_prefix": "Obtain these from the",
         "google_cloud_console": "Google Cloud Console",

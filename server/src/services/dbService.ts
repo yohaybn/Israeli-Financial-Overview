@@ -341,6 +341,14 @@ export class DbService {
         }));
     }
 
+    checkpoint() {
+        this.db.pragma('wal_checkpoint(TRUNCATE)');
+    }
+
+    close() {
+        this.db.close();
+    }
+
     getFraudFindingsForTxn(txnId: string): FraudFinding[] {
         const stmt = this.db.prepare(`
             SELECT id, txn_id, detector, score, severity, reasons_json, created_at

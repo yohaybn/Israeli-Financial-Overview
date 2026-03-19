@@ -179,7 +179,7 @@ export interface CategoryBudgetItem {
     upcomingBillsAmount?: number;
     variableForecastAmount?: number;
     forecastRate?: number;       // Daily rate used for forecast
-    forecastMethod?: 'historical_avg' | 'extrapolation';
+    forecastMethod?: 'historical_avg' | 'extrapolation' | 'transaction_count';
 }
 
 // Historical baseline per category over the last N months
@@ -190,6 +190,8 @@ export interface CategoryBaseline {
     avgDaily: number;         // Average daily spend (for variable forecasting)
     monthCount: number;       // Number of months with data
     isFixed: boolean;         // Low variance = fixed, high variance = variable
+    expectedMonthlyTxnCount?: number; // Expected transaction count based on history
+    avgTxnValue?: number;     // Average value of a single transaction
 }
 
 export interface HistoricalBaseline {

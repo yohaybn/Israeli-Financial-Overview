@@ -235,6 +235,8 @@ function computeHistoricalBaseline(
 
     // Map: Category -> Month -> Total Amount
     const catMonthTotals = new Map<string, Map<string, number>>();
+    // Map: Category -> Month -> Txn Count
+    const catMonthTxnCount = new Map<string, Map<string, number>>();
 
     for (const txn of transactions) {
         if (isInternalTransfer(txn, customCCKeywords)) continue;
@@ -247,9 +249,13 @@ function computeHistoricalBaseline(
         const cat = txn.category || 'אחר';
         if (!catMonthTotals.has(cat)) {
             catMonthTotals.set(cat, new Map(pastMonths.map(m => [m, 0])));
+            catMonthTxnCount.set(cat, new Map(pastMonths.map(m => [m, 0])));
         }
         const currentTotal = catMonthTotals.get(cat)!.get(txnMonth) || 0;
         catMonthTotals.get(cat)!.set(txnMonth, currentTotal + Math.abs(amount));
+
+        const currentCount = catMonthTxnCount.get(cat)!.get(txnMonth) || 0;
+        catMonthTxnCount.get(cat)!.set(txnMonth, currentCount + 1);
     }
 
     const categories: CategoryBaseline[] = [];
@@ -261,6 +267,11 @@ function computeHistoricalBaseline(
         const variance = amounts.reduce((a, b) => a + Math.pow(b - avgMonthly, 2), 0) / monthsToAnalyze;
         const stdDev = Math.sqrt(variance);
 
+        const counts = Array.from(catMonthTxnCount.get(category)!.values());
+        const avgTxnCount = counts.reduce((a, b) => a + b, 0) / monthsToAnalyze;
+        const expectedMonthlyTxnCount = Math.max(1, Math.round(avgTxnCount));
+        const avgTxnValue = avgTxnCount > 0 ? avgMonthly / avgTxnCount : 0;
+
         // If stdDev is less than 20% of avgMonthly, consider it fixed, else variable
         const isFixed = avgMonthly > 0 && (stdDev / avgMonthly) < 0.2;
 
@@ -270,7 +281,9 @@ function computeHistoricalBaseline(
             stdDev,
             avgDaily: avgMonthly / 30.4, // rough average days per month
             monthCount: monthsToAnalyze,
-            isFixed
+            isFixed,
+            expectedMonthlyTxnCount,
+            avgTxnValue
         });
         sumAvgMonthly += avgMonthly;
     }
@@ -527,14 +540,23 @@ export function useFinancialSummary(
             const upcomingForCategory = categoryUpcomingBills.reduce((sum, i) => sum + i.amount, 0);
             let categoryVariableForecast = 0;
             let forecastRate = 0;
-            let forecastMethod: 'historical_avg' | 'extrapolation' | undefined;
+            let forecastMethod: 'historical_avg' | 'extrapolation' | 'transaction_count' | undefined;
 
             // Variable Spend Forecasting
             if (isCurrentMonth) {
                 if (baseline && !baseline.isFixed) {
-                    forecastRate = baseline.avgDaily;
-                    categoryVariableForecast = forecastRate * Math.max(0, remainingDays);
-                    forecastMethod = 'historical_avg';
+                    const N = baseline.expectedMonthlyTxnCount || 1;
+                    const avgTxnValue = baseline.avgTxnValue || 0;
+                    const currentTxns = categoryTxns.get(name)?.length || 0;
+
+                    if (currentTxns < N) {
+                        categoryVariableForecast = (N - currentTxns) * avgTxnValue;
+                    } else {
+                        categoryVariableForecast = 0;
+                    }
+
+                    forecastRate = 0; // Daily rate is no longer the main driver
+                    forecastMethod = 'transaction_count';
                 } else if (!baseline && spent > 0) {
                     // If no baseline but we have spend, do a naive extrapolation
                     forecastRate = spent / Math.max(1, daysPassed);

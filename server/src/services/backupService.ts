@@ -3,13 +3,16 @@ import path from 'path';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
 import { GoogleAuthService } from './googleAuthService.js';
+import { DbService } from './dbService.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const CONFIG_DIR = path.join(DATA_DIR, 'config');
 const GOOGLE_FOLDER_CONFIG_PATH = path.join(CONFIG_DIR, 'google_folder.json');
+const DB_PATH = path.join(DATA_DIR, 'app.db');
 
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
+const SUPPORTED_SNAPSHOT_VERSIONS = [1, 2];
 const SNAPSHOT_NAME_PREFIX = 'bank-scraper-backup';
 const BACKUP_EXT = '.backup.json';
 
@@ -77,6 +80,25 @@ export class BackupService {
                     content: buffer.toString('base64')
                 });
             }
+        }
+
+        // Include the SQLite database file
+        if (await fs.pathExists(DB_PATH)) {
+            // Checkpoint WAL to flush all changes into the main DB file
+            try {
+                const dbService = new DbService();
+                dbService.checkpoint();
+                dbService.close();
+            } catch {
+                // If checkpoint fails, still try to include the DB file as-is
+            }
+
+            const buffer = await fs.readFile(DB_PATH);
+            entries.push({
+                path: 'app.db',
+                encoding: 'base64',
+                content: buffer.toString('base64')
+            });
         }
 
         return entries;
@@ -189,14 +211,32 @@ export class BackupService {
         return response.data.files || [];
     }
 
-    private async restoreFromSnapshot(snapshot: BackupSnapshot): Promise<void> {
-        if (!snapshot || snapshot.version !== SNAPSHOT_VERSION || !Array.isArray(snapshot.files)) {
+    /**
+     * Restore from a backup snapshot.
+     * Returns true if the snapshot contained a DB file (v2+), false otherwise (v1).
+     * When a DB file is included, the caller should NOT rebuild the DB from files.
+     */
+    private async restoreFromSnapshot(snapshot: BackupSnapshot): Promise<boolean> {
+        if (!snapshot || !SUPPORTED_SNAPSHOT_VERSIONS.includes(snapshot.version) || !Array.isArray(snapshot.files)) {
             throw new Error('Invalid backup snapshot format');
         }
+
+        // Check if snapshot includes a DB file
+        const hasDbFile = snapshot.files.some(e => e.path === 'app.db');
 
         for (const target of BACKUP_TARGETS) {
             await fs.ensureDir(path.join(DATA_DIR, target));
             await fs.emptyDir(path.join(DATA_DIR, target));
+        }
+
+        // If restoring a DB file, remove old DB files first
+        if (hasDbFile) {
+            for (const dbFile of ['app.db', 'app.db-shm', 'app.db-wal']) {
+                const dbPath = path.join(DATA_DIR, dbFile);
+                if (await fs.pathExists(dbPath)) {
+                    await fs.remove(dbPath);
+                }
+            }
         }
 
         for (const entry of snapshot.files) {
@@ -208,19 +248,21 @@ export class BackupService {
             const content = Buffer.from(entry.content, 'base64');
             await fs.writeFile(outputPath, content);
         }
+
+        return hasDbFile;
     }
 
-    async restoreFromLocalBackup(filename: string) {
+    async restoreFromLocalBackup(filename: string): Promise<boolean> {
         const resolved = this.getLocalBackupPath(filename);
         if (!await fs.pathExists(resolved)) {
             throw new Error('Backup file not found');
         }
 
         const snapshot = await fs.readJson(resolved) as BackupSnapshot;
-        await this.restoreFromSnapshot(snapshot);
+        return await this.restoreFromSnapshot(snapshot);
     }
 
-    async restoreFromDriveBackup(fileId: string) {
+    async restoreFromDriveBackup(fileId: string): Promise<boolean> {
         const auth = await this.authService.getClient();
         const drive = google.drive({ version: 'v3', auth });
         const response = await drive.files.get(
@@ -230,11 +272,11 @@ export class BackupService {
 
         const raw = Buffer.from(response.data as ArrayBuffer).toString('utf8');
         const snapshot = JSON.parse(raw) as BackupSnapshot;
-        await this.restoreFromSnapshot(snapshot);
+        return await this.restoreFromSnapshot(snapshot);
     }
 
-    async restoreFromUploadedBackup(filePath: string) {
+    async restoreFromUploadedBackup(filePath: string): Promise<boolean> {
         const snapshot = await fs.readJson(filePath) as BackupSnapshot;
-        await this.restoreFromSnapshot(snapshot);
+        return await this.restoreFromSnapshot(snapshot);
     }
 }
