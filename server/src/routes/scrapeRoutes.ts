@@ -271,10 +271,10 @@ export function createScrapeRoutes(
         }
     });
 
-    // Get all aggregated transactions (Unified DB view)
+    // Get all aggregated transactions (Unified DB view), including ignored so user can unignore
     router.get('/results/all', async (req, res) => {
         try {
-            const transactions = await storageService.getAllTransactions();
+            const transactions = await storageService.getAllTransactions(true);
             res.json({ success: true, transactions });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });

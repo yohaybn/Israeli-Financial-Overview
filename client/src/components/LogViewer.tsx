@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLogs, useLogLevel, useUpdateLogLevel } from '../hooks/useScraper';
+import { useLogs, useLogLevel, useUpdateLogLevel, useClearLogs } from '../hooks/useScraper';
 import AILogViewer from './AILogViewer';
 
 interface LogViewerProps {
@@ -19,6 +19,7 @@ export function LogViewer({ initialType }: LogViewerProps) {
 
     const { data: currentLevel } = useLogLevel();
     const { mutate: updateLevel } = useUpdateLogLevel();
+    const { mutate: clearLogs, isPending: isClearing } = useClearLogs();
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -115,6 +116,17 @@ export function LogViewer({ initialType }: LogViewerProps) {
                             <option value={500}>500</option>
                         </select>
                     </div>
+                    <button
+                        onClick={() => {
+                            if (confirm(t('common.clear_logs_confirm', { type: t(`common.${logType}`) }))) {
+                                clearLogs(logType);
+                            }
+                        }}
+                        disabled={isClearing}
+                        className="px-3 py-1.5 rounded-lg border border-red-800/50 text-red-400 text-xs font-medium hover:bg-red-900/30 disabled:opacity-50 transition"
+                    >
+                        {isClearing ? t('common.loading') : t('common.clear')}
+                    </button>
                 </div>
             </div>
 

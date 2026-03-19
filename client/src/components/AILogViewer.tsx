@@ -99,6 +99,19 @@ export const AILogViewer: React.FC = () => {
     }
   }, [fetchLogs, fetchStats, t]);
 
+  const clearAllLogs = useCallback(async () => {
+    if (!confirm(t('ai_logs.confirm_clear_all'))) return;
+    try {
+      const response = await apiClient.post('/ai-logs/logs/clear');
+      if (response.data.success) {
+        fetchLogs();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('Failed to clear AI logs:', error);
+    }
+  }, [fetchLogs, fetchStats, t]);
+
   useEffect(() => {
     fetchLogs();
     fetchStats();
@@ -252,12 +265,20 @@ export const AILogViewer: React.FC = () => {
             {t('ai_logs.include_errors')}
           </label>
 
-          <button
-            onClick={() => clearOldLogs(30)}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm sm:ml-4"
-          >
-            {t('ai_logs.clear_old_logs')}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => clearOldLogs(30)}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm"
+            >
+              {t('ai_logs.clear_old_logs')}
+            </button>
+            <button
+              onClick={() => clearAllLogs()}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+            >
+              {t('ai_logs.clear_all')}
+            </button>
+          </div>
         </div>
 
         <div className="w-full sm:w-auto sm:ml-auto text-sm text-gray-600 text-center sm:text-right">

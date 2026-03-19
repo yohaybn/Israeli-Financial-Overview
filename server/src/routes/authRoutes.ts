@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { google } from 'googleapis';
 import { GoogleAuthService } from '../services/googleAuthService.js';
 
 const router = Router();
@@ -80,6 +81,48 @@ router.post('/settings', async (req, res) => {
         res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Map technical Google OAuth/API errors to user-friendly messages
+function getFriendlyDriveTestError(message: string): string {
+    const m = (message || '').toLowerCase();
+    if (m.includes('invalid_grant') || m.includes('token has been expired') || m.includes('token has been revoked') || m.includes('invalid refresh token')) {
+        return 'Your Google sign-in has expired or was revoked. Connect your account again using "Connect with Google" (e.g. in Google Sheets sync).';
+    }
+    if (m.includes('invalid_client') || m.includes('unauthorized')) {
+        return 'Invalid Client ID or Client Secret. Check your credentials in Google Cloud Console.';
+    }
+    if (m.includes('access_denied') || m.includes('access denied')) {
+        return 'Access was denied. Try connecting your Google account again and approve the requested permissions.';
+    }
+    if (m.includes('invalid_scope')) {
+        return 'Required Google Drive permission is missing. Reconnect your account and accept all requested permissions.';
+    }
+    if (m.includes('econnrefused') || m.includes('enotfound') || m.includes('network')) {
+        return 'Network error. Check your internet connection and try again.';
+    }
+    return message;
+}
+
+// Test Google Drive connection
+router.get('/test', async (req, res) => {
+    try {
+        const configured = await authService.isConfigured();
+        if (!configured) {
+            return res.status(400).json({ success: false, error: 'Google credentials not configured' });
+        }
+        const authenticated = await authService.isAuthenticated();
+        if (!authenticated) {
+            return res.status(401).json({ success: false, error: 'Not authenticated with Google. Connect your account first.' });
+        }
+        const auth = await authService.getClient();
+        const drive = google.drive({ version: 'v3', auth });
+        await drive.files.list({ pageSize: 1 });
+        res.json({ success: true, data: { message: 'Google Drive connection successful' } });
+    } catch (error: any) {
+        const friendly = getFriendlyDriveTestError(error?.message || String(error));
+        res.status(500).json({ success: false, error: friendly });
     }
 });
 

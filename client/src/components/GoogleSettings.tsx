@@ -30,6 +30,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     const [currentBrowsingFolderId, setCurrentBrowsingFolderId] = useState<string | null>(null);
     const [folderPath, setFolderPath] = useState<Array<{ id: string | null; name: string }>>([]);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [testError, setTestError] = useState<string | null>(null);
 
     const showNotification = useCallback((type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
@@ -114,6 +115,26 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
         onError: (err: any) => {
             const errorMsg = err?.message || t('common.unknown_error');
             showNotification('error', t('google_settings.errors.clear_folder_failed_with_error', { error: errorMsg }));
+        }
+    });
+
+    // Mutation to test Google Drive connection
+    const { mutate: testDriveConnection, isPending: isTestingDrive } = useMutation({
+        mutationFn: async () => {
+            setTestError(null);
+            const res = await fetch(`${API_BASE}/auth/google/test`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || t('google_settings.test_failed'));
+            return data;
+        },
+        onSuccess: () => {
+            setTestError(null);
+            showNotification('success', t('google_settings.test_success'));
+        },
+        onError: (err: any) => {
+            const message = err?.message || t('google_settings.test_failed');
+            setTestError(message);
+            showNotification('error', message);
         }
     });
 
@@ -343,37 +364,71 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                 </section>
                 </div>
 
-            <div className={`flex gap-3 shrink-0 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm py-4 border-t border-gray-200 -mx-6 px-6 z-10' : 'p-6 bg-gray-50 border-t border-gray-100'}`}>
-                <button
-                    onClick={onClose}
-                    className="flex-1 py-2.5 text-sm font-bold text-gray-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-gray-200"
-                >
-                    {t('common.cancel')}
-                </button>
-                <button
-                    onClick={handleSave}
-                    disabled={isUpdating || !clientId || !clientSecret}
-                    className="flex-1 py-2.5 text-sm font-black text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
-                >
-                    {isUpdating ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : t('ai_settings.save_button')}
-                </button>
+            <div className={`shrink-0 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm pt-4 pb-4 border-t border-gray-200 -mx-6 px-6 z-10' : 'p-6 bg-gray-50 border-t border-gray-100'}`}>
+                {testError && (
+                    <div className="mb-3 flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm" role="alert">
+                        <svg className="w-5 h-5 shrink-0 mt-0.5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                        </svg>
+                        <span>{testError}</span>
+                    </div>
+                )}
+                <div className="flex gap-3">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-2.5 text-sm font-bold text-gray-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-gray-200"
+                    >
+                        {t('common.cancel')}
+                    </button>
+                    <button
+                        onClick={() => testDriveConnection()}
+                        disabled={isTestingDrive || !clientId || !clientSecret}
+                        className="flex-1 py-2.5 text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {isTestingDrive ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                {t('google_settings.testing')}
+                            </>
+                        ) : (
+                            t('google_settings.test')
+                        )}
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={isUpdating || !clientId || !clientSecret}
+                        className="flex-1 py-2.5 text-sm font-black text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        {isUpdating ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : t('ai_settings.save_button')}
+                    </button>
+                </div>
             </div>
         </div>
     );
 
-    if (isInline) return content;
+    const notificationToast = notification ? (
+        <div
+            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-medium z-[110] animate-in fade-in slide-in-from-right-5 ${notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+            role={notification.type === 'error' ? 'alert' : 'status'}
+        >
+            {notification.message}
+        </div>
+    ) : null;
+
+    if (isInline) {
+        return (
+            <>
+                {notificationToast}
+                {content}
+            </>
+        );
+    }
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] backdrop-blur-sm animate-in fade-in duration-200">
-            {/* Notification Toast */}
-            {notification && (
-                <div className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-medium z-50 animate-in fade-in slide-in-from-right-5 ${notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-                    }`}>
-                    {notification.message}
-                </div>
-            )}
+            {notificationToast}
             {content}
         </div>
     );

@@ -1,53 +1,64 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DashboardConfig } from '@app/shared';
 import * as Shared from '@app/shared';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
 
 const DEFAULT_DASHBOARD_CONFIG = Shared.DEFAULT_DASHBOARD_CONFIG;
-
-const CONFIG_KEY = 'dashboard_config';
+const CONFIG_KEY = 'dashboard_config'; // Still used for one-time migration
 
 export function useDashboardConfig() {
-    const [config, setConfigState] = useState<DashboardConfig>(() => {
-        try {
-            const stored = localStorage.getItem(CONFIG_KEY);
-            return stored ? { ...DEFAULT_DASHBOARD_CONFIG, ...JSON.parse(stored) } : DEFAULT_DASHBOARD_CONFIG;
-        } catch (e) {
-            console.error('Failed to parse dashboard config', e);
-            return DEFAULT_DASHBOARD_CONFIG;
-        }
+    const queryClient = useQueryClient();
+    const [isMigrating, setIsMigrating] = useState(false);
+
+    // Fetch config from server
+    const { data: serverConfig, isLoading } = useQuery({
+        queryKey: ['dashboardConfig'],
+        queryFn: async () => {
+            const { data } = await api.get<{ success: boolean; data: DashboardConfig }>('/config/dashboard');
+            return data.data;
+        },
     });
 
-    const updateConfig = useCallback((newConfig: Partial<DashboardConfig>) => {
-        const updated = { ...config, ...newConfig };
-        setConfigState(updated);
-        localStorage.setItem(CONFIG_KEY, JSON.stringify(updated));
-        
-        // Move side effect outside of any state update to avoid React warning
-        // Use a small delay or ensure it's not during render
-        window.dispatchEvent(new CustomEvent('dashboard-config-updated', { detail: updated }));
-    }, [config]);
+    const updateConfigMutation = useMutation({
+        mutationFn: async (newConfig: Partial<DashboardConfig>) => {
+            const { data } = await api.post<{ success: boolean; data: DashboardConfig }>('/config/dashboard', newConfig);
+            return data.data;
+        },
+        onSuccess: (updatedConfig) => {
+            queryClient.setQueryData(['dashboardConfig'], updatedConfig);
+            window.dispatchEvent(new CustomEvent('dashboard-config-updated', { detail: updatedConfig }));
+        },
+    });
 
+    // One-time migration from localStorage to server
     useEffect(() => {
-        const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === CONFIG_KEY && e.newValue) {
-                try {
-                    setConfigState({ ...DEFAULT_DASHBOARD_CONFIG, ...JSON.parse(e.newValue) });
-                } catch (err) { }
+        const stored = localStorage.getItem(CONFIG_KEY);
+        if (stored && serverConfig && !isMigrating) {
+            try {
+                const parsed = JSON.parse(stored);
+                setIsMigrating(true);
+                // POST the local config to server
+                api.post('/config/dashboard', parsed).then(() => {
+                    localStorage.removeItem(CONFIG_KEY);
+                    queryClient.invalidateQueries({ queryKey: ['dashboardConfig'] });
+                }).finally(() => {
+                    setIsMigrating(false);
+                });
+            } catch (e) {
+                console.error('Failed to migrate dashboard config', e);
+                localStorage.removeItem(CONFIG_KEY); // Corrupted, just remove it
             }
-        };
+        }
+    }, [serverConfig, isMigrating, queryClient]);
 
-        const handleCustomEvent = (e: Event) => {
-            const customEvent = e as CustomEvent<DashboardConfig>;
-            setConfigState(customEvent.detail);
-        };
+    const updateConfig = useCallback((newConfig: Partial<DashboardConfig>) => {
+        updateConfigMutation.mutate(newConfig);
+    }, [updateConfigMutation]);
 
-        window.addEventListener('storage', handleStorageChange);
-        window.addEventListener('dashboard-config-updated', handleCustomEvent as EventListener);
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-            window.removeEventListener('dashboard-config-updated', handleCustomEvent as EventListener);
-        };
-    }, []);
-
-    return { config, updateConfig };
+    return { 
+        config: serverConfig || DEFAULT_DASHBOARD_CONFIG, 
+        updateConfig,
+        isLoading: isLoading || isMigrating
+    };
 }

@@ -1,11 +1,14 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '@app/shared';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ENV_PATH = path.resolve(__dirname, '../../../.env');
 const RESTART_TRIGGER_PATH = path.resolve(__dirname, '../restart-trigger.json');
+const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
+const DASHBOARD_CONFIG_PATH = path.join(DATA_DIR, 'config', 'dashboard.json');
 
 export class ConfigService {
     private readonly allowedKeys = [
@@ -86,6 +89,28 @@ export class ConfigService {
         });
 
         await fs.writeFile(ENV_PATH, newLines.join('\n'), 'utf8');
+    }
+
+    async getDashboardConfig(): Promise<DashboardConfig> {
+        try {
+            await fs.ensureDir(path.dirname(DASHBOARD_CONFIG_PATH));
+            if (!(await fs.pathExists(DASHBOARD_CONFIG_PATH))) {
+                return DEFAULT_DASHBOARD_CONFIG;
+            }
+            const content = await fs.readJson(DASHBOARD_CONFIG_PATH);
+            return { ...DEFAULT_DASHBOARD_CONFIG, ...content };
+        } catch (error) {
+            console.error('Error reading backend dashboard config:', error);
+            return DEFAULT_DASHBOARD_CONFIG;
+        }
+    }
+
+    async updateDashboardConfig(updates: Partial<DashboardConfig>): Promise<DashboardConfig> {
+        const current = await this.getDashboardConfig();
+        const updated = { ...current, ...updates };
+        await fs.ensureDir(path.dirname(DASHBOARD_CONFIG_PATH));
+        await fs.writeJson(DASHBOARD_CONFIG_PATH, updated, { spaces: 2 });
+        return updated;
     }
 
     restart(): void {

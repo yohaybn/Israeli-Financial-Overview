@@ -94,8 +94,8 @@ export function ConfigurationPanel() {
                     {activeTab === 'fraud' && <FraudSettings isInline={true} />}
                     {activeTab === 'sheets' && (
                         <div className="space-y-6">
-                            <GoogleSettings isInline={true} />
                             <GoogleSheetsSync isInline={true} />
+                            <GoogleSettings isInline={true} />
                         </div>
                     )}
                     {activeTab === 'telegram' && <TelegramSettings isInline={true} />}

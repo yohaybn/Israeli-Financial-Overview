@@ -382,6 +382,30 @@ export async function clearOldAILogs(daysToRetain: number = 30): Promise<void> {
 }
 
 /**
+ * Clear all AI logs (all entries and the main log file)
+ */
+export async function clearAllAILogs(): Promise<void> {
+  try {
+    await ensureLogsDirectory();
+    const jsonFiles = await fs.readdir(AI_LOG_JSON_DIR).catch(() => []);
+    let deletedCount = 0;
+    for (const name of jsonFiles) {
+      if (name.endsWith('.json')) {
+        await fs.remove(path.join(AI_LOG_JSON_DIR, name)).catch(() => {});
+        deletedCount++;
+      }
+    }
+    if (await fs.pathExists(AI_LOG_FILE)) {
+      await fs.writeFile(AI_LOG_FILE, '', 'utf-8');
+    }
+    serverLogger.info(`Cleared all AI logs (${deletedCount} entries)`);
+  } catch (error) {
+    serverLogger.error('Failed to clear all AI logs:', { error });
+    throw error;
+  }
+}
+
+/**
  * Wrapper function to automatically log AI calls with timing and error handling
  * @param callbackFn - Async function that makes the AI call
  * @param logConfig - Configuration for logging

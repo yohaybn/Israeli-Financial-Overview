@@ -39,7 +39,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
     const [localSelectedFile, setLocalSelectedFile] = useState<string>('');
     const effectiveFile = propSelectedFile || localSelectedFile;
 
-    const { data: spreadsheets, isLoading: isLoadingSheets } = useQuery({
+    const { data: spreadsheets, isLoading: isLoadingSheets, isError: isDriveError, error: driveError } = useQuery({
         queryKey: ['spreadsheets', folderConfig?.folderId],
         queryFn: async () => {
             const url = folderConfig?.folderId
@@ -47,10 +47,13 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                 : `${API_BASE}/sheets/list`;
             const res = await fetch(url);
             const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
             return data.data;
         },
-        enabled: authStatus?.authenticated === true
+        enabled: authStatus?.authenticated === true,
+        retry: false
     });
+    const isDriveConnectionError = isDriveError && (driveError as any)?.message && /invalid_grant|expired|revoked|401|unauthorized|not authenticated/i.test(String((driveError as any).message));
     const { mutate: createSheet, isPending: isCreating } = useCreateSpreadsheet();
     const { mutate: sync, isPending: isSyncing } = useSyncToSheets();
     const { data: scrapeResult } = useScrapeResult(effectiveFile);
@@ -153,12 +156,6 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                             </svg>
                             {t('google_sheets.sync_title')}
                         </div>
-                        <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-gray-600" title={t('common.settings')}>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </button>
                     </div>
                     <p className="text-sm text-gray-500">{t('google_sheets.connect_desc')}</p>
                     <button
@@ -190,20 +187,36 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
                         </svg>
                         {t('google_sheets.sync_title')}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setShowSettings(true)} className="text-gray-400 hover:text-gray-600" title={t('common.settings')}>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <button
+                        onClick={() => logout()}
+                        className="inline-flex items-center gap-2 py-2 px-3 rounded-xl text-xs font-bold border-2 border-red-200 text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-colors"
+                        title={t('google_sheets.disconnect')}
+                    >
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        {t('google_sheets.disconnect_button')}
+                    </button>
+                </div>
+
+                {isDriveConnectionError && (
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col gap-3">
+                        <p className="text-sm font-medium text-amber-800">{t('google_sheets.connection_error_prompt')}</p>
+                        <button
+                            onClick={handleConnect}
+                            className="flex items-center justify-center gap-2 bg-white border-2 border-amber-400 py-3 px-4 rounded-xl hover:bg-amber-50 transition-colors text-sm font-bold text-amber-800 shadow-sm"
+                        >
+                            <svg className="w-5 h-5" viewBox="0 0 48 48">
+                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z" />
+                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                                <path fill="none" d="M0 0h48v48H0z" />
                             </svg>
-                        </button>
-                        <button onClick={() => logout()} title={t('google_sheets.disconnect')} className="text-gray-400 hover:text-red-500">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
+                            {t('google_sheets.connect_button')}
                         </button>
                     </div>
-                </div>
+                )}
 
                 <div className="space-y-3">
                     {/* File Selection (Only if not provided via props) */}

@@ -529,6 +529,19 @@ export function useUpdateLogLevel() {
         },
     });
 }
+
+export function useClearLogs() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (type: 'server' | 'client') => {
+            const { data } = await api.post<{ success: boolean; type: string }>(`/logs/clear?type=${type}`);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['logs'] });
+        },
+    });
+}
 export function useMergeResults() {
     const queryClient = useQueryClient();
     return useMutation({

@@ -60,6 +60,7 @@
         "rename_from": "מאת",
         "new_name": "שם קובץ חדש",
         "clear": "נקה",
+        "clear_logs_confirm": "לנקות את כל יומני ה-{{type}}?",
         "settings": "הגדרות",
         "hide_section": "הסתר אזור",
         "not_configured_suffix": "(לא הוגדר)",
@@ -330,7 +331,11 @@
         "noFoldersInDrive": "No folders found in Google Drive",
         "selectedLabel": "Selected:",
         "envFolderTipPrefix": "You can also set",
-        "envFolderTipSuffix": "in .env"
+        "envFolderTipSuffix": "in .env",
+        "test": "בדיקה",
+        "testing": "בודק...",
+        "test_success": "חיבור ל-Google Drive הצליח",
+        "test_failed": "בדיקת החיבור נכשלה"
     },
     "google_sheets": {
         "title": "Google Sheets",
@@ -359,7 +364,9 @@
         "syncing_button": "מסנכרן...",
         "sync_button_text": "סנכרן ל-Google Sheets",
         "select_hint": "בחר תוצאות סריקה לסנכרון",
-        "disconnect": "Disconnect"
+        "disconnect": "Disconnect",
+        "disconnect_button": "נתק חשבון Google",
+        "connection_error_prompt": "חיבור Google Drive לא עובד. התחבר שוב לאישור מחדש."
     },
     "post_scrape": {
         "title": "פעולות לאחר סריקה",
@@ -586,6 +593,8 @@
         "all_providers": "כל הספקים",
         "include_errors": "כלול שגיאות",
         "clear_old_logs": "מחק יומנים ישנים (30 ימים)",
+        "clear_all": "נקה הכל",
+        "confirm_clear_all": "לנקות את כל יומני ה-AI? לא ניתן לבטל.",
         "out_of": "מתוך",
         "time": "זמן",
         "provider": "ספק",

@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, EyeOff } from 'lucide-react';
+import { clsx } from 'clsx';
 import { TransactionModal } from './TransactionModal';
 import { isInternalTransfer } from '../utils/transactionUtils';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
@@ -255,15 +256,22 @@ export function TransactionTable({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {filteredAndSortedTransactions.map((txn) => (
-                                <tr 
-                                    key={txn.id} 
-                                    className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => setSelectedTransaction(txn)}
-                                >
-                                    {AVAILABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).map(col => renderColumn(col, txn))}
-                                </tr>
-                            ))}
+                            {filteredAndSortedTransactions.map((txn) => {
+                                const isIgnored = txn.status === 'ignored' || txn.isIgnored === true;
+                                return (
+                                    <tr
+                                        key={txn.id}
+                                        className={clsx(
+                                            'transition-colors cursor-pointer',
+                                            isIgnored && 'border-l-4 border-l-amber-400 bg-amber-50/70 hover:bg-amber-100/70',
+                                            !isIgnored && 'hover:bg-gray-50'
+                                        )}
+                                        onClick={() => setSelectedTransaction(txn)}
+                                    >
+                                        {AVAILABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).map(col => renderColumn(col, txn))}
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -294,13 +302,17 @@ export function TransactionTable({
                         {formatDate(txn.processedDate)}
                     </td>
                 );
-            case 'description':
+            case 'description': {
+                const isIgnored = txn.status === 'ignored' || txn.isIgnored === true;
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-900 group relative`}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <div>
-                                    <div className="font-medium flex items-center gap-2">
+                                    <div className={clsx('font-medium flex items-center gap-2', isIgnored && 'text-gray-500')}>
+                                        {isIgnored && (
+                                            <span title={t('common.ignored')}><EyeOff size={16} className="shrink-0 text-amber-600" /></span>
+                                        )}
                                         {txn.description}
                                         {isInternalTransfer(txn, config.customCCKeywords) && (
                                             <div title={t('table.internal_transfer')}>
@@ -332,6 +344,7 @@ export function TransactionTable({
                             </div>
                         </td>
                     );
+            }
             case 'memo':
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-600`}>
@@ -366,14 +379,22 @@ export function TransactionTable({
                         {formatAmount(txn.originalAmount || 0)}
                     </td>
                 );
-            case 'status':
+            case 'status': {
+                const isIgnored = txn.status === 'ignored' || txn.isIgnored === true;
                 return (
                     <td key={col.key} className={baseClass}>
-                        <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold ${txn.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {formatStatus(txn.status)}
+                        <span className={clsx(
+                            'inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] uppercase font-bold',
+                            isIgnored && 'bg-amber-100 text-amber-800',
+                            !isIgnored && txn.status === 'completed' && 'bg-green-100 text-green-700',
+                            !isIgnored && txn.status !== 'completed' && 'bg-yellow-100 text-yellow-700'
+                        )}>
+                            {isIgnored && <EyeOff size={12} className="shrink-0" />}
+                            {isIgnored ? t('common.ignored') : formatStatus(txn.status)}
                         </span>
                     </td>
                 );
+            }
             default:
                 return null;
         }

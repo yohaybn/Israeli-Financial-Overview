@@ -3,6 +3,7 @@ import {
   getAILogs,
   getAILogsStats,
   clearOldAILogs,
+  clearAllAILogs,
   logAICall,
   logAIError
 } from '../utils/aiLogger.js';
@@ -87,6 +88,24 @@ router.post('/logs/clear-old', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to clear old AI logs'
+    });
+  }
+});
+
+/**
+ * Clear all AI logs
+ */
+router.post('/logs/clear', async (req, res) => {
+  try {
+    await clearAllAILogs();
+    res.json({
+      success: true,
+      message: 'Cleared all AI logs'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to clear AI logs'
     });
   }
 });

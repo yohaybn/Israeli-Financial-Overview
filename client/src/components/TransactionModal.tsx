@@ -49,6 +49,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const [isSubscription, setIsSubscription] = useState(false);
     const [subscriptionInterval, setSubscriptionInterval] = useState<SubscriptionInterval>('monthly');
     const [excludeFromSubscriptions, setExcludeFromSubscriptions] = useState(false);
+    const [localIsIgnored, setLocalIsIgnored] = useState(false);
 
     // Sync local state when transaction changes
     useEffect(() => {
@@ -60,6 +61,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
             setIsSubscription(transaction.isSubscription || false);
             setSubscriptionInterval(transaction.subscriptionInterval || 'monthly');
             setExcludeFromSubscriptions(transaction.excludeFromSubscriptions || false);
+            setLocalIsIgnored(transaction.status === 'ignored' || transaction.isIgnored === true);
         }
     }, [transaction, config.customCCKeywords]);
 
@@ -104,7 +106,9 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     };
 
     const handleToggleIgnore = () => {
-        toggleIgnore({ transactionId: transaction.id, isIgnored: !isIgnored });
+        const nextIgnored = !localIsIgnored;
+        setLocalIsIgnored(nextIgnored);
+        toggleIgnore({ transactionId: transaction.id, isIgnored: nextIgnored });
     };
 
     const handleMarkAsInternalTransfer = () => {
@@ -168,7 +172,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
         }).format(amount);
     };
 
-    const isIgnored = transaction.status === 'ignored';
+    const isIgnored = localIsIgnored;
     const hasDifferentAmount = transaction.originalAmount !== transaction.chargedAmount;
     const isForeignCurrency = transaction.originalCurrency && transaction.originalCurrency !== 'ILS';
 

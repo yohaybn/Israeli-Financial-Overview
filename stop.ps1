@@ -3,14 +3,14 @@
 Write-Host "Stopping Israeli Bank Scraper..." -ForegroundColor Cyan
 
 # Kill process on port 3000 (Client/Server)
-$Process3000 = Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -First 1
+$Process3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($Process3000) {
-    Write-Host "Killing process $($Process3000.OwningProcess) on port 3001..." -ForegroundColor Yellow
+    Write-Host "Killing process $($Process3000.OwningProcess) on port 3000..." -ForegroundColor Yellow
     Stop-Process -Id $Process3000.OwningProcess -Force -ErrorAction SilentlyContinue
-    Write-Host "Successfully killed process on port 3001." -ForegroundColor Green
+    Write-Host "Successfully killed process on port 3000." -ForegroundColor Green
 }
 else {
-    Write-Host "No process found on port 3001." -ForegroundColor Yellow
+    Write-Host "No process found on port 3000." -ForegroundColor Yellow
 }
 
 # Kill process on port 5173 (Vite client dev server)

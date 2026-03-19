@@ -60,6 +60,7 @@
         "rename_from": "From",
         "new_name": "New filename",
         "clear": "Clear",
+        "clear_logs_confirm": "Clear all {{type}} logs?",
         "settings": "Settings",
         "hide_section": "Hide section",
         "not_configured_suffix": "(not configured)",
@@ -330,7 +331,11 @@
         "noFoldersInDrive": "No folders found in Google Drive",
         "selectedLabel": "Selected:",
         "envFolderTipPrefix": "You can also set",
-        "envFolderTipSuffix": "in .env"
+        "envFolderTipSuffix": "in .env",
+        "test": "Test",
+        "testing": "Testing...",
+        "test_success": "Google Drive connection successful",
+        "test_failed": "Connection test failed"
     },
     "google_sheets": {
         "title": "Google Sheets",
@@ -359,7 +364,9 @@
         "syncing_button": "Syncing...",
         "sync_button_text": "Sync to Google Sheets",
         "select_hint": "Select a scrape result to sync",
-        "disconnect": "Disconnect"
+        "disconnect": "Disconnect",
+        "disconnect_button": "Disconnect Google account",
+        "connection_error_prompt": "Your Google Drive connection has a problem. Connect again to re-authorize."
     },
     "post_scrape": {
         "title": "Post-Scrape Actions",
@@ -591,6 +598,8 @@
         "all_providers": "All Providers",
         "include_errors": "Include Errors",
         "clear_old_logs": "Clear Old Logs (30 days)",
+        "clear_all": "Clear All",
+        "confirm_clear_all": "Clear all AI logs? This cannot be undone.",
         "out_of": "out of",
         "time": "Time",
         "provider": "Provider",

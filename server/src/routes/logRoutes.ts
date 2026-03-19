@@ -67,6 +67,29 @@ logRoutes.get('/level', (req, res) => {
 });
 
 /**
+ * @route   POST /api/logs/clear
+ * @desc    Clear server or client log file
+ * @access  Public
+ */
+logRoutes.post('/clear', async (req, res) => {
+    try {
+        const type = (req.query.type as string) || 'server';
+        if (type !== 'server' && type !== 'client') {
+            return res.status(400).json({ error: 'type must be server or client' });
+        }
+        const fileName = type === 'client' ? 'client.log' : 'server.log';
+        const filePath = path.join(LOGS_DIR, fileName);
+        await fs.ensureDir(LOGS_DIR);
+        await fs.writeFile(filePath, '', 'utf-8');
+        serverLogger.info(`Cleared ${type} log file`);
+        res.json({ success: true, type });
+    } catch (error) {
+        serverLogger.error('Error clearing logs:', error);
+        res.status(500).json({ error: 'Failed to clear logs' });
+    }
+});
+
+/**
  * @route   POST /api/logs/level
  * @desc    Update log level
  * @access  Public
