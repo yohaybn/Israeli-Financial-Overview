@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { UpcomingItem, Transaction, FinancialSummary } from '@app/shared';
 import { useState } from 'react';
 import { TransactionModal } from '../TransactionModal';
+import { CategoryIcon } from '../../utils/categoryIcons';
 
 interface UpcomingFixedListProps {
     items: UpcomingItem[];
@@ -318,7 +319,13 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                                                 <p className="text-xs text-gray-400 flex items-center gap-2">
                                                     <span className="capitalize">{txn.provider}</span>
                                                     <span>•</span>
-                                                    <span>{txn.category || t('table.uncategorized')}</span>
+                                                    <span className="inline-flex items-center gap-1 min-w-0">
+                                                        <CategoryIcon
+                                                            category={txn.category || undefined}
+                                                            className="w-3.5 h-3.5 shrink-0 text-gray-500"
+                                                        />
+                                                        <span className="truncate">{txn.category || t('table.uncategorized')}</span>
+                                                    </span>
                                                 </p>
                                             </div>
                                         </div>

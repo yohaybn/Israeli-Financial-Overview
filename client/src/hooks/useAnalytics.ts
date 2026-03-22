@@ -1,12 +1,47 @@
 import { useMemo } from 'react';
 import { Transaction, isTransactionIgnored, expenseCategoryKey } from '@app/shared';
 import { isInternalTransfer, isLoanCategory } from '../utils/transactionUtils';
+import {
+    CATEGORY_PARENT_GROUP_ORDER,
+    type CategoryParentGroupKey,
+    getCategoryParentGroupKey,
+} from '../utils/categoryParentGroup';
+
+export interface CategoryTreemapAggregatedPart {
+    name: string;
+    value: number;
+    color: string;
+}
+
+export interface CategoryTreemapLeaf {
+    name: string;
+    value: number;
+    color: string;
+    parentKey: CategoryParentGroupKey;
+    /** When set, this leaf is the merged bucket for small categories (id: `TREEMAP_SMALL_MERGED_ID`). */
+    aggregated?: CategoryTreemapAggregatedPart[];
+}
+
+/** Internal id for the treemap tile that groups categories below the small threshold. */
+export const TREEMAP_SMALL_MERGED_ID = '__SMALL_MERGED__';
+
+/** Categories below this share of total spending are merged in the treemap; details appear in the equal-width strip. */
+const TREEMAP_SMALL_FRACTION = 0.04;
+
+export interface CategoryTreemapGroup {
+    name: CategoryParentGroupKey;
+    children: CategoryTreemapLeaf[];
+}
 
 interface AnalyticsData {
     totalIncome: number;
     totalExpenses: number;
     netBalance: number;
     byCategory: { name: string; value: number; color: string }[];
+    /** Nested groups for hierarchical treemap (parent bucket → categories). */
+    byCategoryTree: CategoryTreemapGroup[];
+    /** Categories merged into the small bucket (equal-width strip below treemap); empty if none. */
+    treemapSmallParts: CategoryTreemapAggregatedPart[];
     byMonth: { month: string; income: number; expenses: number }[];
     byWeekday: { dayIndex: number; dayLabel: string; value: number }[];
     byMonthDay: { day: number; value: number }[];
@@ -87,6 +122,8 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
                 totalExpenses: 0,
                 netBalance: 0,
                 byCategory: [],
+                byCategoryTree: [],
+                treemapSmallParts: [],
                 byMonth: [],
                 byWeekday: [],
                 byMonthDay: [],
@@ -132,6 +169,60 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
                 color: getColorForCategory(name),
             }))
             .sort((a, b) => b.value - a.value);
+
+        const totalCategorySpend = byCategory.reduce((s, c) => s + c.value, 0);
+        const smallThreshold = Math.max(totalCategorySpend * TREEMAP_SMALL_FRACTION, 1);
+        const largeRows = byCategory.filter((c) => c.value >= smallThreshold);
+        const smallRows = byCategory.filter((c) => c.value < smallThreshold);
+
+        let treemapSmallParts: CategoryTreemapAggregatedPart[] = [];
+        const leavesForTree: CategoryTreemapLeaf[] = [];
+
+        for (const row of largeRows) {
+            const parentKey = getCategoryParentGroupKey(row.name);
+            leavesForTree.push({
+                name: row.name,
+                value: row.value,
+                color: row.color,
+                parentKey,
+            });
+        }
+
+        if (smallRows.length > 0) {
+            treemapSmallParts = smallRows.map((r) => ({
+                name: r.name,
+                value: r.value,
+                color: r.color,
+            }));
+            const mergedSum = smallRows.reduce((s, r) => s + r.value, 0);
+            leavesForTree.push({
+                name: TREEMAP_SMALL_MERGED_ID,
+                value: Math.round(mergedSum * 100) / 100,
+                color: '#64748b',
+                parentKey: 'other',
+                aggregated: treemapSmallParts,
+            });
+        }
+
+        const groupByParent = new Map<CategoryParentGroupKey, CategoryTreemapLeaf[]>();
+        for (const leaf of leavesForTree) {
+            const list = groupByParent.get(leaf.parentKey) ?? [];
+            list.push(leaf);
+            groupByParent.set(leaf.parentKey, list);
+        }
+
+        const sortChildren = (a: CategoryTreemapLeaf, b: CategoryTreemapLeaf) => {
+            if (a.name === TREEMAP_SMALL_MERGED_ID) return 1;
+            if (b.name === TREEMAP_SMALL_MERGED_ID) return -1;
+            return b.value - a.value;
+        };
+
+        const byCategoryTree: CategoryTreemapGroup[] = CATEGORY_PARENT_GROUP_ORDER.map((pk) => {
+            const children = groupByParent.get(pk);
+            if (!children?.length) return null;
+            children.sort(sortChildren);
+            return { name: pk, children };
+        }).filter((g): g is CategoryTreemapGroup => g != null);
 
         // Group by month
         const monthMap = new Map<string, { income: number; expenses: number }>();
@@ -231,6 +322,8 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
             totalExpenses: Math.round(totalExpenses * 100) / 100,
             netBalance: Math.round((totalIncome - totalExpenses) * 100) / 100,
             byCategory,
+            byCategoryTree,
+            treemapSmallParts,
             byMonth,
             byWeekday,
             byMonthDay,

@@ -26,4 +26,15 @@
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
   }
+
+  /* Recharts can apply light fill/stroke on SVG text; match small-categories strip (gray-900 / gray-800). */
+  .analytics-treemap-label {
+    fill: #111827 !important;
+    stroke: none !important;
+  }
+
+  .analytics-treemap-label-amount {
+    fill: #1f2937 !important;
+    stroke: none !important;
+  }
 }

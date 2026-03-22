@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnomalyAlert } from '@app/shared';
+import { CategoryIcon } from '../../utils/categoryIcons';
 
 interface AnomalyAlertsProps {
     anomalies?: AnomalyAlert[];
@@ -135,8 +136,15 @@ export function AnomalyAlerts({ anomalies = [] }: AnomalyAlertsProps) {
                         </div>
 
                         <div className="flex-1 mt-0.5">
-                            <h4 className={`text-sm font-bold ${config.color} mb-1 flex items-center justify-between`}>
-                                <span>{formatAlertDescription(anomaly)}</span>
+                            <h4 className={`text-sm font-bold ${config.color} mb-1 flex items-center justify-between gap-2`}>
+                                <span className="inline-flex items-center gap-2 min-w-0">
+                                    {anomaly.category ? (
+                                        <span className="shrink-0 opacity-90">
+                                            <CategoryIcon category={anomaly.category} className="w-4 h-4" />
+                                        </span>
+                                    ) : null}
+                                    <span className="min-w-0">{formatAlertDescription(anomaly)}</span>
+                                </span>
                             </h4>
                             <p className="text-sm text-gray-700 leading-relaxed max-w-2xl">
                                 {formatAlertMessage(anomaly)}

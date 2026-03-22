@@ -5,6 +5,7 @@ import { Transaction } from '@app/shared';
 import { TransactionModal } from '../TransactionModal';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
+import { CategoryIcon } from '../../utils/categoryIcons';
 
 interface DashboardSidebarProps {
     selectedMonth: string; // YYYY-MM
@@ -117,7 +118,8 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                                                             {txn.provider}
                                                         </span>
                                                         {txn.category && (
-                                                            <span className="text-[9px] bg-blue-50/50 text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                                                            <span className="text-[9px] bg-blue-50/50 text-blue-600 px-1.5 py-0.5 rounded font-bold inline-flex items-center gap-1">
+                                                                <CategoryIcon category={txn.category} className="w-3 h-3 text-blue-600" />
                                                                 {txn.category}
                                                             </span>
                                                         )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CategoryIcon } from '../utils/categoryIcons';
 import { useAISettings, useUpdateAISettings, useAIModels, useRecategorizeAll } from '../hooks/useScraper';
 
 interface AISettingsProps {
@@ -161,6 +162,7 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                     <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-2xl border border-gray-100 min-h-[100px]">
                         {localSettings.categories.map((cat: string) => (
                             <div key={cat} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700 shadow-sm animate-in scale-in-90 duration-150">
+                                <CategoryIcon category={cat} className="w-4 h-4 text-gray-500 shrink-0" />
                                 <span>{cat}</span>
                                 <button
                                     onClick={() => removeCategory(cat)}

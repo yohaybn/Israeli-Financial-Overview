@@ -120,7 +120,9 @@ export interface Transaction {
     chargedAmount: number; // Amount charged (usually same as amount)
     chargedCurrency?: string; // Currency of the charge
     status: 'completed' | 'pending' | 'ignored';
-    type?: string; // e.g., 'normal', 'installment'
+    type?: string; // e.g., 'normal', 'installment', 'installments' (scrapers vary)
+    /** Present on CC installment rows (e.g. Isracard) */
+    installments?: { number: number; total: number };
     category?: string; // AI assigned category
     provider: string; // e.g., 'hapoalim', 'isracard'
     accountNumber: string;

@@ -21,6 +21,7 @@ import { useDashboardConfig } from '../hooks/useDashboardConfig';
 import { useUpdateTransactionCategory, useUpdateTransactionType, useToggleIgnore, useAddFilter, useFilters, useRemoveFilter, useUpdateTransactionMemo, useUpdateTransactionSubscription } from '../hooks/useScraper';
 import { SubscriptionInterval } from '@app/shared';
 import { Repeat } from 'lucide-react';
+import { CategoryIcon } from '../utils/categoryIcons';
 
 interface TransactionModalProps {
     transaction: Transaction | null;
@@ -180,7 +181,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const providerLabel = i18n.exists(providerKey) ? t(providerKey) : transaction.provider;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
             {/* Backdrop */}
             <div 
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
@@ -257,16 +258,19 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                                 <Tag size={12} className="text-indigo-500" />
                                 {t('table.category')}
                             </span>
-                            <select
-                                value={localCategory}
-                                onChange={(e) => handleCategoryChange(e.target.value)}
-                                className="bg-transparent border-none text-xl font-bold text-gray-800 focus:ring-0 p-0 cursor-pointer appearance-none hover:text-indigo-600 transition-colors"
-                            >
-                                <option value="">{t('table.uncategorized')}</option>
-                                {categories.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                            </select>
+                            <div className="flex items-center gap-3 min-w-0">
+                                <CategoryIcon category={localCategory} className="w-7 h-7 text-indigo-600 shrink-0" />
+                                <select
+                                    value={localCategory}
+                                    onChange={(e) => handleCategoryChange(e.target.value)}
+                                    className="bg-transparent border-none text-xl font-bold text-gray-800 focus:ring-0 p-0 cursor-pointer appearance-none hover:text-indigo-600 transition-colors min-w-0 flex-1"
+                                >
+                                    <option value="">{t('table.uncategorized')}</option>
+                                    {categories.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 

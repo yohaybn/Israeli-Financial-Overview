@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { CategoryBudgetItem } from '@app/shared';
+import { CategoryIcon } from '../../utils/categoryIcons';
 
 interface VariableForecastModalProps {
     isOpen: boolean;
@@ -151,7 +152,12 @@ export function VariableForecastModal({
                             return (
                             <div key={cat.name} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
                                 <div className="flex flex-col min-w-0 pr-3">
-                                    <span className="font-bold text-gray-800">{cat.name}</span>
+                                    <span className="font-bold text-gray-800 inline-flex items-center gap-2 min-w-0">
+                                        <span className="text-gray-500 shrink-0">
+                                            <CategoryIcon category={cat.name} className="w-4 h-4" />
+                                        </span>
+                                        <span className="truncate">{cat.name}</span>
+                                    </span>
                                     <span className="text-xs text-gray-600 mt-1">
                                         {t('dashboard.forecast_spent_this_month')}: <span className="font-semibold text-gray-800">{formatCurrency(cat.spent)}</span>
                                     </span>

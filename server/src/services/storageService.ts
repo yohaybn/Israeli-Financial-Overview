@@ -313,10 +313,14 @@ export class StorageService {
                         originalAmount: txn.originalAmount,
                         originalCurrency: txn.originalCurrency,
                         chargedAmount: txn.chargedAmount,
+                        chargedCurrency: txn.chargedCurrency,
                         status: txn.status || 'completed',
                         category: txn.category,
                         provider: provider,
                         accountNumber: account.accountNumber,
+                        // Preserve scraper row type (e.g. installments, normal) — was dropped before DB import
+                        type: txn.type,
+                        installments: txn.installments,
                         txnType: txn.txnType || (txn.type === 'internal_transfer' ? 'internal_transfer' : undefined)
                     });
                 });

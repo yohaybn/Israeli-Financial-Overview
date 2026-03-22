@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppLockStatus, useUnlockApp, useLockApp, useSetupAppLock } from '../hooks/useAppLock';
 import { AlertTriangle, Lock, ShieldCheck } from 'lucide-react';
@@ -13,13 +13,21 @@ export function AppLockBanner() {
     const [setupPassword, setSetupPassword] = useState('');
     const [setupConfirm, setSetupConfirm] = useState('');
     const [showSetup, setShowSetup] = useState(false);
+    const [unlockedBannerDismissed, setUnlockedBannerDismissed] = useState(false);
+
+    const restricted = status?.restricted ?? true;
+    const lockConfigured = status?.lockConfigured ?? false;
+
+    useEffect(() => {
+        if (restricted || !lockConfigured) return;
+        setUnlockedBannerDismissed(false);
+        const id = window.setTimeout(() => setUnlockedBannerDismissed(true), 5000);
+        return () => clearTimeout(id);
+    }, [restricted, lockConfigured]);
 
     if (isLoading || !status) {
         return null;
     }
-
-    const restricted = status.restricted;
-    const lockConfigured = status.lockConfigured;
 
     const handleUnlock = (e: React.FormEvent) => {
         e.preventDefault();
@@ -93,7 +101,7 @@ export function AppLockBanner() {
                 </div>
             )}
 
-            {!restricted && lockConfigured && (
+            {!restricted && lockConfigured && !unlockedBannerDismissed && (
                 <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-2">
                     <div className="container mx-auto max-w-[1600px] flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2 text-emerald-900 text-sm font-bold">

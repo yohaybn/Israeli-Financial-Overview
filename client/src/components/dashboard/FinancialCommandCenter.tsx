@@ -7,9 +7,7 @@ import { useAISettings } from '../../hooks/useScraper';
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { ExpenseProgressCenter } from './ExpenseProgressCenter';
 import { IncomeProgressCenter } from './IncomeProgressCenter';
-import { TransferDetectionBanner } from './TransferDetectionBanner';
 import { AnalyticsDashboard, AnalyticsDayFilter } from '../AnalyticsDashboard';
-import { BudgetHealthScore } from './BudgetHealthScore';
 import { AnomalyAlerts } from './AnomalyAlerts';
 import { CCPaymentDateSettings } from './CCPaymentDateSettings';
 import { DashboardAIChat } from './DashboardAIChat';
@@ -17,6 +15,7 @@ import { CategoryDetailsModal } from './CategoryDetailsModal';
 import { SubscriptionList } from './SubscriptionList';
 import { MonthlyTransactionsCard } from './MonthlyTransactionsCard';
 import { DayTransactionsModal } from './DayTransactionsModal';
+import { getInitialCollapsedOnMobile } from '../../hooks/useInitialCollapsedOnMobile';
 
 interface FinancialCommandCenterProps {
     // Optional: if provided, uses these transactions (for backward compatibility or specific file view)
@@ -41,8 +40,8 @@ export function FinancialCommandCenter({
     const [showAnomalies, setShowAnomalies] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<string | null>(null);
-    const [analyticsViewRange, setAnalyticsViewRange] = useState<'month' | 'all'>('month');
     const [analyticsDayFilter, setAnalyticsDayFilter] = useState<AnalyticsDayFilter | null>(null);
+    const [cardsCollapsedOnMobile] = useState(() => getInitialCollapsedOnMobile());
 
     // If props provided, use them. Otherwise fetch unified data.
     const { data: unifiedTransactions, isLoading /*, error*/ } = useUnifiedData();
@@ -94,10 +93,9 @@ export function FinancialCommandCenter({
     );
 
     const transactionsForTable = useMemo(() => {
-        const base = analyticsViewRange === 'all' ? transactions : monthTransactions;
-        if (!analyticsDayFilter) return base;
+        if (!analyticsDayFilter) return monthTransactions;
 
-        return base.filter((transaction) => {
+        return monthTransactions.filter((transaction) => {
             const amount = transaction.chargedAmount ?? transaction.amount ?? 0;
             if (amount >= 0) return false;
 
@@ -107,9 +105,9 @@ export function FinancialCommandCenter({
             }
             return date.getDate() === analyticsDayFilter.value;
         });
-    }, [transactions, monthTransactions, analyticsViewRange, analyticsDayFilter]);
+    }, [monthTransactions, analyticsDayFilter]);
 
-    const tableScopeLabel = analyticsViewRange === 'all' ? t('analytics.all_months') : t('analytics.this_month');
+    const tableScopeLabel = formatMonthDate(selectedMonth);
     const tableFilterLabel = analyticsDayFilter
         ? t(
             analyticsDayFilter.kind === 'weekday'
@@ -146,72 +144,51 @@ export function FinancialCommandCenter({
 
     return (
         <div className="space-y-6 p-1 animate-in fade-in duration-500">
-            {/* Dashboard Header with Month Selector */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
-                <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-200 flex-shrink-0">
-                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            {/* Month selector + tools */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-1">
+                <div
+                    className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3"
+                    dir="ltr"
+                >
+                    <button
+                        type="button"
+                        onClick={() => changeMonth(-1)}
+                        className="p-2.5 rounded-full hover:bg-gray-100 transition-colors group"
+                        aria-label={t('dashboard.previous_month')}
+                    >
+                        <svg className="w-6 h-6 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                         </svg>
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-xl font-black text-gray-900 tracking-tight">
-                                {t('dashboard.title')}
-                            </h2>
-                            <CCPaymentDateSettings />
-                            <button
-                                onClick={() => setShowAnomalies(!showAnomalies)}
-                                className={`relative p-2 rounded-full transition-colors ${showAnomalies ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                                title={t('dashboard.toggle_alerts')}
-                            >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                                {(summary.anomalies?.length || 0) > 0 && !showAnomalies && (
-                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse border border-white" />
-                                )}
-                            </button>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1.5">
-                            {/* Month Selector Controls */}
-                            <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors group">
-                                <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                                </svg>
-                            </button>
-                            <span className="text-sm font-bold text-gray-700 min-w-[130px] text-center bg-gray-50/80 px-3 py-1 rounded-lg border border-gray-100">
-                                {formatMonthDate(selectedMonth)}
-                            </span>
-                            <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors group">
-                                <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+                    </button>
+                    <span className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight min-w-[12rem] text-center sm:text-start tabular-nums">
+                        {formatMonthDate(selectedMonth)}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => changeMonth(1)}
+                        className="p-2.5 rounded-full hover:bg-gray-100 transition-colors group"
+                        aria-label={t('dashboard.next_month')}
+                    >
+                        <svg className="w-6 h-6 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
                 </div>
-
-                {/* Quick Stats & Budget Health */}
-                <div className="flex-shrink-0 flex items-center gap-4 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-                    {/* Safe to Spend KPI */}
-                    {summary.safeToSpend !== undefined && (
-                        <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-emerald-100 shadow-sm px-5 py-3 flex flex-col items-center min-w-[130px]">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                                {t('dashboard.safe_to_spend')}
-                            </span>
-                            <span className={`text-xl font-black ${summary.safeToSpend >= 0 ? 'text-emerald-600' : 'text-rose-500'
-                                }`}>
-                                {new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
-                                    style: 'currency',
-                                    currency: 'ILS',
-                                    maximumFractionDigits: 0
-                                }).format(summary.safeToSpend)}
-                            </span>
-                            <span className="text-[9px] text-gray-400 mt-0.5">{t('dashboard.this_month')}</span>
-                        </div>
-                    )}
-                    <BudgetHealthScore health={summary.budgetHealth} />
+                <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
+                    <CCPaymentDateSettings />
+                    <button
+                        type="button"
+                        onClick={() => setShowAnomalies(!showAnomalies)}
+                        className={`relative p-2.5 rounded-full transition-colors ${showAnomalies ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                        title={t('dashboard.toggle_alerts')}
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        {(summary.anomalies?.length || 0) > 0 && !showAnomalies && (
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse border border-white" />
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -227,8 +204,19 @@ export function FinancialCommandCenter({
                 </div>
             )}
 
-            {/* Expense & Income Progress - Side by Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Income & Detailed spending — same card chrome as Subscriptions / Transactions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+                <IncomeProgressCenter
+                    alreadyReceived={summary.income.alreadyReceived}
+                    alreadyReceivedTxns={summary.income.alreadyReceivedTxns}
+                    expectedInflow={summary.income.expectedInflow}
+                    expectedInflowTxns={summary.income.expectedInflowTxns}
+                    totalProjected={summary.income.totalProjected}
+                    upcomingIncome={summary.upcomingFixed.filter(i => i.type === 'income')}
+                    categories={availableCategories}
+                    onUpdateCategory={onUpdateCategory}
+                    defaultCollapsed={cardsCollapsedOnMobile}
+                />
                 <ExpenseProgressCenter
                     alreadySpent={summary.expenses.alreadySpent}
                     alreadySpentTxns={summary.expenses.alreadySpentTxns}
@@ -246,34 +234,20 @@ export function FinancialCommandCenter({
                     categories={availableCategories}
                     onUpdateCategory={onUpdateCategory}
                     onCategoryClick={setSelectedCategoryForModal}
-                />
-                <IncomeProgressCenter
-                    alreadyReceived={summary.income.alreadyReceived}
-                    alreadyReceivedTxns={summary.income.alreadyReceivedTxns}
-                    expectedInflow={summary.income.expectedInflow}
-                    expectedInflowTxns={summary.income.expectedInflowTxns}
-                    totalProjected={summary.income.totalProjected}
-                    upcomingIncome={summary.upcomingFixed.filter(i => i.type === 'income')}
-                    categories={availableCategories}
-                    onUpdateCategory={onUpdateCategory}
-                />
-            </div>
-            {/* Internal Transfers Banner - Moved to less prominent location */}
-            <div className="pt-2">
-                <TransferDetectionBanner
-                    count={summary.internalTransfers.count}
-                    total={summary.internalTransfers.total}
-                    transactions={summary.internalTransfers.transactions}
+                    defaultCollapsed={cardsCollapsedOnMobile}
                 />
             </div>
 
-            {/* Subscriptions Section */}
+            {/* Subscriptions & Transactions */}
             <div className="pt-2 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                     <SubscriptionList
                         subscriptions={summary.subscriptions || []}
                         categories={availableCategories}
                         onUpdateCategory={onUpdateCategory}
+                        selectedMonth={selectedMonth}
+                        monthExpenseTotal={summary.expenses.alreadySpent}
+                        defaultCollapsed={cardsCollapsedOnMobile}
                     />
                     <MonthlyTransactionsCard
                         transactions={transactionsForTable}
@@ -282,6 +256,8 @@ export function FinancialCommandCenter({
                         scopeLabel={tableScopeLabel}
                         filterLabel={tableFilterLabel}
                         onClearFilter={() => setAnalyticsDayFilter(null)}
+                        customCCKeywords={config.customCCKeywords ?? []}
+                        defaultCollapsed={cardsCollapsedOnMobile}
                     />
                 </div>
             </div>
@@ -309,7 +285,6 @@ export function FinancialCommandCenter({
                     allTransactions={transactions}
                     onCategoryClick={setSelectedCategoryForModal}
                     customCCKeywords={config.customCCKeywords}
-                    onViewRangeChange={setAnalyticsViewRange}
                     onDayFilterChange={setAnalyticsDayFilter}
                     activeDayFilter={analyticsDayFilter}
                 />

@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Transaction } from '@app/shared';
+import { Transaction, expenseCategoryKey } from '@app/shared';
 import { ArrowRightLeft, EyeOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import { TransactionModal } from './TransactionModal';
 import { isInternalTransfer } from '../utils/transactionUtils';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
+import { getCategoryLucideIcon } from '../utils/categoryIcons';
 
 interface TransactionTableProps {
     transactions: Transaction[];
@@ -13,9 +14,52 @@ interface TransactionTableProps {
     onUpdateCategory?: (txnId: string, category: string) => void;
 }
 
-type SortField = 'date' | 'description' | 'originalAmount' | 'category';
+type SortField = 'date' | 'description' | 'originalAmount' | 'category' | 'account';
 type SortOrder = 'asc' | 'desc';
-type ColumnKey = 'date' | 'description' | 'category' | 'chargedAmount' | 'status' | 'originalAmount' | 'memo' | 'processedDate';
+type ColumnKey =
+    | 'date'
+    | 'account'
+    | 'description'
+    | 'category'
+    | 'chargedAmount'
+    | 'status'
+    | 'originalAmount'
+    | 'memo'
+    | 'processedDate';
+
+/** Transaction "kind" filter (ignored, installments, internal transfer, etc.) */
+type TransactionTypeFilter =
+    | 'all'
+    | 'ignored'
+    | 'installment'
+    | 'internal_transfer'
+    | 'expense'
+    | 'income'
+    | 'subscription';
+
+function isTxnIgnored(txn: Transaction): boolean {
+    return txn.status === 'ignored' || txn.isIgnored === true;
+}
+
+function isInstallmentTxn(txn: Transaction): boolean {
+    const t = txn.type?.toLowerCase();
+    return t === 'installment' || t === 'installments';
+}
+
+function matchesTransactionTypeFilter(
+    txn: Transaction,
+    filter: TransactionTypeFilter,
+    customCCKeywords: string[]
+): boolean {
+    if (filter === 'all') return true;
+    if (filter === 'ignored') return isTxnIgnored(txn);
+    if (filter === 'installment') return isInstallmentTxn(txn);
+    if (filter === 'internal_transfer') return isInternalTransfer(txn, customCCKeywords);
+    if (filter === 'expense') return txn.txnType === 'expense';
+    if (filter === 'income') return txn.txnType === 'income';
+    if (filter === 'subscription') return txn.isSubscription === true;
+    return true;
+}
 
 interface ColumnConfig {
     key: ColumnKey;
@@ -25,8 +69,9 @@ interface ColumnConfig {
 }
 
 const AVAILABLE_COLUMNS: ColumnConfig[] = [
-    { key: 'date', label: 'table.date', sortable: true, defaultVisible: true },
+    { key: 'account', label: 'table.account', sortable: true, defaultVisible: true },
     { key: 'description', label: 'table.description', sortable: true, defaultVisible: true },
+    { key: 'date', label: 'table.date', sortable: true, defaultVisible: false },
     { key: 'category', label: 'table.category', sortable: false, defaultVisible: true },
     { key: 'chargedAmount', label: 'table.amount', sortable: true, defaultVisible: true },
     { key: 'status', label: 'table.status', sortable: false, defaultVisible: true },
@@ -51,17 +96,25 @@ export function TransactionTable({
         const stored = localStorage.getItem('transactionTableColumns');
         if (stored) {
             try {
-                return new Set(JSON.parse(stored));
+                const parsed = new Set<ColumnKey>(JSON.parse(stored));
+                // Show Account when upgrading from older saved prefs
+                if (!parsed.has('account')) {
+                    parsed.add('account');
+                }
+                return parsed;
             } catch {
                 // Fall back to defaults if localStorage is corrupted
             }
         }
         // Default columns
-        return new Set<ColumnKey>(['date', 'description', 'category', 'chargedAmount', 'status']);
+        return new Set<ColumnKey>(['account', 'description', 'category', 'chargedAmount', 'status']);
     });
     const [showColumnPicker, setShowColumnPicker] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+    const customCCKeywords = config.customCCKeywords ?? [];
 
     // Available categories in the current set of transactions
     const availableCategories = useMemo(() => {
@@ -94,7 +147,7 @@ export function TransactionTable({
     };
 
     const resetToDefaults = () => {
-        setVisibleColumns(new Set(['date', 'description', 'category', 'chargedAmount', 'status']));
+        setVisibleColumns(new Set(['account', 'description', 'category', 'chargedAmount', 'status']));
     };
 
     const filteredAndSortedTransactions = useMemo(() => {
@@ -106,13 +159,20 @@ export function TransactionTable({
             result = result.filter(t =>
                 t.description?.toLowerCase().includes(lowerSearch) ||
                 t.memo?.toLowerCase().includes(lowerSearch) ||
-                t.category?.toLowerCase().includes(lowerSearch)
+                t.category?.toLowerCase().includes(lowerSearch) ||
+                t.accountNumber?.toLowerCase().includes(lowerSearch) ||
+                t.provider?.toLowerCase().includes(lowerSearch)
             );
         }
 
         // Category Filter
         if (selectedCategory !== 'all') {
             result = result.filter(t => t.category === selectedCategory);
+        }
+
+        // Type filter (ignored, installment, internal transfer, expense/income, subscription)
+        if (typeFilter !== 'all') {
+            result = result.filter(t => matchesTransactionTypeFilter(t, typeFilter, customCCKeywords));
         }
 
         // Sort
@@ -125,13 +185,25 @@ export function TransactionTable({
                 valB = b.originalAmount ?? 0;
             }
 
+            if (sortField === 'account') {
+                const acctCmp = (a.accountNumber || '').localeCompare(b.accountNumber || '', undefined, {
+                    numeric: true,
+                    sensitivity: 'base',
+                });
+                if (acctCmp !== 0) return sortOrder === 'asc' ? acctCmp : -acctCmp;
+                const provCmp = (a.provider || '').localeCompare(b.provider || '', undefined, {
+                    sensitivity: 'base',
+                });
+                return sortOrder === 'asc' ? provCmp : -provCmp;
+            }
+
             if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
             if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
             return 0;
         });
 
         return result;
-    }, [transactions, sortField, sortOrder, search, selectedCategory]);
+    }, [transactions, sortField, sortOrder, search, selectedCategory, typeFilter, customCCKeywords]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -183,7 +255,21 @@ export function TransactionTable({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value as TransactionTypeFilter)}
+                        aria-label={t('table.type_filter_label')}
+                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto min-w-[10rem] ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
+                    >
+                        <option value="all">{t('table.type_filter_all')}</option>
+                        <option value="ignored">{t('table.type_filter_ignored')}</option>
+                        <option value="installment">{t('table.type_filter_installment')}</option>
+                        <option value="internal_transfer">{t('table.type_filter_internal_transfer')}</option>
+                        <option value="expense">{t('table.type_filter_expense')}</option>
+                        <option value="income">{t('table.type_filter_income')}</option>
+                        <option value="subscription">{t('table.type_filter_subscription')}</option>
+                    </select>
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
@@ -296,6 +382,16 @@ export function TransactionTable({
                         {formatDate(txn.date)}
                     </td>
                 );
+            case 'account': {
+                const providerKey = `provider.${txn.provider}`;
+                const providerLabel = i18n.exists(providerKey) ? t(providerKey) : txn.provider;
+                return (
+                    <td key={col.key} className={`${baseClass} text-gray-900 whitespace-nowrap`}>
+                        <div className="font-medium tabular-nums">{txn.accountNumber || '—'}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{providerLabel || '—'}</div>
+                    </td>
+                );
+            }
             case 'processedDate':
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-600 whitespace-nowrap`}>
@@ -305,45 +401,27 @@ export function TransactionTable({
             case 'description': {
                 const isIgnored = txn.status === 'ignored' || txn.isIgnored === true;
                 return (
-                    <td key={col.key} className={`${baseClass} text-gray-900 group relative`}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div>
-                                    <div className={clsx('font-medium flex items-center gap-2', isIgnored && 'text-gray-500')}>
-                                        {isIgnored && (
-                                            <span title={t('common.ignored')}><EyeOff size={16} className="shrink-0 text-amber-600" /></span>
-                                        )}
-                                        {txn.description}
-                                        {isInternalTransfer(txn, config.customCCKeywords) && (
-                                            <div title={t('table.internal_transfer')}>
-                                                <ArrowRightLeft 
-                                                    size={14} 
-                                                    className="text-blue-500" 
-                                                />
-                                            </div>
-                                        )}
+                    <td key={col.key} className={`${baseClass} text-gray-900`}>
+                        <div>
+                            <div className={clsx('font-medium flex items-center gap-2 flex-wrap', isIgnored && 'text-gray-500')}>
+                                {isIgnored && (
+                                    <span title={t('common.ignored')}><EyeOff size={16} className="shrink-0 text-amber-600" /></span>
+                                )}
+                                {txn.description}
+                                {isInternalTransfer(txn, config.customCCKeywords) && (
+                                    <div title={t('table.internal_transfer')}>
+                                        <ArrowRightLeft
+                                            size={14}
+                                            className="text-blue-500"
+                                        />
                                     </div>
-                                    {txn.memo && <div className="text-xs text-gray-400 mt-0.5">{txn.memo}</div>}
-                                </div>
+                                )}
                             </div>
-                                {/* Simplified actions - more inside the modal */}
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedTransaction(txn);
-                                        }}
-                                        className="p-1 text-gray-400 hover:text-blue-500"
-                                        title={t('common.quick_edit')}
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </td>
-                    );
+                            <div className="text-xs text-gray-500 mt-0.5 tabular-nums">{formatDate(txn.date)}</div>
+                            {txn.memo && <div className="text-xs text-gray-400 mt-0.5">{txn.memo}</div>}
+                        </div>
+                    </td>
+                );
             }
             case 'memo':
                 return (
@@ -351,22 +429,32 @@ export function TransactionTable({
                         <div className="text-xs">{txn.memo || '-'}</div>
                     </td>
                 );
-            case 'category':
+            case 'category': {
+                const CatIcon = getCategoryLucideIcon(expenseCategoryKey(txn.category));
                 return (
                     <td key={col.key} className={baseClass}>
-                        <select
-                            value={txn.category || ''}
+                        <div
+                            className="inline-flex items-center gap-1.5 min-w-0 max-w-full rounded-full border border-gray-200 bg-gray-50 pl-2 pr-1 py-0.5 hover:bg-white transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
                             onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => onUpdateCategory?.(txn.id, e.target.value)}
-                            className="bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 focus:ring-blue-500 focus:border-blue-500 block w-full appearance-none cursor-pointer hover:bg-white transition-colors"
+                            onMouseDown={(e) => e.stopPropagation()}
                         >
-                                            <option value="">{t('table.uncategorized')}</option>
-                            {categories.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                        </select>
+                            <CatIcon className="w-3.5 h-3.5 shrink-0 text-gray-500" aria-hidden />
+                            <select
+                                value={txn.category || ''}
+                                onChange={(e) => onUpdateCategory?.(txn.id, e.target.value)}
+                                className="min-w-0 flex-1 bg-transparent border-0 text-gray-700 text-xs py-0.5 pr-6 rounded-none focus:ring-0 focus:outline-none appearance-none cursor-pointer"
+                            >
+                                <option value="">{t('table.uncategorized')}</option>
+                                {categories.map((cat) => (
+                                    <option key={cat} value={cat}>
+                                        {cat}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </td>
                 );
+            }
             case 'chargedAmount':
                 return (
                     <td key={col.key} className={`${baseClass} font-bold whitespace-nowrap ${(txn.chargedAmount || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>

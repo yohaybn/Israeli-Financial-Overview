@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { ShoppingBag } from 'lucide-react';
 import { Transaction } from '@app/shared';
 import { TransactionTable } from '../TransactionTable';
 import { VariableForecastModal } from './VariableForecastModal';
+import { CategoryIcon } from '../../utils/categoryIcons';
+import { DashboardCardHeader, dashboardCardShellClass } from './DashboardCardChrome';
 
 interface ExpenseProgressCenterProps {
     alreadySpent: number;
@@ -32,6 +35,17 @@ interface ExpenseProgressCenterProps {
     categories?: string[];
     onUpdateCategory?: (transactionId: string, category: string) => void;
     onCategoryClick?: (categoryName: string) => void;
+    /** When true, section body starts collapsed (e.g. mobile default). */
+    defaultCollapsed?: boolean;
+}
+
+type Health = 'healthy' | 'caution' | 'critical';
+
+function categoryHealth(cat: ExpenseProgressCenterProps['byCategory'][0]): Health {
+    if (cat.projected > 0 && cat.spent > cat.projected) return 'critical';
+    if (cat.historicalAvg && cat.historicalAvg > 0 && cat.spent > cat.historicalAvg * 1.12) return 'critical';
+    if (cat.historicalAvg && cat.historicalAvg > 0 && cat.spent > cat.historicalAvg * 1.05) return 'caution';
+    return 'healthy';
 }
 
 export function ExpenseProgressCenter({
@@ -50,12 +64,14 @@ export function ExpenseProgressCenter({
     byCategory,
     categories,
     onUpdateCategory,
-    onCategoryClick
+    onCategoryClick,
+    defaultCollapsed = false,
 }: ExpenseProgressCenterProps) {
     const { t, i18n } = useTranslation();
     const [selectedKpi, setSelectedKpi] = useState<'already_spent' | 'remaining_planned' | null>(null);
     const [showForecastModal, setShowForecastModal] = useState(false);
-
+    const [sortBy, setSortBy] = useState<'value' | 'name'>('value');
+    const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
@@ -67,238 +83,219 @@ export function ExpenseProgressCenter({
     const spentPercent = totalProjected > 0 ? Math.min((alreadySpent / totalProjected) * 100, 100) : 0;
     const plannedPercent = totalProjected > 0 ? Math.min((remainingPlanned / totalProjected) * 100, 100 - spentPercent) : 0;
 
-    return (
-        <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-red-100/50 p-6 overflow-hidden group hover:shadow-xl transition-all duration-500">
-            {/* Decorative gradient */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-red-50 to-transparent rounded-bl-full opacity-60" />
+    const sortedCategories = useMemo(() => {
+        const list = [...byCategory];
+        if (sortBy === 'value') list.sort((a, b) => b.spent - a.spent);
+        else list.sort((a, b) => a.name.localeCompare(b.name, i18n.language === 'he' ? 'he' : 'en'));
+        return list;
+    }, [byCategory, sortBy, i18n.language]);
 
-            <div className="relative z-10">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
+    const healthLabel = (h: Health) => {
+        if (h === 'critical') return t('dashboard.status_critical');
+        if (h === 'caution') return t('dashboard.status_caution');
+        return t('dashboard.status_healthy');
+    };
+
+    const healthBadgeClass = (h: Health) => {
+        if (h === 'critical') return 'bg-red-50 text-red-600 border-red-100';
+        if (h === 'caution') return 'bg-amber-50 text-amber-700 border-amber-100';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    };
+
+    return (
+        <>
+        <div className={dashboardCardShellClass}>
+            <DashboardCardHeader
+                collapsed={collapsed}
+                onToggle={() => setCollapsed((c) => !c)}
+                icon={<ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />}
+                iconTileClassName="bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-200/80"
+                title={t('dashboard.detailed_spending_title', { count: byCategory.length })}
+                subtitle={
+                    <>
+                        {t('dashboard.total_projected')}:{' '}
+                        <span className="font-semibold text-gray-900 tabular-nums">{formatCurrency(totalProjected)}</span>
+                    </>
+                }
+            />
+
+            {!collapsed && (
+                <div className="px-6 pb-8 sm:px-8 space-y-4 pt-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-2 rounded-full bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-700">
+                            <span className="text-gray-500">{t('dashboard.sort_by')}:</span>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as 'value' | 'name')}
+                                className="bg-transparent font-semibold text-gray-800 border-none cursor-pointer focus:ring-0 py-0 pr-6"
+                            >
+                                <option value="value">{t('dashboard.sort_value')}</option>
+                                <option value="name">{t('dashboard.sort_name')}</option>
+                            </select>
+                        </label>
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                            {t('dashboard.monthly_view')}
+                        </span>
+                    </div>
+
+            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-rose-500 rounded-xl flex items-center justify-center shadow-md shadow-red-200">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center shadow-sm shrink-0">
                             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
-                                {t('dashboard.expense_progress')}
-                            </h3>
-                            <p className="text-xs text-gray-400">{t('dashboard.monthly_overview')}</p>
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('dashboard.expense_progress')}</p>
+                            <p className="text-2xl font-black text-gray-900 tabular-nums">{formatCurrency(totalProjected)}</p>
+                            <p className="text-xs text-gray-400">{t('dashboard.total_projected')}</p>
                         </div>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-2xl font-black text-gray-900">{formatCurrency(totalProjected)}</p>
-                        <p className="text-xs text-gray-400">{t('dashboard.total_projected')}</p>
                     </div>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="relative h-6 bg-gray-100 rounded-full overflow-hidden mb-4 shadow-inner">
-                    {/* Already Spent - solid fill */}
-                    <div
-                        className="absolute left-0 top-0 h-full bg-gradient-to-r from-red-400 to-rose-500 rounded-l-full transition-all duration-1000 ease-out"
-                        style={{ width: `${spentPercent}%` }}
-                    >
-                        <div className="absolute inset-0 bg-white/10 animate-pulse" />
-                    </div>
-                    {/* Remaining Planned (Fixed Bills) - striped fill */}
+                <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden mb-3">
+                    <div aria-hidden className="absolute left-0 top-0 h-full bg-gradient-to-r from-rose-500 to-rose-600 rounded-l-full transition-all duration-700" style={{ width: `${spentPercent}%` }} />
                     {plannedPercent > 0 && (
                         <div
-                            className="absolute top-0 h-full overflow-hidden transition-all duration-1000 ease-out"
+                            aria-hidden
+                            className="absolute top-0 h-full overflow-hidden transition-all duration-700"
                             style={{ left: `${spentPercent}%`, width: `${plannedPercent}%` }}
                         >
-                            <div className="w-full h-full bg-rose-300" style={{
-                                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.4) 4px, rgba(255,255,255,0.4) 8px)',
-                            }} />
+                            <div
+                                className="w-full h-full bg-rose-300"
+                                style={{
+                                    backgroundImage:
+                                        'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.4) 4px, rgba(255,255,255,0.4) 8px)',
+                                }}
+                            />
                         </div>
                     )}
-                    {/* Variable Forecast - translucent fill */}
                     {100 - spentPercent - plannedPercent > 0 && (
                         <div
-                            className="absolute top-0 h-full rounded-r-full overflow-hidden transition-all duration-1000 ease-out bg-rose-200/50"
+                            aria-hidden
+                            className="absolute top-0 h-full rounded-r-full bg-rose-200/50 transition-all duration-700"
                             style={{ left: `${spentPercent + plannedPercent}%`, width: `${100 - spentPercent - plannedPercent}%` }}
                         />
                     )}
                 </div>
 
-                {/* Legend */}
-                <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-4">
-                        <div
-                            className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50/50 p-1 -m-1 rounded transition-colors"
-                            onClick={() => setSelectedKpi('already_spent')}
-                            title={t('dashboard.view_transactions')}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedKpi('already_spent')}
+                        className="text-gray-600 hover:text-gray-900"
+                    >
+                        <span className="font-medium">{t('dashboard.already_spent')}: </span>
+                        <span className="font-bold border-b border-dashed border-gray-300">{formatCurrency(alreadySpent)}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedKpi('remaining_planned')}
+                        className="text-gray-600 hover:text-gray-900"
+                    >
+                        <span className="font-medium">{t('dashboard.remaining_planned')}: </span>
+                        <span className="font-bold border-b border-dashed border-gray-300">{formatCurrency(remainingPlanned)}</span>
+                    </button>
+                    {variableForecast > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowForecastModal(true)}
+                            className="text-gray-500 hover:text-gray-800 italic"
                         >
-                            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-red-400 to-rose-500 shadow-sm" />
-                            <span className="text-gray-600 font-medium">
-                                {t('dashboard.already_spent')}: <span className="font-bold text-gray-900 border-b border-dashed border-gray-300">{formatCurrency(alreadySpent)}</span>
-                            </span>
-                        </div>
-                        <div
-                            className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50/50 p-1 -m-1 rounded transition-colors"
-                            onClick={() => setSelectedKpi('remaining_planned')}
-                            title={t('dashboard.view_transactions')}
-                        >
-                            <div className="w-3 h-3 rounded-full bg-rose-200 shadow-sm border border-rose-300" style={{
-                                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.7) 2px, rgba(255,255,255,0.7) 4px)',
-                            }} />
-                            <span className="text-gray-600 font-medium">
-                                {t('dashboard.remaining_planned')}: <span className="font-bold text-gray-900 border-b border-dashed border-gray-300">{formatCurrency(remainingPlanned)}</span>
-                            </span>
-                        </div>
-                        {variableForecast > 0 && (
-                            <div
-                                className="flex items-center gap-1.5 p-1 -m-1 rounded cursor-pointer hover:bg-gray-50/50 transition-colors flex-shrink-0"
-                                title={t('dashboard.forecast_details_modal_hint')}
-                                onClick={() => setShowForecastModal(true)}
-                            >
-                                <div className="w-3 h-3 rounded-full bg-rose-100 shadow-sm border border-rose-200 flex-shrink-0" />
-                                <span className="text-gray-500 font-medium italic whitespace-nowrap">
-                                    {t('dashboard.variable_forecast')}: <span className="font-bold text-gray-700 border-b border-dashed border-gray-300">{formatCurrency(variableForecast)}</span>
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                    <span className="text-gray-400 font-mono font-medium bg-gray-100 px-2 py-0.5 rounded text-[10px]">{Math.round(spentPercent)}% {t('dashboard.spent_label')}</span>
+                            {t('dashboard.variable_forecast')}: <span className="font-bold not-italic">{formatCurrency(variableForecast)}</span>
+                        </button>
+                    )}
+                    <span className="text-gray-400 font-mono ms-auto sm:ms-0">
+                        {Math.round(spentPercent)}% {t('dashboard.spent_label')}
+                    </span>
                 </div>
-
-                {/* Category Mini-bars */}
-                {byCategory.length > 0 && (
-                    <div className="mt-5 pt-4 border-t border-gray-100 space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                {t('dashboard.by_category')}
-                            </p>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                <span className="flex items-center gap-1"><div className="w-0.5 h-3 bg-gray-400"></div> {t('dashboard.history_marker')}</span>
-                            </div>
-                        </div>
-                        {byCategory.map((cat) => {
-                            const scaleMax = Math.max(cat.projected, cat.historicalAvg || 0);
-                            const spentPercent = scaleMax > 0 ? (cat.spent / scaleMax) * 100 : 0;
-                            const forecastPercent = scaleMax > 0 ? ((cat.projected - cat.spent) / scaleMax) * 100 : 0;
-                            const avgPercent = scaleMax > 0 && cat.historicalAvg ? (cat.historicalAvg / scaleMax) * 100 : 0;
-
-                            // Color logic
-                            let barColor = 'from-emerald-300 to-emerald-400';
-                            let forecastColor = 'bg-emerald-200/50';
-
-                            if (cat.historicalAvg) {
-                                if (cat.spent > cat.historicalAvg) {
-                                    barColor = 'from-rose-400 to-red-500';
-                                    forecastColor = 'bg-rose-200/50';
-                                } else if (cat.projected > cat.historicalAvg * 1.1) {
-                                    barColor = 'from-amber-300 to-yellow-400';
-                                    forecastColor = 'bg-amber-200/50';
-                                }
-                            } else {
-                                barColor = 'from-gray-300 to-gray-400';
-                                forecastColor = 'bg-gray-200/50';
-                            }
-
-                            // Delta percentage
-                            let deltaEl = null;
-                            if (cat.historicalAvg && cat.historicalAvg > 0) {
-                                const delta = ((cat.projected - cat.historicalAvg) / cat.historicalAvg) * 100;
-                                const isOver = delta > 0;
-                                deltaEl = (
-                                    <span className={`text-[10px] font-bold ${isOver ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                        {isOver ? '+' : ''}{Math.round(delta)}%
-                                    </span>
-                                );
-                            }
-
-                            return (
-                                <div
-                                    key={cat.name}
-                                    className="flex flex-col gap-1 cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all border border-transparent hover:border-gray-200 hover:shadow-sm"
-                                    onClick={() => onCategoryClick?.(cat.name)}
-                                >
-                                    <div className="flex items-center justify-between w-full">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-600 truncate font-medium max-w-[120px]">{cat.name}</span>
-                                            {cat.historicalAvg && (
-                                                <span className="text-[10px] text-gray-400 font-medium border-l border-gray-200 pl-2">
-                                                    {formatCurrency(cat.historicalAvg)}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {deltaEl}
-                                            <span className="text-xs font-bold text-gray-700 w-16 text-right">{formatCurrency(cat.spent)}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative w-full h-2 bg-gray-100 rounded-full overflow-hidden flex items-center">
-                                        {/* Spent Bar */}
-                                        <div
-                                            className={`absolute left-0 top-0 h-full bg-gradient-to-r ${barColor} rounded-full transition-all duration-700`}
-                                            style={{ width: `${Math.min(spentPercent, 100)}%`, zIndex: 10 }}
-                                        />
-                                        {/* Forecast Extension */}
-                                        {forecastPercent > 0 && (
-                                            <div
-                                                className={`absolute top-0 h-full ${forecastColor} rounded-r-full transition-all duration-700`}
-                                                style={{ left: `${Math.min(spentPercent, 100)}%`, width: `${Math.min(forecastPercent, 100 - spentPercent)}%`, zIndex: 5 }}
-                                            />
-                                        )}
-                                        {/* Historical Marker */}
-                                        {avgPercent > 0 && (
-                                            <div
-                                                className="absolute top-0 bottom-0 w-0.5 bg-gray-500/80 z-20 transition-all duration-700 shadow-sm"
-                                                style={{ left: `${avgPercent}%` }}
-                                                title={`Historical Avg: ${formatCurrency(cat.historicalAvg!)}`}
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
             </div>
 
-            {/* KPI Transactions Modal */}
-            {selectedKpi && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={() => setSelectedKpi(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                                    </div>
-                                    {selectedKpi === 'already_spent' ? t('dashboard.already_spent') : t('dashboard.remaining_planned')}
-                                </h3>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {t('dashboard.kpi_details')} ({formatCurrency(selectedKpi === 'already_spent' ? alreadySpent : remainingPlanned)})
-                                </p>
-                            </div>
-                            <button onClick={() => setSelectedKpi(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-0 sm:p-6 bg-gray-50/30">
-                            {(selectedKpi === 'already_spent' ? alreadySpentTxns : remainingPlannedTxns).length > 0 ? (
-                                <TransactionTable
-                                    transactions={selectedKpi === 'already_spent' ? alreadySpentTxns : remainingPlannedTxns}
-                                    categories={categories}
-                                    onUpdateCategory={onUpdateCategory}
-                                />
-                            ) : (
-                                <div className="text-center text-gray-400 py-10">
-                                    {t('dashboard.no_transactions')}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            {sortedCategories.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[min(720px,70vh)] overflow-y-auto pr-1 custom-scrollbar">
+                    {sortedCategories.map((cat) => {
+                        const health = categoryHealth(cat);
+                        const budget = cat.projected > 0 ? cat.projected : Math.max(cat.historicalAvg || 0, cat.spent, 1);
+                        const fillPct = Math.min(100, (cat.spent / budget) * 100);
+                        const barFill =
+                            health === 'critical' ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gradient-to-r from-emerald-500 to-emerald-600';
 
-            {/* Variable Forecast Calculation Modal */}
+                        return (
+                            <button
+                                key={cat.name}
+                                type="button"
+                                onClick={() => onCategoryClick?.(cat.name)}
+                                className="text-start rounded-2xl bg-white border border-gray-100 shadow-sm p-4 hover:border-gray-200 hover:shadow-md transition-all flex flex-col gap-3"
+                            >
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 border border-rose-100 text-rose-700">
+                                            <CategoryIcon category={cat.name} className="w-4 h-4" />
+                                        </span>
+                                        <span className="text-xs font-bold text-gray-900 uppercase tracking-wide truncate">{cat.name}</span>
+                                    </div>
+                                    <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${healthBadgeClass(health)}`}>
+                                        {healthLabel(health)}
+                                    </span>
+                                </div>
+                                <p className="text-2xl font-black text-gray-900 tabular-nums">{formatCurrency(cat.spent)}</p>
+                                <div className="flex items-center gap-2 mt-auto">
+                                    <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all ${barFill}`} style={{ width: `${fillPct}%` }} />
+                                    </div>
+                                    <span className="text-[11px] text-gray-400 whitespace-nowrap tabular-nums">
+                                        {t('dashboard.of_budget', { amount: formatCurrency(budget) })}
+                                    </span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+                </div>
+            )}
+        </div>
+            {selectedKpi &&
+                createPortal(
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={() => setSelectedKpi(null)}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                            </svg>
+                                        </div>
+                                        {selectedKpi === 'already_spent' ? t('dashboard.already_spent') : t('dashboard.remaining_planned')}
+                                    </h3>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {t('dashboard.kpi_details')} ({formatCurrency(selectedKpi === 'already_spent' ? alreadySpent : remainingPlanned)})
+                                    </p>
+                                </div>
+                                <button onClick={() => setSelectedKpi(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-0 sm:p-6 bg-gray-50/30">
+                                {(selectedKpi === 'already_spent' ? alreadySpentTxns : remainingPlannedTxns).length > 0 ? (
+                                    <TransactionTable
+                                        transactions={selectedKpi === 'already_spent' ? alreadySpentTxns : remainingPlannedTxns}
+                                        categories={categories}
+                                        onUpdateCategory={onUpdateCategory}
+                                    />
+                                ) : (
+                                    <div className="text-center text-gray-400 py-10">{t('dashboard.no_transactions')}</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+
             <VariableForecastModal
                 isOpen={showForecastModal}
                 onClose={() => setShowForecastModal(false)}
@@ -310,6 +307,6 @@ export function ExpenseProgressCenter({
                 isCurrentMonth={isCurrentMonth}
                 monthsAnalyzed={monthsAnalyzed}
             />
-        </div>
+        </>
     );
 }

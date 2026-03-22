@@ -1,7 +1,8 @@
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { useEffect, useState } from 'react';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Treemap } from 'recharts';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAnalytics } from '../hooks/useAnalytics';
+import { TREEMAP_SMALL_MERGED_ID, useAnalytics } from '../hooks/useAnalytics';
+import type { CategoryParentGroupKey } from '../utils/categoryParentGroup';
 import { Transaction } from '@app/shared';
 
 interface AnalyticsDashboardProps {
@@ -22,6 +23,11 @@ export interface AnalyticsDayFilter {
     value: number;
     viewRange: ViewRange;
     label: string;
+}
+
+function truncateLabel(text: string, maxChars: number): string {
+    if (text.length <= maxChars) return text;
+    return `${text.slice(0, Math.max(0, maxChars - 1))}…`;
 }
 
 export function AnalyticsDashboard({
@@ -67,6 +73,148 @@ export function AnalyticsDashboard({
             currency: 'ILS',
             maximumFractionDigits: 0
         }).format(value);
+
+    const treemapCell = useMemo(() => {
+        const rtl = i18n.dir() === 'rtl';
+        const lang = i18n.language;
+        const fmt = (n: number) =>
+            new Intl.NumberFormat(lang === 'he' ? 'he-IL' : 'en-US', {
+                style: 'currency',
+                currency: 'ILS',
+                maximumFractionDigits: 0,
+            }).format(n);
+
+        return function CategoryTreemapCell(props: Record<string, unknown>) {
+            const x = Number(props.x);
+            const y = Number(props.y);
+            const width = Number(props.width);
+            const height = Number(props.height);
+            const depth = Number(props.depth);
+            const name = String(props.name ?? '');
+            const value = Number(props.value ?? 0);
+            const fill = (props.color as string | undefined) ?? '#94a3b8';
+            const parentKey = (props.parentKey as CategoryParentGroupKey | undefined) ?? 'other';
+            const aggregated = props.aggregated as { name: string; value: number }[] | undefined;
+            const isMerged = name === TREEMAP_SMALL_MERGED_ID || Boolean(aggregated?.length);
+
+            if (depth === 0) {
+                return <rect x={x} y={y} width={width} height={height} fill="transparent" stroke="none" />;
+            }
+            if (depth === 1) {
+                return <rect x={x} y={y} width={width} height={height} fill="transparent" stroke="none" />;
+            }
+
+            // Stroke is centered on the rect edge (~1.5px inward); keep text inside the visible fill.
+            const strokeInset = 2;
+            // Hebrew/RTL: SVG textAnchor="end" clips glyphs at the right edge; use start + direction rtl instead.
+            const insetX = rtl
+                ? Math.max(16, Math.min(22, width * 0.1)) + strokeInset
+                : Math.max(12, Math.min(16, width * 0.08)) + strokeInset;
+            const textX = rtl ? x + width - insetX : x + insetX;
+            const textDir = rtl ? 'rtl' : 'ltr';
+            const parentTracking = rtl ? '0.02em' : '0.07em';
+            /** LTR amounts: anchor at right inset in RTL so digits don’t spill past the tile edge. */
+            const amountAnchor = rtl ? 'end' : 'start';
+
+            const displayTitle = isMerged ? t('analytics.treemap_merged_tile') : name;
+            const parentLabel = String(t(`analytics.treemap_group_${parentKey}`)).toUpperCase();
+
+            const showFull = width >= 92 && height >= 58;
+            const showCompact = !showFull && width >= 68 && height >= 46;
+            const showAny = showFull || showCompact;
+
+            const parentSize = width >= 140 ? 10 : 9;
+            const titleSize = width >= 140 ? 14 : width >= 100 ? 13 : 12;
+            const amountSize = 11;
+            const maxChars = width < 100 ? 12 : width < 140 ? 22 : 36;
+            const title = truncateLabel(displayTitle, maxChars);
+
+            const line1Y = y + parentSize + 6;
+            const line2Y = line1Y + (showFull ? titleSize + 5 : titleSize + 3);
+
+            return (
+                <g className={isMerged ? 'cursor-default' : 'cursor-pointer'} style={{ overflow: 'visible' }}>
+                    <rect
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={height}
+                        rx={8}
+                        ry={8}
+                        fill={fill}
+                        stroke="#f3f4f6"
+                        strokeWidth={3}
+                    />
+                    {showAny && (
+                        <>
+                            {showFull && (
+                                <text
+                                    className="analytics-treemap-label"
+                                    x={textX}
+                                    y={line1Y}
+                                    textAnchor="start"
+                                    fill="#111827"
+                                    stroke="none"
+                                    fontSize={parentSize}
+                                    fontWeight={700}
+                                    letterSpacing={parentTracking}
+                                    style={{
+                                        fontFamily: 'inherit',
+                                        direction: textDir,
+                                        unicodeBidi: rtl ? 'plaintext' : 'normal',
+                                        fill: '#111827',
+                                        stroke: 'none',
+                                    }}
+                                >
+                                    {parentLabel}
+                                </text>
+                            )}
+                            <text
+                                className="analytics-treemap-label"
+                                x={textX}
+                                y={showFull ? line2Y : y + titleSize + 10}
+                                textAnchor="start"
+                                fill="#111827"
+                                stroke="none"
+                                fontSize={titleSize}
+                                fontWeight={800}
+                                style={{
+                                    fontFamily: 'inherit',
+                                    direction: textDir,
+                                    unicodeBidi: rtl ? 'plaintext' : 'normal',
+                                    fill: '#111827',
+                                    stroke: 'none',
+                                }}
+                            >
+                                {title}
+                            </text>
+                            {(showFull && height > 62) || (showCompact && height > 50) ? (
+                                <text
+                                    className="analytics-treemap-label-amount"
+                                    x={textX}
+                                    y={y + height - 10}
+                                    textAnchor={amountAnchor}
+                                    fill="#1f2937"
+                                    stroke="none"
+                                    fontSize={amountSize}
+                                    fontWeight={700}
+                                    style={{
+                                        fontFamily: 'inherit',
+                                        direction: 'ltr',
+                                        unicodeBidi: 'isolate',
+                                        fill: '#1f2937',
+                                        stroke: 'none',
+                                    }}
+                                >
+                                    {fmt(value)}
+                                </text>
+                            ) : null}
+                        </>
+                    )}
+                </g>
+            );
+        };
+    }, [t, i18n]);
 
     const getWeekdayLabel = (dayIndex: number) => {
         const baseSunday = new Date(Date.UTC(2024, 0, 7 + dayIndex));
@@ -126,46 +274,100 @@ export function AnalyticsDashboard({
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_category')}</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie
-                                data={analytics.byCategory}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={100}
-                                innerRadius={60}
-                                paddingAngle={2}
-                                label={(props: any) => {
-                                    if (props.percent < 0.05) return null;
-                                    return props.name;
-                                }}
-                                labelLine={true}
-                                onClick={(data: any) => onCategoryClick?.(data.name)}
-                                className="cursor-pointer focus:outline-none"
-                                stroke="none"
-                            >
-                                {analytics.byCategory.map((_entry, index) => (
-                                    <Cell
-                                        key={`cell-${index}`}
-                                        fill={analytics.byCategory[index].color}
-                                        className="hover:opacity-80 transition-opacity"
+                    {analytics.byCategoryTree.length === 0 ? (
+                        <div className="flex items-center justify-center h-[300px] text-sm text-gray-400">
+                            {t('analytics.no_data')}
+                        </div>
+                    ) : (
+                        <div>
+                            <ResponsiveContainer width="100%" height={analytics.treemapSmallParts.length > 0 ? 300 : 320}>
+                                <Treemap
+                                    data={analytics.byCategoryTree as unknown as Record<string, unknown>[]}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    type="flat"
+                                    aspectRatio={0.5 * (1 + Math.sqrt(5))}
+                                    stroke="#f3f4f6"
+                                    fill="#888888"
+                                    isAnimationActive={false}
+                                    content={treemapCell}
+                                    onClick={(node: { depth?: number; name?: string }) => {
+                                        if (node?.depth !== 2 || !node.name || node.name === TREEMAP_SMALL_MERGED_ID) return;
+                                        onCategoryClick?.(node.name);
+                                    }}
+                                >
+                                    <Tooltip
+                                        content={({ active, payload }) => {
+                                            if (!active || !payload?.length) return null;
+                                            const raw = payload[0]?.payload as Record<string, unknown> | undefined;
+                                            if (!raw) return null;
+                                            const v = Number(raw.value ?? 0);
+                                            const nm = String(raw.name ?? '');
+                                            const agg = raw.aggregated as { name: string; value: number }[] | undefined;
+                                            const label =
+                                                nm === TREEMAP_SMALL_MERGED_ID
+                                                    ? t('analytics.treemap_merged_tile')
+                                                    : nm;
+                                            return (
+                                                <div
+                                                    className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-sm shadow-lg"
+                                                    style={{ maxWidth: 280 }}
+                                                >
+                                                    <p className="font-bold text-gray-900">{label}</p>
+                                                    <p className="mt-0.5 font-semibold text-gray-700">{formatCurrency(v)}</p>
+                                                    {agg && agg.length > 0 && (
+                                                        <ul className="mt-2 space-y-1 border-t border-gray-100 pt-2 text-xs text-gray-600">
+                                                            {agg.map((a) => (
+                                                                <li key={a.name} className="flex justify-between gap-3">
+                                                                    <span className="min-w-0 truncate font-medium">{a.name}</span>
+                                                                    <span className="shrink-0 tabular-nums">{formatCurrency(a.value)}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                </div>
+                                            );
+                                        }}
                                     />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                formatter={(value) => formatCurrency(Number(value))}
-                            />
-                            <Legend
-                                layout="horizontal"
-                                verticalAlign="bottom"
-                                align="center"
-                                wrapperStyle={{ paddingTop: '20px', fontSize: '11px' }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
+                                </Treemap>
+                            </ResponsiveContainer>
+                            {analytics.treemapSmallParts.length > 0 && (
+                                <div className="mt-3 space-y-1.5">
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                                        {t('analytics.treemap_small_strip_title')}
+                                    </p>
+                                    <div className="flex gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm [scrollbar-width:thin]">
+                                        {analytics.treemapSmallParts.map((part) => (
+                                            <button
+                                                key={part.name}
+                                                type="button"
+                                                title={`${part.name} — ${formatCurrency(part.value)}`}
+                                                aria-label={`${part.name}, ${formatCurrency(part.value)}`}
+                                                onClick={() => onCategoryClick?.(part.name)}
+                                                disabled={!onCategoryClick}
+                                                className={`flex h-[56px] w-[104px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-1 text-center transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
+                                                    onCategoryClick
+                                                        ? 'cursor-pointer hover:brightness-[0.97] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
+                                                        : 'cursor-default opacity-90'
+                                                }`}
+                                                style={{
+                                                    backgroundColor: `${part.color}40`,
+                                                    border: '1px solid rgba(0,0,0,0.06)',
+                                                }}
+                                            >
+                                                <span className="line-clamp-2 w-full text-[11px] font-bold leading-tight text-gray-900">
+                                                    {part.name}
+                                                </span>
+                                                <span className="text-[10px] font-semibold tabular-nums text-gray-800">
+                                                    {formatCurrency(part.value)}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <p className="text-[10px] text-center text-gray-400 mt-2">
                         {t('analytics.click_hint')}
                     </p>
