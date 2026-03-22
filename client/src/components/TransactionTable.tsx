@@ -69,7 +69,7 @@ interface ColumnConfig {
 }
 
 const AVAILABLE_COLUMNS: ColumnConfig[] = [
-    { key: 'account', label: 'table.account', sortable: true, defaultVisible: true },
+    { key: 'account', label: 'table.account', sortable: true, defaultVisible: false },
     { key: 'description', label: 'table.description', sortable: true, defaultVisible: true },
     { key: 'date', label: 'table.date', sortable: true, defaultVisible: false },
     { key: 'category', label: 'table.category', sortable: false, defaultVisible: true },
@@ -96,18 +96,13 @@ export function TransactionTable({
         const stored = localStorage.getItem('transactionTableColumns');
         if (stored) {
             try {
-                const parsed = new Set<ColumnKey>(JSON.parse(stored));
-                // Show Account when upgrading from older saved prefs
-                if (!parsed.has('account')) {
-                    parsed.add('account');
-                }
-                return parsed;
+                return new Set<ColumnKey>(JSON.parse(stored));
             } catch {
                 // Fall back to defaults if localStorage is corrupted
             }
         }
-        // Default columns
-        return new Set<ColumnKey>(['account', 'description', 'category', 'chargedAmount', 'status']);
+        // Default columns (date under description; account optional via column picker)
+        return new Set<ColumnKey>(['description', 'category', 'chargedAmount', 'status']);
     });
     const [showColumnPicker, setShowColumnPicker] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -147,7 +142,7 @@ export function TransactionTable({
     };
 
     const resetToDefaults = () => {
-        setVisibleColumns(new Set(['account', 'description', 'category', 'chargedAmount', 'status']));
+        setVisibleColumns(new Set(['description', 'category', 'chargedAmount', 'status']));
     };
 
     const filteredAndSortedTransactions = useMemo(() => {
