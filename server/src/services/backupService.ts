@@ -3,7 +3,7 @@ import path from 'path';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
 import { GoogleAuthService } from './googleAuthService.js';
-import { DbService } from './dbService.js';
+import { DbService, closeDbForRestore } from './dbService.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
@@ -229,8 +229,9 @@ export class BackupService {
             await fs.emptyDir(path.join(DATA_DIR, target));
         }
 
-        // If restoring a DB file, remove old DB files first
+        // If restoring a DB file, close the shared connection so the file is not locked, then remove old DB files
         if (hasDbFile) {
+            closeDbForRestore();
             for (const dbFile of ['app.db', 'app.db-shm', 'app.db-wal']) {
                 const dbPath = path.join(DATA_DIR, dbFile);
                 if (await fs.pathExists(dbPath)) {

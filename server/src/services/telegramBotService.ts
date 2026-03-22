@@ -9,11 +9,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
 import { serverLogger } from '../utils/logger.js';
-import { AiService } from './aiService.js';
+import { AiService, type ConversationTurn } from './aiService.js';
 import { ScraperService } from './scraperService.js';
 import { ProfileService } from './profileService.js';
 import { StorageService } from './storageService.js';
-import { Profile, ScrapeRequest } from '@app/shared';
+import { Profile, ScrapeRequest, ScrapeResult } from '@app/shared';
+import { postScrapeService } from './postScrapeService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -154,6 +155,8 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
   },
 };
 
+const MAX_CHAT_HISTORY_TURNS = 10;
+
 export interface TelegramChatState {
   chatId: string;
   userId: string;
@@ -161,6 +164,8 @@ export interface TelegramChatState {
   isAdmin: boolean;
   conversationContext?: string;
   pendingScrapeStartDate?: string;
+  /** Bounded conversation history for AI chat to reduce repetition (last N turns) */
+  chatHistory?: ConversationTurn[];
 }
 
 export class TelegramBotService {
@@ -171,6 +176,7 @@ export class TelegramBotService {
   private scraperService: ScraperService | null = null;
   private profileService: ProfileService | null = null;
   private isRunning: boolean = false;
+  private lastStartError: string | null = null;
 
   /** Translate a key using the configured bot language */
   private t(key: string): string {
@@ -234,6 +240,49 @@ export class TelegramBotService {
     }
     // @ts-ignore
     return (this as any).storageService as StorageService;
+  }
+
+  /**
+   * Unified DB (same as web /results/all + /ai/chat/unified scope=all). Falls back to largest scrape JSON only if DB is empty.
+   */
+  private async loadUnifiedTransactionsForAiChat(): Promise<any[]> {
+    let transactions: any[] = [];
+    try {
+      const storage = this.getStorageService();
+      transactions = await storage.getAllTransactions(true);
+
+      if (transactions.length > 0) {
+        serverLogger.info('Telegram AI chat: context from unified DB', {
+          rowCount: transactions.length,
+          includeIgnored: true,
+        });
+      } else {
+        const files = await storage.listScrapeResults();
+        if (files && files.length > 0) {
+          files.sort((a: any, b: any) => (b.transactionCount || 0) - (a.transactionCount || 0));
+          const filename = files[0].filename;
+          const result = await storage.getScrapeResult(filename);
+          const n = result?.transactions?.length ?? 0;
+          if (result && Array.isArray(result.transactions) && n > 0) {
+            transactions = result.transactions;
+            serverLogger.info('Telegram AI chat: unified DB empty — using largest scrape JSON as fallback', {
+              filename,
+              rowCount: n,
+              filesConsidered: files.length,
+            });
+          } else {
+            serverLogger.info('Telegram AI chat: unified DB empty and no usable scrape file', {
+              filesConsidered: files.length,
+            });
+          }
+        } else {
+          serverLogger.info('Telegram AI chat: unified DB empty, no scrape JSON files');
+        }
+      }
+    } catch (e) {
+      serverLogger.warn('Failed to load transactions for AI chat, continuing without context', { error: e });
+    }
+    return transactions;
   }
 
   /**
@@ -337,6 +386,7 @@ export class TelegramBotService {
       });
 
       this.config.botToken = token;
+      this.lastStartError = null;
       serverLogger.debug('Creating Telegraf instance');
       this.bot = new Telegraf(token);
       serverLogger.debug('Telegraf instance created');
@@ -400,6 +450,7 @@ export class TelegramBotService {
 
       this.isRunning = true;
       this.config.enabled = true;
+      this.lastStartError = null;
       this.saveConfig();
 
       serverLogger.info('Telegram bot started successfully');
@@ -426,12 +477,20 @@ export class TelegramBotService {
       } else if (error.response?.error_code === 401 || error.message?.includes('Unauthorized')) {
         errorMessage = 'Authentication failed. The bot token is invalid or expired. Please regenerate it from @BotFather.';
         serverLogger.error('Telegram bot authentication failed', { error: error && error.response ? error.response : error, token: this.config.botToken ? `***${this.config.botToken.slice(-10)}` : null });
+      } else if (this.isNetworkError(error)) {
+        errorMessage = 'Cannot reach Telegram servers (connection timed out or refused). Check your network and firewall.';
+        serverLogger.warn('Telegram bot could not connect to API (network/firewall)', { error: error?.message || error, code: error?.code });
       } else {
         serverLogger.error('Failed to start Telegram bot', { error: error && error.stack ? error.stack : error });
       }
 
+      this.lastStartError = errorMessage;
       throw new Error(errorMessage);
     }
+  }
+
+  getLastStartError(): string | null {
+    return this.lastStartError;
   }
 
   /**
@@ -442,9 +501,26 @@ export class TelegramBotService {
       await this.bot.stop();
       this.isRunning = false;
       this.config.enabled = false;
+      this.lastStartError = null;
       this.saveConfig();
       serverLogger.info('Telegram bot stopped');
     }
+  }
+
+  private isNetworkError(error: any): boolean {
+    const code = error?.code || '';
+    const msg = String(error?.message || '');
+    return (
+      code === 'ETIMEDOUT' ||
+      code === 'ECONNREFUSED' ||
+      code === 'ENOTFOUND' ||
+      code === 'ENETUNREACH' ||
+      code === 'EAI_AGAIN' ||
+      msg.includes('ETIMEDOUT') ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('connect ETIMEDOUT') ||
+      msg.includes('reason: connect')
+    );
   }
 
   /**
@@ -762,10 +838,11 @@ export class TelegramBotService {
   }
 
   /**
-   * Execute scrape for all profiles in sequence.
+   * Execute scrape for all profiles in sequence, then run post-scrape once with all results.
    */
   private async handleScrapeAllExecution(ctx: Context, startDate?: string): Promise<void> {
     const userId = ctx.from?.id.toString() || '';
+    const chatId = ctx.chat?.id?.toString();
 
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, `scrape_all${startDate ? `_from_${startDate}` : ''}`);
@@ -781,8 +858,35 @@ export class TelegramBotService {
       return;
     }
 
+    const batchRequest: ScrapeRequest = {
+      companyId: 'batch',
+      credentials: {},
+      profileName: 'All profiles',
+      options: {
+        showBrowser: false,
+        deferPostScrape: true,
+        aggregateTelegramNotifications: true,
+        runSource: 'telegram_bot',
+        initiatedBy: `telegram:${userId}`,
+        ...(startDate ? { startDate } : {}),
+      } as any,
+    };
+    if (chatId) {
+      (batchRequest.options as any).postScrape = { telegramChatId: chatId, initiatedBy: `telegram:${userId}` };
+    }
+
+    const results: ScrapeResult[] = [];
     for (const profile of profiles) {
-      await this.executeScrapeForProfile(ctx, profile, userId, startDate);
+      const result = await this.executeScrapeForProfile(ctx, profile, userId, startDate, true);
+      if (result) results.push(result);
+    }
+
+    if (results.length > 0) {
+      try {
+        await postScrapeService.handleBatchResults(results, batchRequest);
+      } catch (err: any) {
+        serverLogger.warn('Post-scrape batch failed after scrape all', { error: err?.message });
+      }
     }
   }
 
@@ -821,6 +925,7 @@ export class TelegramBotService {
     };
 
     state.conversationContext = 'chat';
+    state.chatHistory = []; // New chat session: no prior turns
     this.chatStates.set(chatId, state);
 
     await ctx.reply(this.t('chatModeActive'));
@@ -948,31 +1053,21 @@ export class TelegramBotService {
       // Send quick 'thinking' message and later edit it with the final AI response
       const thinkingMsg = await ctx.reply(this.t('thinkingMsg'));
 
-      // Try to load a transactions context from storage (pick the largest result available)
-      let transactions: any[] = [];
-      try {
-        const storage = this.getStorageService();
-        const files = await storage.listScrapeResults();
-        if (files && files.length > 0) {
-          // pick file with max transactionCount
-          files.sort((a: any, b: any) => (b.transactionCount || 0) - (a.transactionCount || 0));
-          const filename = files[0].filename;
-          const result = await storage.getScrapeResult(filename);
-          if (result && Array.isArray(result.transactions) && result.transactions.length > 0) {
-            transactions = result.transactions;
-          }
-        }
-      } catch (e) {
-        serverLogger.warn('Failed to load transactions for AI chat, continuing without context', { error: e });
-      }
+      const transactions = await this.loadUnifiedTransactionsForAiChat();
 
       // Build a context query similar to the web UI unified chat
       const contextQuery = `\nContext Rules:\n- History transactions: Older than the current month. Used for baselines and averages.\n- Current month transactions: The focus of immediate budget tracking.\n- Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.\n- Ignored transactions: should be fully excluded from calculations.\n\nUser Query: ${message}`;
 
+      const state = this.chatStates.get(chatIdNum.toString());
+      const chatHistory = state?.chatHistory ?? [];
+
       const aiService = this.getAiService();
       let response = '';
       try {
-        response = await aiService.analyzeData(contextQuery, transactions);
+        response = await aiService.analyzeData(contextQuery, transactions, {
+          conversationHistory: chatHistory,
+          temperature: 0.7
+        });
       } catch (err) {
         serverLogger.error('AI analyzeData failed for Telegram chat', { error: err });
         response = `${this.t('financialTipTitle')}\n${this.t('financialTipLine1')}\n\n${this.t('yourQuestionPrefix')} "${message}"\n\n${this.t('financialTipLine2')}`;
@@ -980,6 +1075,14 @@ export class TelegramBotService {
 
       // Edit the thinking message with the AI response (split if too long)
       if (!response) response = this.t('noAiResponse');
+
+      // Append this turn to history and trim to max turns
+      const updatedState = this.chatStates.get(chatIdNum.toString());
+      if (updatedState) {
+        const newTurns: ConversationTurn[] = [...(updatedState.chatHistory ?? []), { role: 'user', text: message }, { role: 'model', text: response }];
+        updatedState.chatHistory = newTurns.slice(-MAX_CHAT_HISTORY_TURNS * 2); // keep last N full turns
+        this.chatStates.set(chatIdNum.toString(), updatedState);
+      }
 
       // If response already contains HTML tags, use as-is; otherwise convert Markdown to HTML
       const looksLikeHtml = /<\/?\w+[^>]*>/.test(response);
@@ -1015,15 +1118,16 @@ export class TelegramBotService {
   /**
    * Get AI response for chat message
    */
-  private async getAIResponse(message: string, chatId: string): Promise<string> {
+  private async getAIResponse(message: string, _chatId: string): Promise<string> {
     try {
       const aiService = this.getAiService();
+      const transactions = await this.loadUnifiedTransactionsForAiChat();
+      const contextQuery = `\nContext Rules:\n- History transactions: Older than the current month. Used for baselines and averages.\n- Current month transactions: The focus of immediate budget tracking.\n- Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.\n- Ignored transactions: should be fully excluded from calculations.\n\nUser Query: ${message}`;
 
-      // Try to call the AI analysis with available transactions. If AI provider isn't configured
+      // Try to call the AI analysis with unified DB context (same as /chat mode). If AI provider isn't configured
       // or the call fails, fall back to a helpful tip directing the user to the web UI.
       try {
-        // Pass an empty transactions array if we don't have per-user transactions here.
-        const aiResponse = await aiService.analyzeData(message, []);
+        const aiResponse = await aiService.analyzeData(contextQuery, transactions, { temperature: 0.7 });
         if (aiResponse && aiResponse.trim().length > 0) {
           return aiResponse;
         }
@@ -1100,8 +1204,9 @@ export class TelegramBotService {
 
   /**
    * Execute scrape for a single profile.
+   * When isPartOfBatch is true, post-scrape is deferred and the result is returned for batch handling.
    */
-  private async executeScrapeForProfile(ctx: Context, profile: Profile, userId: string, startDate?: string): Promise<void> {
+  private async executeScrapeForProfile(ctx: Context, profile: Profile, userId: string, startDate?: string, isPartOfBatch?: boolean): Promise<ScrapeResult | null> {
     const scraperService = this.getScraperService();
     const scrapeRequest: ScrapeRequest = {
       companyId: profile.companyId,
@@ -1110,11 +1215,12 @@ export class TelegramBotService {
       profileName: profile.name,
       options: {
         showBrowser: false,
-        aggregateTelegramNotifications: true,
+        aggregateTelegramNotifications: !isPartOfBatch,
+        deferPostScrape: isPartOfBatch,
         runSource: 'telegram_bot',
         initiatedBy: `telegram:${userId}`,
         ...(startDate ? { startDate } : {}),
-      }
+      } as any,
     };
     try {
       const chatId = ctx.chat?.id?.toString();
@@ -1126,31 +1232,35 @@ export class TelegramBotService {
     serverLogger.info(`[Telegram] Starting scraper for profile: ${profile.id}`, {
       startDate: startDate || 'global-default',
       mode: 'telegram',
+      isPartOfBatch: !!isPartOfBatch,
     });
     const result = await scraperService.runScrape(scrapeRequest);
     if (!result.success) {
-      await ctx.reply(`${this.t('scrapeFailedPrefix')} ${result.error || this.t('errorScraper')}`);
-      return;
+      if (!isPartOfBatch) {
+        await ctx.reply(`${this.t('scrapeFailedPrefix')} ${result.error || this.t('errorScraper')}`);
+      }
+      return result;
     }
     const txnCount = result.transactions?.length || 0;
 
-    // Attempt to persist the scrape result to the results folder
-    let savedFilename: string | null = null;
+    // Persist the scrape result (so DB has transactions for "current" / "all" scope)
     try {
       const storage = this.getStorageService();
       const provider = (profile && (profile.name || profile.companyId)) || 'telegram';
-      savedFilename = await storage.saveScrapeResult(result, provider);
+      const savedFilename = await storage.saveScrapeResult(result, provider);
       serverLogger.info('Saved scrape result from Telegram', { filename: savedFilename, profileId: profile.id });
     } catch (saveErr) {
       serverLogger.warn('Failed to save scrape result from Telegram', { error: saveErr });
     }
 
-    serverLogger.info('Telegram scrape completed; aggregated Telegram notification is sent by post-scrape flow', {
-      profileId: profile.id,
-      transactionCount: txnCount,
-      savedFilename,
-      startDate: startDate || 'global-default',
-    });
+    if (!isPartOfBatch) {
+      serverLogger.info('Telegram scrape completed; aggregated Telegram notification is sent by post-scrape flow', {
+        profileId: profile.id,
+        transactionCount: txnCount,
+        startDate: startDate || 'global-default',
+      });
+    }
+    return result;
   }
 
   /**
@@ -1217,6 +1327,7 @@ export class TelegramBotService {
       const state = this.chatStates.get(chatId);
       if (state) {
         state.conversationContext = undefined;
+        state.chatHistory = undefined; // Clear so next /chat starts fresh
         this.chatStates.set(chatId, state);
       }
 
@@ -1264,6 +1375,32 @@ export class TelegramBotService {
    */
   isActive(): boolean {
     return this.isRunning;
+  }
+
+  /**
+   * Send a test message to the given chat(s). If chatId is provided, send only to that chat;
+   * otherwise send to all notification chat IDs.
+   */
+  async sendTestMessage(chatId?: string): Promise<{ sent: number; errors: string[] }> {
+    if (!this.bot || !this.isRunning) {
+      throw new Error('Telegram bot is not running. Start the bot first.');
+    }
+    const targetIds = chatId ? [chatId] : this.config.notificationChatIds;
+    if (targetIds.length === 0) {
+      throw new Error('No notification chats configured. Add at least one user to the Notification column.');
+    }
+    const text = '✅ Test message from Israeli Bank Scraper. If you see this, notifications are working.';
+    const errors: string[] = [];
+    let sent = 0;
+    for (const id of targetIds) {
+      try {
+        await this.bot.telegram.sendMessage(id, text);
+        sent++;
+      } catch (err: any) {
+        errors.push(`${id}: ${err?.message || err}`);
+      }
+    }
+    return { sent, errors };
   }
 }
 

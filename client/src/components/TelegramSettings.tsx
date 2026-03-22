@@ -155,6 +155,28 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
     });
 
+    const { mutate: sendTestMessage, isPending: isSendingTest } = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`${API_BASE}/telegram/send-test-message`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to send test message');
+            return data;
+        },
+        onSuccess: (data) => {
+            const msg = data?.sent > 0
+                ? (data.sent === 1 ? t('telegram.test_success') : `Test message sent to ${data.sent} chats.`)
+                : (data?.errors?.[0] || t('telegram.test_success'));
+            showNotification('success', msg);
+        },
+        onError: (err: any) => {
+            showNotification('error', err.message || 'Failed to send test message');
+        },
+    });
+
     const { mutate: testConnection, isPending: isTesting } = useMutation({
         mutationFn: async () => {
             if (!botToken || !chatId) {
@@ -298,18 +320,37 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                             {isStarting ? t('telegram.starting') : t('telegram.start')}
                                         </button>
                                     ) : (
-                                        <button
-                                            onClick={() => stopBot()}
-                                            disabled={isStopping}
-                                            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-2xl hover:bg-red-700 disabled:bg-gray-400"
-                                        >
-                                            <Square className="w-4 h-4" />
-                                            {isStopping ? t('telegram.stopping') : t('telegram.stop')}
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => sendTestMessage()}
+                                                disabled={isSendingTest}
+                                                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-2xl hover:bg-blue-700 disabled:bg-gray-400"
+                                            >
+                                                {isSendingTest ? t('telegram.testing') : t('telegram.send_test_message')}
+                                            </button>
+                                            <button
+                                                onClick={() => stopBot()}
+                                                disabled={isStopping}
+                                                className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-2xl hover:bg-red-700 disabled:bg-gray-400"
+                                            >
+                                                <Square className="w-4 h-4" />
+                                                {isStopping ? t('telegram.stopping') : t('telegram.stop')}
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             </div>
                         </div>
+
+                        {!status?.isActive && status?.lastStartError && (
+                            <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-semibold text-red-900">{t('telegram.why_bot_not_started')}</p>
+                                    <p className="text-sm text-red-800 mt-1">{status.lastStartError}</p>
+                                </div>
+                            </div>
+                        )}
 
                         {!status?.usersConfigured && (
                             <div className="mb-6 p-4 rounded-2xl bg-amber-100 border border-amber-300 flex items-start gap-3">

@@ -82,6 +82,7 @@ export class ScraperService {
         const logs: string[] = [];
         const startTime = Date.now();
         const aggregateTelegramNotifications = Boolean((request.options as any)?.aggregateTelegramNotifications);
+        const deferPostScrape = Boolean((request.options as any)?.deferPostScrape);
 
         const addLog = (msg: string) => {
             const logEntry = `[${new Date().toISOString()}] ${msg}`;
@@ -239,6 +240,10 @@ export class ScraperService {
                     executionTimeMs,
                 };
 
+                if (deferPostScrape) {
+                    // Caller will run post-scrape once after all scrapes finish (batch)
+                    return successResult;
+                }
                 if (aggregateTelegramNotifications) {
                     try {
                         await postScrapeService.handleResult(successResult, request);
@@ -289,6 +294,9 @@ export class ScraperService {
                     executionTimeMs,
                 };
 
+                if (deferPostScrape) {
+                    return failResult;
+                }
                 if (aggregateTelegramNotifications) {
                     try {
                         await postScrapeService.sendScrapeNotification(failResult, request);
@@ -327,6 +335,9 @@ export class ScraperService {
                 executionTimeMs,
             };
 
+            if (deferPostScrape) {
+                return errorResult;
+            }
             if (aggregateTelegramNotifications) {
                 try {
                     await postScrapeService.sendScrapeNotification(errorResult, request);

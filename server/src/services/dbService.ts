@@ -7,21 +7,14 @@ import { serverLogger } from '../utils/logger.js';
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const DB_PATH = path.join(DATA_DIR, 'app.db');
 
-export class DbService {
-    private db: Database.Database;
+let sharedDb: Database.Database | null = null;
 
-    constructor() {
-        fs.ensureDirSync(DATA_DIR);
-        this.db = new Database(DB_PATH);
-        this.initialize();
-    }
+function initialize(db: Database.Database) {
+    // Enable WAL mode for better concurrency
+    db.pragma('journal_mode = WAL');
 
-    private initialize() {
-        // Enable WAL mode for better concurrency
-        this.db.pragma('journal_mode = WAL');
-
-        // Create transactions table
-        this.db.exec(`
+    // Create transactions table
+    db.exec(`
             CREATE TABLE IF NOT EXISTS transactions (
                 id TEXT PRIMARY KEY,
                 accountNumber TEXT,
@@ -37,51 +30,79 @@ export class DbService {
             )
         `);
 
-        // Migration: Add isInternalTransfer column if it doesn't exist
+    // Migration: Add isInternalTransfer column if it doesn't exist
+    try {
+        db.exec('ALTER TABLE transactions ADD COLUMN isInternalTransfer INTEGER DEFAULT 0');
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Migration: Add subscription columns
+    try {
+        db.exec('ALTER TABLE transactions ADD COLUMN isSubscription INTEGER DEFAULT 0');
+    } catch (e) {}
+
+    try {
+        db.exec('ALTER TABLE transactions ADD COLUMN subscriptionInterval TEXT');
+    } catch (e) {}
+
+    try {
+        db.exec('ALTER TABLE transactions ADD COLUMN excludeFromSubscriptions INTEGER DEFAULT 0');
+    } catch (e) {}
+
+    // Create categories cache table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS categories_cache (
+            description TEXT PRIMARY KEY,
+            category TEXT,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Fraud findings table (local and/or AI detectors)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS fraud_findings (
+            id TEXT PRIMARY KEY,
+            txn_id TEXT NOT NULL,
+            detector TEXT NOT NULL,
+            score REAL NOT NULL,
+            severity TEXT NOT NULL,
+            reasons_json TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_txn ON fraud_findings(txn_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_created_at ON fraud_findings(created_at)');
+
+    serverLogger.info('Database initialized');
+}
+
+function getSharedDb(): Database.Database {
+    if (sharedDb) return sharedDb;
+    fs.ensureDirSync(DATA_DIR);
+    sharedDb = new Database(DB_PATH);
+    initialize(sharedDb);
+    return sharedDb;
+}
+
+/**
+ * Close the shared DB connection so the database file can be replaced (e.g. during backup restore).
+ * The next getSharedDb() call will open the database again.
+ */
+export function closeDbForRestore(): void {
+    if (sharedDb) {
         try {
-            this.db.exec('ALTER TABLE transactions ADD COLUMN isInternalTransfer INTEGER DEFAULT 0');
-        } catch (e) {
-            // Column already exists, ignore
-        }
+            sharedDb.pragma('wal_checkpoint(TRUNCATE)');
+        } catch (_) {}
+        sharedDb.close();
+        sharedDb = null;
+    }
+}
 
-        // Migration: Add subscription columns
-        try {
-            this.db.exec('ALTER TABLE transactions ADD COLUMN isSubscription INTEGER DEFAULT 0');
-        } catch (e) {}
-
-        try {
-            this.db.exec('ALTER TABLE transactions ADD COLUMN subscriptionInterval TEXT');
-        } catch (e) {}
-
-        try {
-            this.db.exec('ALTER TABLE transactions ADD COLUMN excludeFromSubscriptions INTEGER DEFAULT 0');
-        } catch (e) {}
-
-        // Create categories cache table
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS categories_cache (
-                description TEXT PRIMARY KEY,
-                category TEXT,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-
-        // Fraud findings table (local and/or AI detectors)
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS fraud_findings (
-                id TEXT PRIMARY KEY,
-                txn_id TEXT NOT NULL,
-                detector TEXT NOT NULL,
-                score REAL NOT NULL,
-                severity TEXT NOT NULL,
-                reasons_json TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        this.db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_txn ON fraud_findings(txn_id)');
-        this.db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_created_at ON fraud_findings(created_at)');
-
-        serverLogger.info('Database initialized');
+export class DbService {
+    /** Getter so we always use the current shared connection (reopened after restore). */
+    private get db(): Database.Database {
+        return getSharedDb();
     }
 
     // --- Transactions ---
@@ -346,7 +367,7 @@ export class DbService {
     }
 
     close() {
-        this.db.close();
+        closeDbForRestore();
     }
 
     getFraudFindingsForTxn(txnId: string): FraudFinding[] {

@@ -656,6 +656,8 @@
         "test": "Test",
         "testing": "Testing...",
         "test_success": "Test message sent successfully",
+        "send_test_message": "Send test message",
+        "why_bot_not_started": "Why the bot did not start",
         "loading_status": "Loading status...",
         "user_added": "User added to allowed list",
         "user_removed": "User removed from allowed list",

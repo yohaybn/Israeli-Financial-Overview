@@ -158,12 +158,36 @@ router.get('/status', async (req: Request, res: Response) => {
         adminChats: config.adminChatIds.length,
         notificationChats: notificationChatIds.length,
         usersConfigured: telegramBotService.isAllowedUsersConfigured(),
+        lastStartError: telegramBotService.getLastStartError(),
       },
       warning,
     });
   } catch (error: any) {
     serverLogger.error('Error getting Telegram status', { error });
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/telegram/send-test-message
+ * Send a test message to notification chat(s) using the running bot.
+ */
+router.post('/send-test-message', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.body || {};
+    const result = await telegramBotService.sendTestMessage(chatId);
+    if (result.errors.length > 0 && result.sent === 0) {
+      return res.status(500).json({ success: false, error: result.errors[0] });
+    }
+    res.json({
+      success: true,
+      message: result.sent > 0 ? `Test message sent to ${result.sent} chat(s).` : 'No messages sent.',
+      sent: result.sent,
+      errors: result.errors.length > 0 ? result.errors : undefined,
+    });
+  } catch (error: any) {
+    serverLogger.error('Error sending Telegram test message', { error });
+    res.status(400).json({ success: false, error: error.message || 'Failed to send test message' });
   }
 });
 
@@ -341,8 +365,8 @@ router.post('/user-labels', async (req: Request, res: Response) => {
       await telegramBotService.start(config.botToken);
       serverLogger.info('Telegram bot auto-started successfully');
     }
-  } catch (error) {
-    serverLogger.warn('Could not auto-start Telegram bot. You can start it manually via POST /api/telegram/start', { error });
+  } catch (error: any) {
+    serverLogger.warn('Could not auto-start Telegram bot. You can start it manually via POST /api/telegram/start', { error: error?.message });
   }
 })();
 

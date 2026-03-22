@@ -2,11 +2,13 @@ import * as cron from 'node-cron';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { SchedulerConfig, DEFAULT_SCHEDULER_CONFIG, Profile } from '@app/shared';
+import { SchedulerConfig, DEFAULT_SCHEDULER_CONFIG, Profile, ScrapeResult } from '@app/shared';
 import { serviceLogger as logger } from '../utils/logger.js';
 import { ScraperService } from './scraperService.js';
 import { ProfileService } from './profileService.js';
+import { StorageService } from './storageService.js';
 import { BackupService } from './backupService.js';
+import { postScrapeService } from './postScrapeService.js';
 // PipelineController removed - scheduler will run scrapes and rely on post-scrape actions
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,14 +30,16 @@ export class SchedulerService {
     private config: SchedulerConfigWithBackup;
     private scraperService: ScraperService;
     private profileService: ProfileService;
+    private storageService: StorageService;
     private backupService: BackupService;
-    
+
     private currentJob: cron.ScheduledTask | null = null;
     private isRunning: boolean = false;
 
-    constructor(scraperService: ScraperService, profileService: ProfileService) {
+    constructor(scraperService: ScraperService, profileService: ProfileService, storageService?: StorageService) {
         this.scraperService = scraperService;
         this.profileService = profileService;
+        this.storageService = storageService ?? new StorageService();
         this.backupService = new BackupService();
         this.config = this.loadConfig();
         this.initialize();
@@ -145,13 +149,26 @@ export class SchedulerService {
                 return;
             }
 
-            // Run sequentially
+            // Run all scrapes with post-scrape deferred, then run post-scrape once with combined results
+            const batchResults: ScrapeResult[] = [];
+            const batchRequest = {
+                companyId: 'scheduler',
+                credentials: {} as Record<string, string>,
+                profileName: 'Scheduled run',
+                options: {
+                    headless: true,
+                    runSource: 'scheduler' as const,
+                    initiatedBy: 'scheduler',
+                    deferPostScrape: true,
+                },
+            };
+
             for (const profile of profilesToRun) {
                 logger.info(`Running scheduled scrape for profile: ${profile.name} (${profile.companyId})`);
 
                 const scrapeRequest = {
                     companyId: profile.companyId,
-                    credentials: {}, // ScraperService will fetch them from profile storage using profileId
+                    credentials: {} as Record<string, string>,
                     profileId: profile.id,
                     profileName: profile.name,
                     options: {
@@ -159,15 +176,32 @@ export class SchedulerService {
                         headless: true,
                         runSource: 'scheduler',
                         initiatedBy: 'scheduler',
-                    } as any
+                        deferPostScrape: true,
+                    } as any,
                 };
 
-                // Run direct scrape; post-scrape actions are handled by ScraperService/postScrapeService
                 try {
-                    await this.scraperService.runScrape(scrapeRequest);
+                    const result = await this.scraperService.runScrape(scrapeRequest);
+                    batchResults.push(result);
+                    if (result.success && result.transactions && result.transactions.length > 0) {
+                        try {
+                            await this.storageService.saveScrapeResult(result, profile.name || profile.companyId);
+                        } catch (saveErr) {
+                            logger.warn(`Failed to save scrape result for ${profile.name}`, { error: saveErr });
+                        }
+                    }
                     logger.info(`Scheduled scrape completed for profile: ${profile.name}`);
                 } catch (error) {
                     logger.error(`Scheduled scrape failed for profile: ${profile.name}`, { error });
+                    batchResults.push({ success: false, error: (error as Error)?.message, logs: [], executionTimeMs: 0 });
+                }
+            }
+
+            if (batchResults.some((r) => r.success)) {
+                try {
+                    await postScrapeService.handleBatchResults(batchResults, batchRequest);
+                } catch (postErr) {
+                    logger.warn('Post-scrape batch failed after scheduled run', { error: postErr });
                 }
             }
 

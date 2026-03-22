@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleAIFileManager, FileState } from '@google/generative-ai/server';
 import { Transaction, Account } from '@app/shared';
 import fs from 'fs-extra';
 import path from 'path';
@@ -20,6 +21,37 @@ export interface AiSettings {
     categories: string[];
     defaultCategory: string;
 }
+
+/** One turn in a conversation for multi-turn AI analysis */
+export interface ConversationTurn {
+    role: 'user' | 'model';
+    text: string;
+}
+
+/** When set, old vs new transactions are sent separately: old via file attachment; new inline as CSV only if ≤ {@link AI_TXN_INLINE_MAX_ROWS} rows, otherwise as a second file. */
+export interface AnalyzeTransactionSplit {
+    /** Prior scrapes / DB history (not part of this run). Sent as an attached CSV file when non-empty. */
+    oldTransactions: Transaction[];
+    /** This scrape run only. */
+    newTransactions: Transaction[];
+    /** Language for the data-layout instructions in the prompt. */
+    locale?: 'en' | 'he';
+}
+
+export interface AnalyzeDataOptions {
+    /** Previous turns in the conversation; when provided, enables multi-turn and reduces repetition */
+    conversationHistory?: ConversationTurn[];
+    /** Temperature for generation (0–2). Higher = more variety. Default 0.7 for chat; use ~0.4 for post-scrape. */
+    temperature?: number;
+    /**
+     * Post-scrape style split: historical rows as file, new rows as text (if short) or file (if long).
+     * When set, the `transactions` argument to analyzeData should be `[]`.
+     */
+    transactionSplit?: AnalyzeTransactionSplit;
+}
+
+/** Rows above this count are sent as an uploaded file instead of inline CSV. */
+export const AI_TXN_INLINE_MAX_ROWS = 100;
 
 const DEFAULT_SETTINGS: AiSettings = {
     categorizationModel: 'gemini-flash-latest',
@@ -270,15 +302,254 @@ export class AiService {
         }
     }
 
-    async analyzeData(query: string, transactions: Transaction[]): Promise<string> {
+    private async waitForFileActive(fileManager: GoogleAIFileManager, fileResourceName: string): Promise<void> {
+        const deadline = Date.now() + 120_000;
+        while (Date.now() < deadline) {
+            const meta = await fileManager.getFile(fileResourceName);
+            if (meta.state === FileState.ACTIVE) return;
+            if (meta.state === FileState.FAILED) {
+                const msg = meta.error?.message || 'Uploaded file processing failed';
+                throw new Error(msg);
+            }
+            await new Promise((r) => setTimeout(r, 1500));
+        }
+        throw new Error('Timeout waiting for uploaded file to become ACTIVE');
+    }
+
+    private async uploadTransactionsCsv(
+        fileManager: GoogleAIFileManager,
+        csv: string,
+        displayName: string
+    ): Promise<{ resourceName: string; uri: string; mimeType: string }> {
+        const buf = Buffer.from(csv, 'utf-8');
+        const upload = await fileManager.uploadFile(buf, {
+            mimeType: 'text/csv',
+            displayName,
+        });
+        const { name, uri, mimeType } = upload.file;
+        await this.waitForFileActive(fileManager, name);
+        return { resourceName: name, uri, mimeType };
+    }
+
+    /** Log: prompt text first; when files were uploaded, append their UTF-8 size and row counts (no section headers). */
+    private buildAnalyzeDataLogUserInput(
+        promptText: string,
+        uploadedFiles: { displayName: string; utf8Bytes: number; rows: number }[]
+    ): string {
+        if (uploadedFiles.length === 0) {
+            return promptText;
+        }
+        const fileLines = uploadedFiles
+            .map(
+                (f, i) =>
+                    `${i + 1}. ${f.displayName} — UTF-8 bytes: ${f.utf8Bytes}, rows: ${f.rows}`
+            )
+            .join('\n');
+        const totalRows = uploadedFiles.reduce((sum, f) => sum + f.rows, 0);
+        return `${promptText}\n\n${fileLines}\n\nTotal rows (all attachments): ${totalRows}`;
+    }
+
+    async analyzeData(query: string, transactions: Transaction[], options?: AnalyzeDataOptions): Promise<string> {
         if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
 
         await this.loadSettings();
+        const temperature = options?.temperature ?? 0.7;
+        const systemInstruction =
+            'You are a professional financial analyst. Provide concise, data-driven answers based on provided transaction history. ' +
+            'Do not repeat your previous analysis verbatim; when relevant, refer to prior points briefly and emphasize what is new or changed.';
         const model = this.genAI.getGenerativeModel({
             model: this.settings.chatModel,
-            systemInstruction: "You are a professional financial analyst. Provide concise, data-driven answers based on provided transaction history."
+            systemInstruction
         });
-        const prompt = `
+
+        const apiKey = process.env.GEMINI_API_KEY || '';
+        const fileManager = new GoogleAIFileManager(apiKey);
+        const uploadedResourceNames: string[] = [];
+        const uploadedFileLog: { displayName: string; utf8Bytes: number; rows: number }[] = [];
+
+        type UserPart = { text: string } | { fileData: { mimeType: string; fileUri: string } };
+
+        /** Single CSV with `scope` column: historical vs current_scrape (post-scrape split). */
+        const buildSplitPromptCombinedFile = (
+            locale: 'en' | 'he',
+            oldRows: number,
+            newRows: number,
+            totalRows: number,
+            q: string
+        ): string => {
+            const layoutEn =
+                `The attached CSV has a \`scope\` column: \`historical\` = from previous scrapes (not this run); \`current_scrape\` = this run only.\n` +
+                `Row counts: ${oldRows} historical + ${newRows} from this scrape = ${totalRows} data rows (plus header).\n` +
+                `Use historical rows only for baseline/context; prioritize \`current_scrape\` when the question is about recent activity.\n`;
+            const layoutHe =
+                `לקובץ ה־CSV המצורף יש עמודת \`scope\`: \`historical\` = מסריקות קודמות (לא מהריצה הזו); \`current_scrape\` = רק מהריצה הנוכחית.\n` +
+                `מספר שורות: ${oldRows} היסטוריה + ${newRows} מהסריקה הזו = ${totalRows} שורות נתונים (בלי כותרת).\n` +
+                `השתמש ב־historical רק כהקשר; עדיף להתמקד ב־\`current_scrape\` כשהשאלה נוגעת לפעילות אחרונה.\n`;
+
+            const layout = locale === 'he' ? layoutHe : layoutEn;
+            return `
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+
+            ${layout}
+            Question: ${q}
+
+            Constraints & Output Format:
+            Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
+        `;
+        };
+
+        const buildSplitPrompt = (
+            locale: 'en' | 'he',
+            oldRows: number,
+            newRows: number,
+            oldAsFile: boolean,
+            newAsFile: boolean,
+            newInlineCsv: string
+        ): string => {
+            const layoutEn =
+                (oldRows > 0
+                    ? `OLD transactions (historical): ${oldRows} row(s) already on file from previous scrapes — not from this run. ` +
+                      `They are in the first attached CSV file.\n`
+                    : '') +
+                (newRows > 0
+                    ? newAsFile
+                        ? `NEW transactions (this scrape only): ${newRows} row(s) in the attached CSV file${
+                              oldRows > 0 ? ' (after the historical file)' : ''
+                          } (same column layout).\n`
+                        : `NEW transactions (this scrape only): ${newRows} row(s) — included below as CSV text (not historical).\n`
+                    : `No new transactions in this run; only historical data may be attached.\n`) +
+                `\nUse OLD only for baseline/context; prioritize analyzing NEW when the question is about recent activity.\n`;
+            const layoutHe =
+                (oldRows > 0
+                    ? `עסקאות ישנות (היסטוריה): ${oldRows} שורות שכבר היו במערכת מסריקות קודמות — לא מהריצה הנוכחית. ` +
+                      `הן בקובץ ה־CSV המצורף הראשון.\n`
+                    : '') +
+                (newRows > 0
+                    ? newAsFile
+                        ? `עסקאות חדשות (רק מהסריקה הזו): ${newRows} שורות בקובץ ה־CSV המצורף${
+                              oldRows > 0 ? ' (אחרי קובץ ההיסטוריה)' : ''
+                          } (אותה מבנה עמודות).\n`
+                        : `עסקאות חדשות (רק מהסריקה הזו): ${newRows} שורות — מופיעות למטה כטקסט CSV (לא היסטוריה).\n`
+                    : `אין עסקאות חדשות בריצה זו; ייתכן שמצורף רק נתון היסטורי.\n`) +
+                `\nהשתמש בישן רק כהקשר; עדיף להתמקד בחדש כשהשאלה נוגעת לפעילות אחרונה.\n`;
+
+            const layout = locale === 'he' ? layoutHe : layoutEn;
+            const newBlock =
+                newRows > 0 && !newAsFile && newInlineCsv
+                    ? locale === 'he'
+                        ? `\n---\nעסקאות חדשות CSV (רק מהסריקה הזו):\n${newInlineCsv}\n---\n`
+                        : `\n---\nNEW TRANSACTIONS CSV (this scrape only):\n${newInlineCsv}\n---\n`
+                    : '';
+
+            return `
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+
+            ${layout}
+            Question: ${query}
+            ${newBlock}
+            Constraints & Output Format:
+            Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
+        `;
+        };
+
+        let currentPrompt: string;
+        let userParts: UserPart[];
+
+        const split = options?.transactionSplit;
+        if (split) {
+            const oldTx = split.oldTransactions || [];
+            const newTx = split.newTransactions || [];
+            const locale = split.locale === 'he' ? 'he' : 'en';
+
+            if (oldTx.length > 0 && newTx.length > 0) {
+                // One CSV with a `scope` column so logs show total rows (two separate files made it easy to read only the "new" row count).
+                const combinedCsv = this.formatSplitTransactionsForAI(oldTx, newTx);
+                const totalRows = oldTx.length + newTx.length;
+                uploadedFileLog.push({
+                    displayName: 'transactions_historical_and_current.csv',
+                    utf8Bytes: Buffer.byteLength(combinedCsv, 'utf8'),
+                    rows: totalRows,
+                });
+                const up = await this.uploadTransactionsCsv(
+                    fileManager,
+                    combinedCsv,
+                    'transactions_historical_and_current.csv'
+                );
+                uploadedResourceNames.push(up.resourceName);
+                currentPrompt = buildSplitPromptCombinedFile(locale, oldTx.length, newTx.length, totalRows, query);
+                userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
+            } else {
+                const oldAsFile = oldTx.length > 0;
+                const newAsFile = newTx.length > AI_TXN_INLINE_MAX_ROWS;
+                const newInlineCsv =
+                    newTx.length > 0 && !newAsFile ? this.formatTransactionsForAI(newTx) : '';
+
+                currentPrompt = buildSplitPrompt(
+                    locale,
+                    oldTx.length,
+                    newTx.length,
+                    oldAsFile,
+                    newAsFile,
+                    newInlineCsv
+                );
+
+                userParts = [];
+                if (oldAsFile) {
+                    const oldCsv = this.formatTransactionsForAI(oldTx);
+                    uploadedFileLog.push({
+                        displayName: 'historical_transactions.csv',
+                        utf8Bytes: Buffer.byteLength(oldCsv, 'utf8'),
+                        rows: oldTx.length,
+                    });
+                    const up = await this.uploadTransactionsCsv(
+                        fileManager,
+                        oldCsv,
+                        'historical_transactions.csv'
+                    );
+                    uploadedResourceNames.push(up.resourceName);
+                    userParts.push({ fileData: { mimeType: up.mimeType, fileUri: up.uri } });
+                }
+                if (newAsFile) {
+                    const newCsv = this.formatTransactionsForAI(newTx);
+                    uploadedFileLog.push({
+                        displayName: 'new_transactions_this_scrape.csv',
+                        utf8Bytes: Buffer.byteLength(newCsv, 'utf8'),
+                        rows: newTx.length,
+                    });
+                    const up = await this.uploadTransactionsCsv(
+                        fileManager,
+                        newCsv,
+                        'new_transactions_this_scrape.csv'
+                    );
+                    uploadedResourceNames.push(up.resourceName);
+                    userParts.push({ fileData: { mimeType: up.mimeType, fileUri: up.uri } });
+                }
+                userParts.push({ text: currentPrompt });
+            }
+        } else {
+            const useFile = transactions.length > AI_TXN_INLINE_MAX_ROWS;
+            if (useFile && transactions.length > 0) {
+                const csv = this.formatTransactionsForAI(transactions);
+                uploadedFileLog.push({
+                    displayName: 'transactions.csv',
+                    utf8Bytes: Buffer.byteLength(csv, 'utf8'),
+                    rows: transactions.length,
+                });
+                const up = await this.uploadTransactionsCsv(fileManager, csv, 'transactions.csv');
+                uploadedResourceNames.push(up.resourceName);
+                currentPrompt = `
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+
+            The attached CSV file contains all ${transactions.length} transactions (${transactions.length} rows). Use it for the question below.
+
+            Question: ${query}
+
+            Constraints & Output Format:
+            Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
+        `;
+                userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
+            } else {
+                currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
             
             Question: ${query}
@@ -291,14 +562,32 @@ export class AiService {
             Constraints & Output Format:
             Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
         `;
+                userParts = [{ text: currentPrompt }];
+            }
+        }
+
+        const contents: { role: 'user' | 'model'; parts: UserPart[] }[] = [];
+        if (options?.conversationHistory?.length) {
+            for (const turn of options.conversationHistory) {
+                contents.push({ role: turn.role, parts: [{ text: turn.text }] });
+            }
+        }
+        contents.push({ role: 'user', parts: userParts });
+
+        const generationConfig: { temperature?: number } = { temperature };
 
         let startTime = Date.now();
         try {
             startTime = Date.now();
-            const result = await model.generateContent(prompt);
+            const result = await model.generateContent({
+                contents,
+                generationConfig
+            });
             const response = await result.response;
             const text = response.text();
             const latencyMs = Date.now() - startTime;
+
+            const logInputSummary = this.buildAnalyzeDataLogUserInput(currentPrompt, uploadedFileLog);
 
             // Log the AI call
             const usageMetadata = response.usageMetadata;
@@ -306,9 +595,9 @@ export class AiService {
                 model: this.settings.chatModel,
                 provider: 'gemini',
                 requestInfo: {
-                    systemPrompt: 'You are a financial analyst. Based on the following transaction descriptions, answer the user\'s question. Keep your answer concise and professional.',
-                    userInput: prompt,  // Log full prompt with all context
-                    inputLength: prompt.length
+                    systemPrompt: systemInstruction,
+                    userInput: logInputSummary,
+                    inputLength: logInputSummary.length
                 },
                 responseInfo: {
                     rawOutput: text,
@@ -337,6 +626,14 @@ export class AiService {
             );
 
             throw error;
+        } finally {
+            for (const name of uploadedResourceNames) {
+                try {
+                    await fileManager.deleteFile(name);
+                } catch (delErr) {
+                    serverLogger.warn('Failed to delete uploaded Gemini file', { name, error: (delErr as Error).message });
+                }
+            }
         }
     }
 
@@ -524,6 +821,15 @@ export class AiService {
         }
     }
 
+    private escapeCsvCell(value: unknown): string {
+        if (value === undefined || value === null) return '';
+        let strValue = String(value);
+        if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
+            strValue = `"${strValue.replace(/"/g, '""')}"`;
+        }
+        return strValue;
+    }
+
     /**
      * Converts transactions to a compact CSV format to save tokens.
      * Removes irrelevant fields like 'id' and 'processedDate'.
@@ -534,21 +840,31 @@ export class AiService {
         // Define relevant fields to include in the CSV
         // id, processedDate, chargedAmount, status, type, provider, accountNumber, etc. are usually less relevant for high-level analysis
         const headers = ['date', 'description', 'amount', 'originalAmount', 'originalCurrency', 'category', 'memo', 'txnType'];
-        
-        const csvRows = transactions.map(t => {
-            return headers.map(header => {
-                const value = (t as any)[header];
-                if (value === undefined || value === null) return '';
-                
-                // Escape quotes and wrap in quotes if contains comma or newline
-                let strValue = String(value);
-                if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
-                    strValue = `"${strValue.replace(/"/g, '""')}"`;
-                }
-                return strValue;
-            }).join(',');
-        });
+
+        const csvRows = transactions.map((t) =>
+            headers.map((header) => this.escapeCsvCell((t as any)[header])).join(',')
+        );
 
         return [headers.join(','), ...csvRows].join('\n');
+    }
+
+    /**
+     * Historical + current scrape in one CSV; `scope` is `historical` or `current_scrape`.
+     */
+    private formatSplitTransactionsForAI(oldTx: Transaction[], newTx: Transaction[]): string {
+        const headers = ['scope', 'date', 'description', 'amount', 'originalAmount', 'originalCurrency', 'category', 'memo', 'txnType'];
+        const dataHeaders = headers.slice(1);
+        const rows: string[] = [];
+        for (const t of oldTx) {
+            rows.push(
+                [this.escapeCsvCell('historical'), ...dataHeaders.map((h) => this.escapeCsvCell((t as any)[h]))].join(',')
+            );
+        }
+        for (const t of newTx) {
+            rows.push(
+                [this.escapeCsvCell('current_scrape'), ...dataHeaders.map((h) => this.escapeCsvCell((t as any)[h]))].join(',')
+            );
+        }
+        return [headers.join(','), ...rows].join('\n');
     }
 }

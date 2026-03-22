@@ -79,7 +79,8 @@ router.post('/chat/unified', async (req, res) => {
         // If transactions not provided in body, or if scope/filename provided, fetch from server
         if (!transactions || scope || filename) {
             if (scope === 'all') {
-                transactions = await storageService.getAllTransactions();
+                // Match /results/all and unified dashboard: include ignored rows (prompt still tells model to exclude them from calculations).
+                transactions = await storageService.getAllTransactions(true);
             } else if (filename) {
                 const result = await storageService.getScrapeResult(filename);
                 transactions = result?.transactions || [];
