@@ -27,13 +27,14 @@ router.post('/categorize/:filename', async (req, res) => {
             return res.status(404).json({ success: false, error: 'File or transactions not found' });
         }
 
-        const categorizedTransactions = await aiService.categorizeTransactions(result.transactions);
+        const { transactions: categorizedTransactions, aiError } = await aiService.categorizeTransactions(result.transactions);
 
         // Update the existing file
         result.transactions = categorizedTransactions;
         await storageService.updateScrapeResult(filename, result);
+        await storageService.applyCategoryColumnsFromTransactions(categorizedTransactions);
 
-        res.json({ success: true, data: categorizedTransactions });
+        res.json({ success: true, data: categorizedTransactions, categorizationError: aiError });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }

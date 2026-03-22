@@ -55,7 +55,11 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
         if (window.confirm(t('ai_settings.recategorize_all_desc'))) {
             recategorizeAll(forceRecat, {
                 onSuccess: (data) => {
-                    alert(t('ai_settings.recategorize_success', { count: data.count }));
+                    if (data.error) {
+                        alert(t('ai_settings.recategorize_ai_failed', { error: data.error, count: data.count }));
+                    } else {
+                        alert(t('ai_settings.recategorize_success', { count: data.count }));
+                    }
                 },
                 onError: (err: any) => {
                     alert(t('common.error_with_message', { error: err.message || t('common.unknown_error') }));

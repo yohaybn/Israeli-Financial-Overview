@@ -53,6 +53,15 @@ export interface AnalyzeDataOptions {
 /** Rows above this count are sent as an uploaded file instead of inline CSV. */
 export const AI_TXN_INLINE_MAX_ROWS = 100;
 
+/** Returned when categorization cannot call the model; cache-only mapping is still applied. */
+export const AI_CATEGORIZATION_NO_API_KEY = 'GEMINI_API_KEY not configured';
+
+export interface CategorizeTransactionsResult {
+    transactions: Transaction[];
+    /** Set when the model was not used successfully; cached categories are still applied where available. */
+    aiError?: string;
+}
+
 const DEFAULT_SETTINGS: AiSettings = {
     categorizationModel: 'gemini-flash-latest',
     chatModel: 'gemini-flash-latest',
@@ -167,10 +176,24 @@ export class AiService {
         }
     }
 
-    async categorizeTransactions(transactions: Transaction[]): Promise<Transaction[]> {
-        if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
+    private mapTransactionsWithCategoryCache(transactions: Transaction[]): Transaction[] {
+        return transactions.map((t) => ({
+            ...t,
+            category: this.dbService.getCategory(t.description) || t.category || this.settings.defaultCategory,
+        }));
+    }
 
+    async categorizeTransactions(transactions: Transaction[]): Promise<CategorizeTransactionsResult> {
         await this.loadSettings();
+
+        if (!this.genAI) {
+            serverLogger.info('Categorization: no GEMINI_API_KEY; applying category cache only');
+            return {
+                transactions: this.mapTransactionsWithCategoryCache(transactions),
+                aiError: AI_CATEGORIZATION_NO_API_KEY,
+            };
+        }
+
         serverLogger.info(`Categorizing ${transactions.length} transactions using ${this.settings.categorizationModel}`);
 
         const model = this.genAI.getGenerativeModel({ model: this.settings.categorizationModel });
@@ -181,10 +204,7 @@ export class AiService {
         serverLogger.info(`${transactions.length - uncategorized.length} already in cache, ${uncategorized.length} to categorize`);
 
         if (uncategorized.length === 0) {
-            return transactions.map(t => ({
-                ...t,
-                category: this.dbService.getCategory(t.description) || t.category || this.settings.defaultCategory
-            }));
+            return { transactions: this.mapTransactionsWithCategoryCache(transactions) };
         }
 
         // Prepare prompt
@@ -281,10 +301,7 @@ export class AiService {
             // await this.saveCache();
             // serverLogger.info(`Cache saved to ${CACHE_FILE}`);
 
-            return transactions.map(t => ({
-                ...t,
-                category: this.dbService.getCategory(t.description) || t.category || this.settings.defaultCategory
-            }));
+            return { transactions: this.mapTransactionsWithCategoryCache(transactions) };
         } catch (error: any) {
             const latencyMs = Date.now() - (startTime || Date.now());
 
@@ -298,7 +315,10 @@ export class AiService {
             );
 
             serverLogger.error(`Categorization failed: ${error.message}`);
-            throw error; // Propagate error so the route/UI know it failed
+            return {
+                transactions: this.mapTransactionsWithCategoryCache(transactions),
+                aiError: error.message || String(error),
+            };
         }
     }
 

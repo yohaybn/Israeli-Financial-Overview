@@ -235,7 +235,12 @@ export function FinancialCommandCenter({
                     remainingPlanned={summary.expenses.remainingPlanned}
                     remainingPlannedTxns={summary.expenses.remainingPlannedTxns}
                     variableForecast={summary.expenses.variableForecast}
+                    expenseTxnCount={summary.expenses.expenseTxnCount}
+                    historicalAvgMonthlyTxnCount={summary.expenses.historicalAvgMonthlyTxnCount}
+                    expectedTxnCountToDate={summary.expenses.expectedTxnCountToDate}
+                    isCurrentMonth={summary.isCurrentMonth}
                     remainingDays={summary.remainingDays}
+                    monthsAnalyzed={summary.historicalBaseline?.monthsAnalyzed}
                     totalProjected={summary.expenses.totalProjected}
                     byCategory={summary.expenses.byCategory}
                     categories={availableCategories}

@@ -6,7 +6,8 @@ import puppeteer from 'puppeteer';
 import fs from 'fs-extra';
 import { StorageService } from './storageService.js';
 import { DbService } from './dbService.js';
-import { ProfileService } from './profileService.js';
+import { profileService } from './profileService.js';
+import { appLockService } from './appLockService.js';
 
 // Progress event types matching the library
 export enum ScraperProgressTypes {
@@ -30,12 +31,11 @@ export class ScraperService {
     private io: Server | null = null;
     private storageService: StorageService;
     private dbService: DbService;
-    private profileService: ProfileService;
+    private profileService = profileService;
 
     constructor() {
         this.storageService = new StorageService();
         this.dbService = new DbService();
-        this.profileService = new ProfileService();
     }
 
     setSocketIO(io: Server) {
@@ -81,7 +81,15 @@ export class ScraperService {
     async runScrape(request: ScrapeRequest): Promise<ScrapeResult> {
         const logs: string[] = [];
         const startTime = Date.now();
-        const aggregateTelegramNotifications = Boolean((request.options as any)?.aggregateTelegramNotifications);
+        const postCfg = await postScrapeService.getConfig();
+        const optAgg = (request.options as any)?.aggregateTelegramNotifications;
+        const aggregateTelegramNotifications =
+            optAgg !== undefined && optAgg !== null
+                ? Boolean(optAgg)
+                : (postCfg.aggregateTelegramNotifications !== false);
+        if (request.options) {
+            (request.options as any).aggregateTelegramNotifications = aggregateTelegramNotifications;
+        }
         const deferPostScrape = Boolean((request.options as any)?.deferPostScrape);
 
         const addLog = (msg: string) => {
@@ -89,6 +97,25 @@ export class ScraperService {
             logs.push(logEntry);
             this.emitLog(logEntry);
         };
+
+        if (!appLockService.isUnlocked()) {
+            addLog('Scrape blocked: application is locked. Unlock in the web UI first.');
+            this.emitProgress(ScraperProgressTypes.Terminating, 'Application is locked');
+            const executionTimeMs = Date.now() - startTime;
+            if (this.io) {
+                this.io.emit('scrape:complete', {
+                    success: false,
+                    error: 'APP_LOCKED',
+                    executionTimeMs
+                });
+            }
+            return {
+                success: false as const,
+                error: 'Application is locked. Unlock in the web UI to run scrapes.',
+                logs,
+                executionTimeMs
+            };
+        }
 
         // If profileId is provided, fetch credentials from profile storage
         let credentials = request.credentials;

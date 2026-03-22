@@ -14,6 +14,8 @@ interface ProfileManagerProps {
     onLoadProfile: (profile: Profile) => void;
     onAddNewProfile: () => void;
     hideSaveButton?: boolean;
+    /** When true, cannot add or save a new profile (app lock) */
+    restrictNewProfile?: boolean;
 }
 
 interface ProviderIconProps {
@@ -59,6 +61,7 @@ export function ProfileManager({
     onLoadProfile,
     onAddNewProfile,
     hideSaveButton,
+    restrictNewProfile,
 }: ProfileManagerProps) {
     const { t, i18n } = useTranslation();
     const { data: profiles, isLoading } = useProfiles();
@@ -83,6 +86,7 @@ export function ProfileManager({
 
 
     const handleSaveProfile = () => {
+        if (restrictNewProfile) return;
         if (!newProfileName.trim() || !currentCompanyId) return;
 
         createProfile({
@@ -129,8 +133,11 @@ export function ProfileManager({
                 <div className="flex gap-2">
                     {!hideSaveButton && !showSaveInput && currentCompanyId && (
                         <button
-                            onClick={() => setShowSaveInput(true)}
-                            className="text-xs text-gray-500 hover:text-blue-600 underline"
+                            type="button"
+                            onClick={() => !restrictNewProfile && setShowSaveInput(true)}
+                            disabled={restrictNewProfile}
+                            title={restrictNewProfile ? t('app_lock.locked_title') : undefined}
+                            className={`text-xs underline ${restrictNewProfile ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600'}`}
                         >
                             {t('profiles.save_current')}
                         </button>
@@ -140,7 +147,7 @@ export function ProfileManager({
 
             {/* Save New Profile Input */}
             {showSaveInput && (
-                <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100 mb-2">
+                <div className={`p-3 rounded-lg border mb-2 ${restrictNewProfile ? 'bg-gray-100 border-gray-200 opacity-70' : 'bg-blue-50/50 border-blue-100'}`}>
                     <div className="flex gap-2">
                         <input
                             type="text"
@@ -149,15 +156,18 @@ export function ProfileManager({
                             placeholder={t('profiles.name_placeholder')}
                             className="flex-1 text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-400 outline-none"
                             autoFocus
+                            disabled={restrictNewProfile}
                         />
                         <button
+                            type="button"
                             onClick={handleSaveProfile}
-                            disabled={isCreating || !newProfileName.trim()}
+                            disabled={restrictNewProfile || isCreating || !newProfileName.trim()}
                             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
                         >
                             {isCreating ? t('common.saving') : t('common.save')}
                         </button>
                         <button
+                            type="button"
                             onClick={() => setShowSaveInput(false)}
                             className="px-2 text-gray-400 hover:text-gray-600"
                         >
@@ -174,8 +184,13 @@ export function ProfileManager({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Add New Profile Card */}
                 <div
-                    onClick={onAddNewProfile}
-                    className="p-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer flex items-center gap-3 group"
+                    onClick={() => !restrictNewProfile && onAddNewProfile()}
+                    className={`p-3 rounded-lg border-2 border-dashed flex items-center gap-3 group transition-all ${
+                        restrictNewProfile
+                            ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-60'
+                            : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 cursor-pointer'
+                    }`}
+                    title={restrictNewProfile ? t('app_lock.locked_title') : undefined}
                 >
                     <div className="p-2 rounded-md bg-gray-50 group-hover:bg-blue-100 transition-colors">
                         <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-600" />

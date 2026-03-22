@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Transaction } from '@app/shared';
+import { Transaction, isTransactionIgnored, expenseCategoryKey } from '@app/shared';
 import { isInternalTransfer, isLoanCategory } from '../utils/transactionUtils';
 
 interface AnalyticsData {
@@ -99,6 +99,7 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
         let totalExpenses = 0;
 
         transactions.forEach(t => {
+            if (isTransactionIgnored(t)) return;
             if (isInternalTransfer(t, customCCKeywords)) return;
             if (skipLoanExpense(t)) return;
             const amount = t.chargedAmount || t.amount || 0;
@@ -112,9 +113,10 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
         // Group by category
         const categoryMap = new Map<string, number>();
         transactions.forEach(t => {
+            if (isTransactionIgnored(t)) return;
             if (isInternalTransfer(t, customCCKeywords)) return;
             if (skipLoanExpense(t)) return;
-            const category = t.category || 'אחר';
+            const category = expenseCategoryKey(t.category);
             const amount = Math.abs(t.chargedAmount || t.amount || 0);
             
             // Only include expenses (negative amounts) in the spending pie chart
@@ -134,6 +136,7 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
         // Group by month
         const monthMap = new Map<string, { income: number; expenses: number }>();
         transactions.forEach(t => {
+            if (isTransactionIgnored(t)) return;
             if (isInternalTransfer(t, customCCKeywords)) return;
             const date = new Date(t.date);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -162,6 +165,7 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
         // Spending by weekday (expenses only)
         const weekdayMap = new Map<number, number>();
         transactions.forEach(t => {
+            if (isTransactionIgnored(t)) return;
             if (isInternalTransfer(t, customCCKeywords)) return;
             if (skipLoanExpense(t)) return;
             const amount = t.chargedAmount || t.amount || 0;
@@ -180,6 +184,7 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
         // Spending by day in month (1-31, expenses only)
         const monthDayMap = new Map<number, number>();
         transactions.forEach(t => {
+            if (isTransactionIgnored(t)) return;
             if (isInternalTransfer(t, customCCKeywords)) return;
             if (skipLoanExpense(t)) return;
             const amount = t.chargedAmount || t.amount || 0;
@@ -200,6 +205,7 @@ export function useAnalytics(transactions: Transaction[], customCCKeywords: stri
         // Top merchants
         const merchantMap = new Map<string, { count: number; total: number }>();
         transactions.forEach(t => {
+            if (isTransactionIgnored(t)) return;
             if (isInternalTransfer(t, customCCKeywords)) return;
             if (skipLoanExpense(t)) return;
             const desc = t.description;

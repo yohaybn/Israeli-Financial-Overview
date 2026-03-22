@@ -32,11 +32,11 @@ export function ResultsExplorer({ onOpenImport, externalSelectedFiles, onExterna
     
     const selectedFiles = externalSelectedFiles || internalSelectedFiles;
 
-    const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+    const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info' | 'warning'; message: string } | null>(null);
     const { data: multiResults } = useMultipleScrapeResults(selectedFiles);
 
     // Notification helper function
-    const showNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
+    const showNotification = useCallback((type: 'success' | 'error' | 'info' | 'warning', message: string) => {
         setNotification({ type, message });
         setTimeout(() => setNotification(null), 5000);
     }, []);
@@ -152,9 +152,13 @@ export function ResultsExplorer({ onOpenImport, externalSelectedFiles, onExterna
         const targetFile = selectedFiles[0]; // Categorize the primary selected file for now
         logger.info(`Starting AI categorization for: ${targetFile}`);
         aiCategorize(targetFile, {
-            onSuccess: () => {
-                logger.info(`Successfully categorized: ${targetFile}`);
-                showNotification('success', t('explorer.ai_categorize_success'));
+            onSuccess: (data) => {
+                logger.info(`Categorization finished for: ${targetFile}`, data);
+                if (data.categorizationError) {
+                    showNotification('warning', t('explorer.ai_categorize_partial', { error: data.categorizationError }));
+                } else {
+                    showNotification('success', t('explorer.ai_categorize_success'));
+                }
             },
             onError: (err: any) => {
                 const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
@@ -177,6 +181,7 @@ export function ResultsExplorer({ onOpenImport, externalSelectedFiles, onExterna
             {notification && (
                 <div className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-medium z-50 animate-in fade-in slide-in-from-right-5 ${notification.type === 'success' ? 'bg-green-600' :
                     notification.type === 'error' ? 'bg-red-600' :
+                    notification.type === 'warning' ? 'bg-amber-600' :
                         'bg-blue-600'
                     }`}>
                     {notification.message}

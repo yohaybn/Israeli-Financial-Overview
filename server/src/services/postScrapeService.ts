@@ -2,12 +2,23 @@ import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { notificationService, NotificationPayload } from './notifications/index.js';
-import { AiService } from './aiService.js';
-import { ScrapeResult, ScrapeRequest, PostScrapeConfig, FraudSeverity } from '@app/shared';
+import { AiService, AI_CATEGORIZATION_NO_API_KEY } from './aiService.js';
+import {
+  ScrapeResult,
+  ScrapeRequest,
+  PostScrapeConfig,
+  FraudSeverity,
+  computeFinancialDigestSnapshot,
+  formatBudgetHealthDigestLine,
+  formatAnomalyDigestLine,
+  type DigestLocale
+} from '@app/shared';
+import { telegramBotService } from './telegramBotService.js';
 import { serviceLogger as logger } from '../utils/logger.js';
 import { StorageService } from './storageService.js';
 import { fraudDetectionService } from './fraudDetectionService.js';
 import { DbService } from './dbService.js';
+import type { Server } from 'socket.io';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,11 +34,17 @@ export class PostScrapeService {
   private ai: AiService;
   private storageService: StorageService;
   private dbService: DbService;
+  private io: Server | null = null;
 
   constructor() {
     this.ai = new AiService();
     this.storageService = new StorageService();
     this.dbService = new DbService();
+  }
+
+  /** Optional: used to notify the web UI when AI categorization fails (cache still applied). */
+  setSocketIO(io: Server | null) {
+    this.io = io;
   }
 
   private async getLastAiSummary(pipelineId: string, kind: 'fraud' | 'custom'): Promise<string | null> {
@@ -141,10 +158,15 @@ export class PostScrapeService {
       return bySeverity[p.status] > bySeverity[current] ? p.status : current;
     }, 'success');
 
-    const insights = buffer
+    const digestInsights = buffer
+      .filter((p) => p.pipelineId === 'Spending digest')
       .flatMap((p) => p.summary?.insights || [])
-      .filter((s) => !!s)
-      .slice(0, 12);
+      .filter((s) => !!s);
+    const otherInsights = buffer
+      .filter((p) => p.pipelineId !== 'Spending digest')
+      .flatMap((p) => p.summary?.insights || [])
+      .filter((s) => !!s);
+    const insights = [...digestInsights, ...otherInsights].slice(0, 24);
 
     const scrapePayload =
       [...buffer].reverse().find((p) => p.summary?.transactionCount != null || p.summary?.accounts != null) ||
@@ -197,8 +219,76 @@ export class PostScrapeService {
   }
 
   /**
-   * Send an error notification for a failed post-scrape action.
+   * Optional spending digest (budget pace + anomalies + whale alerts) via @app/shared.
+   * Uses the same Telegram aggregation buffer as other post-scrape notifications when enabled.
+   * Skips if disabled, Telegram off, or digest fingerprint unchanged since last send.
    */
+  private async maybeSendSpendingDigestNotification(request?: ScrapeRequest): Promise<void> {
+    const telCfg = telegramBotService.getConfig();
+    if (!telCfg.spendingDigestEnabled) return;
+
+    const tgNotifier = notificationService.getNotifier('telegram');
+    if (!tgNotifier || !tgNotifier.isEnabled()) return;
+
+    const txns = await this.storageService.getAllTransactions(true);
+    const snapshot = computeFinancialDigestSnapshot(txns as any, {});
+    if (!snapshot) return;
+
+    const fpPath = path.join(process.env.DATA_DIR || './data', 'post_scrape', 'last_spending_digest_fp.txt');
+    await fs.ensureDir(path.dirname(fpPath));
+    let lastFp = '';
+    try {
+      if (await fs.pathExists(fpPath)) {
+        lastFp = (await fs.readFile(fpPath, 'utf-8')).trim();
+      }
+    } catch {
+      /* ignore */
+    }
+    if (lastFp === snapshot.digestFingerprint) {
+      logger.debug('Spending digest skipped (same fingerprint as last send)');
+      return;
+    }
+
+    const digestLocale: DigestLocale = telCfg.language === 'he' ? 'he' : 'en';
+    const budgetLine = formatBudgetHealthDigestLine(snapshot.budgetHealth, digestLocale);
+    const insights: string[] = [
+      `${snapshot.month}: ${budgetLine} (pace ${snapshot.budgetHealth.velocityRatio.toFixed(2)}×)`,
+    ];
+    if (snapshot.anomalies.length) {
+      snapshot.anomalies.forEach((a) => insights.push(`• ${formatAnomalyDigestLine(a, digestLocale)}`));
+    } else {
+      insights.push(digestLocale === 'he' ? 'אין התראות קטגוריה.' : 'No category alerts.');
+    }
+
+    const cfg = await this.getConfig();
+    const channels = [...(cfg.notificationChannels || ['console'])];
+    if (!channels.includes('telegram')) {
+      if (tgNotifier && tgNotifier.isEnabled()) {
+        channels.push('telegram');
+      }
+    }
+
+    const payload: NotificationPayload = {
+      pipelineId: 'Spending digest',
+      status: 'success',
+      timestamp: new Date(),
+      detailLevel: 'normal',
+      runSource: this.getRunSource(request),
+      summary: {
+        durationMs: 0,
+        stagesRun: ['digest'],
+        successfulStages: ['digest'],
+        transactionCount: txns.length,
+        insights,
+      },
+    };
+
+    await this.notifyWithTelegramAggregation(channels, payload, request);
+
+    await fs.writeFile(fpPath, snapshot.digestFingerprint, 'utf-8');
+    logger.info('Spending digest queued/sent (same channel aggregation as post-scrape)');
+  }
+
   private async sendPostScrapeErrorNotification(stage: string, errorMessage: string, request?: ScrapeRequest): Promise<void> {
     try {
       const cfg = await this.getConfig();
@@ -238,9 +328,64 @@ export class PostScrapeService {
     }
   }
 
+  private async sendCategorizationFailedNotification(
+    errorMessage: string,
+    botLanguage: 'en' | 'he',
+    request?: ScrapeRequest
+  ): Promise<void> {
+    try {
+      const cfg = await this.getConfig();
+      const channels = [...(cfg.notificationChannels || ['console'])];
+
+      if (!channels.includes('telegram')) {
+        const tgNotifier = notificationService.getNotifier('telegram');
+        if (tgNotifier && tgNotifier.isEnabled()) {
+          channels.push('telegram');
+        }
+      }
+
+      const insights =
+        botLanguage === 'he'
+          ? [
+              `סיווג AI נכשל: ${errorMessage}`,
+              'הוחלו קטגוריות מהמטמון ככל שניתן.',
+              'לנסות שוב: באפליקציה → הגדרות → AI → סווג מחדש הכל, או POST /api/ai/categorize/all',
+            ]
+          : [
+              `AI categorization failed: ${errorMessage}`,
+              'Cached categories were applied where available.',
+              'Retry: web app → Configuration → AI → Recategorize all, or POST /api/ai/categorize/all',
+            ];
+
+      const payload: NotificationPayload = {
+        pipelineId: request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape',
+        status: 'warning',
+        timestamp: new Date(),
+        detailLevel: 'normal',
+        runSource: this.getRunSource(request),
+        summary: {
+          durationMs: 0,
+          stagesRun: ['scrape', 'categorization'],
+          successfulStages: ['scrape'],
+          failedStage: 'categorization',
+          insights,
+        },
+        errorDetails: {
+          stage: 'categorization',
+          message: errorMessage,
+        },
+      };
+
+      await this.notifyWithTelegramAggregation(channels, payload, request);
+      logger.info('Categorization failure notification sent');
+    } catch (notifyErr) {
+      logger.warn('Failed to send categorization failure notification', { error: (notifyErr as Error).message });
+    }
+  }
+
   async handleResult(result: ScrapeResult, request?: ScrapeRequest): Promise<void> {
     const pipelineId = request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape';
-    const transactions = result.transactions || [];
+    let transactions = result.transactions || [];
     const failedSteps: { step: string; error: string }[] = [];
 
     const recordStepFailure = async (step: string, err: Error): Promise<void> => {
@@ -286,15 +431,23 @@ export class PostScrapeService {
       if (runCategorization && transactions.length > 0) {
         logger.info('Post-scrape step: categorization');
         this.refreshAiIfNeeded();
-        if (!this.ai.hasApiKey()) {
-          logger.info('Skipping post-scrape categorization: GEMINI_API_KEY not configured.');
-        } else {
-          try {
-            await this.ai.categorizeTransactions(transactions as any);
-            logger.info('Post-scrape step: categorization completed');
-          } catch (err) {
-            await recordStepFailure('categorization', err as Error);
+        const { transactions: categorized, aiError } = await this.ai.categorizeTransactions(transactions as any);
+        result.transactions = categorized;
+        transactions = categorized;
+        if (aiError) {
+          if (aiError !== AI_CATEGORIZATION_NO_API_KEY) {
+            await this.sendCategorizationFailedNotification(aiError, botLanguage, request);
+            try {
+              this.io?.emit('categorization:failed', { error: aiError });
+            } catch (e) {
+              logger.warn('Failed to emit categorization:failed socket event', { error: (e as Error).message });
+            }
+            logger.warn('Post-scrape: AI categorization failed; applied cache where available', { error: aiError });
+          } else {
+            logger.info('Post-scrape: category cache only (GEMINI_API_KEY not configured).');
           }
+        } else {
+          logger.info('Post-scrape step: categorization completed');
         }
       }
 
@@ -571,6 +724,10 @@ export class PostScrapeService {
         logger.warn('Post-scrape: failed to persist metadata (non-fatal)', { error: (err as Error).message });
       }
 
+      void this.maybeSendSpendingDigestNotification(request).catch((err) => {
+        logger.warn('Spending digest notification failed', { error: (err as Error)?.message });
+      });
+
     if (failedSteps.length > 0) {
       logger.warn('Post-scrape finished with failed steps', {
         pipelineId,
@@ -609,10 +766,15 @@ export class PostScrapeService {
 
     logger.info(`Post-scrape batch: running once for ${successful.length} scrape(s), ${combinedTransactions.length} total transactions`);
 
+    const cfg = await this.getConfig();
+    const reqAny = request as any;
+    if (reqAny?.options && reqAny.options.aggregateTelegramNotifications === undefined) {
+      reqAny.options.aggregateTelegramNotifications = cfg.aggregateTelegramNotifications !== false;
+    }
+
     await this.handleResult(syntheticResult, request);
     await this.sendScrapeNotification(syntheticResult, request);
 
-    const reqAny = request as any;
     if (reqAny && (reqAny.options?.aggregateTelegramNotifications || reqAny.options?.postScrape)) {
       try {
         await this.flushAggregatedTelegramNotification(request);

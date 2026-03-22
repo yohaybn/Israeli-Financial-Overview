@@ -35,6 +35,7 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
             scope: 'current',
         },
         notificationChannels: ['console'],
+        aggregateTelegramNotifications: true,
     },
 };
 
@@ -673,7 +674,25 @@ export class StorageService {
         return config;
     }
 
-    async categorizeAllWithAi(force: boolean = false): Promise<{ success: boolean; count: number }> {
+    /**
+     * Persist category values from transaction objects onto DB rows and JSON result files (same ids).
+     */
+    async applyCategoryColumnsFromTransactions(transactions: Transaction[]): Promise<number> {
+        let updateCount = 0;
+        for (const txn of transactions) {
+            if (!txn.id || !txn.category) continue;
+            const changed = this.dbService.updateTransactionCategory(txn.id, txn.category);
+            if (changed) {
+                await this.syncTransactionUpdateToFiles(txn.id, (t) => {
+                    t.category = txn.category;
+                });
+                updateCount++;
+            }
+        }
+        return updateCount;
+    }
+
+    async categorizeAllWithAi(force: boolean = false): Promise<{ success: boolean; count: number; error?: string }> {
         const transactions = await this.dbService.getAllTransactions(true);
         if (transactions.length === 0) return { success: true, count: 0 };
 
@@ -714,9 +733,9 @@ export class StorageService {
             accountNumber: 'dummy'
         }));
 
-        await this.aiService.categorizeTransactions(dummyTransactions);
+        const { aiError } = await this.aiService.categorizeTransactions(dummyTransactions);
 
-        // Now that the AI service has updated the cache, we apply it to all transactions in DB
+        // Now that the AI service has updated the cache (or failed), apply cache to all transactions in DB
         let updateCount = 0;
         for (const txn of transactions) {
             const newCategory = this.dbService.getCategory(txn.description);
@@ -733,6 +752,6 @@ export class StorageService {
         }
 
         serverLogger.info(`Bulk categorization complete. Updated ${updateCount} transactions.`);
-        return { success: true, count: updateCount };
+        return { success: !aiError, count: updateCount, error: aiError };
     }
 }

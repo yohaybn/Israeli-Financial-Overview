@@ -19,6 +19,10 @@ export interface ScrapeComplete {
     executionTimeMs?: number;
 }
 
+export interface CategorizationFailedEvent {
+    error: string;
+}
+
 const SOCKET_URL = '';
 
 export function useSocket() {
@@ -27,6 +31,7 @@ export function useSocket() {
     const [progress, setProgress] = useState<ScrapeProgress[]>([]);
     const [logs, setLogs] = useState<ScrapeLog[]>([]);
     const [completion, setCompletion] = useState<ScrapeComplete | null>(null);
+    const [categorizationFailure, setCategorizationFailure] = useState<CategorizationFailedEvent | null>(null);
 
     useEffect(() => {
         const socketInstance = io(SOCKET_URL, {
@@ -55,6 +60,10 @@ export function useSocket() {
             setCompletion(data);
         });
 
+        socketInstance.on('categorization:failed', (data: CategorizationFailedEvent) => {
+            setCategorizationFailure(data);
+        });
+
         setSocket(socketInstance);
 
         return () => {
@@ -68,12 +77,18 @@ export function useSocket() {
         setCompletion(null);
     }, []);
 
+    const clearCategorizationFailure = useCallback(() => {
+        setCategorizationFailure(null);
+    }, []);
+
     return {
         socket,
         isConnected,
         progress,
         logs,
         completion,
+        categorizationFailure,
+        clearCategorizationFailure,
         clearProgress,
     };
 }

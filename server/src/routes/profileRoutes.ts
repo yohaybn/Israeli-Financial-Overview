@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { ProfileService } from '../services/profileService.js';
+import { profileService } from '../services/profileService.js';
 import { Profile } from '@app/shared';
+import { appLockService } from '../services/appLockService.js';
 
 const router = Router();
-const profileService = new ProfileService();
 
 // List all profiles
 router.get('/', async (req, res) => {
@@ -31,6 +31,14 @@ router.get('/:id', async (req, res) => {
 // Create a new profile
 router.post('/', async (req, res) => {
     try {
+        if (!appLockService.isUnlocked()) {
+            return res.status(423).json({
+                success: false,
+                error: 'Application is locked. Unlock in the web UI to add profiles.',
+                code: 'APP_LOCKED'
+            });
+        }
+
         const data = req.body as Omit<Profile, 'id' | 'createdAt' | 'updatedAt'>;
 
         if (!data.name || !data.companyId) {
@@ -50,6 +58,14 @@ router.post('/', async (req, res) => {
 // Update a profile
 router.put('/:id', async (req, res) => {
     try {
+        if (!appLockService.isUnlocked()) {
+            return res.status(423).json({
+                success: false,
+                error: 'Application is locked. Unlock in the web UI to edit profiles.',
+                code: 'APP_LOCKED'
+            });
+        }
+
         const data = req.body as Partial<Profile>;
         const profile = await profileService.updateProfile(req.params.id, data);
 

@@ -23,6 +23,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const [newUserId, setNewUserId] = useState('');
     const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
     const [botLanguage, setBotLanguage] = useState<'en' | 'he'>('en');
+    const [spendingDigestEnabled, setSpendingDigestEnabled] = useState(false);
 
     const showNotification = useCallback((type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
@@ -49,6 +50,9 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             }
             if (config.language) {
                 setBotLanguage(config.language);
+            }
+            if (config.spendingDigestEnabled !== undefined) {
+                setSpendingDigestEnabled(!!config.spendingDigestEnabled);
             }
         }
     }, [config]);
@@ -389,6 +393,26 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                         </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">{t('telegram.bot_language_help')}</p>
+                </div>
+
+                <div className="mb-6 p-4 rounded-2xl border border-gray-200 bg-gray-50/80">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={spendingDigestEnabled}
+                            onChange={(e) => {
+                                const v = e.target.checked;
+                                setSpendingDigestEnabled(v);
+                                updateConfig({ spendingDigestEnabled: v });
+                            }}
+                            disabled={isUpdating}
+                            className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>
+                            <span className="text-sm font-semibold text-gray-900 block">{t('telegram.spending_digest')}</span>
+                            <span className="text-xs text-gray-600">{t('telegram.spending_digest_help')}</span>
+                        </span>
+                    </label>
                 </div>
 
                 {!status?.isActive ? (

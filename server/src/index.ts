@@ -8,7 +8,8 @@ import { Server } from 'socket.io';
 import { createSchedulerRoutes } from './routes/schedulerRoutes.js';
 import { SchedulerService } from './services/schedulerService.js';
 import { ScraperService } from './services/scraperService.js';
-import { ProfileService } from './services/profileService.js';
+import { postScrapeService } from './services/postScrapeService.js';
+import { profileService } from './services/profileService.js';
 import { StorageService } from './services/storageService.js';
 import { FilterService } from './services/filterService.js';
 import { AiService } from './services/aiService.js';
@@ -36,6 +37,7 @@ async function startServer() {
   const { createNotificationRoutes } = await import('./routes/notificationRoutes.js');
   const { configRoutes } = await import('./routes/configRoutes.js');
   const { fraudRoutes } = await import('./routes/fraudRoutes.js');
+  const { appLockRoutes } = await import('./routes/appLockRoutes.js');
 
   const app = express();
   const port = process.env.PORT || 3001;
@@ -50,9 +52,9 @@ async function startServer() {
   });
 
   // Initialize services (with dependency injection)
-  const profileService = new ProfileService(); // Assuming default constructor
   const scraperService = new ScraperService();
   scraperService.setSocketIO(io);
+  postScrapeService.setSocketIO(io);
 
   const schedulerService = new SchedulerService(scraperService, profileService);
 
@@ -113,6 +115,8 @@ async function startServer() {
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', version: '1.0.0' });
   });
+
+  app.use('/api/app-lock', appLockRoutes);
 
   app.use('/api', createScrapeRoutes(scraperService, new StorageService(), new FilterService(), new AiService(), new ImportService(), io));
   app.use('/api/post-scrape', createPostScrapeRoutes());

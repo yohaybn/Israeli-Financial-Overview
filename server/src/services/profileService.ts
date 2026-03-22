@@ -3,38 +3,95 @@ import path from 'path';
 import crypto from 'crypto';
 import { Profile } from '@app/shared';
 import { v4 as uuidv4 } from 'uuid';
+import { appLockService, SECURITY_DIR } from './appLockService.js';
 
 const PROFILES_DIR = path.resolve(process.env.DATA_DIR || './data', 'profiles');
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
-const IV_LENGTH = 12; // GCM recommended IV length
-const AUTH_TAG_LENGTH = 16;
+const IV_LENGTH = 12;
+
+const MIGRATION_MARKER = path.join(SECURITY_DIR, 'migrated-from-env-key.marker');
 
 export class ProfileService {
-    private encryptionKey: Buffer;
-
     constructor() {
-        // Ensure profiles directory exists
         fs.ensureDirSync(PROFILES_DIR);
+    }
 
-        // Load encryption key from environment
+    private getLegacyEncryptionKeyFromEnv(): Buffer | null {
         const key = process.env.ENCRYPTION_KEY;
         if (!key) {
-            console.error('❌ ERROR: ENCRYPTION_KEY not set in .env! Saved profiles will not be securely stored.');
-            // Fallback to a stable but insecure key based on a system property or just use a constant for dev
-            // This is better than a random key on every restart which corrupts data
-            this.encryptionKey = Buffer.from('dev-only-insecure-key-32-bytes-!!', 'utf8');
-        } else {
-            // Key should be 32 bytes for AES-256
-            try {
-                this.encryptionKey = Buffer.from(key, 'hex');
-                if (this.encryptionKey.length !== 32) {
-                    throw new Error(`ENCRYPTION_KEY must be 32 bytes (64 hex characters), but got ${this.encryptionKey.length} bytes.`);
-                }
-                console.log('✅ Encryption key loaded successfully.');
-            } catch (error: any) {
-                console.error('❌ Invalid ENCRYPTION_KEY format. Expected 64-character hex string.');
-                this.encryptionKey = Buffer.from('dev-only-insecure-key-32-bytes-!!', 'utf8');
+            return null;
+        }
+        try {
+            const b = Buffer.from(key, 'hex');
+            return b.length === 32 ? b : null;
+        } catch {
+            return null;
+        }
+    }
+
+    private getDevFallbackKey(): Buffer {
+        return Buffer.from('dev-only-insecure-key-32-bytes-!!', 'utf8');
+    }
+
+    private hasEnvMigrationMarker(): boolean {
+        return fs.existsSync(MIGRATION_MARKER);
+    }
+
+    /** Key for encrypting new credentials (password-derived, legacy env, or dev fallback). */
+    private getEncryptionKeyForWrite(): Buffer | null {
+        const pk = appLockService.getProfileEncryptionKey();
+        if (pk) {
+            return pk;
+        }
+
+        if (appLockService.isLockConfigured() && !appLockService.isUnlocked()) {
+            return null;
+        }
+
+        if (!this.hasEnvMigrationMarker()) {
+            const legacy = this.getLegacyEncryptionKeyFromEnv();
+            if (legacy) {
+                return legacy;
             }
+        }
+
+        if (!appLockService.isLockConfigured()) {
+            return this.getDevFallbackKey();
+        }
+
+        return null;
+    }
+
+    private encryptWithKey(data: any, key: Buffer): string {
+        const iv = crypto.randomBytes(IV_LENGTH);
+        const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
+        const jsonStr = JSON.stringify(data);
+        let encrypted = cipher.update(jsonStr, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        const authTag = cipher.getAuthTag().toString('hex');
+        return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+    }
+
+    private tryDecryptWithKey(encryptedStr: string, key: Buffer): any {
+        const parts = encryptedStr.split(':');
+        if (parts.length !== 3) {
+            try {
+                return JSON.parse(encryptedStr);
+            } catch {
+                return { _error: 'DECRYPTION_FAILED', _original: encryptedStr };
+            }
+        }
+        try {
+            const [ivHex, authTagHex, encryptedDataHex] = parts;
+            const iv = Buffer.from(ivHex, 'hex');
+            const authTag = Buffer.from(authTagHex, 'hex');
+            const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+            decipher.setAuthTag(authTag);
+            let decrypted = decipher.update(encryptedDataHex, 'hex', 'utf8');
+            decrypted += decipher.final('utf8');
+            return JSON.parse(decrypted);
+        } catch {
+            return { _error: 'DECRYPTION_FAILED', _original: encryptedStr };
         }
     }
 
@@ -43,53 +100,62 @@ export class ProfileService {
     }
 
     private encrypt(data: any): string {
-        const iv = crypto.randomBytes(IV_LENGTH);
-        const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, this.encryptionKey, iv);
-
-        const jsonStr = JSON.stringify(data);
-        let encrypted = cipher.update(jsonStr, 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-
-        const authTag = cipher.getAuthTag().toString('hex');
-
-        // Format: iv:authTag:encryptedData
-        return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+        const key = this.getEncryptionKeyForWrite();
+        if (!key) {
+            throw new Error(
+                'Cannot encrypt profile credentials: unlock the app with your password, or set ENCRYPTION_KEY (legacy) until migration.'
+            );
+        }
+        return this.encryptWithKey(data, key);
     }
 
     private decrypt(encryptedStr: string): any {
-        if (!encryptedStr) return {};
+        if (!encryptedStr) {
+            return {};
+        }
+
+        if (appLockService.isLockConfigured() && !appLockService.isUnlocked()) {
+            return { _locked: true };
+        }
 
         const parts = encryptedStr.split(':');
 
-        // If it doesn't look like our encrypted format, try to parse as plain JSON
         if (parts.length !== 3) {
             try {
                 return JSON.parse(encryptedStr);
-            } catch (e) {
-                // If it's not JSON and not encrypted, it's garbage
+            } catch {
                 return {};
             }
         }
 
-        try {
-            const [ivHex, authTagHex, encryptedDataHex] = parts;
-            const iv = Buffer.from(ivHex, 'hex');
-            const authTag = Buffer.from(authTagHex, 'hex');
-            const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, this.encryptionKey, iv);
-
-            decipher.setAuthTag(authTag);
-
-            let decrypted = decipher.update(encryptedDataHex, 'hex', 'utf8');
-            decrypted += decipher.final('utf8');
-
-            return JSON.parse(decrypted);
-        } catch (e: any) {
-            // Decryption failed (usually wrong key/corrupted data)
-            console.error(`Decryption failed: ${e.message}. The profile might have been encrypted with a different key.`);
-
-            // Return a clear indicator that data is unavailable
-            return { _error: 'DECRYPTION_FAILED', _original: encryptedStr };
+        const keys: Buffer[] = [];
+        const pk = appLockService.getProfileEncryptionKey();
+        if (pk) {
+            keys.push(pk);
         }
+        if (!this.hasEnvMigrationMarker()) {
+            const legacy = this.getLegacyEncryptionKeyFromEnv();
+            if (legacy) {
+                keys.push(legacy);
+            }
+        }
+        // Pre-lock / dev-only installs used the constant dev key; try last after password & legacy env
+        keys.push(this.getDevFallbackKey());
+
+        const seen = new Set<string>();
+        for (const key of keys) {
+            const id = key.toString('hex');
+            if (seen.has(id)) continue;
+            seen.add(id);
+            const result = this.tryDecryptWithKey(encryptedStr, key);
+            if (!result?._error) {
+                return result;
+            }
+        }
+
+        console.error('Decryption failed: profile credentials could not be decrypted with available keys.');
+
+        return { _error: 'DECRYPTION_FAILED', _original: encryptedStr };
     }
 
     async getProfiles(): Promise<Profile[]> {
@@ -101,7 +167,6 @@ export class ProfileService {
             try {
                 const content = await fs.readJson(path.join(PROFILES_DIR, file));
 
-                // Decrypt credentials if it's a string (meaning it's encrypted)
                 if (typeof content.credentials === 'string') {
                     content.credentials = this.decrypt(content.credentials);
                 }
@@ -112,20 +177,16 @@ export class ProfileService {
             }
         }
 
-        // Sort by updatedAt descending
-        return profiles.sort((a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
+        return profiles.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     }
 
     async getProfile(id: string): Promise<Profile | null> {
         const filePath = this.getProfilePath(id);
-        if (!await fs.pathExists(filePath)) {
+        if (!(await fs.pathExists(filePath))) {
             return null;
         }
         const profile = await fs.readJson(filePath);
 
-        // Decrypt credentials if it's a string
         if (typeof profile.credentials === 'string') {
             profile.credentials = this.decrypt(profile.credentials);
         }
@@ -136,7 +197,6 @@ export class ProfileService {
     async createProfile(data: Omit<Profile, 'id' | 'createdAt' | 'updatedAt'>): Promise<Profile> {
         const now = new Date().toISOString();
 
-        // Encrypt credentials before saving
         const encryptedCredentials = this.encrypt(data.credentials);
 
         const profileToSave = {
@@ -144,15 +204,14 @@ export class ProfileService {
             credentials: encryptedCredentials,
             id: uuidv4(),
             createdAt: now,
-            updatedAt: now,
+            updatedAt: now
         };
 
         await fs.writeJson(this.getProfilePath(profileToSave.id), profileToSave, { spaces: 2 });
 
-        // Return decrypted version to the client
         return {
             ...profileToSave,
-            credentials: data.credentials,
+            credentials: data.credentials
         } as Profile;
     }
 
@@ -164,12 +223,11 @@ export class ProfileService {
 
         const updatedData = {
             ...existing,
-            ...data,
+            ...data
         };
 
         const now = new Date().toISOString();
 
-        // Encrypt credentials before saving
         const encryptedCredentials = this.encrypt(updatedData.credentials);
 
         const profileToSave = {
@@ -177,24 +235,91 @@ export class ProfileService {
             credentials: encryptedCredentials,
             id: existing.id,
             createdAt: existing.createdAt,
-            updatedAt: now,
+            updatedAt: now
         };
 
         await fs.writeJson(this.getProfilePath(id), profileToSave, { spaces: 2 });
 
-        // Return decrypted version
         return {
             ...profileToSave,
-            credentials: updatedData.credentials,
+            credentials: updatedData.credentials
         } as Profile;
     }
 
     async deleteProfile(id: string): Promise<boolean> {
         const filePath = this.getProfilePath(id);
-        if (!await fs.pathExists(filePath)) {
+        if (!(await fs.pathExists(filePath))) {
             return false;
         }
         await fs.remove(filePath);
         return true;
     }
+
+    /**
+     * One-time: re-encrypt all profiles from ENCRYPTION_KEY (legacy) to the password-derived key.
+     * Requires successful unlock so password key is in memory. Safe to call after every unlock.
+     */
+    async migrateFromEnvIfNeeded(): Promise<{ migrated: number; skipped: boolean }> {
+        if (this.hasEnvMigrationMarker()) {
+            return { migrated: 0, skipped: true };
+        }
+
+        const legacy = this.getLegacyEncryptionKeyFromEnv();
+        if (!legacy) {
+            return { migrated: 0, skipped: true };
+        }
+
+        const passwordKey = appLockService.getProfileEncryptionKey();
+        if (!passwordKey) {
+            return { migrated: 0, skipped: true };
+        }
+
+        fs.ensureDirSync(SECURITY_DIR);
+        const files = await fs.readdir(PROFILES_DIR);
+        let migrated = 0;
+        let failed = 0;
+
+        for (const file of files) {
+            if (!file.endsWith('.json')) continue;
+            const p = path.join(PROFILES_DIR, file);
+            const content = await fs.readJson(p);
+            if (typeof content.credentials !== 'string') {
+                continue;
+            }
+
+            let plain = this.tryDecryptWithKey(content.credentials, passwordKey);
+            if (!plain?._error) {
+                continue;
+            }
+
+            plain = this.tryDecryptWithKey(content.credentials, legacy);
+            if (plain?._error) {
+                console.error(`Migration: could not decrypt profile ${file} with legacy or password key`);
+                failed++;
+                continue;
+            }
+
+            content.credentials = this.encryptWithKey(plain, passwordKey);
+            await fs.writeJson(p, content, { spaces: 2 });
+            migrated++;
+        }
+
+        if (failed > 0) {
+            console.error(
+                `Profile encryption migration incomplete: ${failed} file(s) could not be decrypted. Fix ENCRYPTION_KEY or restore backups, then unlock again.`
+            );
+            return { migrated, skipped: false };
+        }
+
+        await fs.writeFile(MIGRATION_MARKER, new Date().toISOString(), 'utf8');
+        if (migrated > 0) {
+            console.log(`✅ Profile encryption: migrated ${migrated} profile(s) from ENCRYPTION_KEY to app password. You can remove ENCRYPTION_KEY from .env.`);
+        } else {
+            console.log('✅ Profile encryption: migration marker written (no legacy-encrypted profiles found). You can remove ENCRYPTION_KEY from .env.');
+        }
+
+        return { migrated, skipped: false };
+    }
 }
+
+export const profileService = new ProfileService();

@@ -120,8 +120,8 @@ export function BudgetHealthScore({ health }: BudgetHealthScoreProps) {
                     </span>
                 </div>
                 <p className="text-sm text-gray-700 mb-3 font-medium opacity-90">
-                    {i18n.exists(`dashboard.message_${health.message.replace(/ /g, '_').toLowerCase()}`)
-                        ? t(`dashboard.message_${health.message.replace(/ /g, '_').toLowerCase()}`)
+                    {health.messageKey && i18n.exists(`dashboard.budget_health_msg.${health.messageKey}`)
+                        ? t(`dashboard.budget_health_msg.${health.messageKey}`)
                         : health.message}
                 </p>
                 <div className="flex items-center gap-2 bg-white/50 inline-flex px-3 py-1.5 rounded-lg">

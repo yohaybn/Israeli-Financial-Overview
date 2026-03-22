@@ -11,6 +11,11 @@ interface ExpenseProgressCenterProps {
     remainingPlanned: number;
     remainingPlannedTxns?: Transaction[];
     variableForecast?: number;
+    expenseTxnCount?: number;
+    historicalAvgMonthlyTxnCount?: number;
+    expectedTxnCountToDate?: number;
+    isCurrentMonth?: boolean;
+    monthsAnalyzed?: number;
     remainingDays?: number;
     totalProjected: number;
     byCategory: {
@@ -35,6 +40,11 @@ export function ExpenseProgressCenter({
     remainingPlanned,
     remainingPlannedTxns = [],
     variableForecast = 0,
+    expenseTxnCount = 0,
+    historicalAvgMonthlyTxnCount = 0,
+    expectedTxnCountToDate = 0,
+    isCurrentMonth = false,
+    monthsAnalyzed,
     remainingDays = 0,
     totalProjected,
     byCategory,
@@ -140,12 +150,12 @@ export function ExpenseProgressCenter({
                         </div>
                         {variableForecast > 0 && (
                             <div
-                                className="flex items-center gap-1.5 p-1 -m-1 rounded cursor-pointer hover:bg-gray-50/50 transition-colors"
-                                title={t('dashboard.forecast_details')}
+                                className="flex items-center gap-1.5 p-1 -m-1 rounded cursor-pointer hover:bg-gray-50/50 transition-colors flex-shrink-0"
+                                title={t('dashboard.forecast_details_modal_hint')}
                                 onClick={() => setShowForecastModal(true)}
                             >
-                                <div className="w-3 h-3 rounded-full bg-rose-100 shadow-sm border border-rose-200" />
-                                <span className="text-gray-500 font-medium italic">
+                                <div className="w-3 h-3 rounded-full bg-rose-100 shadow-sm border border-rose-200 flex-shrink-0" />
+                                <span className="text-gray-500 font-medium italic whitespace-nowrap">
                                     {t('dashboard.variable_forecast')}: <span className="font-bold text-gray-700 border-b border-dashed border-gray-300">{formatCurrency(variableForecast)}</span>
                                 </span>
                             </div>
@@ -294,6 +304,11 @@ export function ExpenseProgressCenter({
                 onClose={() => setShowForecastModal(false)}
                 remainingDays={remainingDays || 0}
                 categories={byCategory}
+                expenseTxnCount={expenseTxnCount}
+                historicalAvgMonthlyTxnCount={historicalAvgMonthlyTxnCount}
+                expectedTxnCountToDate={expectedTxnCountToDate}
+                isCurrentMonth={isCurrentMonth}
+                monthsAnalyzed={monthsAnalyzed}
             />
         </div>
     );

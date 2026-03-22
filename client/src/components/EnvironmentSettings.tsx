@@ -32,13 +32,6 @@ export function EnvironmentSettings() {
     const validate = () => {
         const newErrors: Record<string, string> = {};
 
-        // Validate ENCRYPTION_KEY if changed and not masked
-        if (form.ENCRYPTION_KEY && !form.ENCRYPTION_KEY.includes('***')) {
-            if (!/^[0-9a-fA-F]{64}$/.test(form.ENCRYPTION_KEY)) {
-                newErrors.ENCRYPTION_KEY = t('env.validation.encryption_key_hex_64');
-            }
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -115,12 +108,8 @@ export function EnvironmentSettings() {
         },
         {
             titleKey: 'env.groups.system_security',
+            noteKey: 'env.profile_encryption_note',
             fields: [
-                {
-                    key: 'ENCRYPTION_KEY',
-                    labelKey: 'env.fields.encryption_key.label',
-                    helpKey: 'env.fields.encryption_key.help'
-                },
                 {
                     key: 'PORT',
                     labelKey: 'env.fields.port.label',
@@ -134,13 +123,6 @@ export function EnvironmentSettings() {
             ]
         }
     ];
-
-    const generateRandomKey = (key: string) => {
-        const randomBytes = new Uint8Array(32);
-        window.crypto.getRandomValues(randomBytes);
-        const hexKey = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        handleChange(key, hexKey);
-    };
 
     return (
         <div className="space-y-8">
@@ -158,50 +140,55 @@ export function EnvironmentSettings() {
                             <h4 className="text-xs font-black uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-2">
                                 {t(group.titleKey)}
                             </h4>
+                            {'noteKey' in group && group.noteKey && (
+                                <p className="text-sm text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 leading-relaxed">
+                                    {t(group.noteKey as string)}
+                                </p>
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                {group.fields.map(field => (
-                                    <div key={field.key} className="space-y-1">
+                                {group.fields.map(field => {
+                                    const f = field as {
+                                        key: string;
+                                        labelKey: string;
+                                        helpKey: string;
+                                        helpArgs?: Record<string, string>;
+                                        link?: { url: string; textKey?: string };
+                                    };
+                                    return (
+                                    <div key={f.key} className="space-y-1">
                                         <div className="flex items-center justify-between">
-                                            <label className="text-sm font-bold text-gray-700 block">{field.labelKey ? t(field.labelKey) : field.key}</label>
+                                            <label className="text-sm font-bold text-gray-700 block">{f.labelKey ? t(f.labelKey) : f.key}</label>
                                         </div>
                                         <div className="flex gap-2">
                                             <input
-                                                type={field.key.includes('KEY') || field.key.includes('SECRET') ? 'password' : 'text'}
-                                                value={form[field.key] || ''}
-                                                onChange={(e) => handleChange(field.key, e.target.value)}
-                                                className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none shadow-sm ${errors[field.key] ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}
-                                                placeholder={t('env.enter_value', { key: field.key })}
+                                                type={f.key.includes('KEY') || f.key.includes('SECRET') ? 'password' : 'text'}
+                                                value={form[f.key] || ''}
+                                                onChange={(e) => handleChange(f.key, e.target.value)}
+                                                className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none shadow-sm ${errors[f.key] ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}
+                                                placeholder={t('env.enter_value', { key: f.key })}
                                             />
-                                            {field.key === 'ENCRYPTION_KEY' && (
-                                                <button
-                                                    onClick={() => generateRandomKey(field.key)}
-                                                    className="px-3 py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 transition-all active:scale-95 border border-gray-200"
-                                                    title={t('env.generate_random_key')}
-                                                >
-                                                    {t('common.generate')}
-                                                </button>
-                                            )}
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            {errors[field.key] && <p className="text-xs text-red-600 font-medium">{errors[field.key]}</p>}
-                                            {field.helpKey && (
+                                            {errors[f.key] && <p className="text-xs text-red-600 font-medium">{errors[f.key]}</p>}
+                                            {f.helpKey && (
                                                 <p className="text-[11px] text-gray-400 leading-tight">
-                                                    {t(field.helpKey, field.helpArgs)}
-                                                    {field.link && (
+                                                    {t(f.helpKey, f.helpArgs)}
+                                                    {f.link && (
                                                         <a
-                                                            href={field.link.url}
+                                                            href={f.link.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="text-blue-500 hover:underline font-medium"
                                                         >
-                                                            {field.link.textKey ? t(field.link.textKey) : ''}
+                                                            {f.link.textKey ? t(f.link.textKey) : ''}
                                                         </a>
                                                     )}
                                                 </p>
                                             )}
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}

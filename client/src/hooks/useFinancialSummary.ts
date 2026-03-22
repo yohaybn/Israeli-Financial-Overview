@@ -1,406 +1,19 @@
 import { useMemo } from 'react';
-import { Transaction, FinancialSummary, UpcomingItem, CategoryBaseline, HistoricalBaseline, BudgetHealth, AnomalyAlert } from '@app/shared';
+import {
+    Transaction,
+    FinancialSummary,
+    CategoryBaseline,
+    detectRecurring,
+    computeHistoricalBaseline,
+    computeBudgetHealth,
+    detectAnomalies,
+    isTransactionIgnored,
+    expenseCategoryKey,
+    computeTxnBaselineVariableForecast
+} from '@app/shared';
 
-// Built-in Israeli credit card company name patterns for detecting CC settlements
 import { isInternalTransfer } from '../utils/transactionUtils';
 import { detectSubscriptions } from '../utils/subscriptionUtils';
-
-/**
- * Detect recurring transactions by analyzing historical patterns.
- * Looks for same description appearing in multiple months with similar amounts.
- */
-/**
- * Detect recurring transactions by analyzing historical patterns.
- * Looks for same description appearing in multiple months with similar amounts and dates.
- * 
- * Rules:
- * 1. Matching Metadata: Description consistent
- * 2. Price Stability: Fluctuates by max 15%
- * 3. Temporal Consistency: Occurs on similar date (±2 days)
- * 4. Historical Frequency: Pattern present in at least 3 months
- */
-/**
- * Detect recurring transactions by analyzing historical patterns.
- * 
- * Logic flow:
- * 1. Group by Description (Exact match)
- * 2. Cluster by Amount (±15% variance)
- * 3. Verify Pattern History (Min 3 months)
- * 4. Verify Date Consistency (±2 days)
- */
-/**
- * Normalize transaction description by stripping special characters.
- * Keeps alphanumeric and Hebrew characters.
- */
-const normalizeDescription = (desc: string) =>
-    desc.replace(/[^a-zA-Z0-9\u0590-\u05FF\s]/g, '').trim();
-
-/**
- * Detect recurring transactions by analyzing historical patterns.
- * 
- * Rules:
- * 1. Normalization: Strip special characters from descriptions.
- * 2. Amount Cluster: Group transactions within ±15% of each other.
- * 3. Frequency: Pattern appears in 3 of the last 4 months.
- * 4. Date Window: ±3 days vs previous occurrence.
- */
-function detectRecurring(
-    transactions: Transaction[],
-    currentMonth: string,
-    customCCKeywords: string[] = []
-): { upcoming: UpcomingItem[], realizedIncome: number, realizedBills: number } {
-    const upcoming: UpcomingItem[] = [];
-    let realizedIncome = 0;
-    let realizedBills = 0;
-    const [currentYear, currentMonthNum] = currentMonth.split('-').map(Number);
-
-    // 1. Group by Normalized Description
-    const byDescription = new Map<string, Transaction[]>();
-    for (const txn of transactions) {
-        if (isInternalTransfer(txn, customCCKeywords)) continue;
-        const normalized = normalizeDescription(txn.description);
-
-        // Skip current month transactions for PATTERN RECOGNITION (Learning Phase)
-        if (txn.date.substring(0, 7) >= currentMonth) continue;
-
-        if (!byDescription.has(normalized)) byDescription.set(normalized, []);
-        byDescription.get(normalized)!.push(txn);
-    }
-
-    // 2. Cluster by Amount (±15%) & Process each cluster
-    for (const [normalizedDesc, txns] of byDescription) {
-        const clusters: {
-            amounts: number[];
-            dates: Date[];
-            months: Set<string>;
-            lastDate: string;
-            originalDescriptions: Set<string>;
-            transactions: Transaction[];
-        }[] = [];
-
-        for (const txn of txns) {
-            const amount = txn.chargedAmount || txn.amount || 0;
-            if (amount === 0) continue;
-
-            let matchedCluster = clusters.find(c => {
-                const avg = c.amounts.reduce((a, b) => a + b, 0) / c.amounts.length;
-                const diff = Math.abs(amount - avg);
-                return (diff / Math.abs(avg)) <= 0.15; // Strict ±15%
-            });
-
-            if (!matchedCluster) {
-                matchedCluster = {
-                    amounts: [],
-                    dates: [],
-                    months: new Set(),
-                    lastDate: txn.date,
-                    originalDescriptions: new Set(),
-                    transactions: []
-                };
-                clusters.push(matchedCluster);
-            }
-
-            matchedCluster.amounts.push(amount);
-            matchedCluster.dates.push(new Date(txn.date));
-            matchedCluster.months.add(txn.date.substring(0, 7));
-            matchedCluster.originalDescriptions.add(txn.description.trim());
-            matchedCluster.transactions.push(txn);
-            if (txn.date > matchedCluster.lastDate) matchedCluster.lastDate = txn.date;
-        }
-
-        // 3. Evaluate Each Cluster Independently
-        for (const cluster of clusters) {
-            // Rule: Frequency - 3 of last 4 months
-            const last4Months: string[] = [];
-            for (let i = 1; i <= 4; i++) {
-                const d = new Date(currentYear, currentMonthNum - 1 - i, 1);
-                last4Months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-            }
-
-            const monthsInLast4 = last4Months.filter(m => cluster.months.has(m)).length;
-            if (monthsInLast4 < 3) continue;
-
-            const avgAmount = cluster.amounts.reduce((a, b) => a + b, 0) / cluster.amounts.length;
-
-            // Rule: Date Window (±3 days vs average)
-            // We cluster by day of month to find the most consistent pattern
-            const days = cluster.dates.map(d => d.getDate());
-            let bestClusterSize = 0;
-            let bestClusterMean = 0;
-
-            for (const day of days) {
-                const closeDays = days.filter(d => Math.abs(d - day) <= 3); // ±3 days
-                if (closeDays.length > bestClusterSize) {
-                    bestClusterSize = closeDays.length;
-                    bestClusterMean = closeDays.reduce((a, b) => a + b, 0) / closeDays.length;
-                }
-            }
-
-            // Must have at least 3 occurrences in the date cluster
-            if (bestClusterSize < 3) continue;
-
-            // Ensure matches the 3-of-4 months rule even for the date-restricted items
-            // (Implicitly ensured by the previous month filter and overall cluster check)
-
-            // Check if user already paid this month
-            const monthTransactions = transactions.filter(t =>
-                normalizeDescription(t.description) === normalizedDesc &&
-                t.date.startsWith(currentMonth) &&
-                isInternalTransfer(t, customCCKeywords) === false &&
-                Math.abs((t.chargedAmount || t.amount || 0) - avgAmount) / Math.abs(avgAmount) <= 0.15
-            );
-
-            if (monthTransactions.length > 0) {
-                const realizedAmount = monthTransactions.reduce((sum, t) => sum + Math.abs(t.chargedAmount || t.amount || 0), 0);
-                if (avgAmount > 0) realizedIncome += realizedAmount;
-                else realizedBills += realizedAmount;
-                continue;
-            }
-
-            // Construct Result
-            const dayOfMonth = Math.round(bestClusterMean);
-            const expectedDate = new Date(currentYear, currentMonthNum - 1, dayOfMonth);
-            if (expectedDate.getMonth() !== currentMonthNum - 1) expectedDate.setDate(0);
-
-            // Use the most common original description for display
-            const descArray = Array.from(cluster.originalDescriptions);
-            const displayDesc = descArray.sort((a, b) =>
-                txns.filter(t => t.description.trim() === b).length -
-                txns.filter(t => t.description.trim() === a).length
-            )[0];
-
-            // Assign the most common category for this cluster
-            const categoryCounts = new Map<string, number>();
-            cluster.transactions.forEach(t => {
-                const cat = t.category || 'אחר';
-                categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
-            });
-            const bestCategory = Array.from(categoryCounts.entries())
-                .sort((a, b) => b[1] - a[1])[0]?.[0] || 'אחר';
-
-            upcoming.push({
-                description: displayDesc || normalizedDesc,
-                amount: Math.abs(avgAmount),
-                expectedDate: expectedDate.toISOString(),
-                type: avgAmount < 0 ? 'bill' : 'income',
-                category: bestCategory,
-                isRecurring: true,
-                confidence: Math.min(cluster.months.size / 6, 1),
-                history: cluster.transactions.sort((a, b) => b.date.localeCompare(a.date))
-            });
-        }
-    }
-
-    return {
-        upcoming: upcoming.sort((a, b) => a.expectedDate.localeCompare(b.expectedDate)),
-        realizedIncome,
-        realizedBills
-    };
-}
-
-/**
- * Compute historical averages and baseline metrics per category.
- * @param forecastMonths - user-configured window; clamped to actual available months
- */
-function computeHistoricalBaseline(
-    transactions: Transaction[],
-    currentMonth: string,
-    forecastMonths: number,
-    customCCKeywords: string[] = []
-): HistoricalBaseline {
-    const [currentYear, currentMonthNum] = currentMonth.split('-').map(Number);
-
-    // Build the full requested window of months
-    const allCandidateMonths: string[] = [];
-    for (let i = 1; i <= forecastMonths; i++) {
-        let y = currentYear;
-        let m = currentMonthNum - i;
-        if (m <= 0) { m += 12; y -= 1; }
-        allCandidateMonths.push(`${y}-${String(m).padStart(2, '0')}`);
-    }
-
-    // Determine which months actually have expense data
-    const monthsWithData = new Set<string>();
-    for (const txn of transactions) {
-        if (isInternalTransfer(txn, customCCKeywords)) continue;
-        const amount = txn.chargedAmount || txn.amount || 0;
-        if (amount >= 0) continue;
-        const txnMonth = txn.date.substring(0, 7);
-        if (allCandidateMonths.includes(txnMonth)) monthsWithData.add(txnMonth);
-    }
-
-    // Clamp to months that actually have data (min 1 to avoid division-by-zero)
-    const pastMonths = allCandidateMonths.filter(m => monthsWithData.has(m));
-    const monthsToAnalyze = Math.max(pastMonths.length, 1);
-
-    // Map: Category -> Month -> Total Amount
-    const catMonthTotals = new Map<string, Map<string, number>>();
-    // Map: Category -> Month -> Txn Count
-    const catMonthTxnCount = new Map<string, Map<string, number>>();
-
-    for (const txn of transactions) {
-        if (isInternalTransfer(txn, customCCKeywords)) continue;
-        const amount = txn.chargedAmount || txn.amount || 0;
-        if (amount >= 0) continue; // Only expenses
-
-        const txnMonth = txn.date.substring(0, 7);
-        if (!pastMonths.includes(txnMonth)) continue;
-
-        const cat = txn.category || 'אחר';
-        if (!catMonthTotals.has(cat)) {
-            catMonthTotals.set(cat, new Map(pastMonths.map(m => [m, 0])));
-            catMonthTxnCount.set(cat, new Map(pastMonths.map(m => [m, 0])));
-        }
-        const currentTotal = catMonthTotals.get(cat)!.get(txnMonth) || 0;
-        catMonthTotals.get(cat)!.set(txnMonth, currentTotal + Math.abs(amount));
-
-        const currentCount = catMonthTxnCount.get(cat)!.get(txnMonth) || 0;
-        catMonthTxnCount.get(cat)!.set(txnMonth, currentCount + 1);
-    }
-
-    const categories: CategoryBaseline[] = [];
-    let sumAvgMonthly = 0;
-
-    for (const [category, monthTotals] of catMonthTotals) {
-        const amounts = Array.from(monthTotals.values());
-        const avgMonthly = amounts.reduce((a, b) => a + b, 0) / monthsToAnalyze;
-        const variance = amounts.reduce((a, b) => a + Math.pow(b - avgMonthly, 2), 0) / monthsToAnalyze;
-        const stdDev = Math.sqrt(variance);
-
-        const counts = Array.from(catMonthTxnCount.get(category)!.values());
-        const avgTxnCount = counts.reduce((a, b) => a + b, 0) / monthsToAnalyze;
-        const expectedMonthlyTxnCount = Math.max(1, Math.round(avgTxnCount));
-        const avgTxnValue = avgTxnCount > 0 ? avgMonthly / avgTxnCount : 0;
-
-        // If stdDev is less than 20% of avgMonthly, consider it fixed, else variable
-        const isFixed = avgMonthly > 0 && (stdDev / avgMonthly) < 0.2;
-
-        categories.push({
-            category,
-            avgMonthly,
-            stdDev,
-            avgDaily: avgMonthly / 30.4, // rough average days per month
-            monthCount: monthsToAnalyze,
-            isFixed,
-            expectedMonthlyTxnCount,
-            avgTxnValue
-        });
-        sumAvgMonthly += avgMonthly;
-    }
-
-    return {
-        categories,
-        totalAvgMonthly: sumAvgMonthly,
-        monthsAnalyzed: monthsToAnalyze
-    };
-}
-
-/**
- * Compute budget health score based on velocity and projected surplus/deficit.
- */
-function computeBudgetHealth(
-    totalProjectedExpenses: number,
-    totalProjectedIncome: number,
-    spentSoFar: number,
-    historicalTotalAvg: number,
-    daysPassed: number,
-    daysInMonth: number
-): BudgetHealth {
-    const projectedSurplus = totalProjectedIncome - totalProjectedExpenses;
-
-    const actualSpendRate = daysPassed > 0 ? spentSoFar / daysPassed : 0;
-    const projectedRate = daysInMonth > 0 ? historicalTotalAvg / daysInMonth : 0;
-    const velocityRatio = projectedRate > 0 ? actualSpendRate / projectedRate : 1.0;
-
-    let score: 'on_track' | 'caution' | 'at_risk' = 'on_track';
-    let message = 'Spending pace is good.';
-
-    if (velocityRatio > 1.3) {
-        score = 'at_risk';
-        message = 'Spending much faster than historical average.';
-    } else if (velocityRatio > 1.1) {
-        score = 'caution';
-        message = 'Spending slightly faster than usual.';
-    }
-
-    if (projectedSurplus < 0 && score === 'on_track') {
-        score = 'caution';
-        message = 'Projected deficit for this month.';
-    }
-
-    return {
-        score,
-        projectedSurplus,
-        velocityRatio,
-        message
-    };
-}
-
-/**
- * Detect spending anomalies and alerts.
- */
-function detectAnomalies(
-    historicalBaseline: HistoricalBaseline,
-    spentByCategory: Map<string, number>,
-    upcomingFixed: UpcomingItem[]
-): AnomalyAlert[] {
-    const alerts: AnomalyAlert[] = [];
-
-    // 1. Velocity & Outliers
-    for (const [cat, spent] of spentByCategory) {
-        const baseline = historicalBaseline.categories.find((c: CategoryBaseline) => c.category === cat);
-        if (!baseline) continue;
-
-        // Over Budget (formerly velocity pacing)
-        if (baseline.avgMonthly > 0) {
-            if (spent > baseline.avgMonthly && spent > 200) { // Ignore small categories
-                alerts.push({
-                    id: `over_${cat}`,
-                    type: 'velocity', // Keeps the amber styling
-                    category: cat,
-                    description: `Over average spending in ${cat}`,
-                    message: `You've spent more than your typical monthly average for ${cat}.`,
-                    severity: 'warning',
-                    currentValue: spent,
-                    expectedValue: baseline.avgMonthly
-                });
-            }
-        }
-
-        // Outlier
-        if (spent > baseline.avgMonthly + 2 * baseline.stdDev && baseline.stdDev > 0 && spent > 200) {
-            alerts.push({
-                id: `outl_${cat}`,
-                type: 'outlier',
-                category: cat,
-                description: `Unusual spending in ${cat}`,
-                message: `${cat} total is significantly higher than your typical monthly average.`,
-                severity: 'critical',
-                currentValue: spent,
-                expectedValue: baseline.avgMonthly
-            });
-        }
-    }
-
-    // 2. Missing Expected
-    const now = new Date();
-    for (const item of upcomingFixed) {
-        const expectedDate = new Date(item.expectedDate);
-        const diffDays = (now.getTime() - expectedDate.getTime()) / (1000 * 3600 * 24);
-        if (diffDays > 3) {
-            alerts.push({
-                id: `miss_${item.description.replace(/\s/g, '_')}`,
-                type: 'missing_expected',
-                description: `Missing expected ${item.type}`,
-                message: `Expected '${item.description}' around ${expectedDate.toLocaleDateString()}, but it hasn't appeared yet.`,
-                severity: 'info',
-                expectedValue: item.amount
-            });
-        }
-    }
-
-    return alerts;
-}
 
 /**
  * Core hook: Computes the full financial summary with anti-double-counting,
@@ -419,7 +32,17 @@ export function useFinancialSummary(
 
         const empty: FinancialSummary = {
             month: currentMonth,
-            expenses: { alreadySpent: 0, remainingPlanned: 0, variableForecast: 0, totalProjected: 0, byCategory: [] },
+            expenses: {
+                alreadySpent: 0,
+                remainingPlanned: 0,
+                variableForecast: 0,
+                totalProjected: 0,
+                expenseTxnCount: 0,
+                historicalAvgMonthlyTxnCount: 0,
+                expectedTxnCountToDate: 0,
+                byCategory: [],
+            },
+            isCurrentMonth: false,
             income: { alreadyReceived: 0, expectedInflow: 0, totalProjected: 0 },
             upcomingFixed: [],
             subscriptions: [],
@@ -444,7 +67,7 @@ export function useFinancialSummary(
                     monthInternalTransfers.push(txn);
                 }
             } else {
-                if (!txn.isIgnored) {
+                if (!isTransactionIgnored(txn)) {
                     realTransactions.push(txn);
                 }
             }
@@ -463,11 +86,11 @@ export function useFinancialSummary(
 
         for (const txn of currentMonthTxns) {
             const amount = txn.chargedAmount || txn.amount || 0;
-            if (amount < 0 && !txn.isIgnored) {
+            if (amount < 0 && !isTransactionIgnored(txn)) {
                 const absAmount = Math.abs(amount);
                 alreadySpent += absAmount;
                 alreadySpentTxns.push(txn);
-                const cat = txn.category || 'אחר';
+                const cat = expenseCategoryKey(txn.category);
                 categorySpent.set(cat, (categorySpent.get(cat) || 0) + absAmount);
                 if (!categoryTxns.has(cat)) {
                     categoryTxns.set(cat, []);
@@ -518,13 +141,32 @@ export function useFinancialSummary(
 
         // Step 6: Historical Baseline & Anomalies
         const historicalBaseline = computeHistoricalBaseline(realTransactions, currentMonth, forecastMonths, customCCKeywords);
-        const anomalies = detectAnomalies(historicalBaseline, categorySpent, upcomingFixed);
+        const txnCountByCategory = new Map<string, number>();
+        categoryTxns.forEach((txns, cat) => txnCountByCategory.set(cat, txns.length));
+        const maxTxnByCategory = new Map<string, number>();
+        categoryTxns.forEach((txns, cat) => {
+            let max = 0;
+            for (const t of txns) {
+                const a = Math.abs(t.chargedAmount || t.amount || 0);
+                if (a > max) max = a;
+            }
+            if (max > 0) maxTxnByCategory.set(cat, max);
+        });
+        const anomalies = detectAnomalies(
+            historicalBaseline,
+            categorySpent,
+            txnCountByCategory,
+            daysPassed,
+            daysInMonth,
+            upcomingFixed,
+            { maxTxnByCategory }
+        );
 
         // Step 7: Build category breakdown with projections
         const allCategories = new Set<string>();
         categorySpent.forEach((_, cat) => allCategories.add(cat));
         // Add projected categories from upcoming items and baseline
-        upcomingFixed.filter(i => i.type === 'bill').forEach(i => allCategories.add(i.category || 'אחר'));
+        upcomingFixed.filter(i => i.type === 'bill').forEach(i => allCategories.add(expenseCategoryKey(i.category)));
         historicalBaseline.categories.forEach((c: CategoryBaseline) => allCategories.add(c.category));
 
         let variableSpendForecast = 0;
@@ -535,7 +177,7 @@ export function useFinancialSummary(
 
             // Add upcoming bills for this specific category
             const categoryUpcomingBills = upcomingFixed
-                .filter(i => i.type === 'bill' && (i.category === name || (!i.category && name === 'אחר')));
+                .filter(i => i.type === 'bill' && expenseCategoryKey(i.category) === name);
 
             const upcomingForCategory = categoryUpcomingBills.reduce((sum, i) => sum + i.amount, 0);
             let categoryVariableForecast = 0;
@@ -543,17 +185,22 @@ export function useFinancialSummary(
             let forecastMethod: 'historical_avg' | 'extrapolation' | 'transaction_count' | undefined;
 
             // Variable Spend Forecasting
+            let forecastEffectiveTxnCount: number | undefined;
             if (isCurrentMonth) {
                 if (baseline && !baseline.isFixed) {
                     const N = baseline.expectedMonthlyTxnCount || 1;
                     const avgTxnValue = baseline.avgTxnValue || 0;
                     const currentTxns = categoryTxns.get(name)?.length || 0;
 
-                    if (currentTxns < N) {
-                        categoryVariableForecast = (N - currentTxns) * avgTxnValue;
-                    } else {
-                        categoryVariableForecast = 0;
-                    }
+                    const { amount, forecastTxnCount } = computeTxnBaselineVariableForecast({
+                        expectedMonthlyTxnCount: N,
+                        avgTxnValue,
+                        currentMonthTxnCount: currentTxns,
+                        daysInMonth,
+                        remainingDays,
+                    });
+                    categoryVariableForecast = amount;
+                    forecastEffectiveTxnCount = Math.round(forecastTxnCount * 100) / 100;
 
                     forecastRate = 0; // Daily rate is no longer the main driver
                     forecastMethod = 'transaction_count';
@@ -574,6 +221,7 @@ export function useFinancialSummary(
             // Track how much "extra" variable spend (beyond detected bills) we are forecasting globally
             variableSpendForecast += Math.max(0, categoryVariableForecast - upcomingForCategory);
 
+            const currentMonthTxnCount = categoryTxns.get(name)?.length || 0;
             return {
                 name,
                 spent,
@@ -585,6 +233,18 @@ export function useFinancialSummary(
                 variableForecastAmount: Math.round(categoryVariableForecast * 100) / 100,
                 forecastRate: Math.round(forecastRate * 100) / 100,
                 forecastMethod,
+                expectedMonthlyTxnCount:
+                    forecastMethod === 'transaction_count' && baseline
+                        ? baseline.expectedMonthlyTxnCount
+                        : undefined,
+                currentMonthTxnCount:
+                    forecastMethod === 'transaction_count' ? currentMonthTxnCount : undefined,
+                avgTxnValue:
+                    forecastMethod === 'transaction_count' && baseline
+                        ? Math.round((baseline.avgTxnValue || 0) * 100) / 100
+                        : undefined,
+                forecastEffectiveTxnCount:
+                    forecastMethod === 'transaction_count' ? forecastEffectiveTxnCount : undefined,
                 upcomingBills: categoryUpcomingBills,
             };
         }).sort((a, b) => b.spent - a.spent);
@@ -593,6 +253,10 @@ export function useFinancialSummary(
         const totalProjectedExpenses = alreadySpent + remainingPlanned + variableSpendForecast;
         const totalProjectedIncome = alreadyReceived + expectedInflow;
 
+        const historicalAvgMonthlyTxnCount = historicalBaseline.totalAvgMonthlyTxnCount ?? 0;
+        const expectedTxnCountToDate =
+            daysInMonth > 0 ? Math.round((historicalAvgMonthlyTxnCount * (daysPassed / daysInMonth)) * 10) / 10 : 0;
+
         // Step 8: Budget Health Generation
         const budgetHealth = computeBudgetHealth(
             totalProjectedExpenses,
@@ -600,7 +264,9 @@ export function useFinancialSummary(
             alreadySpent,
             historicalBaseline.totalAvgMonthly,
             daysPassed,
-            daysInMonth
+            daysInMonth,
+            alreadySpentTxns.length,
+            historicalBaseline.totalAvgMonthlyTxnCount ?? 0
         );
 
         // Step 9: Internal transfers summary for selected month
@@ -629,7 +295,7 @@ export function useFinancialSummary(
                 provider: 'virtual',
                 accountNumber: 'virtual',
                 status: 'pending' as 'pending',
-                category: item.category || 'אחר'
+                category: expenseCategoryKey(item.category)
             }));
 
         const expectedInflowTxns: Transaction[] = [
@@ -659,6 +325,9 @@ export function useFinancialSummary(
                 remainingPlanned: Math.round(remainingPlanned * 100) / 100,
                 variableForecast: Math.round(variableSpendForecast * 100) / 100,
                 totalProjected: Math.round(totalProjectedExpenses * 100) / 100,
+                expenseTxnCount: alreadySpentTxns.length,
+                historicalAvgMonthlyTxnCount: Math.round(historicalAvgMonthlyTxnCount * 10) / 10,
+                expectedTxnCountToDate,
                 byCategory,
                 alreadySpentTxns,
                 remainingPlannedTxns
@@ -685,7 +354,8 @@ export function useFinancialSummary(
             historicalBaseline,
             budgetHealth,
             anomalies,
-            remainingDays
+            remainingDays,
+            isCurrentMonth
         };
     }, [allTransactions, selectedMonth, ccPaymentDate, forecastMonths, customCCKeywords]);
 }

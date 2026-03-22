@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Transaction } from '@app/shared';
+import { Transaction, isTransactionIgnored, expenseCategoryKeyFromTxn } from '@app/shared';
 import { TransactionTable } from '../TransactionTable';
 import { isInternalTransfer } from '../../utils/transactionUtils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine, CartesianGrid } from 'recharts';
@@ -51,9 +51,10 @@ export function CategoryDetailsModal({
         }).format(amount);
 
     const categoryTransactions = useMemo(() => {
-        return transactions.filter(t => 
-            t.category === categoryName && 
+        return transactions.filter(t =>
+            expenseCategoryKeyFromTxn(t) === categoryName &&
             !isInternalTransfer(t, customCCKeywords) &&
+            !isTransactionIgnored(t) &&
             (t.chargedAmount || t.amount || 0) < 0 // Only expenses
         );
     }, [transactions, categoryName, customCCKeywords]);

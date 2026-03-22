@@ -234,8 +234,20 @@ export class DbService {
     }
 
     toggleTransactionIgnore(id: string, isIgnored: boolean): boolean {
-        const stmt = this.db.prepare('UPDATE transactions SET isIgnored = ? WHERE id = ?');
-        const info = stmt.run(isIgnored ? 1 : 0, id);
+        const getStmt = this.db.prepare('SELECT raw_data FROM transactions WHERE id = ?');
+        const row: any = getStmt.get(id);
+        if (!row) return false;
+
+        const txn = JSON.parse(row.raw_data) as Transaction;
+        txn.isIgnored = isIgnored;
+        if (isIgnored) {
+            txn.status = 'ignored';
+        } else if (txn.status === 'ignored') {
+            txn.status = 'completed';
+        }
+
+        const stmt = this.db.prepare('UPDATE transactions SET isIgnored = ?, raw_data = ? WHERE id = ?');
+        const info = stmt.run(isIgnored ? 1 : 0, JSON.stringify(txn), id);
         return info.changes > 0;
     }
 

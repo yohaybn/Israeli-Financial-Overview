@@ -97,17 +97,26 @@ export function createScrapeRoutes(
                 if (request.options.autoCategorize && result.transactions && result.transactions.length > 0) {
                     try {
                         console.log(`Auto-categorizing ${result.transactions.length} transactions for ${request.companyId}...`);
-                        const categorizedTransactions = await aiService.categorizeTransactions(result.transactions);
+                        const { transactions: categorizedTransactions, aiError } = await aiService.categorizeTransactions(result.transactions);
 
                         // Update the result object and save it again
                         result.transactions = categorizedTransactions;
                         filename = await storageService.saveScrapeResult(result, request.companyId);
+                        await storageService.applyCategoryColumnsFromTransactions(categorizedTransactions);
 
                         console.log(`Auto-categorization complete for ${filename}`);
+                        if (aiError) {
+                            res.json({
+                                success: true,
+                                data: result,
+                                filename,
+                                warning: `Scrape saved; AI categorization failed but cached categories were applied where possible: ${aiError}`,
+                                categorizationError: aiError,
+                            });
+                            return;
+                        }
                     } catch (aiError: any) {
                         console.error('Auto-categorization failed:', aiError.message);
-                        // We don't fail the whole scrape if AI categorization fails
-                        // but we might want to attach a warning
                         res.json({ success: true, data: result, filename, warning: `Scrape success, but auto-categorization failed: ${aiError.message}` });
                         return;
                     }

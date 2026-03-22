@@ -299,10 +299,10 @@ export function useAICategorize() {
     return useMutation({
         mutationFn: async (filename: string) => {
             const encoded = encodeURIComponent(filename);
-            const { data } = await api.post<{ success: boolean; data: any[] }>(`/ai/categorize/${encoded}`);
-            return data.data;
+            const { data } = await api.post<{ success: boolean; data: any[]; categorizationError?: string }>(`/ai/categorize/${encoded}`);
+            return data;
         },
-        onSuccess: (_, filename) => {
+        onSuccess: (_data, filename) => {
             queryClient.invalidateQueries({ queryKey: ['scrapeResult', filename] });
         },
     });
@@ -312,7 +312,7 @@ export function useRecategorizeAll() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (force: boolean = false) => {
-            const { data } = await api.post<{ success: boolean; count: number }>('/ai/categorize/all', { force });
+            const { data } = await api.post<{ success: boolean; count: number; error?: string }>('/ai/categorize/all', { force });
             return data;
         },
         onSuccess: () => {

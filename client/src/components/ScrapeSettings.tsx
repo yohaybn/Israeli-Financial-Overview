@@ -421,6 +421,26 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                             </div>
                         </div>
 
+                        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-2">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={config.postScrapeConfig.aggregateTelegramNotifications !== false}
+                                    onChange={(e) =>
+                                        updatePostScrape({ aggregateTelegramNotifications: e.target.checked })
+                                    }
+                                    className="w-5 h-5 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-gray-700">{t('post_scrape.telegram_aggregate')}</span>
+                                    <span className="text-xs text-gray-500">{t('post_scrape.telegram_aggregate_desc')}</span>
+                                </span>
+                            </label>
+                            <p className="text-xs text-gray-500 pl-8 border-l-2 border-indigo-100 ml-1">
+                                {t('post_scrape.whale_where')}
+                            </p>
+                        </div>
+
                         <div className="space-y-3">
                             <label className="text-sm font-bold text-gray-700">{t('post_scrape.notification_channels')}</label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

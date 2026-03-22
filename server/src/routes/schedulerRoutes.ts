@@ -1,6 +1,7 @@
 import express from 'express';
 import { SchedulerService } from '../services/schedulerService.js';
 import { serviceLogger as logger } from '../utils/logger.js';
+import { appLockService } from '../services/appLockService.js';
 
 export function createSchedulerRoutes(schedulerService: SchedulerService) {
     const router = express.Router();
@@ -28,6 +29,13 @@ export function createSchedulerRoutes(schedulerService: SchedulerService) {
 
     router.post('/run-now', async (req, res) => {
         try {
+            if (!appLockService.isUnlocked()) {
+                return res.status(423).json({
+                    success: false,
+                    error: 'Application is locked. Unlock in the web UI before running scheduled scrapes.',
+                    code: 'APP_LOCKED'
+                });
+            }
             // Run in background, don't wait for completion
             schedulerService.runScheduledScrape().catch(err => {
                 logger.error('Manual scheduled run failed', { error: err });

@@ -1,4 +1,4 @@
-import { Transaction, Subscription, SubscriptionInterval } from '@app/shared';
+import { Transaction, Subscription, SubscriptionInterval, isTransactionIgnored } from '@app/shared';
 import { isInternalTransfer } from './transactionUtils';
 
 const STRONG_SUBSCRIPTION_KEYWORDS = [
@@ -18,7 +18,7 @@ export function detectSubscriptions(transactions: Transaction[]): Subscription[]
   // 1. Group transactions by a normalized merchant key.
   const groupedByDesc = new Map<string, Transaction[]>();
   transactions.forEach(t => {
-    if (t.isIgnored || t.excludeFromSubscriptions) return;
+    if (isTransactionIgnored(t) || t.excludeFromSubscriptions) return;
 
     // Exclude installments, income, and internal transfers.
     if (t.type === 'installment' || t.type === 'installments' || t.amount > 0) return;

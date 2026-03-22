@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AISettings } from './AISettings';
 import { ScrapeSettings } from './ScrapeSettings';
@@ -15,6 +15,16 @@ type ConfigTab = 'ai' | 'scheduler' | 'scrape' | 'fraud' | 'sheets' | 'telegram'
 export function ConfigurationPanel() {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<ConfigTab>('ai');
+
+    useEffect(() => {
+        const raw = sessionStorage.getItem('configOpenTab');
+        if (!raw) return;
+        const allowed: ConfigTab[] = ['ai', 'scheduler', 'scrape', 'fraud', 'sheets', 'telegram', 'maintenance', 'environment'];
+        if (allowed.includes(raw as ConfigTab)) {
+            setActiveTab(raw as ConfigTab);
+        }
+        sessionStorage.removeItem('configOpenTab');
+    }, []);
 
     return (
         <div className="flex flex-col h-full bg-gray-50">

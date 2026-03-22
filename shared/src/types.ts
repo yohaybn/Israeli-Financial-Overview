@@ -23,6 +23,12 @@ export interface PostScrapeConfig {
         scope?: 'current' | 'all';
     };
     notificationChannels: string[];
+    /**
+     * When true (default), Telegram messages from a scrape run (scrape summary, post-scrape steps, spending digest)
+     * are combined into one notification per run. Controlled from Scrape Settings → Post-Scrape Actions.
+     * Per-request options still override when set by the Telegram bot or API.
+     */
+    aggregateTelegramNotifications?: boolean;
 }
 
 export type FraudSeverity = 'low' | 'medium' | 'high';
@@ -134,6 +140,12 @@ export interface FinancialSummary {
         remainingPlanned: number;     // Upcoming fixed bills + remaining budgets
         totalProjected: number;
         variableForecast?: number;   // Statistical projection for remaining days
+        /** Expense transactions counted this month (already spent) */
+        expenseTxnCount?: number;
+        /** Sum of per-category average monthly txn counts from baseline (≈ typical txns/month) */
+        historicalAvgMonthlyTxnCount?: number;
+        /** Pro-rated expected txns by today from historical monthly average */
+        expectedTxnCountToDate?: number;
         byCategory: CategoryBudgetItem[];
         alreadySpentTxns?: Transaction[]; // The underlying transactions
         remainingPlannedTxns?: Transaction[]; // The underlying transactions (partially virtual)
@@ -155,6 +167,8 @@ export interface FinancialSummary {
     budgetHealth?: BudgetHealth;
     anomalies?: AnomalyAlert[];
     remainingDays?: number;      // Days left in the month for forecasting
+    /** Selected month is the calendar month containing "today" (affects forecasting copy) */
+    isCurrentMonth?: boolean;
 }
 
 export interface UpcomingItem {
@@ -180,6 +194,14 @@ export interface CategoryBudgetItem {
     variableForecastAmount?: number;
     forecastRate?: number;       // Daily rate used for forecast
     forecastMethod?: 'historical_avg' | 'extrapolation' | 'transaction_count';
+    /** For transaction_count method: expected txns/month from history */
+    expectedMonthlyTxnCount?: number;
+    /** For transaction_count method: expense txns in this category this month */
+    currentMonthTxnCount?: number;
+    /** For transaction_count method: average debit amount per txn from history */
+    avgTxnValue?: number;
+    /** For transaction_count method: effective txn count after time-of-month cap */
+    forecastEffectiveTxnCount?: number;
 }
 
 // Historical baseline per category over the last N months
@@ -191,6 +213,8 @@ export interface CategoryBaseline {
     monthCount: number;       // Number of months with data
     isFixed: boolean;         // Low variance = fixed, high variance = variable
     expectedMonthlyTxnCount?: number; // Expected transaction count based on history
+    /** Raw average monthly expense transaction count (preferred for pace vs rounded expectedMonthlyTxnCount) */
+    avgMonthlyTxnCount?: number;
     avgTxnValue?: number;     // Average value of a single transaction
 }
 
@@ -198,24 +222,43 @@ export interface HistoricalBaseline {
     categories: CategoryBaseline[];
     totalAvgMonthly: number;  // Sum of all category averages
     monthsAnalyzed: number;   // How many months of data were used
+    /** Sum of per-category average monthly txn counts (≈ total expense txns per month) */
+    totalAvgMonthlyTxnCount?: number;
 }
+
+export type BudgetHealthMessageKey =
+    | 'pace_good'
+    | 'pace_slightly_fast'
+    | 'pace_much_faster'
+    | 'projected_deficit';
 
 export interface BudgetHealth {
     score: 'on_track' | 'caution' | 'at_risk';
     projectedSurplus: number; // Positive = surplus, negative = deficit
     velocityRatio: number;    // actual_pace / expected_pace (1.0 = on track)
-    message: string;          // Human-readable status
+    message: string;          // Human-readable status (English fallback)
+    /** Stable key for UI / digest translation */
+    messageKey?: BudgetHealthMessageKey;
+}
+
+/** Extra fields for translating anomaly alerts (dashboard + Telegram digest). */
+export interface AnomalyAlertMeta {
+    itemType?: 'bill' | 'income';
+    recurringDescription?: string;
+    /** ISO date string for expected recurring charge */
+    expectedDateIso?: string;
 }
 
 export interface AnomalyAlert {
     id: string;
-    type: 'velocity' | 'outlier' | 'missing_expected';
+    type: 'velocity' | 'outlier' | 'missing_expected' | 'whale';
     category?: string;
     description: string;
     message: string;
     severity: 'info' | 'warning' | 'critical';
     currentValue?: number;
     expectedValue?: number;
+    meta?: AnomalyAlertMeta;
 }
 
 export interface DashboardConfig {
@@ -338,24 +381,60 @@ export interface ScrapeRequest {
     profileName?: string; // Human-readable profile name for display in notifications
 }
 
-export interface SchedulerConfig {
+/** How often the scheduler triggers (server uses cron + interval-day filter when needed). */
+export type SchedulerScheduleType =
+    | 'daily'
+    | 'weekly'
+    | 'monthly'
+    | 'interval_days'
+    | 'custom';
+
+/** Shared schedule fields used by scrape and standalone backup jobs. */
+export interface CronScheduleFields {
+    scheduleType?: SchedulerScheduleType;
+    /** 24h "HH:mm" in server local time; used when scheduleType is not custom */
+    runTime?: string;
+    /** 0=Sun … 6=Sat (matches Date.getDay); used when scheduleType === 'weekly' */
+    weekdays?: number[];
+    /** 1–31; used when scheduleType === 'monthly' */
+    monthDays?: number[];
+    /** Run every N calendar days from intervalAnchorDate; used when scheduleType === 'interval_days' */
+    intervalDays?: number;
+    /** YYYY-MM-DD; first day counted for interval_days */
+    intervalAnchorDate?: string;
+    /** Effective cron passed to node-cron (daily tick for interval_days) */
+    cronExpression: string;
+}
+
+export interface SchedulerConfig extends CronScheduleFields {
     enabled: boolean;
-    cronExpression: string; // e.g., '0 8 * * *' for daily at 8am
     selectedProfiles: string[]; // List of profile IDs to run
-    backupSchedule?: {
-        enabled: boolean;
-        destination: 'local' | 'google-drive';
-    };
-    lastRun?: string; // ISO timestamp
+    /** Independent of scrape schedule; uses the same frequency mechanism. */
+    backupSchedule?: BackupScheduleConfig;
+    lastRun?: string; // ISO timestamp (last scrape)
     nextRun?: string; // ISO timestamp
 }
 
+/** Backup job: same schedule knobs as scrape; runs only backup (no scrapes). */
+export interface BackupScheduleConfig extends CronScheduleFields {
+    enabled: boolean;
+    destination: 'local' | 'google-drive';
+    lastRun?: string; // ISO timestamp (last backup)
+}
+
+export const DEFAULT_BACKUP_SCHEDULE: BackupScheduleConfig = {
+    enabled: false,
+    destination: 'local',
+    scheduleType: 'daily',
+    runTime: '09:00',
+    cronExpression: '0 9 * * *'
+};
+
 export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
     enabled: false,
+    scheduleType: 'daily',
+    runTime: '08:00',
     cronExpression: '0 8 * * *', // Default: Daily at 8:00 AM
     selectedProfiles: [],
-    backupSchedule: {
-        enabled: false,
-        destination: 'local'
-    }
+    backupSchedule: { ...DEFAULT_BACKUP_SCHEDULE }
 };

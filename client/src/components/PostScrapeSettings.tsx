@@ -136,6 +136,21 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
           </div>
         </div>
 
+        <div className="p-3 border rounded-lg space-y-2">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={cfg.aggregateTelegramNotifications !== false}
+              onChange={(e) => update({ aggregateTelegramNotifications: e.target.checked })}
+            />
+            <span>
+              <span className="text-sm font-medium block">{t('post_scrape.telegram_aggregate')}</span>
+              <span className="text-xs text-gray-500">{t('post_scrape.telegram_aggregate_desc')}</span>
+            </span>
+          </label>
+          <p className="text-xs text-gray-500 pl-7">{t('post_scrape.whale_where')}</p>
+        </div>
+
         <div className="space-y-1">
           <label className="text-sm font-medium">{t('post_scrape.notification_channels')}</label>
           <div className="grid grid-cols-2 gap-2 mt-2">

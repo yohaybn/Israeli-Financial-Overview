@@ -11,7 +11,8 @@ import fs from 'fs-extra';
 import { serverLogger } from '../utils/logger.js';
 import { AiService, type ConversationTurn } from './aiService.js';
 import { ScraperService } from './scraperService.js';
-import { ProfileService } from './profileService.js';
+import { profileService, ProfileService } from './profileService.js';
+import { appLockService } from './appLockService.js';
 import { StorageService } from './storageService.js';
 import { Profile, ScrapeRequest, ScrapeResult } from '@app/shared';
 import { postScrapeService } from './postScrapeService.js';
@@ -29,6 +30,8 @@ export interface TelegramConfig {
   notificationChatIds: string[];
   allowedUsers?: string[]; // Empty = allow all
   language?: 'en' | 'he'; // Bot UI language
+  /** After a successful scrape, send a short budget / anomaly digest to Telegram (deduped by fingerprint). */
+  spendingDigestEnabled?: boolean;
 }
 
 // Translation strings for the bot
@@ -38,7 +41,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Israeli Bank Scraper Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -92,13 +95,24 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     errorUpdatingSettings: 'Error updating settings',
     errorExitingChatMode: '❌ Error exiting chat mode',
     scrapeFailedPrefix: 'Scrape failed:',
+    unlockNotConfigured: 'ℹ️ App password is not configured in the web UI yet.',
+    unlockAlready: '✅ App is already unlocked.',
+    unlockSendPassword:
+      '🔐 Send your app password in the next message.\n\nOr use: <code>/unlock yourpassword</code>\n\n/cancel to abort.',
+    unlockSendPasswordPlain: 'Send your password as a text message, or /cancel to abort.',
+    unlockSuccess: '✅ Unlocked. Scraping and saved profiles work again.',
+    unlockWrong: '❌ Wrong password. Try again or /cancel.',
+    unlockCancelled: 'Unlock cancelled.',
+    unlockError: '❌ Unlock failed (server error).',
+    appLockedHint:
+      '🔒 <b>Application is locked</b>\n\nScraping from Telegram is off until you unlock.\n\n<b>Unlock in this chat:</b>\n• <code>/unlock yourpassword</code>\n• or send <code>/unlock</code> alone, then your password in the next message\n\nYou can also unlock in the web dashboard (password field in the orange bar).',
   },
   he: {
     accessDenied: '❌ <b>גישה נדחתה</b>\n\nאין לך הרשאה להשתמש בבוט זה עדיין.',
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט סריקת הבנקים הישראלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -152,6 +166,17 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     errorUpdatingSettings: 'שגיאה בעדכון הגדרות',
     errorExitingChatMode: '❌ שגיאה ביציאה ממצב שיחה',
     scrapeFailedPrefix: 'הסריקה נכשלה:',
+    unlockNotConfigured: 'ℹ️ סיסמת אפליקציה עדיין לא הוגדרה בממשק האינטרנט.',
+    unlockAlready: '✅ האפליקציה כבר לא נעולה.',
+    unlockSendPassword:
+      '🔐 שלח את סיסמת האפליקציה בהודעה הבאה.\n\nאו: <code>/unlock הסיסמה</code>\n\n/cancel לביטול.',
+    unlockSendPasswordPlain: 'שלח את הסיסמה כטקסט, או /cancel לביטול.',
+    unlockSuccess: '✅ הנעילה בוטלה. סריקות ופרופילים זמינים שוב.',
+    unlockWrong: '❌ סיסמה שגויה. נסה שוב או /cancel.',
+    unlockCancelled: 'ביטול נעילה בוטל.',
+    unlockError: '❌ ביטול הנעילה נכשל (שגיאת שרת).',
+    appLockedHint:
+      '🔒 <b>האפליקציה נעולה</b>\n\nסריקה מטלגרם כבויה עד שתבטל את הנעילה.\n\n<b>ביטול נעילה בצ׳אט:</b>\n• <code>/unlock הסיסמה</code>\n• או שלח <code>/unlock</code> לבד, ואז את הסיסמה בהודעה הבאה\n\nאפשר גם לבטל נעילה בדשבורד האינטרנט (שדה סיסמה בשורה הכתומה).',
   },
 };
 
@@ -174,7 +199,6 @@ export class TelegramBotService {
   private chatStates: Map<string, TelegramChatState>;
   private aiService: AiService | null = null;
   private scraperService: ScraperService | null = null;
-  private profileService: ProfileService | null = null;
   private isRunning: boolean = false;
   private lastStartError: string | null = null;
 
@@ -225,10 +249,7 @@ export class TelegramBotService {
    * Get profile service instance (lazy-loaded)
    */
   private getProfileService(): ProfileService {
-    if (!this.profileService) {
-      this.profileService = new ProfileService();
-    }
-    return this.profileService;
+    return profileService;
   }
 
   private getStorageService(): StorageService {
@@ -297,6 +318,39 @@ export class TelegramBotService {
     return this.config.allowedUsers.includes(userId);
   }
 
+  private isAppLocked(): boolean {
+    return appLockService.isLockConfigured() && !appLockService.isUnlocked();
+  }
+
+  /** Plain message / command: reply with unlock instructions if app lock is active. */
+  private async replyIfAppLocked(ctx: Context): Promise<boolean> {
+    if (!this.isAppLocked()) return false;
+    await ctx.reply(this.t('appLockedHint'), { parse_mode: 'HTML' });
+    return true;
+  }
+
+  /** Inline button callback: answer query and reply with unlock instructions. */
+  private async replyIfAppLockedCallback(ctx: Context): Promise<boolean> {
+    if (!this.isAppLocked()) return false;
+    try {
+      await ctx.answerCbQuery();
+    } catch (e) {
+      serverLogger.debug('answerCbQuery when app locked', { error: e });
+    }
+    await ctx.reply(this.t('appLockedHint'), { parse_mode: 'HTML' });
+    return true;
+  }
+
+  /** Reply keyboard with common commands (bot language is independent of this). */
+  private buildCommandKeyboard(oneTime: boolean) {
+    const kb = Markup.keyboard([
+      ['/chat', '/scrape', '/status'],
+      ['/subscribe', '/unsubscribe', '/settings'],
+      ['/unlock', '/help']
+    ]).resize();
+    return oneTime ? kb.oneTime() : kb;
+  }
+
   /**
    * Check if allowed users list is configured
    */
@@ -328,23 +382,26 @@ export class TelegramBotService {
    * Load configuration from file
    */
   private loadConfig(): TelegramConfig {
-    try {
-      if (fs.existsSync(TEL_CONFIG_PATH)) {
-        const config = fs.readJsonSync(TEL_CONFIG_PATH);
-        serverLogger.info('Loaded Telegram config from file');
-        return config;
-      }
-    } catch (error) {
-      serverLogger.warn('Failed to load Telegram config, using defaults', { error });
-    }
-
-    return {
+    const defaults: TelegramConfig = {
       botToken: process.env.TELEGRAM_BOT_TOKEN || '',
       enabled: false,
       adminChatIds: [],
       notificationChatIds: [],
       allowedUsers: [],
+      language: 'en',
+      spendingDigestEnabled: false,
     };
+    try {
+      if (fs.existsSync(TEL_CONFIG_PATH)) {
+        const file = fs.readJsonSync(TEL_CONFIG_PATH) as Partial<TelegramConfig>;
+        serverLogger.info('Loaded Telegram config from file');
+        return { ...defaults, ...file };
+      }
+    } catch (error) {
+      serverLogger.warn('Failed to load Telegram config, using defaults', { error });
+    }
+
+    return defaults;
   }
 
   /**
@@ -577,6 +634,10 @@ export class TelegramBotService {
     this.bot.command('cancel', async (ctx) => {
       await this.handleDoneCommand(ctx);
     });
+
+    this.bot.command('unlock', async (ctx) => {
+      await this.handleUnlockCommand(ctx);
+    });
   }
 
   /**
@@ -619,6 +680,28 @@ export class TelegramBotService {
         const chatId = ctx.chat?.id?.toString();
         if (!chatId) return;
         const state = this.chatStates.get(chatId);
+        const rawText = (ctx.message as any).text || '';
+        const text = rawText.trim();
+
+        // App lock: waiting for password after /unlock
+        if (state?.conversationContext === 'pending_unlock') {
+          const userId = ctx.from?.id.toString() || '';
+          if (!this.isUserAuthorized(userId)) {
+            this.logUnauthorizedAttempt(ctx, 'pending_unlock');
+            await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>`, { parse_mode: 'HTML' });
+            return;
+          }
+          if (text.startsWith('/')) {
+            if (text.startsWith('/cancel') || text.startsWith('/done')) {
+              await this.handleDoneCommand(ctx);
+              return;
+            }
+            await ctx.reply(this.t('unlockSendPasswordPlain'), { parse_mode: 'HTML' });
+            return;
+          }
+          await this.tryUnlockFromTelegram(ctx, text);
+          return;
+        }
 
         // If in chat mode, handle as AI query
         if (state?.conversationContext === 'chat') {
@@ -633,18 +716,11 @@ export class TelegramBotService {
         }
 
         // If message looks like an unknown command, show command buttons
-        const text = (ctx.message as any).text || '';
-        if (text.startsWith('/')) {
-          const known = ['/scrape', '/chat', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel'];
-          const cmd = text.split(' ')[0];
+        if (rawText.startsWith('/')) {
+          const known = ['/scrape', '/chat', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel', '/unlock'];
+          const cmd = rawText.split(' ')[0];
           if (!known.includes(cmd)) {
-            await ctx.reply(this.t('unknownCommand'),
-              Markup.keyboard([
-                ['/chat', '/scrape', '/status'],
-                ['/subscribe', '/unsubscribe', '/settings'],
-                ['/help']
-              ]).resize().oneTime()
-            );
+            await ctx.reply(this.t('unknownCommand'), this.buildCommandKeyboard(true));
             return;
           }
         }
@@ -680,7 +756,7 @@ export class TelegramBotService {
       isAdmin: this.config.adminChatIds.includes(chatId),
     });
 
-    await ctx.reply(this.t('welcome'));
+    await ctx.reply(this.t('welcome'), this.buildCommandKeyboard(false));
   }
 
   /**
@@ -704,6 +780,8 @@ export class TelegramBotService {
         await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
         return;
       }
+
+      if (await this.replyIfAppLocked(ctx)) return;
 
       const profiles = await this.getProfileService().getProfiles();
 
@@ -735,6 +813,8 @@ export class TelegramBotService {
    */
   private async handleScrapeAction(ctx: Context, callbackData: string): Promise<void> {
     if (!callbackData) return;
+
+    if (await this.replyIfAppLockedCallback(ctx)) return;
 
     if (callbackData === 'scrape_custom_start') {
       await this.handleCustomScrapeStartDatePrompt(ctx);
@@ -808,6 +888,8 @@ export class TelegramBotService {
     const state = this.chatStates.get(chatId);
     if (!state) return;
 
+    if (await this.replyIfAppLocked(ctx)) return;
+
     const date = (text || '').trim();
     if (!this.isValidIsoDate(date)) {
       await ctx.reply(this.t('invalidDateFormat'));
@@ -849,6 +931,8 @@ export class TelegramBotService {
       await ctx.answerCbQuery(this.t('unauthorizedNoPermission'), { show_alert: true });
       return;
     }
+
+    if (await this.replyIfAppLockedCallback(ctx)) return;
 
     await ctx.answerCbQuery(this.t('scraperStarting'));
 
@@ -1182,6 +1266,8 @@ export class TelegramBotService {
         return;
       }
 
+      if (await this.replyIfAppLockedCallback(ctx)) return;
+
       await ctx.answerCbQuery(this.t('scraperStarting'));
 
       try {
@@ -1310,6 +1396,89 @@ export class TelegramBotService {
   }
 
   /**
+   * /unlock — enter app password (same as web UI) when app lock is active.
+   */
+  private async handleUnlockCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/unlock');
+        const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
+        await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
+        return;
+      }
+
+      const chatId = ctx.chat?.id?.toString();
+      if (!chatId) return;
+
+      const text = (ctx.message as any)?.text || '';
+      const rest = text.replace(/^\/unlock(@\S+)?\s*/i, '').trim();
+
+      if (!appLockService.isLockConfigured()) {
+        await ctx.reply(this.t('unlockNotConfigured'));
+        return;
+      }
+      if (appLockService.isUnlocked()) {
+        await ctx.reply(this.t('unlockAlready'));
+        return;
+      }
+
+      if (!rest) {
+        const prev = this.chatStates.get(chatId);
+        this.chatStates.set(chatId, {
+          chatId,
+          userId,
+          isNotificationEnabled: prev?.isNotificationEnabled ?? false,
+          isAdmin: this.config.adminChatIds.includes(chatId),
+          conversationContext: 'pending_unlock',
+          chatHistory: prev?.chatHistory
+        });
+        await ctx.reply(this.t('unlockSendPassword'), { parse_mode: 'HTML' });
+        return;
+      }
+
+      await this.tryUnlockFromTelegram(ctx, rest);
+    } catch (error) {
+      serverLogger.error('Error handling /unlock', { error });
+      await ctx.reply(this.t('unlockError'));
+    }
+  }
+
+  private async tryUnlockFromTelegram(ctx: Context, password: string): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    if (!password) {
+      await ctx.reply(this.t('unlockSendPassword'), { parse_mode: 'HTML' });
+      return;
+    }
+
+    try {
+      const ok = appLockService.tryUnlock(password);
+      if (ok) {
+        await profileService.migrateFromEnvIfNeeded();
+      }
+
+      if (chatId) {
+        const st = this.chatStates.get(chatId);
+        if (st?.conversationContext === 'pending_unlock') {
+          delete st.conversationContext;
+          this.chatStates.set(chatId, st);
+        }
+      }
+
+      await ctx.reply(ok ? this.t('unlockSuccess') : this.t('unlockWrong'));
+
+      try {
+        await ctx.deleteMessage();
+      } catch (e) {
+        serverLogger.debug('Telegram deleteMessage after unlock attempt', { error: e });
+      }
+    } catch (e: any) {
+      serverLogger.error('Telegram tryUnlockFromTelegram failed', { error: e });
+      await ctx.reply(this.t('unlockError'));
+    }
+  }
+
+  /**
    * Exit chat mode (/done or /cancel)
    */
   private async handleDoneCommand(ctx: Context): Promise<void> {
@@ -1325,13 +1494,14 @@ export class TelegramBotService {
       }
 
       const state = this.chatStates.get(chatId);
+      const wasPendingUnlock = state?.conversationContext === 'pending_unlock';
       if (state) {
         state.conversationContext = undefined;
         state.chatHistory = undefined; // Clear so next /chat starts fresh
         this.chatStates.set(chatId, state);
       }
 
-      await ctx.reply(this.t('exitedChatMode'));
+      await ctx.reply(wasPendingUnlock ? this.t('unlockCancelled') : this.t('exitedChatMode'));
     } catch (error) {
       serverLogger.error('Error handling done command', { error });
       await ctx.reply(this.t('errorExitingChatMode'));

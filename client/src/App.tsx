@@ -4,9 +4,11 @@ import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { ImportModal } from './components/ImportModal';
 import { FinancialCommandCenter } from './components/dashboard/FinancialCommandCenter';
-import { useScrapeResults, useUpdateTransactionCategory } from './hooks/useScraper';
+import { useScrapeResults, useUpdateTransactionCategory, useRecategorizeAll } from './hooks/useScraper';
+import { useSocket } from './hooks/useSocket';
 import { useUnifiedData } from './hooks/useUnifiedData';
 import { ScrapeWorkspace } from './components/scrape/ScrapeWorkspace';
+import { AppLockBanner } from './components/AppLockBanner';
 
 
 function App() {
@@ -35,6 +37,8 @@ function App() {
     }, [scrapeResults, unifiedTransactions, isLoadingScrape, isLoadingUnified, hasCheckedData]);
 
     const { mutate: updateCategory } = useUpdateTransactionCategory();
+    const { categorizationFailure, clearCategorizationFailure } = useSocket();
+    const { mutate: recategorizeAll, isPending: isRecategorizingCat } = useRecategorizeAll();
 
     const handleUpdateCategory = (transactionId: string, category: string) => {
         updateCategory({ transactionId, category });
@@ -48,6 +52,11 @@ function App() {
     const handleNavigateToAILogs = () => {
         setInitialLogType('ai');
         setView('logs');
+    };
+
+    const openAiSettingsTab = () => {
+        sessionStorage.setItem('configOpenTab', 'ai');
+        setView('configuration');
     };
 
     return (
@@ -111,6 +120,62 @@ function App() {
                         </div>
                     </div>
                 </header>
+
+                <AppLockBanner />
+
+                {categorizationFailure && (
+                    <div
+                        className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-3 text-amber-950 flex flex-wrap items-center gap-3 justify-between"
+                        role="alert"
+                    >
+                        <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-sm">{t('categorization.banner_title')}</p>
+                            <p className="text-sm text-amber-900/90 break-words">
+                                {t('categorization.banner_detail', { error: categorizationFailure.error })}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                disabled={isRecategorizingCat}
+                                onClick={() =>
+                                    recategorizeAll(false, {
+                                        onSuccess: (data) => {
+                                            clearCategorizationFailure();
+                                            if (data.error) {
+                                                window.alert(t('ai_settings.recategorize_ai_failed', { error: data.error, count: data.count }));
+                                            }
+                                        },
+                                        onError: (err: unknown) => {
+                                            window.alert(
+                                                t('common.error_with_message', {
+                                                    error: err instanceof Error ? err.message : t('common.unknown_error'),
+                                                })
+                                            );
+                                        },
+                                    })
+                                }
+                                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium disabled:opacity-50"
+                            >
+                                {isRecategorizingCat ? t('common.loading') : t('categorization.retry')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={openAiSettingsTab}
+                                className="px-3 py-1.5 rounded-lg border border-amber-300 text-sm font-medium hover:bg-amber-100"
+                            >
+                                {t('categorization.open_ai_settings')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={clearCategorizationFailure}
+                                className="px-3 py-1.5 text-sm text-amber-900/80 hover:underline"
+                            >
+                                {t('categorization.dismiss')}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex flex-1 overflow-hidden">
                     <div className="flex-1 overflow-hidden relative bg-gray-50/50">

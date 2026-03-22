@@ -18,14 +18,12 @@ export class ConfigService {
         'GOOGLE_CLIENT_SECRET',
         'GOOGLE_REDIRECT_URI',
         'PORT',
-        'DATA_DIR',
-        'ENCRYPTION_KEY'
+        'DATA_DIR'
     ];
 
     private readonly sensitiveKeys = [
         'GEMINI_API_KEY',
-        'GOOGLE_CLIENT_SECRET',
-        'ENCRYPTION_KEY'
+        'GOOGLE_CLIENT_SECRET'
     ];
 
     async getEnv(): Promise<Record<string, string>> {

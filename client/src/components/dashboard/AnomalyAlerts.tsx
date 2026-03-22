@@ -21,6 +21,53 @@ export function AnomalyAlerts({ anomalies = [] }: AnomalyAlertsProps) {
             maximumFractionDigits: 0,
         }).format(amount);
 
+    const formatAlertDescription = (anomaly: AnomalyAlert) => {
+        const base = `dashboard.anomaly.${anomaly.type}.desc`;
+        if (anomaly.type === 'missing_expected') {
+            const itemType =
+                anomaly.meta?.itemType === 'income'
+                    ? t('dashboard.anomaly.item_income')
+                    : t('dashboard.anomaly.item_bill');
+            return t(base, { itemType, defaultValue: anomaly.description });
+        }
+        return t(base, { category: anomaly.category ?? '', defaultValue: anomaly.description });
+    };
+
+    const formatAlertMessage = (anomaly: AnomalyAlert) => {
+        if (anomaly.type === 'whale') {
+            const hasAvg = anomaly.expectedValue != null && anomaly.expectedValue > 0;
+            if (hasAvg) {
+                return t('dashboard.anomaly.whale.msg_with_avg', {
+                    category: anomaly.category ?? '',
+                    amount: formatCurrency(anomaly.currentValue ?? 0),
+                    avgAmount: formatCurrency(anomaly.expectedValue ?? 0),
+                    defaultValue: anomaly.message,
+                });
+            }
+            return t('dashboard.anomaly.whale.msg_no_avg', {
+                category: anomaly.category ?? '',
+                amount: formatCurrency(anomaly.currentValue ?? 0),
+                defaultValue: anomaly.message,
+            });
+        }
+        if (anomaly.type === 'missing_expected') {
+            const dateLabel = anomaly.meta?.expectedDateIso
+                ? new Intl.DateTimeFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
+                      dateStyle: 'medium',
+                  }).format(new Date(anomaly.meta.expectedDateIso))
+                : '';
+            return t('dashboard.anomaly.missing_expected.msg', {
+                description: anomaly.meta?.recurringDescription ?? '',
+                date: dateLabel,
+                defaultValue: anomaly.message,
+            });
+        }
+        return t(`dashboard.anomaly.${anomaly.type}.msg`, {
+            category: anomaly.category ?? '',
+            defaultValue: anomaly.message,
+        });
+    };
+
     const handleDismiss = (id: string) => {
         setDismissedIds(prev => {
             const next = new Set(prev);
@@ -55,6 +102,14 @@ export function AnomalyAlerts({ anomalies = [] }: AnomalyAlertsProps) {
                     bg: 'bg-blue-50/90',
                     border: 'border-blue-200',
                 };
+            case 'whale':
+                return {
+                    icon: '🐋',
+                    iconBg: 'bg-indigo-100',
+                    color: 'text-indigo-800',
+                    bg: 'bg-indigo-50/90',
+                    border: 'border-indigo-200',
+                };
             default:
                 return {
                     icon: 'ℹ️',
@@ -81,10 +136,10 @@ export function AnomalyAlerts({ anomalies = [] }: AnomalyAlertsProps) {
 
                         <div className="flex-1 mt-0.5">
                             <h4 className={`text-sm font-bold ${config.color} mb-1 flex items-center justify-between`}>
-                                <span>{t(`dashboard.anomaly_desc_${anomaly.id}`, anomaly.description)}</span>
+                                <span>{formatAlertDescription(anomaly)}</span>
                             </h4>
                             <p className="text-sm text-gray-700 leading-relaxed max-w-2xl">
-                                {t(`dashboard.anomaly_msg_${anomaly.id}`, anomaly.message)}
+                                {formatAlertMessage(anomaly)}
                             </p>
                             {anomaly.currentValue !== undefined && anomaly.expectedValue !== undefined && (
                                 <div className="mt-3 flex items-center gap-4 text-xs font-mono bg-white/50 inline-flex p-2 rounded-lg border border-white/20">

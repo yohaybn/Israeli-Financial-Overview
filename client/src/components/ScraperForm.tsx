@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { ProviderDefinition, ScrapeRequest, ScraperOptions, ScrapeResult, Profile, GlobalScrapeConfig } from '@app/shared';
 import { ProfileManager } from './ProfileManager';
 import { useCreateProfile } from '../hooks/useProfiles';
+import { useAppLockStatus } from '../hooks/useAppLock';
 
 // Fetch provider definitions from the server
 function useProviders() {
@@ -45,6 +46,8 @@ function useGlobalConfig() {
 
 export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void }) {
     const { t, i18n } = useTranslation();
+    const { data: appLock } = useAppLockStatus();
+    const restricted = Boolean(appLock?.restricted);
     const { data: providers, isLoading: isLoadingProviders } = useProviders();
     const { mutate: runScrape, isPending, isSuccess, isError, error, reset } = useRunScrape();
 
@@ -110,6 +113,7 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProvider) return;
+        if (restricted) return;
 
         const request: ScrapeRequest = {
             companyId: selectedProvider,
@@ -207,6 +211,7 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
                 onLoadProfile={handleLoadProfile}
                 onAddNewProfile={handleAddNewProfile}
                 hideSaveButton={true}
+                restrictNewProfile={restricted}
             />
 
             <div className={`border-t pt-4 space-y-4`}>
@@ -528,8 +533,9 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
 
                             <button
                                 onClick={handleSubmit}
-                                disabled={isPending}
-                                className={`w-full flex justify-center py-4 px-6 border border-transparent rounded-xl shadow-lg text-lg font-black text-white transition-all transform hover:scale-[1.01] active:scale-[0.98] ${isPending ? 'bg-blue-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'}`}
+                                disabled={isPending || restricted}
+                                title={restricted ? t('app_lock.locked_title') : undefined}
+                                className={`w-full flex justify-center py-4 px-6 border border-transparent rounded-xl shadow-lg text-lg font-black text-white transition-all transform hover:scale-[1.01] active:scale-[0.98] ${isPending || restricted ? 'bg-blue-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'}`}
                             >
                                 {isPending ? (
                                     <span className="flex items-center gap-3">
