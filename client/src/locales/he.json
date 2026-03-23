@@ -81,7 +81,11 @@
         "automation_desc": "תזמון והפעלה של סריקות אוטומטיות",
         "solution": "Solution",
         "dismiss": "Dismiss",
-        "select": "Select"
+        "select": "Select",
+        "language_toggle_aria": "החלפת שפה",
+        "open_configuration_aria": "פתיחת הגדרות",
+        "profile_placeholder_aria": "פרופיל",
+        "main_navigation_aria": "ניווט ראשי"
     },
     "scheduler": {
         "title": "מתזמן",
@@ -525,6 +529,9 @@
         }
     },
     "dashboard": {
+        "overview_title": "סקירה פיננסית",
+        "overview_subtitle": "מודיעין בזמן אמת וארכיטקטורת תיק.",
+        "month_picker_aria": "בחירת חודש",
         "title": "מרכז פיקוד פיננסי",
         "select_data": "בחר קבצי עסקאות כדי לצפות בלוח הבקרה הפיננסי",
         "select_hint": "בחר קבצים מהסרגל הצדדי כדי להתחיל לנתח",
@@ -682,7 +689,10 @@
         "total_extra_forecast": "סה״כ תוספת משתנה",
         "no_alerts": "No alerts",
         "top_insights_title": "תובנות AI מובילות",
-        "top_insights_subtitle": "חשיבות גבוהה ביותר (100 = הכי חשוב)",
+        "top_insights_subtitle": "מבוסס על הניתוח האחרון שלך",
+        "top_insights_new_badge": "{{count}} חדש",
+        "collapse_top_insights_aria": "כיווץ תובנות",
+        "expand_top_insights_aria": "הרחבת תובנות",
         "top_insights_empty": "שוחח עם אנליסט ה-AI כדי ליצור תובנות עם ציון—הן יופיעו כאן לפי חשיבות.",
         "insight_score_label": "חשיבות {{score}}/100",
         "dismiss_insight": "הסר תובנה",

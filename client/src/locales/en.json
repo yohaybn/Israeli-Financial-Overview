@@ -81,7 +81,11 @@
         "automation_desc": "Schedule and trigger automated scraper runs",
         "solution": "Solution",
         "dismiss": "Dismiss",
-        "select": "Select"
+        "select": "Select",
+        "language_toggle_aria": "Switch language",
+        "open_configuration_aria": "Open configuration",
+        "profile_placeholder_aria": "Profile",
+        "main_navigation_aria": "Main navigation"
     },
     "scheduler": {
         "title": "Scheduler",
@@ -525,6 +529,9 @@
         }
     },
     "dashboard": {
+        "overview_title": "Financial Overview",
+        "overview_subtitle": "Real-time intelligence and portfolio architecture.",
+        "month_picker_aria": "Select month",
         "title": "Financial Command Center",
         "select_data": "Select transaction files to view your financial dashboard",
         "select_hint": "Choose files from the sidebar to start analyzing",
@@ -681,8 +688,11 @@
         "no_forecast": "No forecast available",
         "total_extra_forecast": "Total extra forecast",
         "no_alerts": "No alerts",
-        "top_insights_title": "Top AI insights",
-        "top_insights_subtitle": "Highest importance (100 = most important)",
+        "top_insights_title": "Top AI Insights",
+        "top_insights_subtitle": "Based on your latest analysis",
+        "top_insights_new_badge": "{{count}} NEW",
+        "collapse_top_insights_aria": "Collapse insights",
+        "expand_top_insights_aria": "Expand insights",
         "top_insights_empty": "Use the AI analyst chat to add scored insights—they appear here by importance.",
         "insight_score_label": "Importance {{score}}/100",
         "dismiss_insight": "Dismiss insight",

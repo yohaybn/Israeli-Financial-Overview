@@ -17,6 +17,12 @@ import { DayTransactionsModal } from './DayTransactionsModal';
 import { getInitialCollapsedOnMobile } from '../../hooks/useInitialCollapsedOnMobile';
 import { TopInsightsCard } from './TopInsightsCard';
 
+function shiftMonth(ym: string, delta: number): string {
+    const d = new Date(ym + '-01');
+    d.setMonth(d.getMonth() + delta);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 interface FinancialCommandCenterProps {
     // Optional: if provided, uses these transactions (for backward compatibility or specific file view)
     // If not provided, fetches unified data internally.
@@ -72,12 +78,10 @@ export function FinancialCommandCenter({
             { month: 'long', year: 'numeric' }
         );
 
-    const changeMonth = (offset: number) => {
-        const date = new Date(selectedMonth + '-01');
-        date.setMonth(date.getMonth() + offset);
-        const newMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        onMonthChange(newMonth);
-    };
+    const adjacentMonths = useMemo(
+        () => [shiftMonth(selectedMonth, -1), selectedMonth, shiftMonth(selectedMonth, 1)] as const,
+        [selectedMonth]
+    );
 
     const parseTransactionDate = (dateValue: string) => {
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
@@ -122,7 +126,7 @@ export function FinancialCommandCenter({
     if (isLoading && !propTransactions) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-12">
-                <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin mb-4"></div>
                 <p className="text-gray-400">{t('common.loading')}</p>
             </div>
         );
@@ -143,42 +147,41 @@ export function FinancialCommandCenter({
 
     return (
         <div className="space-y-6 p-1 animate-in fade-in duration-500">
-            {/* Month selector + tools */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-1">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between pb-1">
+                <div className="min-w-0 flex-1">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                        {t('dashboard.overview_title')}
+                    </h2>
+                </div>
                 <div
-                    className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3"
+                    className="flex flex-row flex-wrap items-center justify-center gap-2 sm:gap-3 shrink-0 w-full lg:w-auto lg:justify-end"
                     dir="ltr"
                 >
-                    <button
-                        type="button"
-                        onClick={() => changeMonth(-1)}
-                        className="p-2.5 rounded-full hover:bg-gray-100 transition-colors group"
-                        aria-label={t('dashboard.previous_month')}
+                    <div
+                        className="inline-flex max-w-full overflow-x-auto scrollbar-none rounded-full bg-gray-100/90 p-1 border border-gray-200/60 shadow-inner"
+                        role="group"
+                        aria-label={t('dashboard.month_picker_aria')}
                     >
-                        <svg className="w-6 h-6 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                    <span className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight min-w-[12rem] text-center sm:text-start tabular-nums">
-                        {formatMonthDate(selectedMonth)}
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() => changeMonth(1)}
-                        className="p-2.5 rounded-full hover:bg-gray-100 transition-colors group"
-                        aria-label={t('dashboard.next_month')}
-                    >
-                        <svg className="w-6 h-6 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
+                        {adjacentMonths.map((ym) => (
+                            <button
+                                key={ym}
+                                type="button"
+                                onClick={() => onMonthChange(ym)}
+                                className={`px-2.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
+                                    ym === selectedMonth
+                                        ? 'bg-white text-emerald-700 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-800'
+                                }`}
+                            >
+                                {formatMonthDate(ym)}
+                            </button>
+                        ))}
+                    </div>
                     <CCPaymentDateSettings />
                 </div>
             </div>
 
-            <div className="animate-fade-in-up max-w-2xl mx-auto w-full" style={{ animationDelay: '90ms' }}>
+            <div className="animate-fade-in-up max-w-6xl mx-auto w-full" style={{ animationDelay: '90ms' }}>
                 <TopInsightsCard />
             </div>
 

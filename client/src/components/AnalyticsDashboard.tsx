@@ -59,21 +59,6 @@ export function AnalyticsDashboard({
         });
     }, [activeDayFilter]);
 
-    if (!displayTransactions || displayTransactions.length === 0) {
-        return (
-            <div className="flex items-center justify-center h-64 text-gray-400">
-                <p>{t('analytics.no_data')}</p>
-            </div>
-        );
-    }
-
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
-            style: 'currency',
-            currency: 'ILS',
-            maximumFractionDigits: 0
-        }).format(value);
-
     const treemapCell = useMemo(() => {
         const rtl = i18n.dir() === 'rtl';
         const lang = i18n.language;
@@ -215,6 +200,21 @@ export function AnalyticsDashboard({
             );
         };
     }, [t, i18n]);
+
+    const formatCurrency = (value: number) =>
+        new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
+            style: 'currency',
+            currency: 'ILS',
+            maximumFractionDigits: 0
+        }).format(value);
+
+    if (!displayTransactions || displayTransactions.length === 0) {
+        return (
+            <div className="flex items-center justify-center h-64 text-gray-400">
+                <p>{t('analytics.no_data')}</p>
+            </div>
+        );
+    }
 
     const getWeekdayLabel = (dayIndex: number) => {
         const baseSunday = new Date(Date.UTC(2024, 0, 7 + dayIndex));
