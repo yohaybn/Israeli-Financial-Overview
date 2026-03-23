@@ -12,6 +12,7 @@ import { AppLockBanner } from './components/AppLockBanner';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
 import { useOnboarding } from './contexts/OnboardingContext';
+import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 
 
 function App() {
@@ -104,6 +105,8 @@ function App() {
                                     {t('common.configuration')}
                                 </button>
                             </div>
+
+                            {view === 'dashboard' && <DashboardAlertsDropdown selectedMonth={selectedMonth} />}
 
                             {onboarding.completed && (
                                 <button

@@ -481,6 +481,11 @@ export class StorageService {
         return true;
     }
 
+    /** Returns true if a transaction with this id exists in the unified DB. */
+    transactionExists(transactionId: string): boolean {
+        return this.dbService.transactionExists(transactionId);
+    }
+
     async updateTransactionMemoUnified(transactionId: string, memo: string): Promise<boolean> {
         // Update DB
         const success = this.dbService.updateTransactionMemo(transactionId, memo);

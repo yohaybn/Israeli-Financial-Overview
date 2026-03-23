@@ -5,9 +5,10 @@ import { CategoryIcon } from '../../utils/categoryIcons';
 
 interface AnomalyAlertsProps {
     anomalies?: AnomalyAlert[];
+    className?: string;
 }
 
-export function AnomalyAlerts({ anomalies = [] }: AnomalyAlertsProps) {
+export function AnomalyAlerts({ anomalies = [], className }: AnomalyAlertsProps) {
     const { t, i18n } = useTranslation();
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
@@ -123,7 +124,7 @@ export function AnomalyAlerts({ anomalies = [] }: AnomalyAlertsProps) {
     };
 
     return (
-        <div className="space-y-3 mb-6">
+        <div className={className ?? 'space-y-3 mb-6'}>
             {activeAnomalies.map((anomaly) => {
                 const config = getTypeConfig(anomaly.type);
                 return (

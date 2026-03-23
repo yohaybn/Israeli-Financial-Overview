@@ -150,6 +150,9 @@ export class PostScrapeService {
         }
       }
 
+      const sendTelegram = channels.includes('telegram');
+      const channelsNoTelegram = channels.filter((c) => c !== 'telegram');
+
       const headline =
         botLanguage === 'he'
           ? `${items.length} תנועות חדשות: נא להוסיף הערה או לדייק קטגוריה (העברות / אחר).`
@@ -183,7 +186,18 @@ export class PostScrapeService {
         },
       };
 
-      await this.notifyWithTelegramAggregation(channels, payload, request);
+      await this.notifyWithTelegramAggregation(channelsNoTelegram, payload, request);
+
+      if (sendTelegram) {
+        try {
+          await telegramBotService.sendMemoReplyPromptsForReview(items, request, botLanguage);
+        } catch (e) {
+          logger.warn('Transaction review: Telegram memo reply prompts failed', {
+            error: (e as Error).message,
+          });
+        }
+      }
+
       logger.info('Transaction review reminder sent', { count: items.length });
     } catch (err) {
       logger.warn('maybeNotifyTransactionReview failed', { error: (err as Error).message });

@@ -14,7 +14,7 @@ import { ScraperService } from './scraperService.js';
 import { profileService, ProfileService } from './profileService.js';
 import { appLockService } from './appLockService.js';
 import { StorageService } from './storageService.js';
-import { Profile, ScrapeRequest, ScrapeResult } from '@app/shared';
+import { Profile, ScrapeRequest, ScrapeResult, type TransactionReviewItem } from '@app/shared';
 import { postScrapeService } from './postScrapeService.js';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 
@@ -23,6 +23,8 @@ const __dirname = path.dirname(__filename);
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
 const TEL_CONFIG_PATH = path.join(DATA_DIR, 'config', 'telegram_config.json');
+const MEMO_REPLY_MAP_PATH = path.join(DATA_DIR, 'telegram_memo_reply_map.json');
+const MEMO_REPLY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface TelegramConfig {
   botToken: string;
@@ -42,7 +44,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Israeli Bank Scraper Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -107,13 +109,21 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     unlockError: '❌ Unlock failed (server error).',
     appLockedHint:
       '🔒 <b>Application is locked</b>\n\nScraping from Telegram is off until you unlock.\n\n<b>Unlock in this chat:</b>\n• <code>/unlock yourpassword</code>\n• or send <code>/unlock</code> alone, then your password in the next message\n\nYou can also unlock in the web dashboard (password field in the orange bar).',
+    memoHelp:
+      '📝 <b>Set transaction memo</b>\n\nCopy a transaction <b>ID</b> from the web dashboard (transaction table / details).\n\n<b>Reply to review notification:</b> reply to the per-transaction message with your memo text.\n\n<b>One line:</b>\n<code>/memo TRANSACTION_ID Your note here</code>\n\n<b>Two steps:</b>\n<code>/memo TRANSACTION_ID</code>\n→ then send the note as your next message.\n\n/cancel to abort.',
+    memoSendNext: '📝 Send the memo text as your next message, or /cancel to abort.',
+    memoSuccess: '✅ Memo saved for transaction <code>{{id}}</code>.\nPreview: {{preview}}',
+    memoNotFound: '❌ No transaction with that ID. Copy the ID from the web app (unified transaction list).',
+    memoCancelled: 'Memo entry cancelled.',
+    memoReplySendPlainText: 'Send your memo as plain text (not a command).',
+    memoReplyCancelled: 'Cancelled.',
   },
   he: {
     accessDenied: '❌ <b>גישה נדחתה</b>\n\nאין לך הרשאה להשתמש בבוט זה עדיין.',
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט סריקת הבנקים הישראלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -178,6 +188,14 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     unlockError: '❌ ביטול הנעילה נכשל (שגיאת שרת).',
     appLockedHint:
       '🔒 <b>האפליקציה נעולה</b>\n\nסריקה מטלגרם כבויה עד שתבטל את הנעילה.\n\n<b>ביטול נעילה בצ׳אט:</b>\n• <code>/unlock הסיסמה</code>\n• או שלח <code>/unlock</code> לבד, ואז את הסיסמה בהודעה הבאה\n\nאפשר גם לבטל נעילה בדשבורד האינטרנט (שדה סיסמה בשורה הכתומה).',
+    memoHelp:
+      '📝 <b>הוספת הערה לעסקה</b>\n\nהעתק את <b>מזהה העסקה</b> מלוח הבקרה (טבלת עסקאות / פרטים).\n\n<b>תשובה להתראה:</b> השב להודעה שמציגה עסקה אחת והקלד את ההערה.\n\n<b>בשורה אחת:</b>\n<code>/memo מזהה_עסקה הטקסט שלך</code>\n\n<b>בשתי שליחות:</b>\n<code>/memo מזהה_עסקה</code>\n→ ואז שלח את ההערה בהודעה הבאה.\n\n/cancel לביטול.',
+    memoSendNext: '📝 שלח את טקסט ההערה בהודעה הבאה, או /cancel לביטול.',
+    memoSuccess: '✅ ההערה נשמרה לעסקה <code>{{id}}</code>.\nתצוגה: {{preview}}',
+    memoNotFound: '❌ לא נמצאה עסקה עם המזהה הזה. העתק את המזהה מהאפליקציה (רשימת עסקאות מאוחדת).',
+    memoCancelled: 'הזנת ההערה בוטלה.',
+    memoReplySendPlainText: 'שלח את ההערה כטקסט רגיל (לא פקודה).',
+    memoReplyCancelled: 'בוטל.',
   },
 };
 
@@ -192,6 +210,8 @@ export interface TelegramChatState {
   pendingScrapeStartDate?: string;
   /** Bounded conversation history for AI chat to reduce repetition (last N turns) */
   chatHistory?: ConversationTurn[];
+  /** After `/memo <id>` with no text, user sends memo body in the next message */
+  pendingMemoTxnId?: string;
 }
 
 export class TelegramBotService {
@@ -202,6 +222,10 @@ export class TelegramBotService {
   private scraperService: ScraperService | null = null;
   private isRunning: boolean = false;
   private lastStartError: string | null = null;
+
+  /** Maps `${chatId}_${messageId}` → memo reply prompt for "reply with memo" notifications */
+  private memoReplyMap: Map<string, { txnId: string; at: number }> = new Map();
+  private memoReplyMapLoaded = false;
 
   /** Translate a key using the configured bot language */
   private t(key: string): string {
@@ -345,9 +369,9 @@ export class TelegramBotService {
   /** Reply keyboard with common commands (bot language is independent of this). */
   private buildCommandKeyboard(oneTime: boolean) {
     const kb = Markup.keyboard([
-      ['/chat', '/scrape', '/status'],
-      ['/subscribe', '/unsubscribe', '/settings'],
-      ['/unlock', '/help']
+      ['/chat', '/scrape', '/memo'],
+      ['/status', '/subscribe', '/unsubscribe'],
+      ['/settings', '/unlock', '/help'],
     ]).resize();
     return oneTime ? kb.oneTime() : kb;
   }
@@ -639,6 +663,10 @@ export class TelegramBotService {
     this.bot.command('unlock', async (ctx) => {
       await this.handleUnlockCommand(ctx);
     });
+
+    this.bot.command('memo', async (ctx) => {
+      await this.handleMemoCommand(ctx);
+    });
   }
 
   /**
@@ -684,6 +712,33 @@ export class TelegramBotService {
         const rawText = (ctx.message as any).text || '';
         const text = rawText.trim();
 
+        // Reply to a per-transaction "set memo" prompt (from transaction review notification)
+        const replyToMsg = ctx.message?.reply_to_message as { message_id?: number } | undefined;
+        if (replyToMsg && typeof replyToMsg.message_id === 'number') {
+          const txnIdFromPrompt = this.getMemoReplyTarget(chatId, replyToMsg.message_id);
+          if (txnIdFromPrompt) {
+            const userId = ctx.from?.id.toString() || '';
+            if (!this.isUserAuthorized(userId)) {
+              this.logUnauthorizedAttempt(ctx, 'memo_reply_to_prompt');
+              await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>`, { parse_mode: 'HTML' });
+              return;
+            }
+            if (text.startsWith('/')) {
+              if (text.startsWith('/cancel') || text.startsWith('/done')) {
+                this.removeMemoReplyTarget(chatId, replyToMsg.message_id);
+                await ctx.reply(this.t('memoReplyCancelled'));
+                return;
+              }
+              await ctx.reply(this.t('memoReplySendPlainText'), { parse_mode: 'HTML' });
+              return;
+            }
+            await this.applyMemoFromTelegram(ctx, txnIdFromPrompt, text, {
+              replyPromptMessageId: replyToMsg.message_id,
+            });
+            return;
+          }
+        }
+
         // App lock: waiting for password after /unlock
         if (state?.conversationContext === 'pending_unlock') {
           const userId = ctx.from?.id.toString() || '';
@@ -704,6 +759,25 @@ export class TelegramBotService {
           return;
         }
 
+        if (state?.conversationContext === 'pending_memo' && state.pendingMemoTxnId) {
+          const userId = ctx.from?.id.toString() || '';
+          if (!this.isUserAuthorized(userId)) {
+            this.logUnauthorizedAttempt(ctx, 'pending_memo');
+            await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>`, { parse_mode: 'HTML' });
+            return;
+          }
+          if (text.startsWith('/')) {
+            if (text.startsWith('/cancel') || text.startsWith('/done')) {
+              await this.handleDoneCommand(ctx);
+              return;
+            }
+            await ctx.reply(this.t('memoSendNext'), { parse_mode: 'HTML' });
+            return;
+          }
+          await this.applyMemoFromTelegram(ctx, state.pendingMemoTxnId, text);
+          return;
+        }
+
         // If in chat mode, handle as AI query
         if (state?.conversationContext === 'chat') {
           await this.handleAIChat(ctx, ctx.message.text);
@@ -718,8 +792,8 @@ export class TelegramBotService {
 
         // If message looks like an unknown command, show command buttons
         if (rawText.startsWith('/')) {
-          const known = ['/scrape', '/chat', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel', '/unlock'];
-          const cmd = rawText.split(' ')[0];
+          const known = ['/scrape', '/chat', '/memo', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel', '/unlock'];
+          const cmd = rawText.split(/\s/)[0].split('@')[0];
           if (!known.includes(cmd)) {
             await ctx.reply(this.t('unknownCommand'), this.buildCommandKeyboard(true));
             return;
@@ -926,6 +1000,7 @@ export class TelegramBotService {
   private async handleScrapeAllExecution(ctx: Context, startDate?: string): Promise<void> {
     const userId = ctx.from?.id.toString() || '';
     const chatId = ctx.chat?.id?.toString();
+    const chatIdNum = ctx.chat?.id;
 
     if (!this.isUserAuthorized(userId)) {
       this.logUnauthorizedAttempt(ctx, `scrape_all${startDate ? `_from_${startDate}` : ''}`);
@@ -941,6 +1016,12 @@ export class TelegramBotService {
     if (profiles.length === 0) {
       await ctx.reply(this.t('noProfiles'));
       return;
+    }
+
+    let statusMsg: Message | undefined;
+    if (chatIdNum) {
+      await ctx.sendChatAction('typing');
+      statusMsg = await ctx.reply(this.t('scraperExecuting'));
     }
 
     const batchRequest: ScrapeRequest = {
@@ -962,10 +1043,24 @@ export class TelegramBotService {
 
     const results: ScrapeResult[] = [];
     const allNewTransactionIds: string[] = [];
+    const summaryLines: string[] = [];
     for (const profile of profiles) {
       const { result, newTransactionIds } = await this.executeScrapeForProfile(ctx, profile, userId, startDate, true);
       if (result) results.push(result);
       allNewTransactionIds.push(...newTransactionIds);
+      const label = profile.name || profile.id;
+      if (result?.success) {
+        const n = result.transactions?.length ?? 0;
+        summaryLines.push(`✅ ${label}: ${n} ${this.t('transactionsLabel')}`);
+      } else {
+        summaryLines.push(`❌ ${label}: ${result?.error || this.t('errorScraper')}`);
+      }
+    }
+
+    if (statusMsg && chatIdNum) {
+      const body = summaryLines.length > 0 ? summaryLines.join('\n') : this.t('errorScraper');
+      const finalText = `${this.t('scraperSuccess')}\n\n${body}`.slice(0, 4096);
+      await this.editTelegramStatusMessage(ctx, chatIdNum, statusMsg.message_id, finalText);
     }
 
     if (results.length > 0) {
@@ -1264,6 +1359,17 @@ export class TelegramBotService {
   }
 
   /**
+   * Edit a status placeholder message (e.g. "scraping…"); fall back to a new reply if edit fails.
+   */
+  private async editTelegramStatusMessage(ctx: Context, chatId: number, messageId: number, text: string): Promise<void> {
+    try {
+      await ctx.telegram.editMessageText(chatId, messageId, undefined, text);
+    } catch (e) {
+      await ctx.reply(text);
+    }
+  }
+
+  /**
    * Handle scraper execution from Telegram
    */
   private async handleScraperExecution(ctx: Context, profileId: string, startDate?: string): Promise<void> {
@@ -1281,17 +1387,31 @@ export class TelegramBotService {
 
       await ctx.answerCbQuery(this.t('scraperStarting'));
 
+      const chatIdNum = ctx.chat?.id;
+      if (!chatIdNum) return;
+
+      let statusMsg: Message | undefined;
       try {
+        await ctx.sendChatAction('typing');
+        statusMsg = await ctx.reply(this.t('scraperExecuting'));
+
         const profile = await this.getProfileService().getProfile(profileId);
         if (!profile) {
-          await ctx.reply(this.t('profileNotFound'));
+          await this.editTelegramStatusMessage(ctx, chatIdNum, statusMsg.message_id, this.t('profileNotFound'));
           return;
         }
-        await this.executeScrapeForProfile(ctx, profile, userId, startDate, false);
-
+        await this.executeScrapeForProfile(ctx, profile, userId, startDate, false, {
+          chatId: chatIdNum,
+          messageId: statusMsg.message_id,
+        });
       } catch (scraperError: any) {
         serverLogger.error('Scraper execution failed', { scraperError });
-        await ctx.reply(`${this.t('errorScraper')}: ${scraperError.message}`);
+        const errText = `${this.t('errorScraper')}: ${scraperError.message}`;
+        if (statusMsg) {
+          await this.editTelegramStatusMessage(ctx, chatIdNum, statusMsg.message_id, errText);
+        } else {
+          await ctx.reply(errText);
+        }
       }
     } catch (error) {
       serverLogger.error('Error handling scrape callback', { error });
@@ -1308,7 +1428,8 @@ export class TelegramBotService {
     profile: Profile,
     userId: string,
     startDate?: string,
-    isPartOfBatch?: boolean
+    isPartOfBatch?: boolean,
+    statusMessage?: { chatId: number; messageId: number }
   ): Promise<{ result: ScrapeResult | null; newTransactionIds: string[] }> {
     const scraperService = this.getScraperService();
     const scrapeRequest: ScrapeRequest = {
@@ -1340,7 +1461,12 @@ export class TelegramBotService {
     const result = await scraperService.runScrape(scrapeRequest);
     if (!result.success) {
       if (!isPartOfBatch) {
-        await ctx.reply(`${this.t('scrapeFailedPrefix')} ${result.error || this.t('errorScraper')}`);
+        const failText = `${this.t('scrapeFailedPrefix')} ${result.error || this.t('errorScraper')}`;
+        if (statusMessage) {
+          await this.editTelegramStatusMessage(ctx, statusMessage.chatId, statusMessage.messageId, failText);
+        } else {
+          await ctx.reply(failText);
+        }
       }
       return { result, newTransactionIds: [] };
     }
@@ -1364,6 +1490,11 @@ export class TelegramBotService {
         transactionCount: txnCount,
         startDate: startDate || 'global-default',
       });
+      if (statusMessage) {
+        const name = profile.name || profile.id;
+        const successText = `${this.t('scraperSuccess')}\n\n${this.t('profileLabel')}: ${name}\n${this.t('transactionsLabel')}: ${txnCount}`;
+        await this.editTelegramStatusMessage(ctx, statusMessage.chatId, statusMessage.messageId, successText);
+      }
     }
     return { result, newTransactionIds };
   }
@@ -1514,17 +1645,235 @@ export class TelegramBotService {
 
       const state = this.chatStates.get(chatId);
       const wasPendingUnlock = state?.conversationContext === 'pending_unlock';
+      const wasPendingMemo = state?.conversationContext === 'pending_memo';
       if (state) {
         state.conversationContext = undefined;
+        state.pendingMemoTxnId = undefined;
         state.chatHistory = undefined; // Clear so next /chat starts fresh
         this.chatStates.set(chatId, state);
       }
 
-      await ctx.reply(wasPendingUnlock ? this.t('unlockCancelled') : this.t('exitedChatMode'));
+      const msg = wasPendingUnlock
+        ? this.t('unlockCancelled')
+        : wasPendingMemo
+          ? this.t('memoCancelled')
+          : this.t('exitedChatMode');
+      await ctx.reply(msg);
     } catch (error) {
       serverLogger.error('Error handling done command', { error });
       await ctx.reply(this.t('errorExitingChatMode'));
     }
+  }
+
+  private escapeTgHtml(text: string): string {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  private clearPendingMemoState(chatId: string | undefined): void {
+    if (!chatId) return;
+    const state = this.chatStates.get(chatId);
+    if (!state) return;
+    state.pendingMemoTxnId = undefined;
+    if (state.conversationContext === 'pending_memo') state.conversationContext = undefined;
+    this.chatStates.set(chatId, state);
+  }
+
+  private async applyMemoFromTelegram(
+    ctx: Context,
+    txnId: string,
+    memo: string,
+    opts?: { replyPromptMessageId?: number }
+  ): Promise<void> {
+    const trimmed = (memo || '').trim();
+    if (!trimmed) {
+      await ctx.reply(this.t('memoSendNext'), { parse_mode: 'HTML' });
+      return;
+    }
+    const storage = this.getStorageService();
+    const ok = await storage.updateTransactionMemoUnified(txnId, trimmed);
+    if (!ok) {
+      await ctx.reply(this.t('memoNotFound'));
+      this.clearPendingMemoState(ctx.chat?.id?.toString());
+      return;
+    }
+    const preview = trimmed.length > 400 ? `${trimmed.slice(0, 400)}…` : trimmed;
+    const msg = this.t('memoSuccess')
+      .replace(/\{\{id\}\}/g, this.escapeTgHtml(txnId))
+      .replace(/\{\{preview\}\}/g, this.escapeTgHtml(preview));
+    await ctx.reply(msg, { parse_mode: 'HTML' });
+    this.clearPendingMemoState(ctx.chat?.id?.toString());
+    const chatId = ctx.chat?.id?.toString();
+    if (opts?.replyPromptMessageId != null && chatId) {
+      this.removeMemoReplyTarget(chatId, opts.replyPromptMessageId);
+    }
+  }
+
+  private async handleMemoCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/memo');
+        await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`, { parse_mode: 'HTML' });
+        return;
+      }
+      const chatId = ctx.chat?.id?.toString();
+      if (!chatId) return;
+      const raw = ((ctx.message as Message.TextMessage)?.text || '').trim();
+      const parts = raw.split(/\s+/).filter(Boolean);
+      const cmd0 = (parts[0] || '').split('@')[0];
+      if (cmd0 !== '/memo') return;
+      if (parts.length < 2) {
+        await ctx.reply(this.t('memoHelp'), { parse_mode: 'HTML' });
+        return;
+      }
+      const txnId = parts[1];
+      const memoLine = parts.slice(2).join(' ').trim();
+      const storage = this.getStorageService();
+      if (!storage.transactionExists(txnId)) {
+        await ctx.reply(this.t('memoNotFound'));
+        return;
+      }
+      if (memoLine.length > 0) {
+        await this.applyMemoFromTelegram(ctx, txnId, memoLine);
+        return;
+      }
+      const state = this.chatStates.get(chatId) || {
+        chatId,
+        userId,
+        isNotificationEnabled: false,
+        isAdmin: this.config.adminChatIds.includes(chatId),
+      };
+      state.conversationContext = 'pending_memo';
+      state.pendingMemoTxnId = txnId;
+      this.chatStates.set(chatId, state);
+      await ctx.reply(this.t('memoSendNext'), { parse_mode: 'HTML' });
+    } catch (err) {
+      serverLogger.error('Error in /memo command', { error: err });
+      await ctx.reply(this.t('errorProcessing'));
+    }
+  }
+
+  private ensureMemoReplyMapLoaded(): void {
+    if (this.memoReplyMapLoaded) return;
+    this.memoReplyMapLoaded = true;
+    try {
+      if (fs.existsSync(MEMO_REPLY_MAP_PATH)) {
+        const raw = fs.readJsonSync(MEMO_REPLY_MAP_PATH) as { entries?: Record<string, { txnId: string; at: number }> };
+        const entries = raw?.entries || {};
+        const now = Date.now();
+        for (const [k, v] of Object.entries(entries)) {
+          if (v?.txnId && typeof v.at === 'number' && now - v.at < MEMO_REPLY_TTL_MS) {
+            this.memoReplyMap.set(k, { txnId: v.txnId, at: v.at });
+          }
+        }
+      }
+    } catch (e) {
+      serverLogger.warn('Failed to load telegram memo reply map', { error: (e as Error).message });
+    }
+  }
+
+  private persistMemoReplyMap(): void {
+    try {
+      const entries: Record<string, { txnId: string; at: number }> = {};
+      const now = Date.now();
+      for (const [k, v] of this.memoReplyMap.entries()) {
+        if (now - v.at < MEMO_REPLY_TTL_MS) entries[k] = v;
+      }
+      fs.ensureDirSync(path.dirname(MEMO_REPLY_MAP_PATH));
+      fs.writeJsonSync(MEMO_REPLY_MAP_PATH, { entries }, { spaces: 2 });
+    } catch (e) {
+      serverLogger.warn('Failed to persist telegram memo reply map', { error: (e as Error).message });
+    }
+  }
+
+  private getMemoReplyTarget(chatId: string, messageId: number): string | null {
+    this.ensureMemoReplyMapLoaded();
+    const k = `${chatId}_${messageId}`;
+    const v = this.memoReplyMap.get(k);
+    if (!v) return null;
+    if (Date.now() - v.at > MEMO_REPLY_TTL_MS) {
+      this.memoReplyMap.delete(k);
+      this.persistMemoReplyMap();
+      return null;
+    }
+    return v.txnId;
+  }
+
+  private registerMemoReplyTarget(chatId: string, messageId: number, txnId: string): void {
+    this.ensureMemoReplyMapLoaded();
+    const k = `${chatId}_${messageId}`;
+    this.memoReplyMap.set(k, { txnId, at: Date.now() });
+    this.persistMemoReplyMap();
+  }
+
+  private removeMemoReplyTarget(chatId: string, messageId: number): void {
+    this.ensureMemoReplyMapLoaded();
+    const k = `${chatId}_${messageId}`;
+    if (this.memoReplyMap.delete(k)) this.persistMemoReplyMap();
+  }
+
+  private formatMemoReplyPrompt(it: TransactionReviewItem, lang: 'en' | 'he'): string {
+    const tag =
+      it.reason === 'transfers' ? (lang === 'he' ? 'העברות' : 'Transfers') : lang === 'he' ? 'אחר' : 'Other';
+    const desc = this.escapeTgHtml((it.description || '').slice(0, 120));
+    const idEsc = this.escapeTgHtml(it.id);
+    const dateEsc = this.escapeTgHtml(it.date);
+    const amt = typeof it.amount === 'number' ? it.amount.toFixed(2) : String(it.amount);
+    if (lang === 'he') {
+      return (
+        `📝 <b>תנועה לסיווג / הערה</b> (${tag})\n${desc}\n<b>סכום:</b> ₪${amt} · <b>תאריך:</b> ${dateEsc}\n\n<code>${idEsc}</code>\n\n↩️ <b>השב להודעה זו</b> עם ההערה שלך.`
+      );
+    }
+    return (
+      `📝 <b>Transaction — add memo</b> (${tag})\n${desc}\n<b>Amount:</b> ₪${amt} · <b>Date:</b> ${dateEsc}\n\n<code>${idEsc}</code>\n\n↩️ <b>Reply to this message</b> with your memo.`
+    );
+  }
+
+  /**
+   * Sends one Telegram message per transaction so the user can reply with memo text.
+   * Called from post-scrape review reminder (Telegram channel is handled here, not via HTTP notifier).
+   */
+  async sendMemoReplyPromptsForReview(
+    items: TransactionReviewItem[],
+    request: ScrapeRequest | undefined,
+    botLanguage: 'en' | 'he'
+  ): Promise<void> {
+    if (!this.bot || !this.isRunning) {
+      serverLogger.debug('telegramBot: memo reply prompts skipped (bot not running)');
+      return;
+    }
+    const cfg = this.getConfig();
+    const chatIds = new Set<string>();
+    for (const id of cfg.notificationChatIds || []) {
+      if (id) chatIds.add(String(id));
+    }
+    const reqAny = request as any;
+    const tgChat = reqAny?.options?.postScrape?.telegramChatId || reqAny?.options?.telegramChatId;
+    if (tgChat) chatIds.add(String(tgChat));
+    if (chatIds.size === 0) {
+      serverLogger.debug('telegramBot: memo reply prompts skipped (no notification chat IDs)');
+      return;
+    }
+    const lang = botLanguage === 'he' ? 'he' : 'en';
+    const capped = items.slice(0, 12);
+    for (const chatId of chatIds) {
+      for (const it of capped) {
+        const text = this.formatMemoReplyPrompt(it, lang);
+        try {
+          const sent = await this.bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML' });
+          this.registerMemoReplyTarget(chatId, sent.message_id, it.id);
+        } catch (e) {
+          serverLogger.warn('telegramBot: memo reply prompt send failed', {
+            chatId,
+            error: (e as Error).message,
+          });
+        }
+      }
+    }
+    serverLogger.info('telegramBot: memo reply prompts sent', { chats: chatIds.size, items: capped.length });
   }
 
   /**

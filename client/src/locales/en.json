@@ -663,6 +663,7 @@
         "category_spending_details": "Category spending details",
         "open_ai_chat": "Open AI Chat",
         "toggle_alerts": "Toggle alerts",
+        "alerts_title": "Alerts",
         "transactions_for": "Transactions for {{label}}",
         "spending_for": "Spending for {{label}}",
         "projected_monthly": "Projected monthly",
