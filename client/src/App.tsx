@@ -9,10 +9,14 @@ import { useSocket } from './hooks/useSocket';
 import { useUnifiedData } from './hooks/useUnifiedData';
 import { ScrapeWorkspace } from './components/scrape/ScrapeWorkspace';
 import { AppLockBanner } from './components/AppLockBanner';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
+import { useOnboarding } from './contexts/OnboardingContext';
 
 
 function App() {
     const { t, i18n } = useTranslation();
+    const onboarding = useOnboarding();
     const [view, setView] = useState<'dashboard' | 'scrape' | 'logs' | 'configuration'>('dashboard');
     const [initialLogType, setInitialLogType] = useState<'server' | 'client' | 'ai'>('server');
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -37,7 +41,8 @@ function App() {
     }, [scrapeResults, unifiedTransactions, isLoadingScrape, isLoadingUnified, hasCheckedData]);
 
     const { mutate: updateCategory } = useUpdateTransactionCategory();
-    const { categorizationFailure, clearCategorizationFailure } = useSocket();
+    const { categorizationFailure, clearCategorizationFailure, transactionReviewAlert, clearTransactionReviewAlert } =
+        useSocket();
     const { mutate: recategorizeAll, isPending: isRecategorizingCat } = useRecategorizeAll();
 
     const handleUpdateCategory = (transactionId: string, category: string) => {
@@ -100,6 +105,20 @@ function App() {
                                 </button>
                             </div>
 
+                            {onboarding.completed && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (window.confirm(t('onboarding.rerun_confirm'))) {
+                                            onboarding.restartWizard();
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 rounded-md text-xs font-bold text-indigo-700 transition-colors border border-indigo-200"
+                                    title={t('onboarding.rerun_wizard')}
+                                >
+                                    {t('onboarding.rerun_wizard')}
+                                </button>
+                            )}
                             <button
                                 onClick={() => window.open('/GUIDE.html', '_blank')}
                                 className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-bold text-gray-600 transition-colors border border-gray-200 flex items-center gap-1.5"
@@ -122,6 +141,38 @@ function App() {
                 </header>
 
                 <AppLockBanner />
+
+                {onboarding.showResumeBanner && <OnboardingResumeBanner />}
+
+                {transactionReviewAlert && transactionReviewAlert.count > 0 && (
+                    <div
+                        className="shrink-0 bg-sky-50 border-b border-sky-200 px-4 py-3 text-sky-950 flex flex-wrap items-center gap-3 justify-between"
+                        role="alert"
+                    >
+                        <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-sm">{t('transaction_review.banner_title')}</p>
+                            <p className="text-sm text-sky-900/90 break-words">
+                                {t('transaction_review.banner_detail', { count: transactionReviewAlert.count })}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setView('dashboard')}
+                                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium"
+                            >
+                                {t('transaction_review.open_dashboard')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={clearTransactionReviewAlert}
+                                className="px-3 py-1.5 text-sm text-sky-900/80 hover:underline"
+                            >
+                                {t('transaction_review.dismiss')}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {categorizationFailure && (
                     <div
@@ -209,6 +260,8 @@ function App() {
                     // For now, simple success logging.
                 }}
             />
+
+            {onboarding.showModal && <OnboardingWizard />}
         </>
     );
 }

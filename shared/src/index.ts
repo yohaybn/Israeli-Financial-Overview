@@ -18,6 +18,11 @@ export {
     expenseCategoryKey,
     expenseCategoryKeyFromTxn
 } from './expenseCategory.js';
+export {
+    TRANSFERS_CATEGORY_LABEL,
+    transactionNeedsReview
+} from './txnReview.js';
+export type { TransactionReviewReason } from './txnReview.js';
 export { detectRecurring } from './financial/recurring.js';
 export {
     clampTxnPaceRatio,

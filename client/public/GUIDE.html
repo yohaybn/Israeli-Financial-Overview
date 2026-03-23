@@ -116,16 +116,16 @@
                 title: "User Guide",
                 subtitle: "The complete manual for setting up and using the Israeli Bank Scraper.",
                 nav: [
-                    { label: "Configuration", items: [{ id: "env-setup", label: ".env Setup" }, { id: "api-guides", label: "Obtaining Keys" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "Configuration", items: [{ id: "env-setup", label: "Runtime settings" }, { id: "api-guides", label: "Obtaining Keys" }, { id: "google-setup", label: "Google Sheets" }] },
                     { label: "Usage", items: [{ id: "getting-started", label: "Getting Started" }, { id: "scrape", label: "Running Scrapes" }, { id: "profiles", label: "Managing Profiles" }] },
                     { label: "Features", items: [{ id: "results", label: "Results Explorer" }, { id: "ai", label: "AI Features" }, { id: "automation", label: "Automation" }] },
                     { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "credits", label: "Credits" }] }
                 ],
                 sections: {
                     "env-setup": {
-                        title: "⚙️ Environment Setup (.env)",
+                        title: "⚙️ Environment setup (runtime-settings.json)",
                         html: `
-                            <p>To secure your connection and enable advanced features, create a file named <code>.env</code> in your root directory with the following content:</p>
+                            <p>To secure your connection and enable advanced features, create <code>runtime-settings.json</code> in the project root (or use the in-app Environment settings). Example:</p>
                             <div class="code-block">
 DRIVE_FOLDER_ID=(optional)<br>
 GEMINI_API_KEY=(optional)<br>
@@ -144,7 +144,7 @@ ENCRYPTION_KEY=somelongkey
                             <ol>
                                 <li>Go to <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
                                 <li>Sign in and click <strong>"Get API Key"</strong>.</li>
-                                <li>Paste the key into <code>GEMINI_API_KEY</code> in your <code>.env</code>.</li>
+                                <li>Paste the key into <code>GEMINI_API_KEY</code> in <code>runtime-settings.json</code> (or Environment settings).</li>
                             </ol>
                             <h3>Google Drive Folder ID</h3>
                             <p>Required for cloud backups and spreadsheet synchronization.</p>
@@ -180,7 +180,7 @@ ENCRYPTION_KEY=somelongkey
                             <ol>
                                 <li>Navigate to the application URL (usually <code>localhost:3000</code>).</li>
                                 <li>Choose your preferred language.</li>
-                                <li>Set your initial <strong>Master Key</strong> (which matches the <code>ENCRYPTION_KEY</code> in your .env).</li>
+                                <li>Set your initial <strong>Master Key</strong> (which matches <code>ENCRYPTION_KEY</code> in <code>runtime-settings.json</code> if you use legacy migration).</li>
                             </ol>
                         `
                     },
@@ -260,7 +260,7 @@ ENCRYPTION_KEY=somelongkey
                             <ul>
                                 <li><strong>Credentials Rejected:</strong> Ensure you can log in directly on the bank's official website.</li>
                                 <li><strong>Timeout Error:</strong> Increase the <code>timeout</code> setting in the scrape options for slow connections.</li>
-                                <li><strong>Cannot Decrypt:</strong> Double-check your <code>ENCRYPTION_KEY</code> in the .env file matches the one used to save the profile.</li>
+                                <li><strong>Cannot Decrypt:</strong> Double-check your <code>ENCRYPTION_KEY</code> in <code>runtime-settings.json</code> matches the one used to save the profile.</li>
                                 <li><strong>Google Sheets Failed:</strong> Verify your OAuth session hasn't expired or re-authorize the app.</li>
                             </ul>
                             <p>For persistent issues, check the <strong>Logs</strong> tab for technical error codes.</p>
@@ -283,16 +283,16 @@ ENCRYPTION_KEY=somelongkey
                 title: "מדריך למשתמש",
                 subtitle: "המדריך המלא להגדרה ושימוש ב-Israeli Bank Scraper.",
                 nav: [
-                    { label: "הגדרות", items: [{ id: "env-setup", label: "הגדרת .env" }, { id: "api-guides", label: "קבלת מפתחות" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "הגדרות", items: [{ id: "env-setup", label: "הגדרות זמן ריצה" }, { id: "api-guides", label: "קבלת מפתחות" }, { id: "google-setup", label: "Google Sheets" }] },
                     { label: "שימוש", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "scrape", label: "ביצוע סריקה" }, { id: "profiles", label: "ניהול פרופילים" }] },
                     { label: "תכונות", items: [{ id: "results", label: "דפדפן תוצאות" }, { id: "ai", label: "תכונות AI" }, { id: "automation", label: "אוטומציה" }] },
                     { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "credits", label: "קרדיטים" }] }
                 ],
                 sections: {
                     "env-setup": {
-                        title: "⚙️ הגדרת סביבה (.env)",
+                        title: "⚙️ הגדרת סביבה (runtime-settings.json)",
                         html: `
-                            <p>כדי לאבטח את החיבור ולהפעיל תכונות מתקדמות, צור קובץ בשם <code>.env</code> בתיקיית השורש עם התוכן הבא:</p>
+                            <p>כדי לאבטח את החיבור ולהפעיל תכונות מתקדמות, צור את קובץ <code>runtime-settings.json</code> בשורש הפרויקט (או השתמש בהגדרות בממשק). לדוגמה:</p>
                             <div class="code-block">
 DRIVE_FOLDER_ID=(optional)<br>
 GEMINI_API_KEY=(optional)<br>
@@ -311,7 +311,7 @@ ENCRYPTION_KEY=somelongkey
                             <ol>
                                 <li>עבור אל <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
                                 <li>התחבר ולחץ על <strong>"Get API Key"</strong>.</li>
-                                <li>הדבק את המפתח ב- <code>GEMINI_API_KEY</code> בקובץ ה- <code>.env</code>.</li>
+                                <li>הדבק את המפתח ב- <code>GEMINI_API_KEY</code> בקובץ <code>runtime-settings.json</code> (או בהגדרות סביבה באפליקציה).</li>
                             </ol>
                             <h3>מזהה תיקיית Google Drive</h3>
                             <p>נדרש לגיבוי בענן וסנכרון גיליונות.</p>
@@ -347,7 +347,7 @@ ENCRYPTION_KEY=somelongkey
                             <ol>
                                 <li>עבור לכתובת האפליקציה (בדרך כלל <code>localhost:3000</code>).</li>
                                 <li>בחר את השפה המועדפת עליך.</li>
-                                <li>הגדר את ה- <strong>Master Key</strong> הראשוני שלך (התואם ל- <code>ENCRYPTION_KEY</code> ב-env).</li>
+                                <li>הגדר את ה- <strong>Master Key</strong> הראשוני שלך (התואם ל- <code>ENCRYPTION_KEY</code> ב-<code>runtime-settings.json</code> אם יש מיגרציה ישנה).</li>
                             </ol>
                         `
                     },
@@ -427,7 +427,7 @@ ENCRYPTION_KEY=somelongkey
                             <ul>
                                 <li><strong>פרטים נדחו:</strong> ודא שאתה יכול להתחבר לאתר הבנק ישירות.</li>
                                 <li><strong>שגיאת זמן (Timeout):</strong> הגדל את ערך ה-timeout בהגדרות הסריקה.</li>
-                                <li><strong>שגיאת פענוח:</strong> ודא שה- <code>ENCRYPTION_KEY</code> ב-env תואם למפתח איתו נשמר הפרופיל.</li>
+                                <li><strong>שגיאת פענוח:</strong> ודא שה- <code>ENCRYPTION_KEY</code> ב-<code>runtime-settings.json</code> תואם למפתח איתו נשמר הפרופיל.</li>
                             </ul>
                             <p>לבעיות מתקדמות, בדוק את לשונית ה- <strong>Logs</strong> לקבלת קודי שגיאה.</p>
                         `

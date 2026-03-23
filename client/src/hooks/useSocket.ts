@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import type { TransactionReviewItem } from '@app/shared';
+import { api } from '../lib/api';
 
 export interface ScrapeProgress {
     type: string;
@@ -23,6 +25,11 @@ export interface CategorizationFailedEvent {
     error: string;
 }
 
+export interface TransactionReviewNeededEvent {
+    count: number;
+    items: TransactionReviewItem[];
+}
+
 const SOCKET_URL = '';
 
 export function useSocket() {
@@ -32,6 +39,25 @@ export function useSocket() {
     const [logs, setLogs] = useState<ScrapeLog[]>([]);
     const [completion, setCompletion] = useState<ScrapeComplete | null>(null);
     const [categorizationFailure, setCategorizationFailure] = useState<CategorizationFailedEvent | null>(null);
+    const [transactionReviewAlert, setTransactionReviewAlert] = useState<TransactionReviewNeededEvent | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data } = await api.get<{ success: boolean; data: { updatedAt: string; items: TransactionReviewItem[] } | null }>(
+                    '/post-scrape/review-alert'
+                );
+                if (cancelled || !data?.data?.items?.length) return;
+                setTransactionReviewAlert({ count: data.data.items.length, items: data.data.items });
+            } catch {
+                /* offline or first load */
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     useEffect(() => {
         const socketInstance = io(SOCKET_URL, {
@@ -64,6 +90,12 @@ export function useSocket() {
             setCategorizationFailure(data);
         });
 
+        socketInstance.on('transactions:review-needed', (data: TransactionReviewNeededEvent) => {
+            if (data?.items?.length) {
+                setTransactionReviewAlert({ count: data.count ?? data.items.length, items: data.items });
+            }
+        });
+
         setSocket(socketInstance);
 
         return () => {
@@ -81,6 +113,11 @@ export function useSocket() {
         setCategorizationFailure(null);
     }, []);
 
+    const clearTransactionReviewAlert = useCallback(() => {
+        setTransactionReviewAlert(null);
+        void api.delete('/post-scrape/review-alert').catch(() => {});
+    }, []);
+
     return {
         socket,
         isConnected,
@@ -89,6 +126,8 @@ export function useSocket() {
         completion,
         categorizationFailure,
         clearCategorizationFailure,
+        transactionReviewAlert,
+        clearTransactionReviewAlert,
         clearProgress,
     };
 }

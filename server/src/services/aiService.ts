@@ -62,6 +62,47 @@ export interface CategorizeTransactionsResult {
     aiError?: string;
 }
 
+/** Item with importance 1–100 (100 = most important). */
+export interface ScoredMemoryItem {
+    text: string;
+    /** Clamped 1–100 when persisting */
+    score: number;
+}
+
+/** Unified AI chat: model returns user-facing text plus facts, scored insights, and scored alerts. */
+export interface StructuredChatResult {
+    response: string;
+    facts: string[];
+    insights: ScoredMemoryItem[];
+    alerts: ScoredMemoryItem[];
+}
+
+function clampScore(n: unknown): number {
+    const x = typeof n === 'number' ? n : Number(n);
+    if (!Number.isFinite(x)) return 50;
+    return Math.max(1, Math.min(100, Math.round(x)));
+}
+
+/** Parses model JSON: supports `{ text, score }[]` or legacy `string[]` (score 50). */
+export function normalizeScoredItems(raw: unknown, legacyDefaultScore: number = 50): ScoredMemoryItem[] {
+    if (!Array.isArray(raw)) return [];
+    const out: ScoredMemoryItem[] = [];
+    for (const item of raw) {
+        if (typeof item === 'string') {
+            const t = item.trim();
+            if (t) out.push({ text: t, score: legacyDefaultScore });
+            continue;
+        }
+        if (item && typeof item === 'object' && typeof (item as any).text === 'string') {
+            const t = String((item as any).text).trim();
+            if (!t) continue;
+            const score = clampScore((item as any).score);
+            out.push({ text: t, score });
+        }
+    }
+    return out;
+}
+
 const DEFAULT_SETTINGS: AiSettings = {
     categorizationModel: 'gemini-flash-latest',
     chatModel: 'gemini-flash-latest',
@@ -351,6 +392,36 @@ export class AiService {
         return { resourceName: name, uri, mimeType };
     }
 
+    /**
+     * Upload CSV to Gemini Files API. On network/transport failure (common: DNS, firewall, corporate proxy),
+     * returns null so callers can attach the same CSV inline instead of failing the request.
+     */
+    private async tryUploadTransactionsCsv(
+        fileManager: GoogleAIFileManager,
+        csv: string,
+        displayName: string,
+        uploadedResourceNames: string[],
+        uploadedFileLog: { displayName: string; utf8Bytes: number; rows: number }[],
+        rows: number
+    ): Promise<{ resourceName: string; uri: string; mimeType: string } | null> {
+        try {
+            const up = await this.uploadTransactionsCsv(fileManager, csv, displayName);
+            uploadedResourceNames.push(up.resourceName);
+            uploadedFileLog.push({
+                displayName,
+                utf8Bytes: Buffer.byteLength(csv, 'utf8'),
+                rows,
+            });
+            return up;
+        } catch (err) {
+            serverLogger.warn('Gemini file upload failed; will use inline CSV if the caller supports fallback', {
+                displayName,
+                error: err instanceof Error ? err.message : String(err),
+            });
+            return null;
+        }
+    }
+
     /** Log: prompt text first; when files were uploaded, append their UTF-8 size and row counts (no section headers). */
     private buildAnalyzeDataLogUserInput(
         promptText: string,
@@ -485,19 +556,24 @@ export class AiService {
                 // One CSV with a `scope` column so logs show total rows (two separate files made it easy to read only the "new" row count).
                 const combinedCsv = this.formatSplitTransactionsForAI(oldTx, newTx);
                 const totalRows = oldTx.length + newTx.length;
-                uploadedFileLog.push({
-                    displayName: 'transactions_historical_and_current.csv',
-                    utf8Bytes: Buffer.byteLength(combinedCsv, 'utf8'),
-                    rows: totalRows,
-                });
-                const up = await this.uploadTransactionsCsv(
+                const up = await this.tryUploadTransactionsCsv(
                     fileManager,
                     combinedCsv,
-                    'transactions_historical_and_current.csv'
+                    'transactions_historical_and_current.csv',
+                    uploadedResourceNames,
+                    uploadedFileLog,
+                    totalRows
                 );
-                uploadedResourceNames.push(up.resourceName);
                 currentPrompt = buildSplitPromptCombinedFile(locale, oldTx.length, newTx.length, totalRows, query);
-                userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
+                if (up) {
+                    userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
+                } else {
+                    userParts = [
+                        {
+                            text: `${currentPrompt}\n\n[Note: CSV is inline because upload to the AI file service failed (network/DNS/firewall/proxy).]\n\n--- CSV ---\n${combinedCsv}`,
+                        },
+                    ];
+                }
             } else {
                 const oldAsFile = oldTx.length > 0;
                 const newAsFile = newTx.length > AI_TXN_INLINE_MAX_ROWS;
@@ -514,50 +590,59 @@ export class AiService {
                 );
 
                 userParts = [];
+                let inlinePrefix = '';
                 if (oldAsFile) {
                     const oldCsv = this.formatTransactionsForAI(oldTx);
-                    uploadedFileLog.push({
-                        displayName: 'historical_transactions.csv',
-                        utf8Bytes: Buffer.byteLength(oldCsv, 'utf8'),
-                        rows: oldTx.length,
-                    });
-                    const up = await this.uploadTransactionsCsv(
+                    const up = await this.tryUploadTransactionsCsv(
                         fileManager,
                         oldCsv,
-                        'historical_transactions.csv'
+                        'historical_transactions.csv',
+                        uploadedResourceNames,
+                        uploadedFileLog,
+                        oldTx.length
                     );
-                    uploadedResourceNames.push(up.resourceName);
-                    userParts.push({ fileData: { mimeType: up.mimeType, fileUri: up.uri } });
+                    if (up) {
+                        userParts.push({ fileData: { mimeType: up.mimeType, fileUri: up.uri } });
+                    } else {
+                        inlinePrefix += `--- HISTORICAL TRANSACTIONS (${oldTx.length} rows) ---\n${oldCsv}\n\n`;
+                    }
                 }
                 if (newAsFile) {
                     const newCsv = this.formatTransactionsForAI(newTx);
-                    uploadedFileLog.push({
-                        displayName: 'new_transactions_this_scrape.csv',
-                        utf8Bytes: Buffer.byteLength(newCsv, 'utf8'),
-                        rows: newTx.length,
-                    });
-                    const up = await this.uploadTransactionsCsv(
+                    const up = await this.tryUploadTransactionsCsv(
                         fileManager,
                         newCsv,
-                        'new_transactions_this_scrape.csv'
+                        'new_transactions_this_scrape.csv',
+                        uploadedResourceNames,
+                        uploadedFileLog,
+                        newTx.length
                     );
-                    uploadedResourceNames.push(up.resourceName);
-                    userParts.push({ fileData: { mimeType: up.mimeType, fileUri: up.uri } });
+                    if (up) {
+                        userParts.push({ fileData: { mimeType: up.mimeType, fileUri: up.uri } });
+                    } else {
+                        inlinePrefix += `--- NEW SCRAPE TRANSACTIONS (${newTx.length} rows) ---\n${newCsv}\n\n`;
+                    }
                 }
-                userParts.push({ text: currentPrompt });
+                const uploadFallbackNote =
+                    inlinePrefix.length > 0
+                        ? '[Note: Transaction CSV is included inline below because file upload to the AI service failed (e.g. network/DNS/firewall/proxy).]\n\n'
+                        : '';
+                userParts.push({ text: uploadFallbackNote + inlinePrefix + currentPrompt });
             }
         } else {
             const useFile = transactions.length > AI_TXN_INLINE_MAX_ROWS;
             if (useFile && transactions.length > 0) {
                 const csv = this.formatTransactionsForAI(transactions);
-                uploadedFileLog.push({
-                    displayName: 'transactions.csv',
-                    utf8Bytes: Buffer.byteLength(csv, 'utf8'),
-                    rows: transactions.length,
-                });
-                const up = await this.uploadTransactionsCsv(fileManager, csv, 'transactions.csv');
-                uploadedResourceNames.push(up.resourceName);
-                currentPrompt = `
+                const up = await this.tryUploadTransactionsCsv(
+                    fileManager,
+                    csv,
+                    'transactions.csv',
+                    uploadedResourceNames,
+                    uploadedFileLog,
+                    transactions.length
+                );
+                if (up) {
+                    currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
 
             The attached CSV file contains all ${transactions.length} transactions (${transactions.length} rows). Use it for the question below.
@@ -567,7 +652,24 @@ export class AiService {
             Constraints & Output Format:
             Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
         `;
-                userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
+                    userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
+                } else {
+                    currentPrompt = `
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+
+            [Note: CSV is inline because upload to the AI file service failed (e.g. network/DNS/firewall/proxy).]\n\n
+            Question: ${query}
+
+            ---
+            CSV:
+            ${csv}
+            ---
+
+            Constraints & Output Format:
+            Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
+        `;
+                    userParts = [{ text: currentPrompt }];
+                }
             } else {
                 currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
@@ -645,6 +747,189 @@ export class AiService {
                 { latencyMs }
             );
 
+            throw error;
+        } finally {
+            for (const name of uploadedResourceNames) {
+                try {
+                    await fileManager.deleteFile(name);
+                } catch (delErr) {
+                    serverLogger.warn('Failed to delete uploaded Gemini file', { name, error: (delErr as Error).message });
+                }
+            }
+        }
+    }
+
+    /**
+     * Same transaction attachment behavior as {@link analyzeData} for the non-split path only,
+     * but the model must return JSON with `response`, `facts`, and `insights`.
+     */
+    async analyzeDataStructured(query: string, transactions: Transaction[], options?: AnalyzeDataOptions): Promise<StructuredChatResult> {
+        if (options?.transactionSplit) {
+            throw new Error('Structured chat does not support transactionSplit; use analyzeData instead.');
+        }
+        if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
+
+        await this.loadSettings();
+        const temperature = options?.temperature ?? 0.7;
+        const systemInstruction =
+            'You are a professional financial analyst. Reply with a single JSON object exactly as specified in the user message. ' +
+            'Do not wrap JSON in markdown fences. Do not repeat prior insights verbatim; facts are long-term memory, insights are one-time analytical notes.';
+
+        const model = this.genAI.getGenerativeModel({
+            model: this.settings.chatModel,
+            systemInstruction
+        });
+
+        const jsonSpec = `
+
+---
+OUTPUT FORMAT
+Respond with one JSON object only (no markdown code fences, no text before or after). Schema:
+{"response": string, "facts": string[], "insights": {"text": string, "score": number}[], "alerts": {"text": string, "score": number}[]}
+
+- "response": Your main answer to the user (you may use markdown inside this string).
+- "facts": Durable context worth remembering across sessions (life situation, goals, standing preferences). Do not duplicate items already listed under "Stored facts" in the prompt. Do not put raw one-off numbers here unless the user asked to remember them. Use an empty array if nothing new.
+- "insights": Analytical observations (trends, comparisons, patterns). Each item MUST include "score" from 1 to 100 where 100 is the most important insight. Do not duplicate items under "Recent insights" in the prompt. Use an empty array if nothing new.
+- "alerts": urgent or time-sensitive items the user should act on or notice (overspending risk, missed payment, unusual jump). Each item MUST include "score" 1–100 (100 = most critical). Do not duplicate "Recent alerts" below. Use an empty array if none.
+
+Facts are user-editable persistent memory. Insights and alerts are stored with scores for prioritization.`;
+
+        const fullQuery = query + jsonSpec;
+
+        const apiKey = process.env.GEMINI_API_KEY || '';
+        const fileManager = new GoogleAIFileManager(apiKey);
+        const uploadedResourceNames: string[] = [];
+        const uploadedFileLog: { displayName: string; utf8Bytes: number; rows: number }[] = [];
+
+        type UserPart = { text: string } | { fileData: { mimeType: string; fileUri: string } };
+
+        let currentPrompt: string;
+        let userParts: UserPart[];
+
+        const useFilePreferred = transactions.length > AI_TXN_INLINE_MAX_ROWS;
+        if (useFilePreferred && transactions.length > 0) {
+            const csv = this.formatTransactionsForAI(transactions);
+            const up = await this.tryUploadTransactionsCsv(
+                fileManager,
+                csv,
+                'transactions.csv',
+                uploadedResourceNames,
+                uploadedFileLog,
+                transactions.length
+            );
+            if (up) {
+                currentPrompt = `
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+
+            The attached CSV file contains all ${transactions.length} transactions (${transactions.length} rows). Use it for the question below.
+
+            Question and instructions:
+            ${fullQuery}
+        `;
+                userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
+            } else {
+                currentPrompt = `
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+
+            [Note: CSV is inline because upload to the AI file service failed (e.g. network/DNS/firewall/proxy).]
+
+            Question and instructions:
+            ${fullQuery}
+
+            ---
+            CSV:
+            ${csv}
+            ---
+        `;
+                userParts = [{ text: currentPrompt }];
+            }
+        } else {
+            currentPrompt = `
+            Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+            
+            Question and instructions:
+            ${fullQuery}
+
+            ---
+            CSV:
+            ${this.formatTransactionsForAI(transactions)}
+            ---
+        `;
+            userParts = [{ text: currentPrompt }];
+        }
+
+        const contents: { role: 'user' | 'model'; parts: UserPart[] }[] = [];
+        if (options?.conversationHistory?.length) {
+            for (const turn of options.conversationHistory) {
+                contents.push({ role: turn.role, parts: [{ text: turn.text }] });
+            }
+        }
+        contents.push({ role: 'user', parts: userParts });
+
+        const generationConfig: {
+            temperature: number;
+            responseMimeType: string;
+        } = { temperature, responseMimeType: 'application/json' };
+
+        let startTime = Date.now();
+        try {
+            startTime = Date.now();
+            const result = await model.generateContent({
+                contents,
+                generationConfig
+            });
+            const response = await result.response;
+            const text = response.text();
+            const latencyMs = Date.now() - startTime;
+
+            const logInputSummary = this.buildAnalyzeDataLogUserInput(currentPrompt, uploadedFileLog);
+
+            const usageMetadata = response.usageMetadata;
+            await logAICall({
+                model: this.settings.chatModel,
+                provider: 'gemini',
+                requestInfo: {
+                    systemPrompt: systemInstruction,
+                    userInput: logInputSummary,
+                    inputLength: logInputSummary.length
+                },
+                responseInfo: {
+                    rawOutput: text,
+                    finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                    success: true
+                },
+                metadata: {
+                    promptTokens: usageMetadata?.promptTokenCount,
+                    completionTokens: usageMetadata?.candidatesTokenCount,
+                    totalTokens: usageMetadata?.totalTokenCount,
+                    latencyMs
+                }
+            });
+
+            let parsed: any;
+            try {
+                parsed = this.extractJson(text);
+            } catch {
+                return {
+                    response: text,
+                    facts: [],
+                    insights: [],
+                    alerts: []
+                };
+            }
+            const resText = typeof parsed.response === 'string' ? parsed.response : '';
+            const facts = Array.isArray(parsed.facts) ? parsed.facts.filter((x: unknown) => typeof x === 'string' && x.trim()) : [];
+            const insights = normalizeScoredItems(parsed.insights, 50);
+            const alerts = normalizeScoredItems(parsed.alerts, 70);
+            return {
+                response: resText || text,
+                facts,
+                insights,
+                alerts
+            };
+        } catch (error: any) {
+            const latencyMs = Date.now() - startTime;
+            await logAIError(this.settings.chatModel, 'gemini', query, error, { latencyMs });
             throw error;
         } finally {
             for (const name of uploadedResourceNames) {

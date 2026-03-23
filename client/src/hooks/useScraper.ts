@@ -192,10 +192,27 @@ export function useUpdateTransactionSubscription() {
     });
 }
 
+export type UnifiedAIChatTurn = { role: 'user' | 'model'; text: string };
+
 export function useUnifiedAIChat() {
     return useMutation({
-        mutationFn: async ({ query, scope, filename, historyNote }: { query: string; scope?: string; filename?: string; historyNote?: string }) => {
-            const { data } = await api.post<{ success: boolean; data: string }>('/ai/chat/unified', { query, scope, filename, historyNote });
+        mutationFn: async ({
+            query,
+            scope,
+            filename,
+            historyNote,
+            conversationHistory,
+        }: {
+            query: string;
+            scope?: string;
+            filename?: string;
+            historyNote?: string;
+            conversationHistory?: UnifiedAIChatTurn[];
+        }) => {
+            const { data } = await api.post<{
+                success: boolean;
+                data: { response: string; factsAdded: number; insightsAdded: number; alertsAdded: number };
+            }>('/ai/chat/unified', { query, scope, filename, historyNote, conversationHistory });
             return data.data;
         },
     });

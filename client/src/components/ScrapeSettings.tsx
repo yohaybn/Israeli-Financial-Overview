@@ -441,6 +441,64 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                             </p>
                         </div>
 
+                        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={config.postScrapeConfig.transactionReviewReminder?.enabled !== false}
+                                    onChange={(e) =>
+                                        updatePostScrape({
+                                            transactionReviewReminder: {
+                                                ...config.postScrapeConfig.transactionReviewReminder,
+                                                enabled: e.target.checked,
+                                            },
+                                        })
+                                    }
+                                    className="w-5 h-5 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-gray-700">{t('post_scrape.review_reminder_title')}</span>
+                                    <span className="text-xs text-gray-500">{t('post_scrape.review_reminder_desc')}</span>
+                                </span>
+                            </label>
+                            {config.postScrapeConfig.transactionReviewReminder?.enabled !== false && (
+                                <div className="pl-8 space-y-2 border-l-2 border-indigo-100 ml-1">
+                                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={config.postScrapeConfig.transactionReviewReminder?.notifyTransfersCategory !== false}
+                                            onChange={(e) =>
+                                                updatePostScrape({
+                                                    transactionReviewReminder: {
+                                                        ...config.postScrapeConfig.transactionReviewReminder,
+                                                        notifyTransfersCategory: e.target.checked,
+                                                    },
+                                                })
+                                            }
+                                            className="rounded border-gray-300 text-purple-600"
+                                        />
+                                        {t('post_scrape.review_reminder_transfers')}
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={config.postScrapeConfig.transactionReviewReminder?.notifyUncategorized !== false}
+                                            onChange={(e) =>
+                                                updatePostScrape({
+                                                    transactionReviewReminder: {
+                                                        ...config.postScrapeConfig.transactionReviewReminder,
+                                                        notifyUncategorized: e.target.checked,
+                                                    },
+                                                })
+                                            }
+                                            className="rounded border-gray-300 text-purple-600"
+                                        />
+                                        {t('post_scrape.review_reminder_uncategorized')}
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="space-y-3">
                             <label className="text-sm font-bold text-gray-700">{t('post_scrape.notification_channels')}</label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

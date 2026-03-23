@@ -11,7 +11,11 @@ import {
   computeFinancialDigestSnapshot,
   formatBudgetHealthDigestLine,
   formatAnomalyDigestLine,
-  type DigestLocale
+  type DigestLocale,
+  type Transaction,
+  type TransactionReviewItem,
+  expenseCategoryKey,
+  transactionNeedsReview,
 } from '@app/shared';
 import { telegramBotService } from './telegramBotService.js';
 import { serviceLogger as logger } from '../utils/logger.js';
@@ -24,6 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const POST_SCRAPE_DIR = () => path.join(process.env.DATA_DIR || './data', 'post_scrape');
+const REVIEW_ALERT_FILE = () => path.join(POST_SCRAPE_DIR(), 'last_transaction_review.json');
 const MAX_LAST_SUMMARY_CHARS = 2000;
 
 function sanitizePipelineId(id: string): string {
@@ -69,6 +74,119 @@ export class PostScrapeService {
       await fs.writeFile(file, truncated, 'utf-8');
     } catch (e) {
       logger.warn('Failed to write last AI summary', { pipelineId, kind, error: (e as Error).message });
+    }
+  }
+
+  private async persistReviewAlert(items: TransactionReviewItem[]): Promise<void> {
+    try {
+      await fs.ensureDir(path.dirname(REVIEW_ALERT_FILE()));
+      await fs.writeJson(
+        REVIEW_ALERT_FILE(),
+        { updatedAt: new Date().toISOString(), items },
+        { spaces: 2 }
+      );
+    } catch (e) {
+      logger.warn('Failed to persist transaction review alert', { error: (e as Error).message });
+    }
+  }
+
+  /**
+   * New transactions in Transfers (העברות) or default bucket (אחר) — remind user to set memo or category.
+   * Uses configured notification channels. For batch runs where DB was saved before post-scrape, pass
+   * `options.postScrape.newTransactionIds` on the request.
+   */
+  private async maybeNotifyTransactionReview(
+    transactions: Transaction[],
+    request: ScrapeRequest | undefined,
+    botLanguage: 'en' | 'he'
+  ): Promise<void> {
+    try {
+      const cfg = await this.getConfig();
+      const rem = cfg.transactionReviewReminder;
+      if (rem?.enabled === false) return;
+
+      const transfersOn = rem?.notifyTransfersCategory !== false;
+      const uncategorizedOn = rem?.notifyUncategorized !== false;
+      if (!transfersOn && !uncategorizedOn) return;
+
+      const explicitNewIds = (request as any)?.options?.postScrape?.newTransactionIds as string[] | undefined;
+      const newIdSet = explicitNewIds && explicitNewIds.length > 0 ? new Set(explicitNewIds) : null;
+
+      const newTxns = transactions.filter((t) => {
+        if (t.isInternalTransfer === true) return false;
+        if (newIdSet) return newIdSet.has(t.id);
+        return !this.dbService.transactionExists(t.id);
+      });
+
+      const items: TransactionReviewItem[] = [];
+      for (const t of newTxns) {
+        const reason = transactionNeedsReview(t, { transfers: transfersOn, uncategorized: uncategorizedOn });
+        if (!reason) continue;
+        items.push({
+          id: t.id,
+          description: t.description || '',
+          date: typeof t.date === 'string' ? t.date.slice(0, 10) : String(t.date),
+          amount: t.amount ?? t.chargedAmount ?? 0,
+          category: expenseCategoryKey(t.category),
+          reason,
+        });
+      }
+
+      if (items.length === 0) return;
+
+      await this.persistReviewAlert(items);
+
+      try {
+        this.io?.emit('transactions:review-needed', { count: items.length, items });
+      } catch (e) {
+        logger.warn('Failed to emit transactions:review-needed', { error: (e as Error).message });
+      }
+
+      const channels = [...(cfg.notificationChannels || ['console'])];
+      if (!channels.includes('telegram')) {
+        const tgNotifier = notificationService.getNotifier('telegram');
+        if (tgNotifier && tgNotifier.isEnabled()) {
+          channels.push('telegram');
+        }
+      }
+
+      const headline =
+        botLanguage === 'he'
+          ? `${items.length} תנועות חדשות: נא להוסיף הערה או לדייק קטגוריה (העברות / אחר).`
+          : `${items.length} new transaction(s): please set memo or refine category (Transfers / Other).`;
+
+      const lines = items.slice(0, 12).map((it) => {
+        const tag =
+          it.reason === 'transfers'
+            ? botLanguage === 'he'
+              ? 'העברות'
+              : 'Transfers'
+            : botLanguage === 'he'
+              ? 'אחר'
+              : 'Other';
+        const desc = (it.description || '').slice(0, 80);
+        return `• ${desc} (${tag}, ₪${it.amount})`;
+      });
+
+      const payload: NotificationPayload = {
+        pipelineId: request ? (request.profileName || request.companyId || 'post-scrape') : 'post-scrape',
+        status: 'warning' as any,
+        timestamp: new Date(),
+        detailLevel: 'normal',
+        runSource: this.getRunSource(request),
+        summary: {
+          durationMs: 0,
+          stagesRun: ['scrape', 'post-scrape'],
+          successfulStages: ['scrape', 'post-scrape'],
+          transactionCount: transactions.length,
+          insights: [headline, ...lines],
+        },
+      };
+
+      await this.notifyWithTelegramAggregation(channels, payload, request);
+      logger.info('Transaction review reminder sent', { count: items.length });
+    } catch (err) {
+      logger.warn('maybeNotifyTransactionReview failed', { error: (err as Error).message });
     }
   }
 
@@ -451,6 +569,8 @@ export class PostScrapeService {
         }
       }
 
+      await this.maybeNotifyTransactionReview(transactions, request, botLanguage);
+
       // 2) Fraud detection (local / AI / both) – each sub-step continues on failure
       if (cfg.fraudDetection?.enabled) {
         const mode = cfg.fraudDetection.mode || 'ai';
@@ -829,6 +949,30 @@ export class PostScrapeService {
       logger.info('Scrape notification sent', { success, channels });
     } catch (err) {
       logger.warn('Failed to send scrape notification', { error: (err as Error).message });
+    }
+  }
+
+  async getReviewAlert(): Promise<{ updatedAt: string; items: TransactionReviewItem[] } | null> {
+    try {
+      if (await fs.pathExists(REVIEW_ALERT_FILE())) {
+        const data = await fs.readJson(REVIEW_ALERT_FILE());
+        if (data?.items && Array.isArray(data.items)) {
+          return { updatedAt: data.updatedAt || '', items: data.items };
+        }
+      }
+    } catch (e) {
+      logger.warn('Failed to read review alert', { error: (e as Error).message });
+    }
+    return null;
+  }
+
+  async clearReviewAlert(): Promise<void> {
+    try {
+      if (await fs.pathExists(REVIEW_ALERT_FILE())) {
+        await fs.remove(REVIEW_ALERT_FILE());
+      }
+    } catch (e) {
+      logger.warn('Failed to clear review alert', { error: (e as Error).message });
     }
   }
 }

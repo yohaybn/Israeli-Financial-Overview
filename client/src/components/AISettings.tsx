@@ -15,7 +15,7 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
     const { data: models } = useAIModels();
     const { mutate: updateSettings, isPending } = useUpdateAISettings();
     const { mutate: recategorizeAll, isPending: isRecategorizing } = useRecategorizeAll();
- 
+
     const [localSettings, setLocalSettings] = useState<any>(null);
     const [newCategory, setNewCategory] = useState('');
     const [forceRecat, setForceRecat] = useState(false);
@@ -29,26 +29,36 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
     if (!isInline && (!isOpen || !localSettings)) return null;
     if (isInline && !localSettings) return <div className="p-8 text-center text-gray-500">{t('ai_settings.loading')}</div>;
 
-    const handleSave = () => {
-        updateSettings(localSettings, {
-            onSuccess: () => onClose?.()
+    const persistSettings = (next: any) => {
+        setLocalSettings(next);
+        updateSettings(next, {
+            onError: (err: Error) => {
+                alert(t('common.save_failed_with_error', { error: err?.message || t('common.unknown_error') }));
+            }
         });
     };
 
     const addCategory = () => {
         if (!newCategory.trim()) return;
         if (localSettings.categories.includes(newCategory.trim())) return;
-        setLocalSettings({
+        const next = {
             ...localSettings,
             categories: [...localSettings.categories, newCategory.trim()]
-        });
+        };
         setNewCategory('');
+        persistSettings(next);
     };
 
     const removeCategory = (cat: string) => {
-        setLocalSettings({
+        const nextCats = localSettings.categories.filter((c: string) => c !== cat);
+        let nextDefault = localSettings.defaultCategory;
+        if (cat === nextDefault && nextCats.length > 0) {
+            nextDefault = nextCats[0];
+        }
+        persistSettings({
             ...localSettings,
-            categories: localSettings.categories.filter((c: string) => c !== cat)
+            categories: nextCats,
+            defaultCategory: nextDefault
         });
     };
 
@@ -86,13 +96,24 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
             )}
 
             <div className={`space-y-6 ${isInline ? '' : 'p-6 overflow-y-auto'}`}>
+                {isPending && (
+                    <div className="flex justify-end">
+                        <span className="text-xs text-indigo-600 flex items-center gap-1.5 font-medium">
+                            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" aria-hidden>
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            {t('ai_settings.saving')}
+                        </span>
+                    </div>
+                )}
                 {/* Model Selection */}
                 <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'} grid grid-cols-2 gap-4`}>
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('ai_settings.categorization_model')}</label>
                         <select
                             value={localSettings.categorizationModel}
-                            onChange={(e) => setLocalSettings({ ...localSettings, categorizationModel: e.target.value })}
+                            onChange={(e) => persistSettings({ ...localSettings, categorizationModel: e.target.value })}
                             className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                         >
                             {models?.map(m => (
@@ -110,7 +131,7 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('ai_settings.analyst_model')}</label>
                         <select
                             value={localSettings.chatModel}
-                            onChange={(e) => setLocalSettings({ ...localSettings, chatModel: e.target.value })}
+                            onChange={(e) => persistSettings({ ...localSettings, chatModel: e.target.value })}
                             className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                         >
                             {models?.map(m => (
@@ -131,7 +152,7 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('ai_settings.default_category')}</label>
                     <select
                         value={localSettings.defaultCategory}
-                        onChange={(e) => setLocalSettings({ ...localSettings, defaultCategory: e.target.value })}
+                        onChange={(e) => persistSettings({ ...localSettings, defaultCategory: e.target.value })}
                         className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
                         {localSettings.categories.map((cat: string) => (
@@ -226,22 +247,6 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                         </div>
                     </div>
                 </section>
-            </div>
-
-            <div className={`flex justify-end gap-3 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm py-4 border-t border-gray-200 -mx-6 px-6 z-10' : 'p-6 bg-gray-50 border-t border-gray-100'}`}>
-                <button
-                    onClick={onClose}
-                    className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                    {t('common.cancel')}
-                </button>
-                <button
-                    onClick={handleSave}
-                    disabled={isPending}
-                    className="px-8 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 disabled:opacity-50"
-                >
-                    {isPending ? t('ai_settings.saving') : t('ai_settings.save_button')}
-                </button>
             </div>
         </div>
     );

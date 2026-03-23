@@ -16,6 +16,7 @@ import { appLockService } from './appLockService.js';
 import { StorageService } from './storageService.js';
 import { Profile, ScrapeRequest, ScrapeResult } from '@app/shared';
 import { postScrapeService } from './postScrapeService.js';
+import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -960,13 +961,20 @@ export class TelegramBotService {
     }
 
     const results: ScrapeResult[] = [];
+    const allNewTransactionIds: string[] = [];
     for (const profile of profiles) {
-      const result = await this.executeScrapeForProfile(ctx, profile, userId, startDate, true);
+      const { result, newTransactionIds } = await this.executeScrapeForProfile(ctx, profile, userId, startDate, true);
       if (result) results.push(result);
+      allNewTransactionIds.push(...newTransactionIds);
     }
 
     if (results.length > 0) {
       try {
+        const reqAny = batchRequest.options as any;
+        reqAny.postScrape = {
+          ...(reqAny.postScrape || {}),
+          newTransactionIds: allNewTransactionIds,
+        };
         await postScrapeService.handleBatchResults(results, batchRequest);
       } catch (err: any) {
         serverLogger.warn('Post-scrape batch failed after scrape all', { error: err?.message });
@@ -1139,8 +1147,7 @@ export class TelegramBotService {
 
       const transactions = await this.loadUnifiedTransactionsForAiChat();
 
-      // Build a context query similar to the web UI unified chat
-      const contextQuery = `\nContext Rules:\n- History transactions: Older than the current month. Used for baselines and averages.\n- Current month transactions: The focus of immediate budget tracking.\n- Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.\n- Ignored transactions: should be fully excluded from calculations.\n\nUser Query: ${message}`;
+      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message);
 
       const state = this.chatStates.get(chatIdNum.toString());
       const chatHistory = state?.chatHistory ?? [];
@@ -1148,10 +1155,12 @@ export class TelegramBotService {
       const aiService = this.getAiService();
       let response = '';
       try {
-        response = await aiService.analyzeData(contextQuery, transactions, {
+        const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
           conversationHistory: chatHistory,
-          temperature: 0.7
+          temperature: 0.7,
         });
+        mergeAndPersistAiMemory(structured);
+        response = structured.response;
       } catch (err) {
         serverLogger.error('AI analyzeData failed for Telegram chat', { error: err });
         response = `${this.t('financialTipTitle')}\n${this.t('financialTipLine1')}\n\n${this.t('yourQuestionPrefix')} "${message}"\n\n${this.t('financialTipLine2')}`;
@@ -1206,12 +1215,14 @@ export class TelegramBotService {
     try {
       const aiService = this.getAiService();
       const transactions = await this.loadUnifiedTransactionsForAiChat();
-      const contextQuery = `\nContext Rules:\n- History transactions: Older than the current month. Used for baselines and averages.\n- Current month transactions: The focus of immediate budget tracking.\n- Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.\n- Ignored transactions: should be fully excluded from calculations.\n\nUser Query: ${message}`;
+      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message);
 
       // Try to call the AI analysis with unified DB context (same as /chat mode). If AI provider isn't configured
       // or the call fails, fall back to a helpful tip directing the user to the web UI.
       try {
-        const aiResponse = await aiService.analyzeData(contextQuery, transactions, { temperature: 0.7 });
+        const structured = await aiService.analyzeDataStructured(contextQuery, transactions, { temperature: 0.7 });
+        mergeAndPersistAiMemory(structured);
+        const aiResponse = structured.response;
         if (aiResponse && aiResponse.trim().length > 0) {
           return aiResponse;
         }
@@ -1276,7 +1287,7 @@ export class TelegramBotService {
           await ctx.reply(this.t('profileNotFound'));
           return;
         }
-        await this.executeScrapeForProfile(ctx, profile, userId, startDate);
+        await this.executeScrapeForProfile(ctx, profile, userId, startDate, false);
 
       } catch (scraperError: any) {
         serverLogger.error('Scraper execution failed', { scraperError });
@@ -1292,7 +1303,13 @@ export class TelegramBotService {
    * Execute scrape for a single profile.
    * When isPartOfBatch is true, post-scrape is deferred and the result is returned for batch handling.
    */
-  private async executeScrapeForProfile(ctx: Context, profile: Profile, userId: string, startDate?: string, isPartOfBatch?: boolean): Promise<ScrapeResult | null> {
+  private async executeScrapeForProfile(
+    ctx: Context,
+    profile: Profile,
+    userId: string,
+    startDate?: string,
+    isPartOfBatch?: boolean
+  ): Promise<{ result: ScrapeResult | null; newTransactionIds: string[] }> {
     const scraperService = this.getScraperService();
     const scrapeRequest: ScrapeRequest = {
       companyId: profile.companyId,
@@ -1325,16 +1342,18 @@ export class TelegramBotService {
       if (!isPartOfBatch) {
         await ctx.reply(`${this.t('scrapeFailedPrefix')} ${result.error || this.t('errorScraper')}`);
       }
-      return result;
+      return { result, newTransactionIds: [] };
     }
     const txnCount = result.transactions?.length || 0;
 
+    let newTransactionIds: string[] = [];
     // Persist the scrape result (so DB has transactions for "current" / "all" scope)
     try {
       const storage = this.getStorageService();
       const provider = (profile && (profile.name || profile.companyId)) || 'telegram';
-      const savedFilename = await storage.saveScrapeResult(result, provider);
-      serverLogger.info('Saved scrape result from Telegram', { filename: savedFilename, profileId: profile.id });
+      const saved = await storage.saveScrapeResult(result, provider);
+      newTransactionIds = saved.newTransactionIds;
+      serverLogger.info('Saved scrape result from Telegram', { filename: saved.filename, profileId: profile.id });
     } catch (saveErr) {
       serverLogger.warn('Failed to save scrape result from Telegram', { error: saveErr });
     }
@@ -1346,7 +1365,7 @@ export class TelegramBotService {
         startDate: startDate || 'global-default',
       });
     }
-    return result;
+    return { result, newTransactionIds };
   }
 
   /**

@@ -2,21 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { ProviderDefinition, ScrapeRequest, ScraperOptions, ScrapeResult, Profile, GlobalScrapeConfig } from '@app/shared';
+import { ScrapeRequest, ScraperOptions, ScrapeResult, Profile, GlobalScrapeConfig } from '@app/shared';
 import { ProfileManager } from './ProfileManager';
 import { useCreateProfile } from '../hooks/useProfiles';
 import { useAppLockStatus } from '../hooks/useAppLock';
-
-// Fetch provider definitions from the server
-function useProviders() {
-    return useQuery({
-        queryKey: ['providers'],
-        queryFn: async () => {
-            const { data } = await api.get<{ success: boolean; data: ProviderDefinition[] }>('/definitions');
-            return data.data;
-        },
-    });
-}
+import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 
 // Run a scrape with full options
 function useRunScrape() {
@@ -81,11 +71,6 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
             }));
         }
     }, [globalConfig]);
-
-    // Get display text based on current language
-    const getProviderName = (provider: ProviderDefinition): string => {
-        return i18n.language === 'he' ? (provider.nameHe || provider.name) : provider.name;
-    };
 
     const getFieldLabel = (label: string, labelHe?: string): string => {
         return i18n.language === 'he' ? (labelHe || label) : label;
@@ -238,7 +223,7 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
                             >
                                 {providers?.map((p) => (
-                                    <option key={p.id} value={p.id}>{getProviderName(p)}</option>
+                                    <option key={p.id} value={p.id}>{getProviderDisplayName(p.id, providers, i18n.language)}</option>
                                 ))}
                             </select>
                         </div>

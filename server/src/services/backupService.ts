@@ -4,6 +4,7 @@ import { Readable } from 'stream';
 import { google } from 'googleapis';
 import { GoogleAuthService } from './googleAuthService.js';
 import { DbService, closeDbForRestore } from './dbService.js';
+import { RUNTIME_SETTINGS_PATH } from '../runtimeEnv.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
@@ -11,8 +12,8 @@ const CONFIG_DIR = path.join(DATA_DIR, 'config');
 const GOOGLE_FOLDER_CONFIG_PATH = path.join(CONFIG_DIR, 'google_folder.json');
 const DB_PATH = path.join(DATA_DIR, 'app.db');
 
-const SNAPSHOT_VERSION = 2;
-const SUPPORTED_SNAPSHOT_VERSIONS = [1, 2];
+const SNAPSHOT_VERSION = 3;
+const SUPPORTED_SNAPSHOT_VERSIONS = [1, 2, 3];
 const SNAPSHOT_NAME_PREFIX = 'bank-scraper-backup';
 const BACKUP_EXT = '.backup.json';
 
@@ -22,6 +23,12 @@ const BACKUP_TARGETS = [
     'profiles',
     'post_scrape'
 ];
+
+/** Optional JSON files stored directly under DATA_DIR (not in a subfolder). */
+const DATA_DIR_ROOT_CONFIG_FILES = ['scheduler_config.json', 'notification_config.json'] as const;
+
+/** Snapshot path for project-root runtime-settings.json (API keys, OAuth client id/secret, etc.). */
+const RUNTIME_SETTINGS_SNAPSHOT_PATH = 'root/runtime-settings.json';
 
 interface BackupEntry {
     path: string;
@@ -55,27 +62,62 @@ export class BackupService {
         return normalized;
     }
 
+    /**
+     * Recursively collect all files under a directory. `relativePrefix` uses POSIX segments (e.g. "config").
+     */
+    private async collectDirRecursive(absoluteDir: string, relativePrefix: string): Promise<BackupEntry[]> {
+        const entries: BackupEntry[] = [];
+        if (!(await fs.pathExists(absoluteDir))) {
+            return entries;
+        }
+        const names = await fs.readdir(absoluteDir);
+        for (const name of names) {
+            const abs = path.join(absoluteDir, name);
+            const stat = await fs.stat(abs);
+            const rel = path.posix.join(relativePrefix.replace(/\\/g, '/'), name);
+            if (stat.isDirectory()) {
+                entries.push(...(await this.collectDirRecursive(abs, rel)));
+            } else if (stat.isFile()) {
+                const relativePath = this.resolveSafeRelativePath(rel);
+                const buffer = await fs.readFile(abs);
+                entries.push({
+                    path: relativePath,
+                    encoding: 'base64',
+                    content: buffer.toString('base64')
+                });
+            }
+        }
+        return entries;
+    }
+
     private async collectSnapshotFiles(): Promise<BackupEntry[]> {
         const entries: BackupEntry[] = [];
 
         for (const target of BACKUP_TARGETS) {
             const targetPath = path.join(DATA_DIR, target);
-            if (!await fs.pathExists(targetPath)) {
-                continue;
-            }
+            entries.push(...(await this.collectDirRecursive(targetPath, target)));
+        }
 
-            const files = await fs.readdir(targetPath);
-            for (const file of files) {
-                const absolutePath = path.join(targetPath, file);
-                const stat = await fs.stat(absolutePath);
-                if (!stat.isFile()) {
-                    continue;
-                }
+        for (const name of DATA_DIR_ROOT_CONFIG_FILES) {
+            const abs = path.join(DATA_DIR, name);
+            if (!(await fs.pathExists(abs))) continue;
+            const stat = await fs.stat(abs);
+            if (!stat.isFile()) continue;
+            const relativePath = this.resolveSafeRelativePath(name);
+            const buffer = await fs.readFile(abs);
+            entries.push({
+                path: relativePath,
+                encoding: 'base64',
+                content: buffer.toString('base64')
+            });
+        }
 
-                const relativePath = this.resolveSafeRelativePath(path.posix.join(target, file));
-                const buffer = await fs.readFile(absolutePath);
+        if (await fs.pathExists(RUNTIME_SETTINGS_PATH)) {
+            const stat = await fs.stat(RUNTIME_SETTINGS_PATH);
+            if (stat.isFile()) {
+                const buffer = await fs.readFile(RUNTIME_SETTINGS_PATH);
                 entries.push({
-                    path: relativePath,
+                    path: RUNTIME_SETTINGS_SNAPSHOT_PATH,
                     encoding: 'base64',
                     content: buffer.toString('base64')
                 });
@@ -241,12 +283,18 @@ export class BackupService {
         }
 
         for (const entry of snapshot.files) {
+            const content = Buffer.from(entry.content, 'base64');
+
+            if (entry.path === RUNTIME_SETTINGS_SNAPSHOT_PATH) {
+                await fs.ensureDir(path.dirname(RUNTIME_SETTINGS_PATH));
+                await fs.writeFile(RUNTIME_SETTINGS_PATH, content);
+                continue;
+            }
+
             const relativePath = this.resolveSafeRelativePath(entry.path);
             const outputPath = path.join(DATA_DIR, relativePath);
             const outputDir = path.dirname(outputPath);
             await fs.ensureDir(outputDir);
-
-            const content = Buffer.from(entry.content, 'base64');
             await fs.writeFile(outputPath, content);
         }
 

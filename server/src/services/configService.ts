@@ -2,10 +2,10 @@ import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '@app/shared';
+import { RUNTIME_SETTINGS_PATH } from '../runtimeEnv.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ENV_PATH = path.resolve(__dirname, '../../../.env');
 const RESTART_TRIGGER_PATH = path.resolve(__dirname, '../restart-trigger.json');
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const DASHBOARD_CONFIG_PATH = path.join(DATA_DIR, 'config', 'dashboard.json');
@@ -27,66 +27,49 @@ export class ConfigService {
     ];
 
     async getEnv(): Promise<Record<string, string>> {
-        if (!(await fs.pathExists(ENV_PATH))) {
+        if (!(await fs.pathExists(RUNTIME_SETTINGS_PATH))) {
             return {};
         }
 
-        const content = await fs.readFile(ENV_PATH, 'utf8');
+        const stored = (await fs.readJson(RUNTIME_SETTINGS_PATH)) as Record<string, string>;
         const env: Record<string, string> = {};
 
-        content.split('\n').forEach(line => {
-            const [key, ...valueParts] = line.split('=');
-            if (key && this.allowedKeys.includes(key.trim())) {
-                const value = valueParts.join('=').trim();
-                env[key.trim()] = this.sensitiveKeys.includes(key.trim())
-                    ? this.maskValue(value)
-                    : value;
-            }
-        });
+        for (const key of this.allowedKeys) {
+            const value = stored[key];
+            if (value === undefined) continue;
+            env[key] = this.sensitiveKeys.includes(key) ? this.maskValue(value) : value;
+        }
 
         return env;
     }
 
     async updateEnv(updates: Record<string, string>): Promise<void> {
-        let content = '';
-        if (await fs.pathExists(ENV_PATH)) {
-            content = await fs.readFile(ENV_PATH, 'utf8');
+        let stored: Record<string, string> = {};
+        if (await fs.pathExists(RUNTIME_SETTINGS_PATH)) {
+            stored = (await fs.readJson(RUNTIME_SETTINGS_PATH)) as Record<string, string>;
         }
 
-        const lines = content.split('\n');
-        const newLines: string[] = [];
-        const seenKeys = new Set<string>();
-
-        // Process existing lines
-        lines.forEach(line => {
-            const [key] = line.split('=');
-            const trimmedKey = key?.trim();
-            if (trimmedKey && this.allowedKeys.includes(trimmedKey)) {
-                if (updates[trimmedKey] !== undefined) {
-                    // If it's a sensitive key and the value is masked, don't update it
-                    if (this.sensitiveKeys.includes(trimmedKey) && updates[trimmedKey].includes('***')) {
-                        newLines.push(line);
-                    } else {
-                        newLines.push(`${trimmedKey}=${updates[trimmedKey]}`);
-                    }
-                    seenKeys.add(trimmedKey);
-                } else {
-                    newLines.push(line);
-                    seenKeys.add(trimmedKey);
-                }
-            } else if (line.trim()) {
-                newLines.push(line);
+        for (const key of this.allowedKeys) {
+            if (updates[key] === undefined) continue;
+            if (this.sensitiveKeys.includes(key) && updates[key].includes('***')) {
+                continue;
             }
-        });
+            stored[key] = updates[key];
+        }
 
-        // Add new keys
-        Object.entries(updates).forEach(([key, value]) => {
-            if (this.allowedKeys.includes(key) && !seenKeys.has(key)) {
-                newLines.push(`${key}=${value}`);
+        await fs.ensureDir(path.dirname(RUNTIME_SETTINGS_PATH));
+        await fs.writeJson(RUNTIME_SETTINGS_PATH, stored, { spaces: 2 });
+
+        for (const key of this.allowedKeys) {
+            if (updates[key] === undefined) continue;
+            if (this.sensitiveKeys.includes(key) && updates[key].includes('***')) {
+                continue;
             }
-        });
-
-        await fs.writeFile(ENV_PATH, newLines.join('\n'), 'utf8');
+            process.env[key] = updates[key];
+        }
+        if (process.env.GOOGLE_DRIVE_FOLDER_ID === undefined && process.env.DRIVE_FOLDER_ID) {
+            process.env.GOOGLE_DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID;
+        }
     }
 
     async getDashboardConfig(): Promise<DashboardConfig> {

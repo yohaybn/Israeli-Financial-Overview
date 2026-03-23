@@ -3,6 +3,7 @@ node_modules
 dist
 **/dist
 .env
+runtime-settings.json
 .git
 .github
 .vscode

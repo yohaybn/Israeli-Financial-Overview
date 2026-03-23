@@ -91,7 +91,7 @@ export function createScrapeRoutes(
             }
 
             try {
-                let filename = await storageService.saveScrapeResult(result, request.companyId);
+                let { filename } = await storageService.saveScrapeResult(result, request.companyId);
 
                 // Handle automatic categorization if requested
                 if (request.options.autoCategorize && result.transactions && result.transactions.length > 0) {
@@ -101,7 +101,7 @@ export function createScrapeRoutes(
 
                         // Update the result object and save it again
                         result.transactions = categorizedTransactions;
-                        filename = await storageService.saveScrapeResult(result, request.companyId);
+                        ({ filename } = await storageService.saveScrapeResult(result, request.companyId));
                         await storageService.applyCategoryColumnsFromTransactions(categorizedTransactions);
 
                         console.log(`Auto-categorization complete for ${filename}`);
@@ -173,7 +173,7 @@ export function createScrapeRoutes(
                         if (result.success) {
                             try {
                                 const provider = result.transactions?.[0]?.provider || 'imported-batch';
-                                const filename = await storageService.saveScrapeResult(result, provider);
+                                const { filename } = await storageService.saveScrapeResult(result, provider);
                                 importResults.push({ originalName: 'Batch AI Import', filename, success: true, count: result.transactions?.length || 0 });
                             } catch (saveError: any) {
                                 importResults.push({ originalName: 'Batch AI Import', success: false, error: saveError.message });
@@ -214,7 +214,7 @@ export function createScrapeRoutes(
                     const result = await importService.importFile(file.path, accountNumberOverride, useAiBool);
                     if (result.success) {
                         try {
-                            const filename = await storageService.saveScrapeResult(result, (result.transactions?.[0]?.provider || 'imported'));
+                            const { filename } = await storageService.saveScrapeResult(result, (result.transactions?.[0]?.provider || 'imported'));
                             importResults.push({ originalName: file.originalname, filename, success: true, count: result.transactions?.length || 0 });
                         } catch (saveError: any) {
                             // Skip files with empty results

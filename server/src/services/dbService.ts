@@ -74,6 +74,43 @@ function initialize(db: Database.Database) {
     db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_txn ON fraud_findings(txn_id)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_fraud_findings_created_at ON fraud_findings(created_at)');
 
+    // Global AI memory (single workspace — shared across web and Telegram)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_memory_facts (
+            id TEXT PRIMARY KEY,
+            text TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_memory_insights (
+            id TEXT PRIMARY KEY,
+            text TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    try {
+        db.exec('ALTER TABLE ai_memory_insights ADD COLUMN score INTEGER DEFAULT 50');
+    } catch (_) {
+        /* column exists */
+    }
+    try {
+        db.exec('UPDATE ai_memory_insights SET score = 50 WHERE score IS NULL');
+    } catch (_) {}
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_memory_alerts (
+            id TEXT PRIMARY KEY,
+            text TEXT NOT NULL,
+            score INTEGER NOT NULL DEFAULT 50,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_insights_created ON ai_memory_insights(created_at)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_insights_score ON ai_memory_insights(score DESC)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_alerts_score ON ai_memory_alerts(score DESC)');
+
     serverLogger.info('Database initialized');
 }
 
@@ -107,7 +144,8 @@ export class DbService {
 
     // --- Transactions ---
 
-    addTransaction(transaction: Transaction) {
+    /** @returns true if a new row was inserted (not a duplicate id). */
+    addTransaction(transaction: Transaction): boolean {
         const stmt = this.db.prepare(`
             INSERT OR IGNORE INTO transactions (
                 id, accountNumber, date, description, amount, category, provider, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions, raw_data
@@ -127,7 +165,7 @@ export class DbService {
             ...transaction, 
             isInternalTransfer: isInternalValue === null ? undefined : Boolean(isInternalValue) 
         });
-        stmt.run({
+        const result = stmt.run({
             id: transaction.id,
             accountNumber: transaction.accountNumber,
             date: transaction.date,
@@ -141,6 +179,7 @@ export class DbService {
             excludeFromSubscriptions: transaction.excludeFromSubscriptions ? 1 : 0,
             raw_data: rawData
         });
+        return result.changes > 0;
     }
 
     transactionExists(id: string): boolean {
@@ -399,5 +438,101 @@ export class DbService {
             reasons: JSON.parse(r.reasons_json || '[]'),
             createdAt: new Date(r.created_at).toISOString(),
         }));
+    }
+
+    // --- AI memory (facts + insights) ---
+
+    listAiMemoryFacts(): { id: string; text: string; createdAt: string; updatedAt: string }[] {
+        const stmt = this.db.prepare(
+            `SELECT id, text, created_at, updated_at FROM ai_memory_facts ORDER BY updated_at DESC`
+        );
+        const rows = stmt.all() as { id: string; text: string; created_at: string; updated_at: string }[];
+        return rows.map((r) => ({
+            id: r.id,
+            text: r.text,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        }));
+    }
+
+    insertAiMemoryFact(id: string, text: string): void {
+        const stmt = this.db.prepare(
+            `INSERT INTO ai_memory_facts (id, text, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+        );
+        stmt.run(id, text);
+    }
+
+    updateAiMemoryFact(id: string, text: string): boolean {
+        const stmt = this.db.prepare(
+            `UPDATE ai_memory_facts SET text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+        );
+        const info = stmt.run(text, id);
+        return info.changes > 0;
+    }
+
+    deleteAiMemoryFact(id: string): boolean {
+        const stmt = this.db.prepare(`DELETE FROM ai_memory_facts WHERE id = ?`);
+        const info = stmt.run(id);
+        return info.changes > 0;
+    }
+
+    /** For prompts: highest score first, then recent */
+    listAiMemoryInsights(limit: number = 200): { id: string; text: string; score: number; createdAt: string }[] {
+        const stmt = this.db.prepare(
+            `SELECT id, text, COALESCE(score, 50) as score, created_at FROM ai_memory_insights ORDER BY COALESCE(score, 50) DESC, created_at DESC LIMIT ?`
+        );
+        const rows = stmt.all(limit) as { id: string; text: string; score: number; created_at: string }[];
+        return rows.map((r) => ({
+            id: r.id,
+            text: r.text,
+            score: Number(r.score),
+            createdAt: r.created_at,
+        }));
+    }
+
+    /** Top insights by importance score (for dashboard) */
+    topAiMemoryInsights(limit: number = 3): { id: string; text: string; score: number; createdAt: string }[] {
+        return this.listAiMemoryInsights(limit);
+    }
+
+    insertAiMemoryInsight(id: string, text: string, score: number = 50): void {
+        const s = Math.max(1, Math.min(100, Math.round(score)));
+        const stmt = this.db.prepare(
+            `INSERT INTO ai_memory_insights (id, text, score, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+        );
+        stmt.run(id, text, s);
+    }
+
+    deleteAiMemoryInsight(id: string): boolean {
+        const stmt = this.db.prepare(`DELETE FROM ai_memory_insights WHERE id = ?`);
+        const info = stmt.run(id);
+        return info.changes > 0;
+    }
+
+    listAiMemoryAlerts(limit: number = 200): { id: string; text: string; score: number; createdAt: string }[] {
+        const stmt = this.db.prepare(
+            `SELECT id, text, score, created_at FROM ai_memory_alerts ORDER BY score DESC, created_at DESC LIMIT ?`
+        );
+        const rows = stmt.all(limit) as { id: string; text: string; score: number; created_at: string }[];
+        return rows.map((r) => ({
+            id: r.id,
+            text: r.text,
+            score: Number(r.score),
+            createdAt: r.created_at,
+        }));
+    }
+
+    insertAiMemoryAlert(id: string, text: string, score: number = 50): void {
+        const s = Math.max(1, Math.min(100, Math.round(score)));
+        const stmt = this.db.prepare(
+            `INSERT INTO ai_memory_alerts (id, text, score, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+        );
+        stmt.run(id, text, s);
+    }
+
+    deleteAiMemoryAlert(id: string): boolean {
+        const stmt = this.db.prepare(`DELETE FROM ai_memory_alerts WHERE id = ?`);
+        const info = stmt.run(id);
+        return info.changes > 0;
     }
 }

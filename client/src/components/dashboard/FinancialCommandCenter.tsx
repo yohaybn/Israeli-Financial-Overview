@@ -16,6 +16,7 @@ import { SubscriptionList } from './SubscriptionList';
 import { MonthlyTransactionsCard } from './MonthlyTransactionsCard';
 import { DayTransactionsModal } from './DayTransactionsModal';
 import { getInitialCollapsedOnMobile } from '../../hooks/useInitialCollapsedOnMobile';
+import { TopInsightsCard } from './TopInsightsCard';
 
 interface FinancialCommandCenterProps {
     // Optional: if provided, uses these transactions (for backward compatibility or specific file view)
@@ -203,6 +204,10 @@ export function FinancialCommandCenter({
                     {t('dashboard.no_alerts')}
                 </div>
             )}
+
+            <div className="animate-fade-in-up max-w-2xl mx-auto w-full" style={{ animationDelay: '90ms' }}>
+                <TopInsightsCard />
+            </div>
 
             {/* Income & Detailed spending — same card chrome as Subscriptions / Transactions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-fade-in-up" style={{ animationDelay: '120ms' }}>

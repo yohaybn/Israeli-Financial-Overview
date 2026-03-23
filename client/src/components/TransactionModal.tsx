@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
+import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { useUpdateTransactionCategory, useUpdateTransactionType, useToggleIgnore, useAddFilter, useFilters, useRemoveFilter, useUpdateTransactionMemo, useUpdateTransactionSubscription } from '../hooks/useScraper';
 import { SubscriptionInterval } from '@app/shared';
 import { Repeat } from 'lucide-react';
@@ -33,6 +34,7 @@ interface TransactionModalProps {
 export function TransactionModal({ transaction, isOpen, onClose, categories = [] }: TransactionModalProps) {
     const { t, i18n } = useTranslation();
     const { config, updateConfig } = useDashboardConfig();
+    const { data: providers } = useProviders();
     const { data: filters } = useFilters();
     const { mutate: updateCategory } = useUpdateTransactionCategory();
     const { mutate: updateType } = useUpdateTransactionType();
@@ -177,8 +179,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const hasDifferentAmount = transaction.originalAmount !== transaction.chargedAmount;
     const isForeignCurrency = transaction.originalCurrency && transaction.originalCurrency !== 'ILS';
 
-    const providerKey = `provider.${transaction.provider}`;
-    const providerLabel = i18n.exists(providerKey) ? t(providerKey) : transaction.provider;
+    const providerLabel = getProviderDisplayName(transaction.provider, providers, i18n.language);
 
     return createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 overflow-hidden">

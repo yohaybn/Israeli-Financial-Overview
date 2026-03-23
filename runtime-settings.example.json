@@ -1,0 +1,12 @@
+{
+  "DRIVE_FOLDER_ID": "",
+  "GEMINI_API_KEY": "",
+  "GOOGLE_CLIENT_ID": "",
+  "GOOGLE_CLIENT_SECRET": "",
+  "GOOGLE_REDIRECT_URI": "http://localhost:3000/api/auth/google/callback",
+  "PORT": "3001",
+  "DATA_DIR": "./data",
+  "TELEGRAM_BOT_TOKEN": "",
+  "FRONTEND_URL": "http://localhost:5173",
+  "ENCRYPTION_KEY": ""
+}

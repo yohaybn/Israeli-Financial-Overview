@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useProfiles, useCreateProfile, useDeleteProfile } from '../hooks/useProfiles';
-import { Profile, ScraperOptions, ProviderDefinition } from '@app/shared';
-import { api } from '../lib/api';
+import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
+import { Profile, ScraperOptions } from '@app/shared';
 import { Landmark, CreditCard, Smartphone, Tag, Plus, Trash2, ShieldCheck } from 'lucide-react';
 
 interface ProfileManagerProps {
@@ -65,24 +64,15 @@ export function ProfileManager({
 }: ProfileManagerProps) {
     const { t, i18n } = useTranslation();
     const { data: profiles, isLoading } = useProfiles();
-    const { data: providers } = useQuery({
-        queryKey: ['providers'],
-        queryFn: async () => {
-            const { data } = await api.get<{ success: boolean; data: ProviderDefinition[] }>('/definitions');
-            return data.data;
-        },
-    });
+    const { data: providers } = useProviders();
     const { mutate: createProfile, isPending: isCreating } = useCreateProfile();
     const { mutate: deleteProfile, isPending: isDeleting } = useDeleteProfile();
 
     const [newProfileName, setNewProfileName] = useState('');
     const [showSaveInput, setShowSaveInput] = useState(false);
 
-    const getProviderName = (companyId: string): string => {
-        const provider = providers?.find(p => p.id === companyId);
-        if (!provider) return companyId;
-        return i18n.language === 'he' ? (provider.nameHe || provider.name) : provider.name;
-    };
+    const getProviderName = (companyId: string): string =>
+        getProviderDisplayName(companyId, providers, i18n.language);
 
 
     const handleSaveProfile = () => {

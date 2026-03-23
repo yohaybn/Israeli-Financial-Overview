@@ -1,10 +1,14 @@
 import { Router } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { AiService } from '../services/aiService.js';
 import { StorageService } from '../services/storageService.js';
+import { DbService } from '../services/dbService.js';
+import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from '../services/unifiedAiChatMemory.js';
 
 const router = Router();
 const aiService = new AiService();
 const storageService = new StorageService();
+const dbService = new DbService();
 
 // Categorize all transactions in DB using AI
 router.post('/categorize/all', async (req, res) => {
@@ -70,10 +74,10 @@ router.post('/chat', async (req, res) => {
     }
 });
 
-// Chat with the data for the unified dashboard
+// Chat with the data for the unified dashboard (structured JSON: response + facts + insights; memory persisted server-side)
 router.post('/chat/unified', async (req, res) => {
     try {
-        const { query, transactions: clientTransactions, historyNote, scope, filename } = req.body;
+        const { query, transactions: clientTransactions, historyNote, scope, filename, conversationHistory } = req.body;
 
         let transactions = clientTransactions;
 
@@ -92,19 +96,23 @@ router.post('/chat/unified', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Transactions data or source (scope/filename) required' });
         }
 
-        const contextQuery = `
-Context Rules:
-- History transactions: Older than the current month. Used for baselines and averages.
-- Current month transactions: The focus of immediate budget tracking.
-- Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.
-- Ignored transactions: should be fully excluded from calculations.
-${historyNote ? `- Additional context: ${historyNote}` : ''}
+        const contextQuery = buildUnifiedChatQueryWithMemory(historyNote, query);
 
-User Query: ${query}
-`;
+        const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
+            conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : undefined,
+            temperature: 0.7
+        });
+        const { factsAdded, insightsAdded, alertsAdded } = mergeAndPersistAiMemory(structured);
 
-        const answer = await aiService.analyzeData(contextQuery, transactions);
-        res.json({ success: true, data: answer });
+        res.json({
+            success: true,
+            data: {
+                response: structured.response,
+                factsAdded,
+                insightsAdded,
+                alertsAdded
+            }
+        });
     } catch (error: any) {
         const status = error.status || error.response?.status || 500;
         const code = error.code || error.response?.data?.error?.code || 'INTERNAL_ERROR';
@@ -142,6 +150,117 @@ router.get('/models', async (req, res) => {
     try {
         const models = await aiService.getAvailableModels();
         res.json({ success: true, data: models });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- AI persistent memory (single workspace) ---
+
+router.get('/memory/facts', (_req, res) => {
+    try {
+        const data = dbService.listAiMemoryFacts();
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.post('/memory/facts', (req, res) => {
+    try {
+        const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+        if (!text) {
+            return res.status(400).json({ success: false, error: 'text required' });
+        }
+        const id = uuidv4();
+        dbService.insertAiMemoryFact(id, text);
+        res.json({ success: true, data: { id, text } });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.patch('/memory/facts/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+        if (!text) {
+            return res.status(400).json({ success: false, error: 'text required' });
+        }
+        const ok = dbService.updateAiMemoryFact(id, text);
+        if (!ok) {
+            return res.status(404).json({ success: false, error: 'Fact not found' });
+        }
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.delete('/memory/facts/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const ok = dbService.deleteAiMemoryFact(id);
+        if (!ok) {
+            return res.status(404).json({ success: false, error: 'Fact not found' });
+        }
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.get('/memory/insights', (_req, res) => {
+    try {
+        const data = dbService.listAiMemoryInsights(500);
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/** Top insights by score (dashboard widget) */
+router.get('/memory/insights/top', (req, res) => {
+    try {
+        const raw = req.query.limit;
+        const limit = Math.min(20, Math.max(1, parseInt(typeof raw === 'string' ? raw : '3', 10) || 3));
+        const data = dbService.topAiMemoryInsights(limit);
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.get('/memory/alerts', (_req, res) => {
+    try {
+        const data = dbService.listAiMemoryAlerts(500);
+        res.json({ success: true, data });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.delete('/memory/alerts/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const ok = dbService.deleteAiMemoryAlert(id);
+        if (!ok) {
+            return res.status(404).json({ success: false, error: 'Alert not found' });
+        }
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.delete('/memory/insights/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const ok = dbService.deleteAiMemoryInsight(id);
+        if (!ok) {
+            return res.status(404).json({ success: false, error: 'Insight not found' });
+        }
+        res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }

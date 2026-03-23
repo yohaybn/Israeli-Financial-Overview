@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUnifiedAIChat, useAISettings } from '../../hooks/useScraper';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUnifiedAIChat, useAISettings, type UnifiedAIChatTurn } from '../../hooks/useScraper';
+import { AI_TOP_INSIGHTS_QUERY_KEY } from './TopInsightsCard';
 import { AISettings } from '../AISettings';
 import { mapAIError, AIErrorDetails } from '../../utils/aiErrorMapper';
 import ReactMarkdown from 'react-markdown';
@@ -28,6 +30,7 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
     const [input, setInput] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const { data: aiSettings } = useAISettings();
+    const queryClient = useQueryClient();
     const chatMutation = useUnifiedAIChat();
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -65,18 +68,47 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
 
         const historyNote = `The user is currently viewing the dashboard for the month of ${contextMonth}. When answering, make sure to distinguish between their historical data (all transactions) and the data for this specific month if it is relevant to their question.`;
 
+        const priorTurns = messages.filter(
+            (m) =>
+                m.id !== 'greeting' &&
+                !m.isError &&
+                (m.role === 'user' || m.role === 'assistant')
+        );
+        const turnsForApi: UnifiedAIChatTurn[] = (isRetry ? priorTurns : [...priorTurns, { id: 'pending', role: 'user', content: msgToSend }])
+            .slice(-12)
+            .map((m) => ({
+                role: m.role === 'user' ? ('user' as const) : ('model' as const),
+                text: m.content,
+            }));
+
         try {
-            const response = await chatMutation.mutateAsync({
+            const result = await chatMutation.mutateAsync({
                 query: msgToSend,
                 scope: scope === 'all' ? 'all' : undefined,
                 filename: scope !== 'all' ? scope : undefined,
-                historyNote
+                historyNote,
+                conversationHistory: turnsForApi.length > 0 ? turnsForApi : undefined,
             });
+
+            const memoryNote =
+                (result.factsAdded > 0 || result.insightsAdded > 0 || result.alertsAdded > 0)
+                    ? `\n\n_${t('ai_chat.memory_saved', {
+                        facts: result.factsAdded,
+                        insights: result.insightsAdded,
+                        alerts: result.alertsAdded,
+                    })}_`
+                    : '';
+
+            if (result.factsAdded > 0 || result.insightsAdded > 0 || result.alertsAdded > 0) {
+                queryClient.invalidateQueries({ queryKey: AI_TOP_INSIGHTS_QUERY_KEY });
+                queryClient.invalidateQueries({ queryKey: ['ai-memory-insights'] });
+                queryClient.invalidateQueries({ queryKey: ['ai-memory-alerts'] });
+            }
 
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: response
+                content: result.response + memoryNote
             }]);
         } catch (error: any) {
             console.error('AI Chat Error:', error);

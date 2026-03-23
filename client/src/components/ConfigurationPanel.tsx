@@ -9,8 +9,9 @@ import { GoogleSheetsSync } from './GoogleSheetsSync';
 import { EnvironmentSettings } from './EnvironmentSettings';
 import { FraudSettings } from './FraudSettings';
 import { TelegramSettings } from './TelegramSettings';
+import { AIMemorySettings } from './AIMemorySettings';
 
-type ConfigTab = 'ai' | 'scheduler' | 'scrape' | 'fraud' | 'sheets' | 'telegram' | 'maintenance' | 'environment';
+type ConfigTab = 'ai' | 'memory' | 'scheduler' | 'scrape' | 'fraud' | 'sheets' | 'telegram' | 'maintenance' | 'environment';
 
 export function ConfigurationPanel() {
     const { t } = useTranslation();
@@ -19,7 +20,7 @@ export function ConfigurationPanel() {
     useEffect(() => {
         const raw = sessionStorage.getItem('configOpenTab');
         if (!raw) return;
-        const allowed: ConfigTab[] = ['ai', 'scheduler', 'scrape', 'fraud', 'sheets', 'telegram', 'maintenance', 'environment'];
+        const allowed: ConfigTab[] = ['ai', 'memory', 'scheduler', 'scrape', 'fraud', 'sheets', 'telegram', 'maintenance', 'environment'];
         if (allowed.includes(raw as ConfigTab)) {
             setActiveTab(raw as ConfigTab);
         }
@@ -48,6 +49,12 @@ export function ConfigurationPanel() {
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
                         {t('ai_settings.title')}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('memory')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'memory' ? 'bg-violet-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                        {t('ai_memory.title')}
                     </button>
                     <button
                         onClick={() => setActiveTab('scheduler')}
@@ -99,6 +106,7 @@ export function ConfigurationPanel() {
             <main className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-4xl mx-auto">
                     {activeTab === 'ai' && <AISettings isInline={true} />}
+                    {activeTab === 'memory' && <AIMemorySettings isInline={true} />}
                     {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
                     {activeTab === 'scrape' && <ScrapeSettings isInline={true} />}
                     {activeTab === 'fraud' && <FraudSettings isInline={true} />}

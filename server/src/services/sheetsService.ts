@@ -30,7 +30,7 @@ export class SheetsService {
         // Check environment variable
         const envFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
         if (envFolderId) {
-            return { folderId: envFolderId, folderName: 'Default (from .env)' };
+            return { folderId: envFolderId, folderName: 'Default (from runtime settings)' };
         }
         return null;
     }

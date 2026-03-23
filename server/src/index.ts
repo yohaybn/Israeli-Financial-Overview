@@ -1,6 +1,6 @@
+import './runtimeEnv.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
@@ -20,11 +20,9 @@ import { maskSensitiveData } from './utils/masking.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
 // Main async function
 async function startServer() {
-  // Import routes AFTER dotenv.config() so that services can access environment variables during instantiation
+  // Import routes AFTER runtimeEnv (see top) so process.env is populated before services load
   const { createScrapeRoutes } = await import('./routes/scrapeRoutes.js');
   const { createPostScrapeRoutes } = await import('./routes/postScrapeRoutes.js');
   const { profileRoutes } = await import('./routes/profileRoutes.js');
@@ -71,6 +69,8 @@ async function startServer() {
       url.startsWith('/api/logs') ||
       url.startsWith('/api/ai-logs') ||
       url.startsWith('/api/telegram/status') ||
+      
+      url.startsWith('/api/app-lock/status') ||
       url.includes('/settings')
     );
 

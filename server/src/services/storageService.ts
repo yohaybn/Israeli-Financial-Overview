@@ -36,6 +36,11 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
         },
         notificationChannels: ['console'],
         aggregateTelegramNotifications: true,
+        transactionReviewReminder: {
+            enabled: true,
+            notifyTransfersCategory: true,
+            notifyUncategorized: true,
+        },
     },
 };
 
@@ -131,7 +136,7 @@ export class StorageService {
         serverLogger.info('DB Sync complete');
     }
 
-    async saveScrapeResult(result: ScrapeResult, provider: string) {
+    async saveScrapeResult(result: ScrapeResult, provider: string): Promise<{ filename: string; newTransactionIds: string[] }> {
         // Do not save empty results
         const hasTransactions = result.transactions && result.transactions.length > 0;
         const hasAccounts = result.accounts && result.accounts.length > 0;
@@ -147,11 +152,14 @@ export class StorageService {
             accountNumber = result.accounts[0].accountNumber;
         }
 
+        let insertedNewIds: string[] = [];
+
         if (result.transactions && result.transactions.length > 0) {
             const config = await this.getGlobalScrapeConfig();
             const ignorePending = config.scraperOptions.ignorePendingTransactions !== false;
 
             const validTransactions = [];
+            const newTransactionIds: string[] = [];
             for (const txn of result.transactions) {
                 if (ignorePending && txn.status === 'pending') {
                     const txnId = txn.id || this.generateStableId(txn, txn.accountNumber || accountNumber);
@@ -163,7 +171,9 @@ export class StorageService {
                     txn.id = this.generateStableId(txn, txn.accountNumber);
                 }
                 validTransactions.push(txn);
-                this.dbService.addTransaction(txn);
+                if (this.dbService.addTransaction(txn)) {
+                    newTransactionIds.push(txn.id);
+                }
             }
             result.transactions = validTransactions;
 
@@ -175,6 +185,8 @@ export class StorageService {
                 const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
                 dateRange = `_${minDate}`;
             }
+
+            insertedNewIds = newTransactionIds;
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[1].substring(0, 8);
@@ -184,7 +196,10 @@ export class StorageService {
         // Save in legacy format (array of accounts) as requested by user for consistency
         const legacyData = this.serializeToLegacyFormat(result);
         await fs.writeJson(filePath, legacyData, { spaces: 2 });
-        return filename;
+        return {
+            filename,
+            newTransactionIds: insertedNewIds,
+        };
     }
 
     async deleteScrapeResult(filename: string): Promise<boolean> {
@@ -604,7 +619,7 @@ export class StorageService {
             logs: [`Merged ${filenames.length} files`]
         };
 
-        const mergedFilename = await this.saveScrapeResult(mergedResult, 'merged');
+        const { filename: mergedFilename } = await this.saveScrapeResult(mergedResult, 'merged');
 
         // Delete original files after successful merge
         if (deleteOriginals) {
@@ -663,7 +678,14 @@ export class StorageService {
                     ...DEFAULT_GLOBAL_CONFIG,
                     ...loaded,
                     scraperOptions: { ...DEFAULT_GLOBAL_CONFIG.scraperOptions, ...loaded.scraperOptions },
-                    postScrapeConfig: { ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig, ...loaded.postScrapeConfig }
+                    postScrapeConfig: {
+                        ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig,
+                        ...loaded.postScrapeConfig,
+                        transactionReviewReminder: {
+                            ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.transactionReviewReminder,
+                            ...loaded.postScrapeConfig?.transactionReviewReminder,
+                        },
+                    }
                 };
             }
         } catch (error) {

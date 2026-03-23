@@ -29,6 +29,26 @@ export interface PostScrapeConfig {
      * Per-request options still override when set by the Telegram bot or API.
      */
     aggregateTelegramNotifications?: boolean;
+    /**
+     * After a scrape, remind you about new transactions classified as Transfers (העברות)
+     * or the default bucket (אחר) so you can set memo or a more specific category.
+     * Uses the same notification channels as other post-scrape messages when enabled.
+     */
+    transactionReviewReminder?: {
+        enabled?: boolean;
+        notifyTransfersCategory?: boolean;
+        notifyUncategorized?: boolean;
+    };
+}
+
+/** Payload for dashboard / Telegram when new txns need memo or category review */
+export interface TransactionReviewItem {
+    id: string;
+    description: string;
+    date: string;
+    amount: number;
+    category: string;
+    reason: 'transfers' | 'uncategorized';
 }
 
 export type FraudSeverity = 'low' | 'medium' | 'high';

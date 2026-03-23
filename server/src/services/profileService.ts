@@ -313,9 +313,9 @@ export class ProfileService {
 
         await fs.writeFile(MIGRATION_MARKER, new Date().toISOString(), 'utf8');
         if (migrated > 0) {
-            console.log(`✅ Profile encryption: migrated ${migrated} profile(s) from ENCRYPTION_KEY to app password. You can remove ENCRYPTION_KEY from .env.`);
+            console.log(`✅ Profile encryption: migrated ${migrated} profile(s) from ENCRYPTION_KEY to app password. You can remove ENCRYPTION_KEY from runtime-settings.json.`);
         } else {
-            console.log('✅ Profile encryption: migration marker written (no legacy-encrypted profiles found). You can remove ENCRYPTION_KEY from .env.');
+            console.log('✅ Profile encryption: migration marker written (no legacy-encrypted profiles found). You can remove ENCRYPTION_KEY from runtime-settings.json.');
         }
 
         return { migrated, skipped: false };

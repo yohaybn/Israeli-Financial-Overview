@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 import { TransactionModal } from './TransactionModal';
 import { isInternalTransfer } from '../utils/transactionUtils';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
+import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { getCategoryLucideIcon } from '../utils/categoryIcons';
 
 interface TransactionTableProps {
@@ -87,6 +88,7 @@ export function TransactionTable({
 }: TransactionTableProps) {
     const { t, i18n } = useTranslation();
     const { config } = useDashboardConfig();
+    const { data: providers } = useProviders();
 
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -378,12 +380,11 @@ export function TransactionTable({
                     </td>
                 );
             case 'account': {
-                const providerKey = `provider.${txn.provider}`;
-                const providerLabel = i18n.exists(providerKey) ? t(providerKey) : txn.provider;
+                const providerLabel = getProviderDisplayName(txn.provider, providers, i18n.language);
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-900 whitespace-nowrap`}>
                         <div className="font-medium tabular-nums">{txn.accountNumber || '—'}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{providerLabel || '—'}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{providerLabel}</div>
                     </td>
                 );
             }
@@ -429,7 +430,7 @@ export function TransactionTable({
                 return (
                     <td key={col.key} className={baseClass}>
                         <div
-                            className="inline-flex items-center gap-1.5 min-w-0 max-w-full rounded-full border border-gray-200 bg-gray-50 pl-2 pr-1 py-0.5 hover:bg-white transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
+                            className="inline-flex w-fit max-w-full items-center gap-1 rounded-full border border-gray-200 bg-gray-50 pl-2 pr-1.5 py-0.5 hover:bg-white transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
                             onClick={(e) => e.stopPropagation()}
                             onMouseDown={(e) => e.stopPropagation()}
                         >
@@ -437,7 +438,7 @@ export function TransactionTable({
                             <select
                                 value={txn.category || ''}
                                 onChange={(e) => onUpdateCategory?.(txn.id, e.target.value)}
-                                className="min-w-0 flex-1 bg-transparent border-0 text-gray-700 text-xs py-0.5 pr-6 rounded-none focus:ring-0 focus:outline-none appearance-none cursor-pointer"
+                                className="min-w-0 max-w-full bg-transparent border-0 text-gray-700 text-xs py-0.5 pl-0 pr-1 rounded-none focus:ring-0 focus:outline-none appearance-none cursor-pointer [field-sizing:content]"
                             >
                                 <option value="">{t('table.uncategorized')}</option>
                                 {categories.map((cat) => (
