@@ -10,6 +10,9 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const CONFIG_DIR = path.join(DATA_DIR, 'config');
 const GOOGLE_FOLDER_CONFIG_PATH = path.join(CONFIG_DIR, 'google_folder.json');
+const TELEGRAM_CONFIG_PATH = path.join(CONFIG_DIR, 'telegram_config.json');
+/** Same relative path as under DATA_DIR; snapshot may merge file + TELEGRAM_BOT_TOKEN env. */
+const TELEGRAM_CONFIG_SNAPSHOT_PATH = 'config/telegram_config.json';
 const DB_PATH = path.join(DATA_DIR, 'app.db');
 
 const SNAPSHOT_VERSION = 3;
@@ -21,6 +24,8 @@ const BACKUP_TARGETS = [
     'results',
     'config',
     'profiles',
+    /** App lock + migration marker — required to decrypt password-migrated profiles after restore on another machine */
+    'security',
     'post_scrape'
 ];
 
@@ -98,6 +103,8 @@ export class BackupService {
             entries.push(...(await this.collectDirRecursive(targetPath, target)));
         }
 
+        await this.replaceWithResolvedTelegramConfig(entries);
+
         for (const name of DATA_DIR_ROOT_CONFIG_FILES) {
             const abs = path.join(DATA_DIR, name);
             if (!(await fs.pathExists(abs))) continue;
@@ -144,6 +151,47 @@ export class BackupService {
         }
 
         return entries;
+    }
+
+    /**
+     * Ensure telegram_config.json in the snapshot includes the effective bot token and user lists:
+     * on-disk file is merged with TELEGRAM_BOT_TOKEN when the token was set only via env.
+     */
+    private async replaceWithResolvedTelegramConfig(entries: BackupEntry[]): Promise<void> {
+        let fromFile: Record<string, unknown> = {};
+        if (await fs.pathExists(TELEGRAM_CONFIG_PATH)) {
+            try {
+                fromFile = (await fs.readJson(TELEGRAM_CONFIG_PATH)) as Record<string, unknown>;
+            } catch {
+                // keep empty; still allow env-only token in backup
+            }
+        }
+
+        const fileToken = typeof fromFile.botToken === 'string' ? fromFile.botToken.trim() : '';
+        const envToken = process.env.TELEGRAM_BOT_TOKEN?.trim() || '';
+        const botToken = fileToken || envToken;
+
+        const merged = {
+            botToken,
+            enabled: typeof fromFile.enabled === 'boolean' ? fromFile.enabled : false,
+            adminChatIds: Array.isArray(fromFile.adminChatIds) ? fromFile.adminChatIds : [],
+            notificationChatIds: Array.isArray(fromFile.notificationChatIds) ? fromFile.notificationChatIds : [],
+            allowedUsers: Array.isArray(fromFile.allowedUsers) ? fromFile.allowedUsers : [],
+            language: fromFile.language === 'he' || fromFile.language === 'en' ? fromFile.language : 'en',
+            spendingDigestEnabled: typeof fromFile.spendingDigestEnabled === 'boolean' ? fromFile.spendingDigestEnabled : false
+        };
+
+        const idx = entries.findIndex(e => e.path === TELEGRAM_CONFIG_SNAPSHOT_PATH);
+        if (idx >= 0) {
+            entries.splice(idx, 1);
+        }
+
+        const json = JSON.stringify(merged, null, 2);
+        entries.push({
+            path: TELEGRAM_CONFIG_SNAPSHOT_PATH,
+            encoding: 'base64',
+            content: Buffer.from(json, 'utf8').toString('base64')
+        });
     }
 
     private async buildSnapshot(): Promise<BackupSnapshot> {

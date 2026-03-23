@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import {
     ArrowLeft,
     ArrowRight,
@@ -12,11 +13,10 @@ import {
     FolderOpen,
     X
 } from 'lucide-react';
-import { ONBOARDING_STEP_COUNT } from '../../hooks/useOnboardingState';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useAppLockStatus, useSetupAppLock } from '../../hooks/useAppLock';
 import { useEnvConfig, useUpdateEnvConfig, useRestartServer } from '../../hooks/useConfig';
-import { getGoogleOAuthCallbackUrl } from '../../lib/api';
+import { getApiRoot, getGoogleOAuthCallbackUrl } from '../../lib/api';
 
 export function OnboardingWizard() {
     const { t } = useTranslation();
@@ -42,8 +42,20 @@ export function OnboardingWizard() {
     const [googleSecret, setGoogleSecret] = useState('');
     const [redirectUri, setRedirectUri] = useState('');
     const [driveFolder, setDriveFolder] = useState('');
+    const [telegramToken, setTelegramToken] = useState('');
     const [envDirty, setEnvDirty] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+
+    const { data: telegramConfig } = useQuery({
+        queryKey: ['telegramConfig', 'onboarding'],
+        queryFn: async () => {
+            const res = await fetch(`${getApiRoot()}/telegram/config`);
+            const data = await res.json();
+            return data.data as { botToken?: string } | undefined;
+        },
+        enabled: step === 0
+    });
 
     useEffect(() => {
         if (!envConfig || envLoading) return;
@@ -56,6 +68,13 @@ export function OnboardingWizard() {
     }, [envConfig, envLoading]);
 
     useEffect(() => {
+        const tok = telegramConfig?.botToken;
+        if (tok && !tok.startsWith('***')) {
+            setTelegramToken(tok);
+        }
+    }, [telegramConfig]);
+
+    useEffect(() => {
         if (step === 3 && !redirectUri) {
             setRedirectUri(getGoogleOAuthCallbackUrl());
         }
@@ -63,8 +82,65 @@ export function OnboardingWizard() {
 
     const defaultRedirect = getGoogleOAuthCallbackUrl();
 
+    /** Drive folder step only when Google OAuth client ID is set (saved or in form). */
+    const showDriveStep = useMemo(() => {
+        const fromEnv = envConfig?.GOOGLE_CLIENT_ID?.trim() || '';
+        const fromForm = googleId.trim();
+        return Boolean(fromEnv || fromForm);
+    }, [envConfig?.GOOGLE_CLIENT_ID, googleId]);
+
+    const totalWizardSteps = showDriveStep ? 6 : 5;
+    const progressCurrent =
+        showDriveStep || step < 4 ? Math.min(step + 1, totalWizardSteps) : totalWizardSteps;
+
+    const advanceAfterGoogleStep = () => {
+        if (!showDriveStep) {
+            setStep(5);
+        } else {
+            nextStep();
+        }
+    };
+
+    const onboardingPrevStep = () => {
+        if (step === 5 && !showDriveStep) {
+            setStep(3);
+        } else {
+            prevStep();
+        }
+    };
+
+    useLayoutEffect(() => {
+        if (step === 4 && !showDriveStep) {
+            setStep(5);
+        }
+    }, [step, showDriveStep, setStep]);
+
     const skipEntireSetup = () => {
         complete();
+    };
+
+    const handleWelcomeContinue = async () => {
+        setSaveError(null);
+        const trimmed = telegramToken.trim();
+        if (!trimmed || trimmed.includes('***')) {
+            setStep(1);
+            return;
+        }
+        setIsSavingTelegram(true);
+        try {
+            const res = await fetch(`${getApiRoot()}/telegram/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ botToken: trimmed })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || t('onboarding.save_failed'));
+            setStep(1);
+        } catch (e: unknown) {
+            setSaveError(e instanceof Error ? e.message : t('onboarding.save_failed'));
+        } finally {
+            setIsSavingTelegram(false);
+        }
     };
 
     const handleContinueLater = () => {
@@ -107,13 +183,13 @@ export function OnboardingWizard() {
         if (r) updates.GOOGLE_REDIRECT_URI = r;
 
         if (Object.keys(updates).length === 0) {
-            nextStep();
+            advanceAfterGoogleStep();
             return;
         }
         updateEnv(updates, {
             onSuccess: () => {
                 setEnvDirty(true);
-                nextStep();
+                advanceAfterGoogleStep();
             },
             onError: (e: unknown) => {
                 setSaveError(e instanceof Error ? e.message : t('onboarding.save_failed'));
@@ -166,7 +242,7 @@ export function OnboardingWizard() {
         return t(keys[s] || keys[0]);
     };
 
-    const progressLabel = `${Math.min(step + 1, ONBOARDING_STEP_COUNT)} / ${ONBOARDING_STEP_COUNT}`;
+    const progressLabel = `${progressCurrent} / ${totalWizardSteps}`;
 
     return (
         <div
@@ -201,7 +277,7 @@ export function OnboardingWizard() {
                             {step === 1 && <Lock className="w-6 h-6" />}
                             {step === 2 && <KeyRound className="w-6 h-6" />}
                             {step === 3 && <Cloud className="w-6 h-6" />}
-                            {step === 4 && <FolderOpen className="w-6 h-6" />}
+                            {step === 4 && showDriveStep && <FolderOpen className="w-6 h-6" />}
                             {step === 5 && <CheckCircle2 className="w-6 h-6" />}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -221,9 +297,32 @@ export function OnboardingWizard() {
                     )}
 
                     {step === 0 && (
-                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 flex gap-2 text-sm text-slate-600">
-                            <BookOpen className="w-5 h-5 shrink-0 text-slate-400" />
-                            <p>{t('onboarding.steps.welcome_tip')}</p>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-600 block">
+                                    {t('onboarding.telegram_token_label')}
+                                </label>
+                                <input
+                                    type="password"
+                                    value={telegramToken}
+                                    onChange={(e) => setTelegramToken(e.target.value)}
+                                    placeholder={t('onboarding.telegram_token_placeholder')}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono"
+                                    autoComplete="off"
+                                />
+                                <a
+                                    href="https://t.me/BotFather"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex text-sm font-bold text-indigo-600 hover:underline"
+                                >
+                                    {t('onboarding.open_botfather')}
+                                </a>
+                            </div>
+                            <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 flex gap-2 text-sm text-slate-600">
+                                <BookOpen className="w-5 h-5 shrink-0 text-slate-400" />
+                                <p>{t('onboarding.steps.welcome_tip')}</p>
+                            </div>
                         </div>
                     )}
 
@@ -350,7 +449,7 @@ export function OnboardingWizard() {
                         </div>
                     )}
 
-                    {step === 4 && (
+                    {step === 4 && showDriveStep && (
                         <div className="space-y-3">
                             <label className="text-xs font-bold text-slate-600 block">
                                 {t('onboarding.drive_folder_label')}
@@ -409,7 +508,7 @@ export function OnboardingWizard() {
                         {step > 0 && (
                             <button
                                 type="button"
-                                onClick={prevStep}
+                                onClick={onboardingPrevStep}
                                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-white"
                             >
                                 <ArrowLeft className="w-4 h-4" />
@@ -429,10 +528,11 @@ export function OnboardingWizard() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setStep(1)}
-                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700"
+                                    disabled={isSavingTelegram}
+                                    onClick={() => void handleWelcomeContinue()}
+                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 disabled:opacity-50"
                                 >
-                                    {t('onboarding.get_started')}
+                                    {isSavingTelegram ? t('common.loading') : t('onboarding.get_started')}
                                     <ArrowRight className="w-4 h-4" />
                                 </button>
                             </>
@@ -482,7 +582,7 @@ export function OnboardingWizard() {
                             <>
                                 <button
                                     type="button"
-                                    onClick={() => nextStep()}
+                                    onClick={() => advanceAfterGoogleStep()}
                                     className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
                                 >
                                     {t('onboarding.skip_step')}
@@ -498,7 +598,7 @@ export function OnboardingWizard() {
                                 </button>
                             </>
                         )}
-                        {step === 4 && (
+                        {step === 4 && showDriveStep && (
                             <>
                                 <button
                                     type="button"

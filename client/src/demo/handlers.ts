@@ -189,6 +189,10 @@ export const demoHandlers = [
         })
     ),
 
+    http.post(apiPath('/telegram/config'), () =>
+        HttpResponse.json({ success: true, message: 'Configuration updated' })
+    ),
+
     http.get(apiPath('/sheets/folder-config'), () =>
         HttpResponse.json({ success: true, data: { folderId: '', folderName: '' } })
     ),

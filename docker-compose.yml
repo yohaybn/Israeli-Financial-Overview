@@ -1,20 +1,13 @@
-version: '3.8'
-
 services:
   app:
     image: ghcr.io/yohaybn/israeli-bank-scraper-docker-app:master
     restart: unless-stopped
-  ports:
-    - "3000:3000"
-  volumes:
-    # Map local data directory to container /data directory
-    # This will persist settings, results, and logs
-    - ./data:/data
-  environment:
-    - PORT=3000
-    - DATA_DIR=/data
-    - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
-    - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
-    - DRIVE_FOLDER_ID=${DRIVE_FOLDER_ID}
-    - APP_SECRET=${APP_SECRET}
-    - GEMINI_API_KEY=${GEMINI_API_KEY}
+    ports:
+      - "3000:3000"
+    volumes:
+      # Map local data directory to container /data directory
+      # This will persist settings, results, and logs
+      - ./data:/data
+    environment:
+      - PORT=3000
+      - DATA_DIR=/data
