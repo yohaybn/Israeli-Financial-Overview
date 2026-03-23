@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getApiRoot } from '../lib/api';
 
 export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: boolean; onClose?: () => void }) {
   const { t } = useTranslation();
@@ -12,7 +13,8 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/post-scrape/config')
+    const root = getApiRoot();
+    fetch(`${root}/post-scrape/config`)
       .then(r => r.json())
       .then((data) => {
         if (data?.success) setCfg(data.data);
@@ -20,13 +22,13 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
       .catch(() => { })
       .finally(() => setLoading(false));
     // Fetch available notification channels
-    fetch('/api/notifications/channels')
+    fetch(`${root}/notifications/channels`)
       .then(r => r.json())
       .then((data) => { if (data?.success) setAvailableChannels(data.data || []); })
       .catch(() => { setAvailableChannels(['console']); });
 
     // Fetch telegram status to know whether to enable the telegram checkbox
-    fetch('/api/telegram/status')
+    fetch(`${root}/telegram/status`)
       .then(r => r.json())
       .then((data) => { if (data?.success) setTelegramStatus(data.data); })
       .catch(() => setTelegramStatus(null));
@@ -47,7 +49,7 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch('/api/post-scrape/config', {
+      const res = await fetch(`${getApiRoot()}/post-scrape/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cfg),

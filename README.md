@@ -31,6 +31,9 @@ Access UI at `http://localhost:3000`.
 3. Configure your OAuth credentials in the "Configuration" tab.
 4. Start the add-on and open the Web UI.
 
+### 4. GitHub Pages (demo UI)
+The repository can publish a **static demo** of the web client (sample data only, no bank access). Enable **GitHub Pages** with the **GitHub Actions** source and use the workflow in `.github/workflows/pages.yml`. The site is served under `https://<user>.github.io/<repo>/` with `VITE_DEMO=true` and in-browser API mocks. Full functionality still requires the Docker/server stack above.
+
 ## API Documentation
 For detailed information on available endpoints, request payloads, and profile-based scraping, please refer to the:
 👉 **[API Reference Guide (Swagger-style)](app/API.md)**

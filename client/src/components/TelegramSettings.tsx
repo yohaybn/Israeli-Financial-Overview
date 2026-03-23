@@ -2,14 +2,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Settings, Play, Square, AlertCircle, CheckCircle } from 'lucide-react';
+import { getApiRoot } from '../lib/api';
 
 interface TelegramSettingsProps {
     isOpen?: boolean;
     onClose?: () => void;
     isInline?: boolean;
 }
-
-const API_BASE = '/api';
 
 export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettingsProps) {
     const { t } = useTranslation();
@@ -33,7 +32,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const { data: config } = useQuery({
         queryKey: ['telegramConfig'],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE}/telegram/config`);
+            const res = await fetch(`${getApiRoot()}/telegram/config`);
             const data = await res.json();
             return data.data;
         },
@@ -60,7 +59,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const { data: status, isLoading: isLoadingStatus } = useQuery({
         queryKey: ['telegramStatus'],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE}/telegram/status`);
+            const res = await fetch(`${getApiRoot()}/telegram/status`);
             const data = await res.json();
             return data.data;
         },
@@ -71,7 +70,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const { data: notificationChats } = useQuery({
         queryKey: ['telegramNotificationChats'],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE}/telegram/notification-chats`);
+            const res = await fetch(`${getApiRoot()}/telegram/notification-chats`);
             const data = await res.json();
             return data.data || [];
         },
@@ -87,7 +86,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         queryKey: ['telegramUserLabels', userRows],
         queryFn: async () => {
             if (userRows.length === 0) return {} as Record<string, string>;
-            const res = await fetch(`${API_BASE}/telegram/user-labels`, {
+            const res = await fetch(`${getApiRoot()}/telegram/user-labels`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: userRows }),
@@ -100,7 +99,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
 
     const { mutate: startBot, isPending: isStarting } = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`${API_BASE}/telegram/start`, {
+            const res = await fetch(`${getApiRoot()}/telegram/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ botToken: botToken || undefined }),
@@ -121,7 +120,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
 
     const { mutate: stopBot, isPending: isStopping } = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`${API_BASE}/telegram/stop`, {
+            const res = await fetch(`${getApiRoot()}/telegram/stop`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -140,7 +139,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
 
     const { mutate: updateConfig, isPending: isUpdating } = useMutation({
         mutationFn: async (newConfig: any) => {
-            const res = await fetch(`${API_BASE}/telegram/config`, {
+            const res = await fetch(`${getApiRoot()}/telegram/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newConfig),
@@ -161,7 +160,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
 
     const { mutate: sendTestMessage, isPending: isSendingTest } = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`${API_BASE}/telegram/send-test-message`, {
+            const res = await fetch(`${getApiRoot()}/telegram/send-test-message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({}),
@@ -186,7 +185,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             if (!botToken || !chatId) {
                 throw new Error('Bot token and chat ID are required');
             }
-            const res = await fetch(`${API_BASE}/telegram/test`, {
+            const res = await fetch(`${getApiRoot()}/telegram/test`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ botToken, chatId }),
@@ -206,7 +205,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const { mutate: setNotificationChat } = useMutation({
         mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
             const endpoint = enabled ? 'add' : 'remove';
-            const res = await fetch(`${API_BASE}/telegram/notification-chat/${endpoint}`, {
+            const res = await fetch(`${getApiRoot()}/telegram/notification-chat/${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId: id }),
@@ -228,7 +227,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const { mutate: setAllowedUser, isPending: isUpdatingAllowedUser } = useMutation({
         mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
             const updatedUsers = enabled ? Array.from(new Set([...(allowedUsers || []), id])) : allowedUsers.filter((u) => u !== id);
-            const res = await fetch(`${API_BASE}/telegram/config`, {
+            const res = await fetch(`${getApiRoot()}/telegram/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ allowedUsers: updatedUsers }),

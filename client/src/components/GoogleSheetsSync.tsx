@@ -12,13 +12,12 @@ import {
     useScrapeResults 
 } from '../hooks/useScraper';
 import { GoogleSettings } from './GoogleSettings';
+import { getApiRoot } from '../lib/api';
 
 interface GoogleSheetsSyncProps {
     selectedFile?: string | null;
     isInline?: boolean;
 }
-
-const API_BASE = '/api';
 
 export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: GoogleSheetsSyncProps) {
     const { t } = useTranslation();
@@ -26,7 +25,7 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
     const { data: folderConfig } = useQuery({
         queryKey: ['googleFolderConfig'],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE}/sheets/folder-config`);
+            const res = await fetch(`${getApiRoot()}/sheets/folder-config`);
             const data = await res.json();
             return data.data;
         }
@@ -43,8 +42,8 @@ export function GoogleSheetsSync({ selectedFile: propSelectedFile, isInline }: G
         queryKey: ['spreadsheets', folderConfig?.folderId],
         queryFn: async () => {
             const url = folderConfig?.folderId
-                ? `${API_BASE}/sheets/list?folderId=${folderConfig.folderId}`
-                : `${API_BASE}/sheets/list`;
+                ? `${getApiRoot()}/sheets/list?folderId=${folderConfig.folderId}`
+                : `${getApiRoot()}/sheets/list`;
             const res = await fetch(url);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Request failed');

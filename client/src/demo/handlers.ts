@@ -1,0 +1,294 @@
+import { http, HttpResponse } from 'msw';
+import { PROVIDERS } from '@app/shared';
+import {
+    DEMO_SAMPLE_FILENAME,
+    demoAiSettings,
+    demoDashboardConfig,
+    demoGlobalScrapeConfig,
+    demoProfiles,
+    demoScrapeResultFile,
+    demoScrapeResultList,
+    demoTopInsights,
+    demoTransactions,
+} from './sampleData';
+
+function apiPath(path: string) {
+    return ({ request }: { request: Request }) => {
+        const url = new URL(request.url);
+        return url.pathname.endsWith(`/api${path}`);
+    };
+}
+
+const emptyOk = () => HttpResponse.json({ success: true });
+
+/** Single scrape file: pathname is /<base>/api/results/<filename> (e.g. GitHub Pages base). */
+function isSingleScrapeResultFilePath(pathname: string): boolean {
+    const marker = '/api/results/';
+    const idx = pathname.lastIndexOf(marker);
+    if (idx === -1) return false;
+    const filename = pathname.slice(idx + marker.length);
+    if (!filename || filename.includes('/')) return false;
+    if (filename === 'all') return false;
+    return true;
+}
+
+export const demoHandlers = [
+    http.get(apiPath('/app-lock/status'), () =>
+        HttpResponse.json({
+            success: true,
+            data: { lockConfigured: false, unlocked: true, restricted: false },
+        })
+    ),
+
+    http.get(apiPath('/results/all'), () =>
+        HttpResponse.json({
+            success: true,
+            transactions: demoTransactions,
+        })
+    ),
+
+    http.get(apiPath('/results'), () =>
+        HttpResponse.json({
+            success: true,
+            data: demoScrapeResultList,
+        })
+    ),
+
+    http.get(({ request }) => {
+        const p = new URL(request.url).pathname;
+        return isSingleScrapeResultFilePath(p);
+    }, () =>
+        HttpResponse.json({
+            success: true,
+            data: demoScrapeResultFile(),
+        })
+    ),
+
+    http.get(apiPath('/ai/settings'), () =>
+        HttpResponse.json({ success: true, data: demoAiSettings })
+    ),
+
+    http.post(apiPath('/ai/settings'), async () =>
+        HttpResponse.json({ success: true, data: demoAiSettings })
+    ),
+
+    http.get(apiPath('/config/dashboard'), () =>
+        HttpResponse.json({ success: true, data: demoDashboardConfig })
+    ),
+
+    http.post(apiPath('/config/dashboard'), async ({ request }) => {
+        const body = (await request.json().catch(() => ({}))) as object;
+        return HttpResponse.json({ success: true, data: { ...demoDashboardConfig, ...body } });
+    }),
+
+    http.get(apiPath('/definitions'), () =>
+        HttpResponse.json({ success: true, data: PROVIDERS })
+    ),
+
+    http.get(apiPath('/profiles'), () =>
+        HttpResponse.json({ success: true, data: demoProfiles })
+    ),
+
+    http.get(apiPath('/post-scrape/review-alert'), () =>
+        HttpResponse.json({ success: true, data: null })
+    ),
+
+    http.delete(apiPath('/post-scrape/review-alert'), () => emptyOk()),
+
+    http.get(apiPath('/ai/memory/insights/top'), () =>
+        HttpResponse.json({ success: true, data: demoTopInsights })
+    ),
+
+    http.get(apiPath('/config'), () =>
+        HttpResponse.json({ success: true, data: demoGlobalScrapeConfig })
+    ),
+
+    http.put(apiPath('/config'), async () =>
+        HttpResponse.json({ success: true, data: demoGlobalScrapeConfig })
+    ),
+
+    http.get(apiPath('/filters'), () => HttpResponse.json({ success: true, data: [] })),
+
+    http.get(apiPath('/ai/models'), () =>
+        HttpResponse.json({ success: true, data: ['gemini-2.0-flash'] })
+    ),
+
+    http.get(apiPath('/auth/google/status'), () =>
+        HttpResponse.json({ success: true, data: { authenticated: false } })
+    ),
+
+    http.get(apiPath('/auth/google/config-status'), () =>
+        HttpResponse.json({ success: true, data: { configured: false } })
+    ),
+
+    http.get(apiPath('/auth/google/settings'), () =>
+        HttpResponse.json({ success: true, data: {} })
+    ),
+
+    http.get(apiPath('/auth/google/url'), () =>
+        HttpResponse.json({ success: true, data: 'https://example.com/oauth' })
+    ),
+
+    http.get(apiPath('/scheduler/config'), () =>
+        HttpResponse.json({ success: true, data: { enabled: false } })
+    ),
+
+    http.get(apiPath('/config/env'), () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                GEMINI_API_KEY: '',
+                GOOGLE_CLIENT_ID: '',
+                GOOGLE_CLIENT_SECRET: '',
+                GOOGLE_REDIRECT_URI: '',
+                DRIVE_FOLDER_ID: '',
+                PORT: '3001',
+                DATA_DIR: '',
+            },
+        })
+    ),
+
+    http.post(apiPath('/config/env'), () => emptyOk()),
+    http.post(apiPath('/config/restart'), () => emptyOk()),
+
+    http.get(apiPath('/notifications/channels'), () =>
+        HttpResponse.json({ success: true, data: ['console'] })
+    ),
+
+    http.get(apiPath('/telegram/status'), () =>
+        HttpResponse.json({
+            success: true,
+            data: { running: false, configured: false },
+        })
+    ),
+
+    http.get(apiPath('/post-scrape/config'), () =>
+        HttpResponse.json({
+            success: true,
+            data: demoGlobalScrapeConfig.postScrapeConfig,
+        })
+    ),
+
+    http.put(apiPath('/post-scrape/config'), async ({ request }) => {
+        const body = await request.json().catch(() => ({}));
+        return HttpResponse.json({
+            success: true,
+            data: body,
+        });
+    }),
+
+    http.get(apiPath('/telegram/config'), () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                botToken: '',
+                chatId: '',
+                allowedUsers: [],
+                spendingDigestEnabled: false,
+            },
+        })
+    ),
+
+    http.get(apiPath('/sheets/folder-config'), () =>
+        HttpResponse.json({ success: true, data: { folderId: '', folderName: '' } })
+    ),
+
+    http.get(apiPath('/sheets/drive-folders'), () =>
+        HttpResponse.json({
+            success: true,
+            data: [
+                {
+                    id: 'demo-drive-root',
+                    name: 'Demo Bank Exports',
+                    mimeType: 'application/vnd.google-apps.folder',
+                },
+            ],
+        })
+    ),
+
+    http.get(({ request }) => {
+        const p = new URL(request.url).pathname;
+        const marker = '/api/sheets/drive-folder-contents/';
+        const idx = p.lastIndexOf(marker);
+        if (idx === -1) return false;
+        const folderId = p.slice(idx + marker.length);
+        return folderId.length > 0 && !folderId.includes('/');
+    }, () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                folders: [
+                    {
+                        id: 'demo-drive-nested',
+                        name: 'Demo Subfolder',
+                        mimeType: 'application/vnd.google-apps.folder',
+                    },
+                ],
+                files: [],
+                allItems: [
+                    {
+                        id: 'demo-drive-nested',
+                        name: 'Demo Subfolder',
+                        mimeType: 'application/vnd.google-apps.folder',
+                    },
+                ],
+            },
+        })
+    ),
+
+    http.get(apiPath('/sheets/list'), () => HttpResponse.json({ success: true, data: [] })),
+
+    http.post(apiPath('/scrape'), async () =>
+        HttpResponse.json({
+            success: true,
+            data: demoScrapeResultFile(),
+            filename: DEMO_SAMPLE_FILENAME,
+        })
+    ),
+
+    http.post(apiPath('/ai/chat/unified'), async () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                response:
+                    'This is a **demo** reply. Connect the full app with a real backend to use AI chat on your data.',
+                factsAdded: 0,
+                insightsAdded: 0,
+                alertsAdded: 0,
+            },
+        })
+    ),
+
+    http.post(apiPath('/ai/chat'), async () =>
+        HttpResponse.json({
+            success: true,
+            data: 'Demo: AI chat is not connected here.',
+        })
+    ),
+
+    http.get(apiPath('/logs'), () =>
+        HttpResponse.json({
+            type: 'server',
+            lines: '[demo] Sample log line\n',
+            totalLines: 1,
+        })
+    ),
+
+    http.get(apiPath('/logs/level'), () =>
+        HttpResponse.json({ level: 'info' })
+    ),
+
+    http.post(apiPath('/logs/level'), () => emptyOk()),
+    http.post(apiPath('/logs/clear'), () => HttpResponse.json({ success: true, type: 'server' })),
+
+    http.all('*/api/*', async ({ request }) => {
+        const method = request.method;
+        if (method === 'GET') {
+            return HttpResponse.json({ success: true, data: [] });
+        }
+        if (method === 'DELETE') {
+            return HttpResponse.json({ success: true });
+        }
+        return HttpResponse.json({ success: true });
+    }),
+];

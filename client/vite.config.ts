@@ -4,6 +4,11 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+function normalizeBase(raw: string): string {
+    if (!raw || raw === '/') return '/'
+    return raw.endsWith('/') ? raw : `${raw}/`
+}
+
 function readBackendPort(): string {
     if (process.env.PORT) return process.env.PORT
     try {
@@ -19,46 +24,49 @@ function readBackendPort(): string {
 
 export default defineConfig(() => {
     const targetPort = readBackendPort()
+    const isDemo = process.env.VITE_DEMO === 'true'
+    const baseFromEnv = process.env.VITE_BASE || process.env.GITHUB_PAGES_BASE
+    const base = baseFromEnv ? normalizeBase(baseFromEnv) : '/'
+
+    const pwaPlugin = VitePWA({
+        registerType: 'autoUpdate',
+        devOptions: {
+            enabled: true
+        },
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        manifest: {
+            name: 'Israeli Bank Scraper',
+            short_name: 'BankScraper',
+            description: 'Scrape and analyze your Israeli bank and credit card transactions',
+            theme_color: '#0f172a',
+            background_color: '#0f172a',
+            display: 'standalone',
+            scope: base,
+            start_url: base,
+            icons: [
+                {
+                    src: 'pwa-192x192.png',
+                    sizes: '192x192',
+                    type: 'image/png'
+                },
+                {
+                    src: 'pwa-512x512.png',
+                    sizes: '512x512',
+                    type: 'image/png'
+                },
+                {
+                    src: 'pwa-512x512.png',
+                    sizes: '512x512',
+                    type: 'image/png',
+                    purpose: 'any maskable'
+                }
+            ]
+        }
+    })
 
     return {
-        plugins: [
-            react(),
-            VitePWA({
-                registerType: 'autoUpdate',
-                devOptions: {
-                    enabled: true
-                },
-                includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
-                manifest: {
-                    name: 'Israeli Bank Scraper',
-                    short_name: 'BankScraper',
-                    description: 'Scrape and analyze your Israeli bank and credit card transactions',
-                    theme_color: '#0f172a',
-                    background_color: '#0f172a',
-                    display: 'standalone',
-                    scope: '/',
-                    start_url: '/',
-                    icons: [
-                        {
-                            src: '/pwa-192x192.png',
-                            sizes: '192x192',
-                            type: 'image/png'
-                        },
-                        {
-                            src: '/pwa-512x512.png',
-                            sizes: '512x512',
-                            type: 'image/png'
-                        },
-                        {
-                            src: '/pwa-512x512.png',
-                            sizes: '512x512',
-                            type: 'image/png',
-                            purpose: 'any maskable'
-                        }
-                    ]
-                }
-            })
-        ],
+        base,
+        plugins: [react(), ...(isDemo ? [] : [pwaPlugin])],
         resolve: {
             alias: {
                 '@': path.resolve(__dirname, './src'),

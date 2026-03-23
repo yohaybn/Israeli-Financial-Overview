@@ -7,6 +7,7 @@
         "version": "v2.1 (Auto)",
         "note": "Note",
         "prototype_note": "This is a local-only prototype. Credentials are sent directly to the local backend.",
+        "demo_banner": "Demo mode — sample data only. No backend or bank data is used.",
         "loading": "Loading...",
         "ignore": "Ignore",
         "ignored": "Ignored",

@@ -13,6 +13,7 @@ import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
+import { isDemoMode } from './demo/isDemo';
 
 
 function App() {
@@ -123,7 +124,7 @@ function App() {
                                 </button>
                             )}
                             <button
-                                onClick={() => window.open('/GUIDE.html', '_blank')}
+                                onClick={() => window.open(`${import.meta.env.BASE_URL}GUIDE.html`, '_blank')}
                                 className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-bold text-gray-600 transition-colors border border-gray-200 flex items-center gap-1.5"
                                 title={t('common.help')}
                             >
@@ -142,6 +143,15 @@ function App() {
                         </div>
                     </div>
                 </header>
+
+                {isDemoMode() && (
+                    <div
+                        className="shrink-0 bg-violet-50 border-b border-violet-200 text-violet-950 text-center text-sm py-2 px-4"
+                        role="status"
+                    >
+                        {t('common.demo_banner')}
+                    </div>
+                )}
 
                 <AppLockBanner />
 

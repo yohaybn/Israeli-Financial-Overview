@@ -255,7 +255,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                 {/* Footer Buttons */}
                 <div className="bg-gray-50 border-t border-gray-200 p-4 flex justify-between gap-3">
                     <a
-                        href="/GUIDE.html"
+                        href={`${import.meta.env.BASE_URL}GUIDE.html`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGoogleSettings, useUpdateGoogleSettings } from '../hooks/useScraper';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getApiRoot, getGoogleOAuthCallbackUrl } from '../lib/api';
 
 interface GoogleSettingsProps {
     isOpen?: boolean;
@@ -14,8 +15,6 @@ interface GoogleFolder {
     name: string;
 }
 
-const API_BASE = '/api';
-
 export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProps) {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
@@ -24,7 +23,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
 
     const [clientId, setClientId] = useState('');
     const [clientSecret, setClientSecret] = useState('');
-    const [redirectUri, setRedirectUri] = useState(`${window.location.origin}/api/auth/google/callback`);
+    const [redirectUri, setRedirectUri] = useState(() => getGoogleOAuthCallbackUrl());
     const [selectedFolderId, setSelectedFolderId] = useState('');
     const [selectedFolderName, setSelectedFolderName] = useState('');
     const [currentBrowsingFolderId, setCurrentBrowsingFolderId] = useState<string | null>(null);
@@ -41,7 +40,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     const { data: folderConfig } = useQuery({
         queryKey: ['googleFolderConfig'],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE}/sheets/folder-config`);
+            const res = await fetch(`${getApiRoot()}/sheets/folder-config`);
             const data = await res.json();
             return data.data;
         },
@@ -52,7 +51,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     const { data: folders, isLoading: isFoldersLoading } = useQuery({
         queryKey: ['googleFolders'],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE}/sheets/drive-folders`);
+            const res = await fetch(`${getApiRoot()}/sheets/drive-folders`);
             const data = await res.json();
             return data.data || [];
         },
@@ -64,7 +63,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
         queryKey: ['googleFolderContents', currentBrowsingFolderId],
         queryFn: async () => {
             if (!currentBrowsingFolderId) return null;
-            const res = await fetch(`${API_BASE}/sheets/drive-folder-contents/${currentBrowsingFolderId}`);
+            const res = await fetch(`${getApiRoot()}/sheets/drive-folder-contents/${currentBrowsingFolderId}`);
             const data = await res.json();
             return data.data;
         },
@@ -75,7 +74,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     const { mutate: saveFolderConfig } = useMutation({
         mutationFn: async (folderId: string) => {
             const folderName = selectedFolderName;
-            const res = await fetch(`${API_BASE}/sheets/folder-config`, {
+            const res = await fetch(`${getApiRoot()}/sheets/folder-config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ folderId, folderName })
@@ -97,7 +96,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     // Mutation to clear folder config
     const { mutate: clearFolderConfig, isPending: isClearingFolder } = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`${API_BASE}/sheets/folder-config`, {
+            const res = await fetch(`${getApiRoot()}/sheets/folder-config`, {
                 method: 'DELETE'
             });
             const data = await res.json();
@@ -122,7 +121,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     const { mutate: testDriveConnection, isPending: isTestingDrive } = useMutation({
         mutationFn: async () => {
             setTestError(null);
-            const res = await fetch(`${API_BASE}/auth/google/test`);
+            const res = await fetch(`${getApiRoot()}/auth/google/test`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || t('google_settings.test_failed'));
             return data;
@@ -165,7 +164,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
         if (settings) {
             setClientId(settings.clientId || '');
             setClientSecret(settings.clientSecret || '');
-            setRedirectUri(settings.redirectUri || `${window.location.origin}/api/auth/google/callback`);
+            setRedirectUri(settings.redirectUri || getGoogleOAuthCallbackUrl());
         }
     }, [settings]);
 

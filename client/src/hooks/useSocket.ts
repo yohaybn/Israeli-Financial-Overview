@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { TransactionReviewItem } from '@app/shared';
 import { api } from '../lib/api';
+import { isDemoMode } from '../demo/isDemo';
 
 export interface ScrapeProgress {
     type: string;
@@ -42,6 +43,7 @@ export function useSocket() {
     const [transactionReviewAlert, setTransactionReviewAlert] = useState<TransactionReviewNeededEvent | null>(null);
 
     useEffect(() => {
+        if (isDemoMode()) return;
         let cancelled = false;
         (async () => {
             try {
@@ -60,6 +62,7 @@ export function useSocket() {
     }, []);
 
     useEffect(() => {
+        if (isDemoMode()) return;
         const socketInstance = io(SOCKET_URL, {
             transports: ['websocket', 'polling'],
         }) as any;
@@ -115,7 +118,9 @@ export function useSocket() {
 
     const clearTransactionReviewAlert = useCallback(() => {
         setTransactionReviewAlert(null);
-        void api.delete('/post-scrape/review-alert').catch(() => {});
+        if (!isDemoMode()) {
+            void api.delete('/post-scrape/review-alert').catch(() => {});
+        }
     }, []);
 
     return {

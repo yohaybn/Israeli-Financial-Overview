@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEnvConfig, useUpdateEnvConfig, useRestartServer } from '../hooks/useConfig';
+import { getGoogleOAuthCallbackUrl } from '../lib/api';
 
 export function EnvironmentSettings() {
     const { t } = useTranslation();
@@ -97,7 +98,7 @@ export function EnvironmentSettings() {
                     key: 'GOOGLE_REDIRECT_URI',
                     labelKey: 'env.fields.google_redirect_uri.label',
                     helpKey: 'env.fields.google_redirect_uri.help',
-                    helpArgs: { example: `${window.location.origin}/api/auth/google/callback` }
+                    helpArgs: { example: getGoogleOAuthCallbackUrl() }
                 },
                 {
                     key: 'DRIVE_FOLDER_ID',

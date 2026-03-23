@@ -16,6 +16,7 @@ import { ONBOARDING_STEP_COUNT } from '../../hooks/useOnboardingState';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useAppLockStatus, useSetupAppLock } from '../../hooks/useAppLock';
 import { useEnvConfig, useUpdateEnvConfig, useRestartServer } from '../../hooks/useConfig';
+import { getGoogleOAuthCallbackUrl } from '../../lib/api';
 
 export function OnboardingWizard() {
     const { t } = useTranslation();
@@ -56,11 +57,11 @@ export function OnboardingWizard() {
 
     useEffect(() => {
         if (step === 3 && !redirectUri) {
-            setRedirectUri(`${window.location.origin}/api/auth/google/callback`);
+            setRedirectUri(getGoogleOAuthCallbackUrl());
         }
     }, [step, redirectUri]);
 
-    const defaultRedirect = `${window.location.origin}/api/auth/google/callback`;
+    const defaultRedirect = getGoogleOAuthCallbackUrl();
 
     const skipEntireSetup = () => {
         complete();

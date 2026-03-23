@@ -2,17 +2,27 @@ import axios from 'axios';
 
 declare const __BACKEND_PORT__: string;
 
-const getBaseUrl = () => {
-    // @ts-ignore: Vite injects import.meta.env
+/**
+ * Root URL for the REST API (no trailing slash). In production, respects Vite `BASE_URL` (GitHub Pages project sites).
+ */
+export function getApiRoot(): string {
     if (import.meta.env.DEV) {
-        return `http://${window.location.hostname}:${typeof __BACKEND_PORT__ !== 'undefined' ? __BACKEND_PORT__ : 3000}/api`;
+        const port = typeof __BACKEND_PORT__ !== 'undefined' ? __BACKEND_PORT__ : '3000';
+        return `http://${window.location.hostname}:${port}/api`;
     }
-    return '/api';
-};
+    const base = import.meta.env.BASE_URL;
+    return base.endsWith('/') ? `${base}api` : `${base}/api`;
+}
+
+/** Google OAuth redirect URI shown in UI and used with the real backend. */
+export function getGoogleOAuthCallbackUrl(): string {
+    return new URL('api/auth/google/callback', window.location.origin + import.meta.env.BASE_URL).href;
+}
+
+const getAxiosBaseUrl = () => getApiRoot();
 
 export const api = axios.create({
-    // Remove the protocol and domain if in production, else target backend port.
-    baseURL: getBaseUrl(),
+    baseURL: getAxiosBaseUrl(),
     headers: {
         'Content-Type': 'application/json',
     },
