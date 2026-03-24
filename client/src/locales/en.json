@@ -1114,7 +1114,7 @@
     },
     "env": {
         "title": "Environment Variables",
-        "subtitle": "Configure system-level settings stored in runtime-settings.json at the project root",
+        "subtitle": "Configure system-level settings stored in data/config/runtime-settings.json (next to your database; persists with the data folder / Docker volume)",
         "profile_encryption_note": "Saved bank credentials are encrypted with your app password (set via the strip under the header). If you still have ENCRYPTION_KEY in runtime-settings.json from an older setup, unlock once after upgrade — profiles are re-encrypted automatically and you can remove that variable.",
         "enter_value": "Enter {{key}}...",
         "generate_random_key": "Generate random key",

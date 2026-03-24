@@ -2,6 +2,7 @@ node_modules
 dist
 .env
 runtime-settings.json
+data/config/runtime-settings.json
 .DS_Store
 coverage
 *.log

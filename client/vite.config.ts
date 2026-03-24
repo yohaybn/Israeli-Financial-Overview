@@ -11,13 +11,18 @@ function normalizeBase(raw: string): string {
 
 function readBackendPort(): string {
     if (process.env.PORT) return process.env.PORT
-    try {
-        const p = path.resolve(__dirname, '..', 'runtime-settings.json')
-        const raw = fs.readFileSync(p, 'utf8')
-        const j = JSON.parse(raw) as { PORT?: string }
-        if (j.PORT) return String(j.PORT)
-    } catch {
-        // default matches server/src/index.ts
+    const candidates = [
+        path.resolve(__dirname, '..', 'data', 'config', 'runtime-settings.json'),
+        path.resolve(__dirname, '..', 'runtime-settings.json')
+    ]
+    for (const p of candidates) {
+        try {
+            const raw = fs.readFileSync(p, 'utf8')
+            const j = JSON.parse(raw) as { PORT?: string }
+            if (j.PORT) return String(j.PORT)
+        } catch {
+            // try next path
+        }
     }
     return '3001'
 }

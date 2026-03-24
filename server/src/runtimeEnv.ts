@@ -8,7 +8,10 @@ const __dirname = path.dirname(__filename);
 /** Repository root (parent of server/). */
 export const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
-export const RUNTIME_SETTINGS_PATH = path.join(PROJECT_ROOT, 'runtime-settings.json');
+const DATA_DIR_RESOLVED = path.resolve(process.env.DATA_DIR || './data');
+/** Persisted env (API keys, OAuth, etc.) under the data directory so Docker volume mounts keep settings across restarts. */
+export const RUNTIME_SETTINGS_PATH = path.join(DATA_DIR_RESOLVED, 'config', 'runtime-settings.json');
+const LEGACY_RUNTIME_SETTINGS_PATH = path.join(PROJECT_ROOT, 'runtime-settings.json');
 
 const LEGACY_ENV_PATH = path.join(PROJECT_ROOT, '.env');
 
@@ -30,6 +33,28 @@ function parseEnvFile(content: string): Record<string, string> {
         out[key] = value;
     }
     return out;
+}
+
+/**
+ * One-time: copy project-root `runtime-settings.json` into `DATA_DIR/config/` (Docker-persisted path).
+ */
+function migrateLegacyRuntimeSettingsFile(): void {
+    if (fs.existsSync(RUNTIME_SETTINGS_PATH)) {
+        return;
+    }
+    if (!fs.existsSync(LEGACY_RUNTIME_SETTINGS_PATH)) {
+        return;
+    }
+    fs.ensureDirSync(path.dirname(RUNTIME_SETTINGS_PATH));
+    fs.copyFileSync(LEGACY_RUNTIME_SETTINGS_PATH, RUNTIME_SETTINGS_PATH);
+    try {
+        fs.unlinkSync(LEGACY_RUNTIME_SETTINGS_PATH);
+    } catch {
+        // keep legacy file if removal fails (e.g. permissions)
+    }
+    console.log(
+        '[runtime] Migrated runtime-settings.json from project root to DATA_DIR/config/ (persists with your data volume)'
+    );
 }
 
 /**
@@ -59,6 +84,7 @@ function migrateLegacyEnv(): void {
  * (OS / Docker env wins).
  */
 export function applyRuntimeSettings(): void {
+    migrateLegacyRuntimeSettingsFile();
     migrateLegacyEnv();
     if (!fs.existsSync(RUNTIME_SETTINGS_PATH)) {
         return;

@@ -32,7 +32,7 @@ const BACKUP_TARGETS = [
 /** Optional JSON files stored directly under DATA_DIR (not in a subfolder). */
 const DATA_DIR_ROOT_CONFIG_FILES = ['scheduler_config.json', 'notification_config.json'] as const;
 
-/** Snapshot path for project-root runtime-settings.json (API keys, OAuth client id/secret, etc.). */
+/** Snapshot path label for runtime-settings (API keys, OAuth client id/secret, etc.); restored to DATA_DIR/config/runtime-settings.json. */
 const RUNTIME_SETTINGS_SNAPSHOT_PATH = 'root/runtime-settings.json';
 
 interface BackupEntry {

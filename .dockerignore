@@ -4,6 +4,7 @@ dist
 **/dist
 .env
 runtime-settings.json
+data/config/runtime-settings.json
 .git
 .github
 .vscode
