@@ -1,14 +1,12 @@
 import axios from 'axios';
 
-declare const __BACKEND_PORT__: string;
-
 /**
  * Root URL for the REST API (no trailing slash). In production, respects Vite `BASE_URL` (GitHub Pages project sites).
+ * In dev, use same-origin `/api` so requests go through the Vite proxy (matches `vite.config.ts` backend port).
  */
 export function getApiRoot(): string {
     if (import.meta.env.DEV) {
-        const port = typeof __BACKEND_PORT__ !== 'undefined' ? __BACKEND_PORT__ : '3000';
-        return `http://${window.location.hostname}:${port}/api`;
+        return '/api';
     }
     const base = import.meta.env.BASE_URL;
     return base.endsWith('/') ? `${base}api` : `${base}/api`;

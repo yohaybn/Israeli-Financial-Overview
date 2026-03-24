@@ -82,9 +82,6 @@ export default defineConfig(() => {
         optimizeDeps: {
             include: ['@app/shared'],
         },
-        define: {
-            '__BACKEND_PORT__': JSON.stringify(targetPort)
-        },
         server: {
             port: 5173,
             host: '127.0.0.1',

@@ -18,6 +18,7 @@ import { Profile, ScrapeRequest, ScrapeResult, type Transaction, type Transactio
 import { transactionsToCsv, transactionsToJson } from '@app/shared';
 import { postScrapeService } from './postScrapeService.js';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
+import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1091,8 +1092,12 @@ export class TelegramBotService {
 
     if (statusMsg && chatIdNum) {
       const body = summaryLines.length > 0 ? summaryLines.join('\n') : this.t('errorScraper');
-      const finalText = `${this.t('scraperSuccess')}\n\n${body}`.slice(0, 4096);
-      await this.editTelegramStatusMessage(ctx, chatIdNum, statusMsg.message_id, finalText);
+      const finalText = `${this.t('scraperSuccess')}\n\n${body}`;
+      const summaryChunks = splitTelegramPlainText(finalText, getTelegramMaxMessageChars());
+      await this.editTelegramStatusMessage(ctx, chatIdNum, statusMsg.message_id, summaryChunks[0]);
+      for (let i = 1; i < summaryChunks.length; i++) {
+        await ctx.reply(summaryChunks[i]);
+      }
     }
 
     if (results.length > 0) {
@@ -1306,30 +1311,26 @@ export class TelegramBotService {
         this.chatStates.set(chatIdNum.toString(), updatedState);
       }
 
-      // If response already contains HTML tags, use as-is; otherwise convert Markdown to HTML
+      // If response already contains HTML tags, use as-is; otherwise convert Markdown to HTML per chunk
       const looksLikeHtml = /<\/?\w+[^>]*>/.test(response);
-      const htmlResponse = looksLikeHtml ? response : this.convertMarkdownToHtml(response);
+      const htmlChunks: string[] = looksLikeHtml
+        ? splitTelegramHtmlChunks(response, 4080)
+        : splitTelegramPlainText(response, 3400).flatMap((ch) => {
+            const h = this.convertMarkdownToHtml(ch);
+            return h.length > 4080 ? splitTelegramHtmlChunks(h, 4080) : [h];
+          });
 
-      if (htmlResponse.length > 4096) {
-        const chunks = htmlResponse.match(/[\s\S]{1,4096}/g) || [];
-        // Edit first chunk into the thinking message
-        try {
-          // @ts-ignore
-          await ctx.telegram.editMessageText(chatIdNum, thinkingMsg.message_id, undefined, chunks[0], { parse_mode: 'HTML' });
-        } catch (e) {
-          // If edit fails, send as a new message
-          await ctx.reply(String(chunks[0]), { parse_mode: 'HTML' });
-        }
-        for (let i = 1; i < chunks.length; i++) {
-          await ctx.reply(String(chunks[i]), { parse_mode: 'HTML' });
-        }
-      } else {
-        try {
-          // @ts-ignore
-          await ctx.telegram.editMessageText(chatIdNum, thinkingMsg.message_id, undefined, htmlResponse, { parse_mode: 'HTML' });
-        } catch (e) {
-          await ctx.reply(String(htmlResponse), { parse_mode: 'HTML' });
-        }
+      const chunks = htmlChunks.length > 0 ? htmlChunks : [this.convertMarkdownToHtml(response || this.t('noAiResponse'))];
+      const firstChunk = chunks[0];
+      const restChunks = chunks.slice(1);
+
+      try {
+        await ctx.telegram.editMessageText(chatIdNum, thinkingMsg.message_id, undefined, firstChunk, { parse_mode: 'HTML' });
+      } catch (e) {
+        await ctx.reply(String(firstChunk), { parse_mode: 'HTML' });
+      }
+      for (const part of restChunks) {
+        await ctx.reply(String(part), { parse_mode: 'HTML' });
       }
     } catch (error) {
       serverLogger.error('Error in AI chat', { error });
@@ -2096,10 +2097,37 @@ export class TelegramBotService {
   }
 
   /**
+   * Deterministic long payload for exercising Telegram chunking (plain or HTML).
+   */
+  private buildLargeTestTelegramPayload(targetLen: number, mode: 'plain' | 'html'): string {
+    const cap = Math.min(50000, Math.max(1, Math.floor(targetLen)));
+    if (cap < 64) {
+      return 'x'.repeat(cap);
+    }
+    let s = mode === 'html' ? '<b>LARGE-TEST</b>\n' : 'LARGE-TEST\n';
+    let n = 0;
+    while (s.length < cap) {
+      const line = mode === 'html' ? `<i>${n}</i> ${'x'.repeat(32)}\n` : `LINE ${n} ${'x'.repeat(48)}\n`;
+      const room = cap - s.length;
+      if (line.length > room) {
+        s += mode === 'html' ? 'x'.repeat(room) : line.slice(0, room);
+        break;
+      }
+      s += line;
+      n++;
+    }
+    return s.slice(0, cap);
+  }
+
+  /**
    * Send a test message to the given chat(s). If chatId is provided, send only to that chat;
    * otherwise send to all notification chat IDs.
+   * Optional `testCharCount` (1–50000) sends a large payload split the same way as production long messages.
    */
-  async sendTestMessage(chatId?: string): Promise<{ sent: number; errors: string[] }> {
+  async sendTestMessage(
+    chatId?: string,
+    options?: { testCharCount?: number; mode?: 'plain' | 'html' }
+  ): Promise<{ sent: number; errors: string[] }> {
     if (!this.bot || !this.isRunning) {
       throw new Error('Telegram bot is not running. Start the bot first.');
     }
@@ -2107,12 +2135,42 @@ export class TelegramBotService {
     if (targetIds.length === 0) {
       throw new Error('No notification chats configured. Add at least one user to the Notification column.');
     }
-    const text = '✅ Test message from Israeli Bank Scraper. If you see this, notifications are working.';
+    const rawCount = options?.testCharCount;
+    const count =
+      rawCount != null && Number.isFinite(Number(rawCount)) ? Math.floor(Number(rawCount)) : 0;
+    const mode = options?.mode === 'html' ? 'html' : 'plain';
+
     const errors: string[] = [];
     let sent = 0;
+
+    if (count <= 0) {
+      const text = '✅ Test message from Israeli Bank Scraper. If you see this, notifications are working.';
+      for (const id of targetIds) {
+        try {
+          await this.bot.telegram.sendMessage(id, text);
+          sent++;
+        } catch (err: any) {
+          errors.push(`${id}: ${err?.message || err}`);
+        }
+      }
+      return { sent, errors };
+    }
+
+    const payload = this.buildLargeTestTelegramPayload(count, mode);
+    const chunks =
+      mode === 'html'
+        ? splitTelegramHtmlChunks(payload, 4080)
+        : splitTelegramPlainText(payload, getTelegramMaxMessageChars());
+
     for (const id of targetIds) {
       try {
-        await this.bot.telegram.sendMessage(id, text);
+        for (const chunk of chunks) {
+          await this.bot.telegram.sendMessage(
+            id,
+            chunk,
+            mode === 'html' ? { parse_mode: 'HTML' } : {}
+          );
+        }
         sent++;
       } catch (err: any) {
         errors.push(`${id}: ${err?.message || err}`);

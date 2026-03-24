@@ -174,8 +174,15 @@ router.get('/status', async (req: Request, res: Response) => {
  */
 router.post('/send-test-message', async (req: Request, res: Response) => {
   try {
-    const { chatId } = req.body || {};
-    const result = await telegramBotService.sendTestMessage(chatId);
+    const { chatId, testCharCount, testMode } = req.body || {};
+    const parsedCount =
+      testCharCount != null && testCharCount !== ''
+        ? Math.floor(Number(testCharCount))
+        : undefined;
+    const result = await telegramBotService.sendTestMessage(chatId, {
+      testCharCount: parsedCount,
+      mode: testMode === 'html' ? 'html' : 'plain',
+    });
     if (result.errors.length > 0 && result.sent === 0) {
       return res.status(500).json({ success: false, error: result.errors[0] });
     }

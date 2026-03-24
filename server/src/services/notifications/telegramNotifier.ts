@@ -7,6 +7,7 @@ import { BaseNotifier } from './baseNotifier.js';
 import { NotificationPayload, NotifierConfig } from './types.js';
 import axios from 'axios';
 import { serverLogger } from '../../utils/logger.js';
+import { splitTelegramPlainText } from '../../utils/telegramTextSplit.js';
 
 export interface TelegramNotifierConfig extends Omit<NotifierConfig, 'enabled'> {
   enabled?: boolean;
@@ -103,7 +104,7 @@ export class TelegramNotifier extends BaseNotifier {
     }
 
     const message = this.formatMessage(payload);
-    const chunks = this.splitMessageForTelegram(message, 3800);
+    const chunks = splitTelegramPlainText(message, 3800);
 
     for (const chatId of this.chatIds) {
       let sent = 0;
@@ -167,87 +168,6 @@ export class TelegramNotifier extends BaseNotifier {
     if (source === 'telegram_bot') return this.L('sourceTelegramBot');
     if (source === 'scheduler') return this.L('sourceScheduler');
     return this.L('sourceManual');
-  }
-
-  /**
-   * Split long messages into chunks within Telegram-safe size.
-   * Prefer split points at newline, sentence boundary, then whitespace.
-   * Avoids splitting in the middle of MarkdownV2 escapes (\) or UTF-16 surrogate pairs.
-   */
-  private splitMessageForTelegram(message: string, maxLen: number): string[] {
-    const text = String(message || '');
-    if (text.length <= maxLen) return [text];
-
-    const chunks: string[] = [];
-    let remaining = text;
-
-    while (remaining.length > maxLen) {
-      let splitAt = this.findBestSplitPoint(remaining, maxLen);
-      if (splitAt <= 0 || splitAt > remaining.length) {
-        splitAt = Math.min(maxLen, remaining.length);
-      }
-      splitAt = this.adjustSplitForSafeBoundary(remaining, splitAt);
-
-      const chunk = remaining.slice(0, splitAt).trim();
-      if (chunk.length > 0) {
-        chunks.push(chunk);
-      }
-      remaining = remaining.slice(splitAt).trim();
-    }
-
-    if (remaining.length > 0) {
-      chunks.push(remaining);
-    }
-
-    return chunks;
-  }
-
-  /**
-   * Ensure we don't split in the middle of a MarkdownV2 escape (backslash + char)
-   * or in the middle of a UTF-16 surrogate pair (emoji).
-   */
-  private adjustSplitForSafeBoundary(text: string, splitAt: number): number {
-    if (splitAt <= 0 || splitAt >= text.length) return splitAt;
-    let pos = splitAt;
-    // Don't end chunk with a single backslash (would break MarkdownV2 escape in Telegram).
-    while (pos > 0 && text[pos - 1] === '\\') {
-      pos--;
-    }
-    // Don't split in the middle of a surrogate pair (low surrogate is 0xD800-0xDBFF, high is 0xDC00-0xDFFF).
-    const atPos = text.charCodeAt(pos);
-    if (pos < text.length && atPos >= 0xDC00 && atPos <= 0xDFFF && pos > 0) {
-      pos--;
-    }
-    return Math.max(1, pos);
-  }
-
-  private findBestSplitPoint(text: string, maxLen: number): number {
-    const safeMax = Math.min(maxLen, text.length);
-    const candidate = text.slice(0, safeMax + 1);
-
-    // Prefer newline boundaries.
-    const newline = candidate.lastIndexOf('\n');
-    if (newline >= Math.floor(safeMax * 0.6)) {
-      return newline + 1;
-    }
-
-    // Prefer sentence boundaries.
-    for (let i = safeMax; i >= Math.floor(safeMax * 0.6); i--) {
-      const c = candidate[i];
-      if (!c) continue;
-      if (c === '.' || c === '!' || c === '?' || c === '…' || c === ';') {
-        return i + 1;
-      }
-    }
-
-    // Fallback to whitespace boundary.
-    const ws = Math.max(candidate.lastIndexOf(' '), candidate.lastIndexOf('\t'));
-    if (ws >= Math.floor(safeMax * 0.6)) {
-      return ws + 1;
-    }
-
-    // Last resort: hard split (adjustSplitForSafeBoundary will fix escape/surrogate).
-    return safeMax;
   }
 
   /**
