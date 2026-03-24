@@ -23,6 +23,11 @@ import { StorageService } from './storageService.js';
 import { fraudDetectionService } from './fraudDetectionService.js';
 import { DbService } from './dbService.js';
 import type { Server } from 'socket.io';
+import {
+  type ScrapeRunActionRecord,
+  generateScrapeRunLogId,
+  writeScrapeRunLog,
+} from '../utils/scrapeRunLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -353,11 +358,11 @@ export class PostScrapeService {
   /**
    * Optional spending digest (budget pace + anomalies + whale alerts) via @app/shared.
    * Uses the same Telegram aggregation buffer as other post-scrape notifications when enabled.
-   * Skips if disabled, Telegram off, or digest fingerprint unchanged since last send.
+   * Skips if disabled in post-scrape config, Telegram notifier off, or digest fingerprint unchanged since last send.
    */
   private async maybeSendSpendingDigestNotification(request?: ScrapeRequest): Promise<void> {
-    const telCfg = telegramBotService.getConfig();
-    if (!telCfg.spendingDigestEnabled) return;
+    const postCfg = await this.getConfig();
+    if (!postCfg.spendingDigestEnabled) return;
 
     const tgNotifier = notificationService.getNotifier('telegram');
     if (!tgNotifier || !tgNotifier.isEnabled()) return;
@@ -381,6 +386,7 @@ export class PostScrapeService {
       return;
     }
 
+    const telCfg = telegramBotService.getConfig();
     const digestLocale: DigestLocale = telCfg.language === 'he' ? 'he' : 'en';
     const budgetLine = formatBudgetHealthDigestLine(snapshot.budgetHealth, digestLocale);
     const insights: string[] = [
@@ -392,8 +398,7 @@ export class PostScrapeService {
       insights.push(digestLocale === 'he' ? 'אין התראות קטגוריה.' : 'No category alerts.');
     }
 
-    const cfg = await this.getConfig();
-    const channels = [...(cfg.notificationChannels || ['console'])];
+    const channels = [...(postCfg.notificationChannels || ['console'])];
     if (!channels.includes('telegram')) {
       if (tgNotifier && tgNotifier.isEnabled()) {
         channels.push('telegram');
@@ -515,17 +520,10 @@ export class PostScrapeService {
     }
   }
 
-  async handleResult(result: ScrapeResult, request?: ScrapeRequest): Promise<void> {
+  async handleResult(result: ScrapeResult, request?: ScrapeRequest): Promise<ScrapeRunActionRecord[]> {
     const pipelineId = request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape';
     let transactions = result.transactions || [];
     const failedSteps: { step: string; error: string }[] = [];
-
-    const recordStepFailure = async (step: string, err: Error): Promise<void> => {
-      const msg = err?.message || String(err);
-      failedSteps.push({ step, error: msg });
-      logger.warn(`Post-scrape step "${step}" failed (continuing with remaining steps)`, { error: msg });
-      await this.sendPostScrapeErrorNotification(step, `${msg} Continuing with remaining steps.`, request);
-    };
 
     logger.info('Post-scrape started', {
       pipelineId,
@@ -539,8 +537,18 @@ export class PostScrapeService {
     } catch (err) {
       logger.error('Post-scrape: failed to load config', { error: (err as Error).message });
       await this.sendPostScrapeErrorNotification('post-scrape', (err as Error).message, request);
-      return;
+      return [{ key: 'load-config', status: 'failed', detail: (err as Error).message }];
     }
+
+    const actions: ScrapeRunActionRecord[] = [{ key: 'load-config', status: 'ok' }];
+
+    const recordStepFailure = async (step: string, err: Error): Promise<void> => {
+      const msg = err?.message || String(err);
+      failedSteps.push({ step, error: msg });
+      actions.push({ key: step, status: 'failed', detail: msg });
+      logger.warn(`Post-scrape step "${step}" failed (continuing with remaining steps)`, { error: msg });
+      await this.sendPostScrapeErrorNotification(step, `${msg} Continuing with remaining steps.`, request);
+    };
 
     // Fetch bot language
       let botLanguage: 'en' | 'he' = 'en';
@@ -575,18 +583,39 @@ export class PostScrapeService {
               logger.warn('Failed to emit categorization:failed socket event', { error: (e as Error).message });
             }
             logger.warn('Post-scrape: AI categorization failed; applied cache where available', { error: aiError });
+            actions.push({ key: 'categorization', status: 'partial', detail: aiError });
           } else {
             logger.info('Post-scrape: category cache only (GEMINI_API_KEY not configured).');
+            actions.push({
+              key: 'categorization',
+              status: 'skipped_no_key',
+              detail: 'GEMINI_API_KEY not configured (cache only)',
+            });
           }
         } else {
           logger.info('Post-scrape step: categorization completed');
+          actions.push({ key: 'categorization', status: 'ok' });
         }
+      } else {
+        actions.push({
+          key: 'categorization',
+          status: 'skipped',
+          detail: !runCategorization ? 'disabled in config or request' : 'no transactions',
+        });
       }
 
-      await this.maybeNotifyTransactionReview(transactions, request, botLanguage);
+      try {
+        await this.maybeNotifyTransactionReview(transactions, request, botLanguage);
+        actions.push({ key: 'transaction-review', status: 'ok' });
+      } catch (e) {
+        actions.push({ key: 'transaction-review', status: 'failed', detail: (e as Error).message });
+      }
 
       // 2) Fraud detection (local / AI / both) – each sub-step continues on failure
-      if (cfg.fraudDetection?.enabled) {
+      if (!cfg.fraudDetection?.enabled) {
+        actions.push({ key: 'fraud-local', status: 'skipped' });
+        actions.push({ key: 'fraud-ai', status: 'skipped' });
+      } else {
         const mode = cfg.fraudDetection.mode || 'ai';
         const scope = cfg.fraudDetection.scope || 'current';
 
@@ -603,7 +632,7 @@ export class PostScrapeService {
             logger.info(`Post-scrape fraud detection: using all transactions (${transactionsToAnalyze.length} total, ${transactions.length} new)`);
           }
         } catch (err) {
-          await recordStepFailure('fraud-detection (load history)', err as Error);
+          await recordStepFailure('fraud-history-load', err as Error);
         }
 
         if (mode === 'local' || mode === 'both') {
@@ -676,9 +705,12 @@ export class PostScrapeService {
                   }
                 }
               }
+              actions.push({ key: 'fraud-local', status: 'ok' });
             } catch (err) {
-              await recordStepFailure('fraud-detection-local', err as Error);
+              await recordStepFailure('fraud-local', err as Error);
             }
+          } else {
+            actions.push({ key: 'fraud-local', status: 'skipped' });
           }
 
           // AI fraud detection – own try/catch so failure here doesn't skip custom AI
@@ -688,6 +720,7 @@ export class PostScrapeService {
               this.refreshAiIfNeeded();
               if (!this.ai.hasApiKey()) {
                 logger.info('Skipping post-scrape fraud analysis (AI): GEMINI_API_KEY not configured.');
+                actions.push({ key: 'fraud-ai', status: 'skipped_no_key', detail: 'GEMINI_API_KEY not configured' });
               } else {
                 try {
                   const runContext =
@@ -753,11 +786,16 @@ export class PostScrapeService {
 
                   logger.info('Post-scrape: AI fraud notification sent');
                 }
+                  actions.push({ key: 'fraud-ai', status: 'ok' });
                 } catch (err) {
-                  await recordStepFailure('fraud-detection-ai', err as Error);
+                  await recordStepFailure('fraud-ai', err as Error);
                 }
               }
+            } else {
+              actions.push({ key: 'fraud-ai', status: 'skipped', detail: 'no transactions in scope' });
             }
+          } else {
+            actions.push({ key: 'fraud-ai', status: 'skipped' });
           }
       }
 
@@ -776,10 +814,16 @@ export class PostScrapeService {
             logger.info(`Post-scrape custom AI: using all transactions (${transactionsToAnalyze.length} total, ${transactions.length} new)`);
           }
 
-          if (transactionsToAnalyze.length > 0) {
+          const skipWhenNoTx = cfg.customAI.skipIfNoTransactions !== false;
+          const shouldRunCustomAi = transactionsToAnalyze.length > 0 || !skipWhenNoTx;
+
+          if (!shouldRunCustomAi) {
+            actions.push({ key: 'custom-ai', status: 'skipped', detail: 'no transactions' });
+          } else {
             this.refreshAiIfNeeded();
             if (!this.ai.hasApiKey()) {
               logger.info('Skipping custom AI query: GEMINI_API_KEY not configured.');
+              actions.push({ key: 'custom-ai', status: 'skipped_no_key', detail: 'GEMINI_API_KEY not configured' });
             } else {
               const runContext =
                 `Today's date: ${new Date().toISOString().split('T')[0]}. This run: ${transactions.length} new transactions, ${transactionsToAnalyze.length} total in scope. The user receives this analysis after every run. Focus on what changed or what is new this time; avoid repeating the same wording from previous runs.\n\n`;
@@ -839,11 +883,14 @@ export class PostScrapeService {
 
                 logger.info('Post-scrape: custom AI notification sent');
               }
+              actions.push({ key: 'custom-ai', status: 'ok' });
             }
           }
         } catch (err) {
           await recordStepFailure('custom-ai', err as Error);
         }
+      } else {
+        actions.push({ key: 'custom-ai', status: 'skipped' });
       }
 
       // 4) Persist post-scrape metadata (non-fatal)
@@ -854,10 +901,13 @@ export class PostScrapeService {
         const filename = `${request?.companyId || 'unknown'}_${Date.now()}_postscrape.json`;
         await fs.writeJson(path.join(outDir, filename), { config: global.postScrapeConfig, resultSummary: { transactions: transactions.length, accounts: result.accounts?.length || 0 } }, { spaces: 2 });
         logger.debug('Post-scrape metadata persisted', { filename });
+        actions.push({ key: 'persist-metadata', status: 'ok', detail: filename });
       } catch (err) {
         logger.warn('Post-scrape: failed to persist metadata (non-fatal)', { error: (err as Error).message });
+        actions.push({ key: 'persist-metadata', status: 'failed', detail: (err as Error).message });
       }
 
+      actions.push({ key: 'spending-digest', status: 'queued', detail: 'async notification' });
       void this.maybeSendSpendingDigestNotification(request).catch((err) => {
         logger.warn('Spending digest notification failed', { error: (err as Error)?.message });
       });
@@ -872,6 +922,8 @@ export class PostScrapeService {
     } else {
       logger.info('Post-scrape finished successfully', { pipelineId });
     }
+
+    return actions;
   }
 
   /**
@@ -906,16 +958,56 @@ export class PostScrapeService {
       reqAny.options.aggregateTelegramNotifications = cfg.aggregateTelegramNotifications !== false;
     }
 
-    await this.handleResult(syntheticResult, request);
-    await this.sendScrapeNotification(syntheticResult, request);
+    const batchLogId = generateScrapeRunLogId();
+    if (request) {
+      (request as any).__scrapeRunLogId = batchLogId;
+    }
 
+    let postActions: ScrapeRunActionRecord[] = [];
+    try {
+      postActions = await this.handleResult(syntheticResult, request);
+    } catch (err) {
+      postActions = [{ key: 'post-scrape', status: 'failed', detail: (err as Error)?.message || String(err) }];
+      logger.warn('Post-scrape batch: handleResult failed', { error: (err as Error)?.message });
+    }
+
+    let notifAction: ScrapeRunActionRecord = { key: 'scrape-notification', status: 'ok' };
+    try {
+      await this.sendScrapeNotification(syntheticResult, request);
+    } catch (err) {
+      notifAction = { key: 'scrape-notification', status: 'failed', detail: (err as Error)?.message || String(err) };
+    }
+
+    let flushAction: ScrapeRunActionRecord = { key: 'telegram-aggregate-flush', status: 'skipped' };
     if (reqAny && (reqAny.options?.aggregateTelegramNotifications || reqAny.options?.postScrape)) {
+      flushAction = { key: 'telegram-aggregate-flush', status: 'ok' };
       try {
         await this.flushAggregatedTelegramNotification(request);
       } catch (err) {
+        flushAction = {
+          key: 'telegram-aggregate-flush',
+          status: 'failed',
+          detail: (err as Error).message,
+        };
         logger.warn('Post-scrape batch: flush Telegram notification failed', { error: (err as Error).message });
       }
     }
+
+    const pipelineId = request ? (request.profileName || request.companyId || 'batch') : 'batch';
+    await writeScrapeRunLog({
+      id: batchLogId,
+      pipelineId,
+      companyId: request?.companyId,
+      profileName: request?.profileName,
+      runSource: this.getRunSource(request),
+      kind: 'batch',
+      transactionCount: combinedTransactions.length,
+      scrapeSuccess: true,
+      savedFilenames: Array.isArray(reqAny?.options?.batchSavedFilenames)
+        ? reqAny.options.batchSavedFilenames
+        : undefined,
+      actions: [...postActions, notifAction, flushAction],
+    });
   }
 
   /**
@@ -963,6 +1055,7 @@ export class PostScrapeService {
       logger.info('Scrape notification sent', { success, channels });
     } catch (err) {
       logger.warn('Failed to send scrape notification', { error: (err as Error).message });
+      throw err;
     }
   }
 

@@ -1,7 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlobalScrapeConfig, FraudDetectionLocalThresholdsConfig, FraudDetectionLocalRulesConfig } from '@app/shared';
+import {
+  GlobalScrapeConfig,
+  FraudDetectionLocalThresholdsConfig,
+  FraudDetectionLocalRulesConfig,
+  FraudFinding,
+  FraudDetectionSummary,
+} from '@app/shared';
+import { Info } from 'lucide-react';
 import { api } from '../lib/api';
+import { SeverityThresholdBar } from './SeverityThresholdBar';
 
 interface FraudSettingsProps {
   isInline?: boolean;
@@ -11,12 +19,14 @@ interface FraudSettingsProps {
 const DEFAULT_RULES: Required<FraudDetectionLocalRulesConfig> = {
   enableOutlierAmount: true,
   enableNewMerchant: true,
+  enableNewMerchantNonHebrew: true,
   enableRapidRepeats: true,
   enableForeignCurrency: true,
 };
 
 const DEFAULT_THRESHOLDS: Required<FraudDetectionLocalThresholdsConfig> = {
   minAmountForNewMerchantIls: 250,
+  newMerchantNonHebrewPoints: 35,
   foreignCurrencyMinOriginalAmount: 50,
   rapidRepeatWindowMinutes: 30,
   rapidRepeatCountThreshold: 2,
@@ -48,12 +58,32 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
   const [findings, setFindings] = useState<FraudFindingDto[]>([]);
   const [loadingFindings, setLoadingFindings] = useState(false);
 
+  const [testDesc, setTestDesc] = useState('');
+  const [testDate, setTestDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [testAmount, setTestAmount] = useState('100');
+  const [testOrig, setTestOrig] = useState('');
+  const [testCur, setTestCur] = useState('ILS');
+  const [testHistoryJson, setTestHistoryJson] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewFinding, setPreviewFinding] = useState<FraudFinding | null>(null);
+  const [previewSummary, setPreviewSummary] = useState<FraudDetectionSummary | null>(null);
+  const [previewAlert, setPreviewAlert] = useState<{
+    wouldNotify: boolean;
+    insightLine: string;
+    itemLines: string[];
+  } | null>(null);
+  const [outlierInfoOpen, setOutlierInfoOpen] = useState(false);
+  const lastSerializedRef = useRef<string | null>(null);
+
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get<{ success: boolean; data: GlobalScrapeConfig }>('/config');
         if (res.data.success) {
-          setConfig(res.data.data);
+          const c = res.data.data;
+          setConfig(c);
+          lastSerializedRef.current = JSON.stringify(c);
         }
       } catch (e) {
         setError(t('fraud_settings.errors.load_failed'));
@@ -111,6 +141,16 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
     });
   };
 
+  const updateLocalPatch = (patch: Partial<NonNullable<GlobalScrapeConfig['postScrapeConfig']['fraudDetection']['local']>>) => {
+    if (!config) return;
+    updateFraud({
+      local: {
+        ...(config.postScrapeConfig.fraudDetection.local || {}),
+        ...patch,
+      },
+    });
+  };
+
   const thresholds: FraudDetectionLocalThresholdsConfig = {
     ...DEFAULT_THRESHOLDS,
     ...(config?.postScrapeConfig.fraudDetection.local?.thresholds || {}),
@@ -120,21 +160,27 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
     ...(config?.postScrapeConfig.fraudDetection.local?.rules || {}),
   };
 
-  const handleSave = async () => {
+  useEffect(() => {
     if (!config) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await api.put<{ success: boolean; data: GlobalScrapeConfig }>('/config', config);
-      if (!res.data.success) throw new Error(t('common.save_failed'));
-      setConfig(res.data.data);
-      if (onClose && !isInline) onClose();
-    } catch (e: any) {
-      setError(e?.message || t('fraud_settings.errors.save_failed'));
-    } finally {
-      setSaving(false);
-    }
-  };
+    const json = JSON.stringify(config);
+    if (lastSerializedRef.current === json) return;
+    const timer = setTimeout(async () => {
+      setSaving(true);
+      setError(null);
+      try {
+        const res = await api.put<{ success: boolean; data: GlobalScrapeConfig }>('/config', config);
+        if (!res.data.success) throw new Error(t('common.save_failed'));
+        const next = res.data.data;
+        setConfig(next);
+        lastSerializedRef.current = JSON.stringify(next);
+      } catch (e: any) {
+        setError(e?.message || t('fraud_settings.errors.save_failed'));
+      } finally {
+        setSaving(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [config, t]);
 
   const resetToDefaults = () => {
     if (!config) return;
@@ -144,6 +190,61 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
         thresholds: DEFAULT_THRESHOLDS,
       },
     });
+  };
+
+  const runFraudPreview = async () => {
+    if (!config) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewFinding(null);
+    setPreviewSummary(null);
+    setPreviewAlert(null);
+    try {
+      let history: any[] = [];
+      if (testHistoryJson.trim()) {
+        try {
+          const parsed = JSON.parse(testHistoryJson);
+          if (Array.isArray(parsed)) history = parsed;
+          else throw new Error('not_array');
+        } catch {
+          setPreviewError(t('fraud_settings.test_history_invalid'));
+          setPreviewLoading(false);
+          return;
+        }
+      }
+      const origNum = testOrig.trim() === '' ? Number(testAmount) : Number(testOrig);
+      const r = await api.post<{
+        success: boolean;
+        data?: {
+          finding: FraudFinding | null;
+          summary: FraudDetectionSummary;
+          alertPreview: { wouldNotify: boolean; insightLine: string; itemLines: string[] };
+        };
+        error?: string;
+      }>('/fraud/preview', {
+        transaction: {
+          id: 'fraud-test-preview',
+          description: testDesc,
+          date: new Date(testDate).toISOString(),
+          amount: Number(testAmount),
+          originalAmount: Number.isFinite(origNum) ? origNum : Number(testAmount),
+          originalCurrency: testCur || 'ILS',
+        },
+        history,
+        local: config.postScrapeConfig.fraudDetection.local,
+      });
+      const body = r.data;
+      if (!body.success || !body.data) {
+        throw new Error((body as { error?: string }).error || 'Preview failed');
+      }
+      setPreviewFinding(body.data.finding);
+      setPreviewSummary(body.data.summary);
+      setPreviewAlert(body.data.alertPreview);
+    } catch (e: any) {
+      setPreviewError(e?.message || t('fraud_settings.test_error'));
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const loadRecentFindings = async () => {
@@ -319,10 +420,24 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
                   {t('fraud_settings.rule_new_merchant')}
                 </span>
                 <span className="block text-xs text-gray-500">
-                  {t(
-                    'fraud_settings.rule_new_merchant_desc',
-                    'Highlight expensive transactions from merchants never seen before.'
-                  )}
+                  {t('fraud_settings.rule_new_merchant_desc')}
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm cursor-pointer md:col-span-2">
+              <input
+                type="checkbox"
+                checked={rules.enableNewMerchantNonHebrew !== false}
+                onChange={(e) => updateLocalRules({ enableNewMerchantNonHebrew: e.target.checked })}
+                disabled={!rules.enableNewMerchant}
+                className="mt-1 w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-40"
+              />
+              <span>
+                <span className="font-semibold">
+                  {t('fraud_settings.rule_new_merchant_non_hebrew')}
+                </span>
+                <span className="block text-xs text-gray-500">
+                  {t('fraud_settings.rule_new_merchant_non_hebrew_desc')}
                 </span>
               </span>
             </label>
@@ -369,181 +484,314 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
 
         {/* Thresholds */}
         <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-bold text-gray-800">
               {t('fraud_settings.thresholds')}
             </h4>
             <button
               type="button"
               onClick={resetToDefaults}
-              className="text-[11px] font-semibold text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
+              className="text-[11px] font-semibold text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline shrink-0"
             >
               {t('fraud_settings.reset_defaults')}
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.min_new_merchant')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.minAmountForNewMerchantIls ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ minAmountForNewMerchantIls: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.min_fx_amount')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.foreignCurrencyMinOriginalAmount ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ foreignCurrencyMinOriginalAmount: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.rapid_window')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.rapidRepeatWindowMinutes ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ rapidRepeatWindowMinutes: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.rapid_count')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.rapidRepeatCountThreshold ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ rapidRepeatCountThreshold: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.outlier_history')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.outlierMinHistoryCount ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ outlierMinHistoryCount: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.outlier_zscore')}
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                value={thresholds.outlierZScore ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ outlierZScore: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
+          <p className="text-[11px] text-gray-600 leading-relaxed">{t('fraud_settings.thresholds_intro')}</p>
+          <p className="text-[11px] text-gray-500 leading-relaxed border-l-2 border-purple-200 pl-3">
+            {t('fraud_settings.scores_summary')}
+          </p>
+
+          <div>
+            <h5 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+              {t('fraud_settings.thresholds_group_rules')}
+            </h5>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">
+                  {t('fraud_settings.min_new_merchant')}
+                </label>
+                <input
+                  type="number"
+                  value={thresholds.minAmountForNewMerchantIls ?? ''}
+                  onChange={(e) =>
+                    updateLocalThresholds({ minAmountForNewMerchantIls: Number(e.target.value || 0) })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.min_new_merchant_help')}</p>
+              </div>
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">
+                  {t('fraud_settings.non_hebrew_points')}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={thresholds.newMerchantNonHebrewPoints ?? ''}
+                  onChange={(e) =>
+                    updateLocalThresholds({ newMerchantNonHebrewPoints: Number(e.target.value || 0) })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.non_hebrew_points_help')}</p>
+              </div>
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">
+                  {t('fraud_settings.min_fx_amount')}
+                </label>
+                <input
+                  type="number"
+                  value={thresholds.foreignCurrencyMinOriginalAmount ?? ''}
+                  onChange={(e) =>
+                    updateLocalThresholds({ foreignCurrencyMinOriginalAmount: Number(e.target.value || 0) })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.min_fx_amount_help')}</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block font-semibold text-gray-700 mb-1">
+                  {t('fraud_settings.rapid_count')}
+                </label>
+                <input
+                  type="number"
+                  value={thresholds.rapidRepeatCountThreshold ?? ''}
+                  onChange={(e) =>
+                    updateLocalThresholds({ rapidRepeatCountThreshold: Number(e.target.value || 0) })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.rapid_count_help')}</p>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs pt-2 border-t border-gray-100 mt-2">
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.sev_low')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.severityLowMinScore ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ severityLowMinScore: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.sev_medium')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.severityMediumMinScore ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ severityMediumMinScore: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.sev_high')}
-              </label>
-              <input
-                type="number"
-                value={thresholds.severityHighMinScore ?? ''}
-                onChange={(e) =>
-                  updateLocalThresholds({ severityHighMinScore: Number(e.target.value || 0) })
-                }
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">
-                {t('fraud_settings.notify_severity')}
-              </label>
-              <select
-                value={thresholds.notifyMinSeverity || 'medium'}
-                onChange={(e) => updateLocalThresholds({ notifyMinSeverity: e.target.value as any })}
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h5 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                {t('fraud_settings.thresholds_group_outlier')}
+              </h5>
+              <button
+                type="button"
+                className="inline-flex rounded-full p-0.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                aria-expanded={outlierInfoOpen}
+                aria-label={t('fraud_settings.outlier_info_aria')}
+                onClick={() => setOutlierInfoOpen((o) => !o)}
               >
-                <option value="low">{t('fraud_settings.severity_low')}</option>
-                <option value="medium">{t('fraud_settings.severity_medium')}</option>
-                <option value="high">{t('fraud_settings.severity_high')}</option>
-              </select>
-              <label className="mt-2 flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                <Info className="w-4 h-4" strokeWidth={2.25} />
+              </button>
+            </div>
+            {outlierInfoOpen && (
+              <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50/90 p-3 text-[11px] leading-relaxed text-gray-700 space-y-2">
+                <p>{t('fraud_settings.outlier_info_p1')}</p>
+                <p>{t('fraud_settings.outlier_info_p2')}</p>
+                <p>{t('fraud_settings.outlier_info_p3')}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">
+                  {t('fraud_settings.outlier_history')}
+                </label>
                 <input
-                  type="checkbox"
-                  checked={thresholds.persistOnlyFlagged ?? true}
-                  onChange={(e) => updateLocalThresholds({ persistOnlyFlagged: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  type="number"
+                  value={thresholds.outlierMinHistoryCount ?? ''}
+                  onChange={(e) =>
+                    updateLocalThresholds({ outlierMinHistoryCount: Number(e.target.value || 0) })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
                 />
-                <span>{t('fraud_settings.persist_only_flagged')}</span>
-              </label>
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.outlier_history_help')}</p>
+              </div>
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">
+                  {t('fraud_settings.outlier_zscore')}
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={thresholds.outlierZScore ?? ''}
+                  onChange={(e) =>
+                    updateLocalThresholds({ outlierZScore: Number(e.target.value || 0) })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.outlier_zscore_help')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h5 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+              {t('fraud_settings.thresholds_group_alerts')}
+            </h5>
+            <div className="mb-4">
+              <SeverityThresholdBar
+                mediumMin={thresholds.severityMediumMinScore ?? DEFAULT_THRESHOLDS.severityMediumMinScore}
+                highMin={thresholds.severityHighMinScore ?? DEFAULT_THRESHOLDS.severityHighMinScore}
+                onChange={(patch) => updateLocalThresholds(patch)}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">
+                  {t('fraud_settings.notify_severity')}
+                </label>
+                <select
+                  value={thresholds.notifyMinSeverity || 'medium'}
+                  onChange={(e) => updateLocalThresholds({ notifyMinSeverity: e.target.value as 'low' | 'medium' | 'high' })}
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                >
+                  <option value="low">{t('fraud_settings.severity_low')}</option>
+                  <option value="medium">{t('fraud_settings.severity_medium')}</option>
+                  <option value="high">{t('fraud_settings.severity_high')}</option>
+                </select>
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.notify_severity_help')}</p>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={thresholds.persistOnlyFlagged ?? true}
+                    onChange={(e) => updateLocalThresholds({ persistOnlyFlagged: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span>{t('fraud_settings.persist_only_flagged')}</span>
+                </label>
+                <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.persist_only_flagged_help')}</p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Version info */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between text-xs">
-          <div>
-            <div className="font-semibold text-gray-800">
-              {t('fraud_settings.version_label')}
+        {/* Test transaction preview */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3 text-xs">
+          <h4 className="text-sm font-bold text-gray-800">{t('fraud_settings.test_title')}</h4>
+          <p className="text-[11px] text-gray-500">{t('fraud_settings.test_intro')}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2">
+              <label className="block font-semibold text-gray-700 mb-1">{t('fraud_settings.test_description')}</label>
+              <input
+                type="text"
+                value={testDesc}
+                onChange={(e) => setTestDesc(e.target.value)}
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+              />
             </div>
-            <div className="text-gray-500">
-              {config.postScrapeConfig.fraudDetection.local?.version || 'v1'}
+            <div>
+              <label className="block font-semibold text-gray-700 mb-1">{t('fraud_settings.test_date')}</label>
+              <input
+                type="date"
+                value={testDate}
+                onChange={(e) => setTestDate(e.target.value)}
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-gray-700 mb-1">{t('fraud_settings.test_amount_ils')}</label>
+              <input
+                type="number"
+                value={testAmount}
+                onChange={(e) => setTestAmount(e.target.value)}
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-gray-700 mb-1">{t('fraud_settings.test_orig_amount')}</label>
+              <input
+                type="number"
+                value={testOrig}
+                onChange={(e) => setTestOrig(e.target.value)}
+                placeholder={t('fraud_settings.test_orig_placeholder')}
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-gray-700 mb-1">{t('fraud_settings.test_currency')}</label>
+              <input
+                type="text"
+                value={testCur}
+                onChange={(e) => setTestCur(e.target.value.toUpperCase())}
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block font-semibold text-gray-700 mb-1">{t('fraud_settings.test_history_json')}</label>
+              <textarea
+                value={testHistoryJson}
+                onChange={(e) => setTestHistoryJson(e.target.value)}
+                rows={3}
+                placeholder={t('fraud_settings.test_history_placeholder')}
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
+              />
             </div>
           </div>
-          <p className="text-[11px] text-gray-500 max-w-xs">
-            {t(
-              'fraud_settings.version_help',
-              'Optionally bump this when you change thresholds in a way that reinterprets scores.'
-            )}
-          </p>
+          <button
+            type="button"
+            onClick={runFraudPreview}
+            disabled={previewLoading}
+            className="px-4 py-2 rounded-xl font-bold text-xs bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-400"
+          >
+            {previewLoading ? t('fraud_settings.test_running') : t('fraud_settings.test_run')}
+          </button>
+          {previewError && <p className="text-red-600 text-xs">{previewError}</p>}
+          {previewFinding && previewSummary && (
+            <div className="border border-gray-100 rounded-xl p-3 bg-slate-50 space-y-2">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="font-bold text-gray-800">{t('fraud_settings.test_score')}</span>
+                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold">
+                  {previewFinding.score}
+                </span>
+                <span className="text-gray-600">
+                  {t('fraud_settings.test_severity')}: {previewFinding.severity}
+                </span>
+              </div>
+              {previewFinding.reasons.length > 0 && (
+                <ul className="list-disc pl-4 space-y-1 text-gray-700">
+                  {previewFinding.reasons.map((r, i) => (
+                    <li key={i}>
+                      <span className="font-medium">+{r.points}</span> {r.message}{' '}
+                      <code className="text-[10px] text-gray-400">({r.code})</code>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {previewFinding.reasons.length === 0 && (
+                <p className="text-gray-500">{t('fraud_settings.test_no_reasons')}</p>
+              )}
+            </div>
+          )}
+          {previewAlert && (
+            <div className="border border-amber-100 rounded-xl p-3 bg-amber-50/80 space-y-2">
+              <div className="font-bold text-amber-900 text-[11px] uppercase tracking-wide">
+                {t('fraud_settings.test_alert_preview')}
+              </div>
+              <p className="text-[11px] text-amber-950/90 whitespace-pre-wrap font-mono">
+                {previewAlert.insightLine}
+                {'\n'}
+                {previewAlert.itemLines.join('\n')}
+              </p>
+              <p className="text-[10px] text-amber-800/80">
+                {previewAlert.wouldNotify
+                  ? t('fraud_settings.test_would_notify')
+                  : t('fraud_settings.test_would_not_notify')}
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* Version info */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-4 space-y-2 text-xs">
+          <div className="font-semibold text-gray-800">{t('fraud_settings.version_label')}</div>
+          <input
+            type="text"
+            value={config.postScrapeConfig.fraudDetection.local?.version ?? ''}
+            onChange={(e) => updateLocalPatch({ version: e.target.value })}
+            placeholder={t('fraud_settings.version_placeholder')}
+            className="w-full max-w-xs p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+          />
+          <p className="text-[11px] text-gray-500 max-w-lg">{t('fraud_settings.version_help')}</p>
         </section>
 
         {/* Recent findings */}
@@ -611,24 +859,25 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
         )}
       </div>
 
-      <div className={`flex justify-end gap-3 shrink-0 ${isInline ? 'pt-3' : 'p-4 bg-gray-50 border-t border-gray-100'}`}>
-        {!isInline && (
+      <div className={`flex justify-end gap-3 shrink-0 items-center ${isInline ? 'pt-3' : 'p-4 bg-gray-50 border-t border-gray-100'}`}>
+        {saving && (
+          <span className="mr-auto text-xs text-rose-600 font-bold flex items-center gap-1.5">
+            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" aria-hidden>
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            {t('common.saving')}
+          </span>
+        )}
+        {!isInline && onClose && (
           <button
+            type="button"
             onClick={onClose}
             className="px-6 py-2.5 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-2xl transition-all"
           >
             {t('common.cancel')}
           </button>
         )}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`px-8 py-2.5 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95 ${
-            saving ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'
-          }`}
-        >
-          {saving ? t('common.saving') : t('common.save')}
-        </button>
       </div>
     </div>
   );

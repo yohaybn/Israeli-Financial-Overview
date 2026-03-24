@@ -3,7 +3,7 @@
  * Handles Telegram bot interactions including AI chat and scraper control
  */
 
-import { Telegraf, Context, Markup } from 'telegraf';
+import { Telegraf, Context, Markup, Input } from 'telegraf';
 import { Message } from 'telegraf/types';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,7 +14,8 @@ import { ScraperService } from './scraperService.js';
 import { profileService, ProfileService } from './profileService.js';
 import { appLockService } from './appLockService.js';
 import { StorageService } from './storageService.js';
-import { Profile, ScrapeRequest, ScrapeResult, type TransactionReviewItem } from '@app/shared';
+import { Profile, ScrapeRequest, ScrapeResult, type Transaction, type TransactionReviewItem } from '@app/shared';
+import { transactionsToCsv, transactionsToJson } from '@app/shared';
 import { postScrapeService } from './postScrapeService.js';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 
@@ -33,8 +34,6 @@ export interface TelegramConfig {
   notificationChatIds: string[];
   allowedUsers?: string[]; // Empty = allow all
   language?: 'en' | 'he'; // Bot UI language
-  /** After a successful scrape, send a short budget / anomaly digest to Telegram (deduped by fingerprint). */
-  spendingDigestEnabled?: boolean;
 }
 
 // Translation strings for the bot
@@ -44,7 +43,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Israeli Bank Scraper Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -94,6 +93,9 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     financialTipLine1: 'For detailed analysis of your transactions, please use the web dashboard where you can upload and analyze your banking data.',
     yourQuestionPrefix: 'Your question:',
     financialTipLine2: 'Visit the web interface to get detailed insights and AI-powered analysis of your spending patterns!',
+    aiChatErrorTitle: '❌ <b>AI request failed</b>',
+    aiChatErrorCodeLabel: '<b>Code:</b>',
+    aiChatErrorExplanationLabel: '<b>Details:</b>',
     noAiResponse: '❌ No response from AI',
     errorUpdatingSettings: 'Error updating settings',
     errorExitingChatMode: '❌ Error exiting chat mode',
@@ -117,13 +119,23 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     memoCancelled: 'Memo entry cancelled.',
     memoReplySendPlainText: 'Send your memo as plain text (not a command).',
     memoReplyCancelled: 'Cancelled.',
+    exportUsage:
+      '📤 <b>Export transactions</b>\n\nSend:\n• <code>/export csv</code> — spreadsheet (Excel-friendly)\n• <code>/export json</code> — full JSON (same as the web export)\n• <code>/export csv YYYY-MM</code> or <code>/export json YYYY-MM</code> — one calendar month only\n\nIncludes all unified transactions (same as the dashboard).',
+    exportEmpty: '📭 No transactions to export yet.',
+    exportCaption: '📤 All transactions ({{count}} rows). Unified database export.',
+    exportCaptionMonth: '📤 Month {{month}} · {{count}} rows.',
+    exportInvalidMonth: '❌ Invalid month. Use YYYY-MM (example: 2026-03).',
+    exportFailed: '❌ Export failed. Try again or use the web dashboard.',
+    newAiAlertTitle: '🤖 <b>New AI alert</b>',
+    newAiAlertsTitle: '🤖 <b>New AI alerts</b>',
+    newAiAlertScoreLine: 'Score: {{score}}/100',
   },
   he: {
     accessDenied: '❌ <b>גישה נדחתה</b>\n\nאין לך הרשאה להשתמש בבוט זה עדיין.',
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט סריקת הבנקים הישראלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -173,6 +185,9 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     financialTipLine1: 'לניתוח מפורט של העסקאות שלך, אנא השתמש בדשבורד האינטרנטי שבו ניתן להעלות ולנתח נתוני בנק.',
     yourQuestionPrefix: 'השאלה שלך:',
     financialTipLine2: 'פתח את ממשק הווב כדי לקבל תובנות מפורטות וניתוח מבוסס AI על דפוסי ההוצאה שלך!',
+    aiChatErrorTitle: '❌ <b>בקשת AI נכשלה</b>',
+    aiChatErrorCodeLabel: '<b>קוד:</b>',
+    aiChatErrorExplanationLabel: '<b>פירוט:</b>',
     noAiResponse: '❌ לא התקבלה תשובה מ-AI',
     errorUpdatingSettings: 'שגיאה בעדכון הגדרות',
     errorExitingChatMode: '❌ שגיאה ביציאה ממצב שיחה',
@@ -196,6 +211,16 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     memoCancelled: 'הזנת ההערה בוטלה.',
     memoReplySendPlainText: 'שלח את ההערה כטקסט רגיל (לא פקודה).',
     memoReplyCancelled: 'בוטל.',
+    exportUsage:
+      '📤 <b>ייצוא עסקאות</b>\n\nשלח:\n• <code>/export csv</code> — גיליון (מתאים ל-Excel)\n• <code>/export json</code> — JSON מלא (כמו בייצוא מהאתר)\n• <code>/export csv YYYY-MM</code> או <code>/export json YYYY-MM</code> — חודש קלנדרי אחד בלבד\n\nכולל את כל העסקאות המאוחדות (כמו בלוח הבקרה).',
+    exportEmpty: '📭 אין עדיין עסקאות לייצוא.',
+    exportCaption: '📤 כל העסקאות ({{count}} שורות). ייצוא ממסד הנתונים המאוחד.',
+    exportCaptionMonth: '📤 חודש {{month}} · {{count}} שורות.',
+    exportInvalidMonth: '❌ חודש לא תקין. השתמש ב-YYYY-MM (לדוגמה: 2026-03).',
+    exportFailed: '❌ הייצוא נכשל. נסה שוב או השתמש בייצוא מהדשבורד.',
+    newAiAlertTitle: '🤖 <b>התראת AI חדשה</b>',
+    newAiAlertsTitle: '🤖 <b>התראות AI חדשות</b>',
+    newAiAlertScoreLine: 'ציון: {{score}}/100',
   },
 };
 
@@ -370,8 +395,9 @@ export class TelegramBotService {
   private buildCommandKeyboard(oneTime: boolean) {
     const kb = Markup.keyboard([
       ['/chat', '/scrape', '/memo'],
-      ['/status', '/subscribe', '/unsubscribe'],
-      ['/settings', '/unlock', '/help'],
+      ['/export', '/status', '/subscribe'],
+      ['/unsubscribe', '/settings', '/unlock'],
+      ['/help'],
     ]).resize();
     return oneTime ? kb.oneTime() : kb;
   }
@@ -414,13 +440,13 @@ export class TelegramBotService {
       notificationChatIds: [],
       allowedUsers: [],
       language: 'en',
-      spendingDigestEnabled: false,
     };
     try {
       if (fs.existsSync(TEL_CONFIG_PATH)) {
-        const file = fs.readJsonSync(TEL_CONFIG_PATH) as Partial<TelegramConfig>;
+        const file = fs.readJsonSync(TEL_CONFIG_PATH) as Partial<TelegramConfig> & { spendingDigestEnabled?: boolean };
+        const { spendingDigestEnabled: _removed, ...rest } = file as Record<string, unknown>;
         serverLogger.info('Loaded Telegram config from file');
-        return { ...defaults, ...file };
+        return { ...defaults, ...rest } as TelegramConfig;
       }
     } catch (error) {
       serverLogger.warn('Failed to load Telegram config, using defaults', { error });
@@ -667,6 +693,10 @@ export class TelegramBotService {
     this.bot.command('memo', async (ctx) => {
       await this.handleMemoCommand(ctx);
     });
+
+    this.bot.command('export', async (ctx) => {
+      await this.handleExportCommand(ctx);
+    });
   }
 
   /**
@@ -792,7 +822,7 @@ export class TelegramBotService {
 
         // If message looks like an unknown command, show command buttons
         if (rawText.startsWith('/')) {
-          const known = ['/scrape', '/chat', '/memo', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel', '/unlock'];
+          const known = ['/scrape', '/chat', '/memo', '/export', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel', '/unlock'];
           const cmd = rawText.split(/\s/)[0].split('@')[0];
           if (!known.includes(cmd)) {
             await ctx.reply(this.t('unknownCommand'), this.buildCommandKeyboard(true));
@@ -1043,11 +1073,13 @@ export class TelegramBotService {
 
     const results: ScrapeResult[] = [];
     const allNewTransactionIds: string[] = [];
+    const batchSavedFilenames: string[] = [];
     const summaryLines: string[] = [];
     for (const profile of profiles) {
-      const { result, newTransactionIds } = await this.executeScrapeForProfile(ctx, profile, userId, startDate, true);
+      const { result, newTransactionIds, savedFilename } = await this.executeScrapeForProfile(ctx, profile, userId, startDate, true);
       if (result) results.push(result);
       allNewTransactionIds.push(...newTransactionIds);
+      if (savedFilename) batchSavedFilenames.push(savedFilename);
       const label = profile.name || profile.id;
       if (result?.success) {
         const n = result.transactions?.length ?? 0;
@@ -1070,6 +1102,7 @@ export class TelegramBotService {
           ...(reqAny.postScrape || {}),
           newTransactionIds: allNewTransactionIds,
         };
+        reqAny.batchSavedFilenames = batchSavedFilenames;
         await postScrapeService.handleBatchResults(results, batchRequest);
       } catch (err: any) {
         serverLogger.warn('Post-scrape batch failed after scrape all', { error: err?.message });
@@ -1254,11 +1287,12 @@ export class TelegramBotService {
           conversationHistory: chatHistory,
           temperature: 0.7,
         });
-        mergeAndPersistAiMemory(structured);
+        const { newAlerts } = mergeAndPersistAiMemory(structured);
+        void this.notifyNewAiMemoryAlerts(newAlerts, { includeChatId: chatIdNum.toString() });
         response = structured.response;
       } catch (err) {
         serverLogger.error('AI analyzeData failed for Telegram chat', { error: err });
-        response = `${this.t('financialTipTitle')}\n${this.t('financialTipLine1')}\n\n${this.t('yourQuestionPrefix')} "${message}"\n\n${this.t('financialTipLine2')}`;
+        response = this.formatAiChatFailureMessage(err);
       }
 
       // Edit the thinking message with the AI response (split if too long)
@@ -1299,7 +1333,7 @@ export class TelegramBotService {
       }
     } catch (error) {
       serverLogger.error('Error in AI chat', { error });
-      await ctx.reply(this.t('errorProcessing'));
+      await ctx.reply(this.formatAiChatFailureMessage(error), { parse_mode: 'HTML' });
     }
   }
 
@@ -1312,8 +1346,7 @@ export class TelegramBotService {
       const transactions = await this.loadUnifiedTransactionsForAiChat();
       const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message);
 
-      // Try to call the AI analysis with unified DB context (same as /chat mode). If AI provider isn't configured
-      // or the call fails, fall back to a helpful tip directing the user to the web UI.
+      // Same unified context as /chat mode; on failure return code + details (no financial-tip fallback).
       try {
         const structured = await aiService.analyzeDataStructured(contextQuery, transactions, { temperature: 0.7 });
         mergeAndPersistAiMemory(structured);
@@ -1322,15 +1355,15 @@ export class TelegramBotService {
           return aiResponse;
         }
       } catch (aiError) {
-        serverLogger.warn('AI analyzeData failed or GEMINI not configured, falling back', { error: aiError });
+        serverLogger.warn('AI analyzeData failed or GEMINI not configured', { error: aiError });
+        return this.formatAiChatFailureMessage(aiError);
       }
 
-      // Fallback helpful tip when AI provider is not configured or no data available
-      const financialTips = `${this.t('financialTipTitle')}\n${this.t('financialTipLine1')}\n\n${this.t('yourQuestionPrefix')} "${message}"\n\n${this.t('financialTipLine2')}`;
-      return financialTips;
+      // No AI text — surface as failure instead of a generic financial tip
+      return this.formatAiChatFailureMessage(new Error(this.t('noAiResponse')));
     } catch (error) {
       serverLogger.error('Error getting AI response', { error });
-      return this.t('errorProcessing');
+      return this.formatAiChatFailureMessage(error);
     }
   }
 
@@ -1430,7 +1463,7 @@ export class TelegramBotService {
     startDate?: string,
     isPartOfBatch?: boolean,
     statusMessage?: { chatId: number; messageId: number }
-  ): Promise<{ result: ScrapeResult | null; newTransactionIds: string[] }> {
+  ): Promise<{ result: ScrapeResult | null; newTransactionIds: string[]; savedFilename?: string }> {
     const scraperService = this.getScraperService();
     const scrapeRequest: ScrapeRequest = {
       companyId: profile.companyId,
@@ -1473,12 +1506,14 @@ export class TelegramBotService {
     const txnCount = result.transactions?.length || 0;
 
     let newTransactionIds: string[] = [];
+    let savedFilename: string | undefined;
     // Persist the scrape result (so DB has transactions for "current" / "all" scope)
     try {
       const storage = this.getStorageService();
       const provider = (profile && (profile.name || profile.companyId)) || 'telegram';
       const saved = await storage.saveScrapeResult(result, provider);
       newTransactionIds = saved.newTransactionIds;
+      savedFilename = saved.filename;
       serverLogger.info('Saved scrape result from Telegram', { filename: saved.filename, profileId: profile.id });
     } catch (saveErr) {
       serverLogger.warn('Failed to save scrape result from Telegram', { error: saveErr });
@@ -1496,7 +1531,7 @@ export class TelegramBotService {
         await this.editTelegramStatusMessage(ctx, statusMessage.chatId, statusMessage.messageId, successText);
       }
     }
-    return { result, newTransactionIds };
+    return { result, newTransactionIds, savedFilename };
   }
 
   /**
@@ -1672,6 +1707,40 @@ export class TelegramBotService {
       .replace(/>/g, '&gt;');
   }
 
+  /** Telegram HTML message when AI chat fails — shows code + details, not the financial-tip fallback. */
+  private formatAiChatFailureMessage(err: unknown): string {
+    const e = err as Record<string, unknown> | null;
+    const nested =
+      e && typeof e === 'object' && e.error && typeof e.error === 'object'
+        ? (e.error as Record<string, unknown>)
+        : null;
+
+    const code =
+      (nested?.code != null && String(nested.code)) ||
+      (e && e.code != null && String(e.code)) ||
+      (nested?.status != null && String(nested.status)) ||
+      (e && e.status != null && String(e.status)) ||
+      (e && e.statusCode != null && String(e.statusCode)) ||
+      'UNKNOWN_ERROR';
+
+    let explanation = '';
+    if (nested && typeof nested.message === 'string' && nested.message.trim()) {
+      explanation = nested.message.trim();
+    } else if (err instanceof Error && err.message) {
+      explanation = err.message.trim();
+    } else if (typeof err === 'string') {
+      explanation = err;
+    } else {
+      explanation = String(e ?? 'unknown');
+    }
+    if (explanation.length > 2000) explanation = `${explanation.slice(0, 2000)}…`;
+
+    const codeEsc = this.escapeTgHtml(code);
+    const expEsc = this.escapeTgHtml(explanation);
+
+    return `${this.t('aiChatErrorTitle')}\n\n${this.t('aiChatErrorCodeLabel')} <code>${codeEsc}</code>\n\n${this.t('aiChatErrorExplanationLabel')}\n${expEsc}`;
+  }
+
   private clearPendingMemoState(chatId: string | undefined): void {
     if (!chatId) return;
     const state = this.chatStates.get(chatId);
@@ -1756,6 +1825,64 @@ export class TelegramBotService {
     }
   }
 
+  private async handleExportCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/export');
+        await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`, { parse_mode: 'HTML' });
+        return;
+      }
+      const raw = ((ctx.message as Message.TextMessage)?.text || '').trim();
+      const parts = raw.split(/\s+/).filter(Boolean);
+      const arg = (parts[1] || '').split('@')[0].toLowerCase();
+      if (arg !== 'csv' && arg !== 'json') {
+        await ctx.reply(this.t('exportUsage'), { parse_mode: 'HTML' });
+        return;
+      }
+      const maybeMonth = (parts[2] || '').split('@')[0];
+      let monthFilter = '';
+      if (maybeMonth) {
+        if (!/^\d{4}-\d{2}$/.test(maybeMonth)) {
+          await ctx.reply(this.t('exportInvalidMonth'));
+          return;
+        }
+        monthFilter = maybeMonth;
+      }
+      const storage = this.getStorageService();
+      let transactions = (await storage.getAllTransactions(true)) as Transaction[];
+      if (monthFilter) {
+        transactions = transactions.filter((t) => typeof t.date === 'string' && t.date.startsWith(monthFilter));
+      }
+      if (!transactions.length) {
+        await ctx.reply(this.t('exportEmpty'));
+        return;
+      }
+      const stamp = new Date().toISOString().slice(0, 10);
+      const count = transactions.length;
+      const fileBase = monthFilter ? `transactions-${monthFilter}` : `transactions-${stamp}`;
+      const caption = monthFilter
+        ? this.t('exportCaptionMonth')
+            .replace(/\{\{month\}\}/g, monthFilter)
+            .replace(/\{\{count\}\}/g, String(count))
+        : this.t('exportCaption').replace(/\{\{count\}\}/g, String(count));
+      if (arg === 'json') {
+        const body = transactionsToJson(transactions);
+        await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(body, 'utf8'), `${fileBase}.json`), {
+          caption,
+        });
+      } else {
+        const body = transactionsToCsv(transactions);
+        await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(body, 'utf8'), `${fileBase}.csv`), {
+          caption,
+        });
+      }
+    } catch (err) {
+      serverLogger.error('Error in /export command', { error: err });
+      await ctx.reply(this.t('exportFailed'));
+    }
+  }
+
   private ensureMemoReplyMapLoaded(): void {
     if (this.memoReplyMapLoaded) return;
     this.memoReplyMapLoaded = true;
@@ -1830,6 +1957,59 @@ export class TelegramBotService {
     return (
       `📝 <b>Transaction — add memo</b> (${tag})\n${desc}\n<b>Amount:</b> ₪${amt} · <b>Date:</b> ${dateEsc}\n\n<code>${idEsc}</code>\n\n↩️ <b>Reply to this message</b> with your memo.`
     );
+  }
+
+  /**
+   * Notify subscribed Telegram chats when new AI memory alerts are persisted (from web or bot).
+   */
+  async notifyNewAiMemoryAlerts(
+    alerts: { text: string; score: number }[],
+    options?: { includeChatId?: string }
+  ): Promise<void> {
+    if (!alerts?.length || !this.bot || !this.isRunning) return;
+    const cfg = this.getConfig();
+    const chatIds = new Set<string>();
+    for (const id of cfg.notificationChatIds || []) {
+      if (id) chatIds.add(String(id));
+    }
+    if (options?.includeChatId) chatIds.add(String(options.includeChatId));
+    if (chatIds.size === 0) {
+      serverLogger.debug('telegramBot: AI alert notify skipped (no chats)');
+      return;
+    }
+
+    const scoreLineHtml = (rawScore: number) => {
+      const s = Math.max(1, Math.min(100, Math.round(rawScore)));
+      const plain = this.t('newAiAlertScoreLine').replace(/\{\{score\}\}/g, String(s));
+      return this.escapeTgHtml(plain);
+    };
+
+    let text: string;
+    if (alerts.length === 1) {
+      const a = alerts[0];
+      const body = this.escapeTgHtml((a.text || '').slice(0, 3500));
+      text = `${this.t('newAiAlertTitle')}\n<i>${scoreLineHtml(a.score)}</i>\n\n${body}`;
+    } else {
+      const blocks = alerts.map((a) => {
+        const body = this.escapeTgHtml((a.text || '').slice(0, 1500));
+        return `• <i>${scoreLineHtml(a.score)}</i>\n${body}`;
+      });
+      text = `${this.t('newAiAlertsTitle')}\n\n${blocks.join('\n\n')}`;
+    }
+    if (text.length > 4090) {
+      text = `${text.slice(0, 4080)}…`;
+    }
+
+    for (const chatId of chatIds) {
+      try {
+        await this.bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML' });
+      } catch (e) {
+        serverLogger.warn('telegramBot: AI alert notification failed', {
+          chatId,
+          error: (e as Error).message,
+        });
+      }
+    }
   }
 
   /**

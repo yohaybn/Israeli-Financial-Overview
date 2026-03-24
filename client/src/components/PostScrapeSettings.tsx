@@ -118,11 +118,23 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
           </div>
           <div className="mt-3 space-y-2">
             <input className="w-full p-2 border rounded-md text-sm" placeholder={t('post_scrape.custom_ai_query')} value={cfg.customAI?.query || ''} onChange={(e) => update({ customAI: { ...cfg.customAI, query: e.target.value } })} />
-            <label className="flex items-center gap-3 text-sm">
-              <input type="checkbox" checked={cfg.customAI?.notifyOnResult} onChange={(e) => update({ customAI: { ...cfg.customAI, notifyOnResult: e.target.checked } })} />
-              <span>{t('post_scrape.notify_on_result')}</span>
-            </label>
-          </div>
+              <label className="flex items-center gap-3 text-sm">
+                <input type="checkbox" checked={cfg.customAI?.notifyOnResult} onChange={(e) => update({ customAI: { ...cfg.customAI, notifyOnResult: e.target.checked } })} />
+                <span>{t('post_scrape.notify_on_result')}</span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={cfg.customAI?.skipIfNoTransactions !== false}
+                  onChange={(e) => update({ customAI: { ...cfg.customAI, skipIfNoTransactions: e.target.checked } })}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block font-medium">{t('post_scrape.custom_ai_skip_if_no_tx')}</span>
+                  <span className="text-xs text-gray-500">{t('post_scrape.custom_ai_skip_if_no_tx_desc')}</span>
+                </span>
+              </label>
+            </div>
           <div className="mt-3 pt-3 border-t">
             <div className="text-xs text-gray-500 mb-2">{t('post_scrape.transaction_scope')}</div>
             <div className="flex gap-4">
@@ -151,6 +163,20 @@ export function PostScrapeSettings({ isInline = true, onClose }: { isInline?: bo
             </span>
           </label>
           <p className="text-xs text-gray-500 pl-7">{t('post_scrape.whale_where')}</p>
+        </div>
+
+        <div className="p-3 border rounded-lg">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={cfg.spendingDigestEnabled === true}
+              onChange={(e) => update({ spendingDigestEnabled: e.target.checked })}
+            />
+            <span>
+              <span className="text-sm font-medium block">{t('post_scrape.spending_digest')}</span>
+              <span className="text-xs text-gray-500">{t('post_scrape.spending_digest_help')}</span>
+            </span>
+          </label>
         </div>
 
         <div className="space-y-1">

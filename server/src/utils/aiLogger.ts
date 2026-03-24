@@ -50,6 +50,23 @@ const DEFAULT_MASKING_CONFIG: MaskingConfig = {
   maskTransactionDetails: true
 };
 
+/** In-flight AI API calls (Gemini generateContent, etc.) for live activity indicators */
+let activeAIRequests = 0;
+
+export function getActiveAIRequestCount(): number {
+  return activeAIRequests;
+}
+
+/** Wrap an AI provider call so active request count stays accurate for the UI */
+export async function runWithAILoadTracking<T>(fn: () => Promise<T>): Promise<T> {
+  activeAIRequests++;
+  try {
+    return await fn();
+  } finally {
+    activeAIRequests--;
+  }
+}
+
 /**
  * Mask sensitive data in text
  */
@@ -225,6 +242,29 @@ export async function logAIError(
   } catch (err) {
     serverLogger.error('Failed to log AI error:', { error: err });
   }
+}
+
+/**
+ * Find a single AI log entry by id (linear scan of the log file).
+ */
+export async function getAILogById(id: string): Promise<AILogEntry | null> {
+  if (!id?.trim()) return null;
+  try {
+    await ensureLogsDirectory();
+    const content = await fs.readFile(AI_LOG_FILE, 'utf-8');
+    for (const line of content.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const log = JSON.parse(line) as AILogEntry;
+        if (log?.id === id) return log;
+      } catch {
+        /* skip bad line */
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 /**
@@ -425,7 +465,7 @@ export async function withAILogging<T>(
   const id = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
   try {
-    const result = await callbackFn();
+    const result = await runWithAILoadTracking(callbackFn);
     const latencyMs = Date.now() - startTime;
 
     const logEntry: Omit<AILogEntry, 'id' | 'timestamp'> = {
@@ -484,7 +524,7 @@ export async function withAILoggingBatch<T>(
   for (const item of transactions) {
     try {
       const itemStartTime = Date.now();
-      const result = await callbackFn(item);
+      const result = await runWithAILoadTracking(() => callbackFn(item));
       const latencyMs = Date.now() - itemStartTime;
 
       const userInput = JSON.stringify(item);

@@ -1,14 +1,47 @@
 import { Router } from 'express';
 import {
   getAILogs,
+  getAILogById,
   getAILogsStats,
   clearOldAILogs,
   clearAllAILogs,
-  logAICall,
-  logAIError
+  getActiveAIRequestCount
 } from '../utils/aiLogger.js';
+import { getActiveScrapeCount } from '../services/scraperService.js';
 
 const router = Router();
+
+/**
+ * Lightweight live activity (no disk reads) for AI log UI indicators
+ */
+router.get('/activity', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      activeAiRequests: getActiveAIRequestCount(),
+      activeScrapes: getActiveScrapeCount()
+    }
+  });
+});
+
+/**
+ * Get a single AI log entry by id (for deep links)
+ */
+router.get('/logs/entry/:id', async (req, res) => {
+  try {
+    const entry = await getAILogById(req.params.id);
+    if (!entry) {
+      res.status(404).json({ success: false, error: 'Log entry not found' });
+      return;
+    }
+    res.json({ success: true, data: entry });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to retrieve AI log entry'
+    });
+  }
+});
 
 /**
  * Get AI interaction logs

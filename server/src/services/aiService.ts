@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { generateTransactionId } from '../utils/idGenerator.js';
 import { serverLogger } from '../utils/logger.js';
 import { maskSensitiveData } from '../utils/masking.js';
-import { logAICall, logAIError, withAILogging } from '../utils/aiLogger.js';
+import { logAICall, logAIError, withAILogging, runWithAILoadTracking } from '../utils/aiLogger.js';
 import { DbService } from './dbService.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
@@ -20,6 +20,10 @@ export interface AiSettings {
     chatModel: string;
     categories: string[];
     defaultCategory: string;
+    /** 0 = disabled. Insights older than this many days are removed periodically and after saving settings. */
+    memoryInsightRetentionDays?: number;
+    /** 0 = disabled. Alerts older than this many days are removed periodically and after saving settings. */
+    memoryAlertRetentionDays?: number;
 }
 
 /** One turn in a conversation for multi-turn AI analysis */
@@ -107,7 +111,9 @@ const DEFAULT_SETTINGS: AiSettings = {
     categorizationModel: 'gemini-flash-latest',
     chatModel: 'gemini-flash-latest',
     categories: ['מזון', 'תחבורה', 'קניות', 'מנויים', 'בריאות', 'מגורים', 'בילויים', 'משכורת', 'העברות', 'חשבונות', 'ביגוד', 'חינוך', 'אחר', 'משכנתא והלוואות'],
-    defaultCategory: 'אחר'
+    defaultCategory: 'אחר',
+    memoryInsightRetentionDays: 0,
+    memoryAlertRetentionDays: 0
 };
 
 export class AiService {
@@ -169,7 +175,16 @@ export class AiService {
 
     private async loadSettings() {
         if (await fs.pathExists(SETTINGS_FILE)) {
-            this.settings = { ...DEFAULT_SETTINGS, ...await fs.readJson(SETTINGS_FILE) };
+            const raw = { ...DEFAULT_SETTINGS, ...((await fs.readJson(SETTINGS_FILE)) as Partial<AiSettings>) };
+            raw.memoryInsightRetentionDays = Math.max(
+                0,
+                Math.min(3650, Math.floor(Number(raw.memoryInsightRetentionDays ?? DEFAULT_SETTINGS.memoryInsightRetentionDays) || 0))
+            );
+            raw.memoryAlertRetentionDays = Math.max(
+                0,
+                Math.min(3650, Math.floor(Number(raw.memoryAlertRetentionDays ?? DEFAULT_SETTINGS.memoryAlertRetentionDays) || 0))
+            );
+            this.settings = raw;
         }
     }
 
@@ -179,7 +194,14 @@ export class AiService {
     }
 
     async updateSettings(newSettings: Partial<AiSettings>): Promise<AiSettings> {
-        this.settings = { ...this.settings, ...newSettings };
+        const next = { ...this.settings, ...newSettings };
+        if (next.memoryInsightRetentionDays !== undefined) {
+            next.memoryInsightRetentionDays = Math.max(0, Math.min(3650, Math.floor(Number(next.memoryInsightRetentionDays) || 0)));
+        }
+        if (next.memoryAlertRetentionDays !== undefined) {
+            next.memoryAlertRetentionDays = Math.max(0, Math.min(3650, Math.floor(Number(next.memoryAlertRetentionDays) || 0)));
+        }
+        this.settings = next;
         const CONFIG_DIR = path.join(DATA_DIR, 'config');
         await fs.ensureDir(CONFIG_DIR);
         await fs.writeJson(SETTINGS_FILE, this.settings, { spaces: 2 });
@@ -287,12 +309,14 @@ export class AiService {
             });
 
             startTime = Date.now();
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: "application/json"
-                }
-            });
+            const result = await runWithAILoadTracking(() =>
+                model.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
+                })
+            );
             const response = await result.response;
             const text = response.text();
             const latencyMs = Date.now() - startTime;
@@ -701,10 +725,12 @@ export class AiService {
         let startTime = Date.now();
         try {
             startTime = Date.now();
-            const result = await model.generateContent({
-                contents,
-                generationConfig
-            });
+            const result = await runWithAILoadTracking(() =>
+                model.generateContent({
+                    contents,
+                    generationConfig
+                })
+            );
             const response = await result.response;
             const text = response.text();
             const latencyMs = Date.now() - startTime;
@@ -874,10 +900,12 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         let startTime = Date.now();
         try {
             startTime = Date.now();
-            const result = await model.generateContent({
-                contents,
-                generationConfig
-            });
+            const result = await runWithAILoadTracking(() =>
+                model.generateContent({
+                    contents,
+                    generationConfig
+                })
+            );
             const response = await result.response;
             const text = response.text();
             const latencyMs = Date.now() - startTime;
@@ -994,12 +1022,14 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
 
         try {
             serverLogger.info(`AI Parsing document text (${text.length} chars) using ${this.settings.categorizationModel}`);
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: "application/json"
-                }
-            });
+            const result = await runWithAILoadTracking(() =>
+                model.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
+                })
+            );
             const response = await result.response;
             const resText = response.text();
 

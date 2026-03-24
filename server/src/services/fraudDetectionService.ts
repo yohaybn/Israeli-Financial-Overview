@@ -18,12 +18,14 @@ export interface LocalFraudDetectionResult {
 const DEFAULT_RULES: Required<FraudDetectionLocalRulesConfig> = {
   enableOutlierAmount: true,
   enableNewMerchant: true,
+  enableNewMerchantNonHebrew: true,
   enableRapidRepeats: true,
   enableForeignCurrency: true,
 };
 
 const DEFAULT_THRESHOLDS: Required<FraudDetectionLocalThresholdsConfig> = {
   minAmountForNewMerchantIls: 250,
+  newMerchantNonHebrewPoints: 35,
   foreignCurrencyMinOriginalAmount: 50,
   rapidRepeatWindowMinutes: 30,
   rapidRepeatCountThreshold: 2,
@@ -47,6 +49,17 @@ function toIsoDateTime(d: Date) {
 function parseTxnTime(txn: Transaction): number | null {
   const t = Date.parse(txn.date);
   return Number.isFinite(t) ? t : null;
+}
+
+/** True when both timestamps fall on the same calendar day (UTC). Handles date-only / midnight bank data. */
+function sameCalendarDayUtc(aMs: number, bMs: number): boolean {
+  const a = new Date(aMs);
+  const b = new Date(bMs);
+  return (
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCDate() === b.getUTCDate()
+  );
 }
 
 function stableFindingId(transactionId: string, detector: 'local', version: string) {
@@ -101,6 +114,14 @@ function isLikelyExpense(txn: Transaction): boolean {
 
 function normalizeKey(txn: Transaction) {
   return (txn.description || '').trim().toLowerCase();
+}
+
+const HEBREW_RE = /[\u0590-\u05FF]/;
+function descriptionHasHebrew(s: string): boolean {
+  return HEBREW_RE.test(s);
+}
+function descriptionHasLatinLetters(s: string): boolean {
+  return /[A-Za-z]/.test(s);
 }
 
 export class FraudDetectionService {
@@ -159,15 +180,40 @@ export class FraudDetectionService {
       // 2) New merchant/description (based on DB history)
       if (rules.enableNewMerchant && key) {
         const seenBefore = hist.length > 0;
-        if (!seenBefore && txnAmount >= thresholds.minAmountForNewMerchantIls && isLikelyExpense(txn)) {
-          const points = 25;
-          score += points;
-          reasons.push({
-            code: 'new_merchant',
-            message: `New merchant/description above threshold (₪${txnAmount})`,
-            points,
-            meta: { amountIls: txnAmount, threshold: thresholds.minAmountForNewMerchantIls },
-          });
+        if (!seenBefore && isLikelyExpense(txn)) {
+          const cur = (txn.originalCurrency || 'ILS').toUpperCase();
+          const origAmt = Math.abs(Number(txn.originalAmount || 0));
+          const isFxNew = Boolean(cur && cur !== 'ILS' && origAmt > 0);
+          const meetsIlsMin = txnAmount >= thresholds.minAmountForNewMerchantIls;
+          const descRaw = (txn.description || '').trim();
+          const nonHebrewOn =
+            rules.enableNewMerchantNonHebrew !== false &&
+            !descriptionHasHebrew(descRaw) &&
+            descriptionHasLatinLetters(descRaw);
+          if (isFxNew || meetsIlsMin || nonHebrewOn) {
+            const nhPts = clamp(thresholds.newMerchantNonHebrewPoints ?? 35, 0, 100);
+            const points = nonHebrewOn ? nhPts : 25;
+            let message = `New merchant/description above threshold (₪${txnAmount})`;
+            if (isFxNew && !meetsIlsMin) {
+              message = `New merchant (foreign currency ${cur} ${origAmt}; below ₪${thresholds.minAmountForNewMerchantIls} ILS threshold)`;
+            } else if (nonHebrewOn && !meetsIlsMin && !isFxNew) {
+              message = 'New merchant (non-Hebrew description)';
+            } else if (nonHebrewOn && meetsIlsMin) {
+              message = `New merchant (non-Hebrew description, ₪${txnAmount})`;
+            }
+            score += points;
+            reasons.push({
+              code: 'new_merchant',
+              message,
+              points,
+              meta: {
+                amountIls: txnAmount,
+                threshold: thresholds.minAmountForNewMerchantIls,
+                foreignCurrency: isFxNew ? cur : undefined,
+                nonHebrew: nonHebrewOn || undefined,
+              },
+            });
+          }
         }
       }
 
@@ -207,10 +253,11 @@ export class FraudDetectionService {
               if (other.id === txn.id) return false;
               const t1 = parseTxnTime(other);
               if (t1 === null) return false;
-              const within = Math.abs(t1 - t0) <= windowMs;
+              const withinTimeOrDay =
+                sameCalendarDayUtc(t0, t1) || Math.abs(t1 - t0) <= windowMs;
               const amt1 = Math.abs(Number(other.amount || 0));
               const closeAmount = txnAmount > 0 ? Math.abs(amt1 - txnAmount) / txnAmount <= 0.05 : false;
-              return within && closeAmount;
+              return withinTimeOrDay && closeAmount;
             });
 
             if (similar.length >= thresholds.rapidRepeatCountThreshold) {
@@ -218,7 +265,7 @@ export class FraudDetectionService {
               score += points;
               reasons.push({
                 code: 'rapid_repeats',
-                message: `Multiple similar charges in ${thresholds.rapidRepeatWindowMinutes} minutes`,
+                message: `Multiple similar charges (same calendar day or within ${thresholds.rapidRepeatWindowMinutes} min)`,
                 points,
                 meta: { repeats: similar.length, windowMinutes: thresholds.rapidRepeatWindowMinutes },
               });

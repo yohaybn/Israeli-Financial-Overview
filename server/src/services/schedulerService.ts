@@ -266,6 +266,7 @@ export class SchedulerService {
 
             const batchResults: ScrapeResult[] = [];
             const allNewTransactionIds: string[] = [];
+            const batchSavedFilenames: string[] = [];
             const batchRequest = {
                 companyId: 'scheduler',
                 credentials: {} as Record<string, string>,
@@ -300,10 +301,11 @@ export class SchedulerService {
                     batchResults.push(result);
                     if (result.success && result.transactions && result.transactions.length > 0) {
                         try {
-                            const { newTransactionIds } = await this.storageService.saveScrapeResult(
+                            const { newTransactionIds, filename } = await this.storageService.saveScrapeResult(
                                 result,
                                 profile.name || profile.companyId
                             );
+                            if (filename) batchSavedFilenames.push(filename);
                             allNewTransactionIds.push(...newTransactionIds);
                         } catch (saveErr) {
                             logger.warn(`Failed to save scrape result for ${profile.name}`, { error: saveErr });
@@ -322,6 +324,7 @@ export class SchedulerService {
                         ...(batchRequest.options.postScrape || {}),
                         newTransactionIds: allNewTransactionIds,
                     };
+                    batchRequest.options.batchSavedFilenames = batchSavedFilenames;
                     await postScrapeService.handleBatchResults(batchResults, batchRequest);
                 } catch (postErr) {
                     logger.warn('Post-scrape batch failed after scheduled run', { error: postErr });

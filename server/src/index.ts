@@ -16,6 +16,7 @@ import { AiService } from './services/aiService.js';
 import { ImportService } from './services/importService.js';
 import { serverLogger, clientLogger } from './utils/logger.js';
 import { maskSensitiveData } from './utils/masking.js';
+import { runAiMemoryRetentionPrune } from './services/aiMemoryRetention.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,7 @@ async function startServer() {
   const { profileRoutes } = await import('./routes/profileRoutes.js');
   const { aiRoutes } = await import('./routes/aiRoutes.js');
   const { aiLogRoutes } = await import('./routes/aiLogRoutes.js');
+  const { scrapeLogRoutes } = await import('./routes/scrapeLogRoutes.js');
   const { authRoutes } = await import('./routes/authRoutes.js');
   const { sheetsRoutes } = await import('./routes/sheetsRoutes.js');
   const { logRoutes } = await import('./routes/logRoutes.js');
@@ -68,6 +70,7 @@ async function startServer() {
     const isDebugEndpoint = url && (
       url.startsWith('/api/logs') ||
       url.startsWith('/api/ai-logs') ||
+      url.startsWith('/api/scrape-logs') ||
       url.startsWith('/api/telegram/status') ||
       
       url.startsWith('/api/app-lock/status') ||
@@ -123,6 +126,7 @@ async function startServer() {
   app.use('/api/profiles', profileRoutes);
   app.use('/api/ai', aiRoutes);
   app.use('/api/ai-logs', aiLogRoutes);
+  app.use('/api/scrape-logs', scrapeLogRoutes);
   app.use('/api/auth/google', authRoutes);
   app.use('/api/sheets', sheetsRoutes);
   app.use('/api/scheduler', createSchedulerRoutes(schedulerService));
@@ -161,6 +165,8 @@ async function startServer() {
     serverLogger.info(`WebSocket ready on ws://localhost:${port}`);
     serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
+    void runAiMemoryRetentionPrune();
+    setInterval(() => void runAiMemoryRetentionPrune(), 24 * 60 * 60 * 1000);
   });
 }
 

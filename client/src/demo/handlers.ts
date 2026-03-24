@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { PROVIDERS } from '@app/shared';
+import { PROVIDERS, transactionsToCsv, transactionsToJson } from '@app/shared';
 import {
     DEMO_SAMPLE_FILENAME,
     demoAiSettings,
@@ -46,6 +46,38 @@ export const demoHandlers = [
             transactions: demoTransactions,
         })
     ),
+
+    http.get(apiPath('/results/export'), ({ request }) => {
+        const url = new URL(request.url);
+        const format = url.searchParams.get('format') || 'json';
+        const month = url.searchParams.get('month');
+        if (month && !/^\d{4}-\d{2}$/.test(month)) {
+            return HttpResponse.json({ success: false, error: 'Invalid month. Use YYYY-MM.' }, { status: 400 });
+        }
+        let txns = demoTransactions;
+        if (month) {
+            txns = demoTransactions.filter((t) => t.date.startsWith(month));
+        }
+        const stamp = new Date().toISOString().slice(0, 10);
+        const fileBase = month ? `transactions-${month}` : `transactions-${stamp}`;
+        if (format === 'csv') {
+            return new HttpResponse(transactionsToCsv(txns), {
+                headers: {
+                    'Content-Type': 'text/csv; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="${fileBase}.csv"`,
+                },
+            });
+        }
+        if (format === 'json') {
+            return new HttpResponse(transactionsToJson(txns), {
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="${fileBase}.json"`,
+                },
+            });
+        }
+        return HttpResponse.json({ success: false, error: 'Invalid format. Use csv or json.' }, { status: 400 });
+    }),
 
     http.get(apiPath('/results'), () =>
         HttpResponse.json({
@@ -184,7 +216,6 @@ export const demoHandlers = [
                 botToken: '',
                 chatId: '',
                 allowedUsers: [],
-                spendingDigestEnabled: false,
             },
         })
     ),
@@ -284,6 +315,40 @@ export const demoHandlers = [
 
     http.post(apiPath('/logs/level'), () => emptyOk()),
     http.post(apiPath('/logs/clear'), () => HttpResponse.json({ success: true, type: 'server' })),
+
+    http.get(apiPath('/scrape-logs/logs'), () =>
+        HttpResponse.json({
+            success: true,
+            data: { logs: [], total: 0, offset: 0, limit: 50 },
+        })
+    ),
+    http.get(({ request }) => {
+        const url = new URL(request.url);
+        return /\/api\/scrape-logs\/logs\/entry\/[^/]+$/.test(url.pathname);
+    }, ({ request }) => {
+        const id = new URL(request.url).pathname.split('/').pop() || 'demo';
+        return HttpResponse.json({
+            success: true,
+            data: {
+                id,
+                timestamp: new Date().toISOString(),
+                pipelineId: 'demo-pipeline',
+                kind: 'single',
+                transactionCount: 0,
+                scrapeSuccess: true,
+                actions: [],
+                overallPostScrape: 'ok',
+            },
+        });
+    }),
+    http.get(({ request }) => {
+        const url = new URL(request.url);
+        return /\/api\/ai-logs\/logs\/entry\/[^/]+$/.test(url.pathname);
+    }, () =>
+        HttpResponse.json({ success: false, error: 'not found' }, { status: 404 })
+    ),
+    http.post(apiPath('/scrape-logs/logs/clear-old'), () => emptyOk()),
+    http.post(apiPath('/scrape-logs/logs/clear'), () => emptyOk()),
 
     http.all('*/api/*', async ({ request }) => {
         const method = request.method;

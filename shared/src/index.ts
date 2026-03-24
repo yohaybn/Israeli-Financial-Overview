@@ -34,6 +34,7 @@ export type { DetectAnomaliesOptions } from './financial/financialPace.js';
 export { computeFinancialDigestSnapshot } from './financial/digestMetrics.js';
 export type { FinancialDigestSnapshot } from './financial/digestMetrics.js';
 export { computeTxnBaselineVariableForecast } from './financial/variableForecast.js';
+export { transactionsToCsv, transactionsToJson } from './transactionExport.js';
 export {
     formatBudgetHealthDigestLine,
     formatAnomalyDigestLine

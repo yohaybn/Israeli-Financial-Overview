@@ -5,6 +5,7 @@ import './index.css';
 import './i18n';
 import { QueryProvider } from './providers/QueryProvider';
 import { OnboardingProvider } from './contexts/OnboardingContext';
+import { ServerActivityProvider } from './contexts/ServerActivityContext';
 import { isDemoMode } from './demo/isDemo';
 
 async function bootstrap() {
@@ -23,7 +24,9 @@ async function bootstrap() {
         <React.StrictMode>
             <QueryProvider>
                 <OnboardingProvider>
-                    <App />
+                    <ServerActivityProvider>
+                        <App />
+                    </ServerActivityProvider>
                 </OnboardingProvider>
             </QueryProvider>
         </React.StrictMode>

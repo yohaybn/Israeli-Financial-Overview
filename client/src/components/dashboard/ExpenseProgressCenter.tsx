@@ -70,7 +70,6 @@ export function ExpenseProgressCenter({
     const { t, i18n } = useTranslation();
     const [selectedKpi, setSelectedKpi] = useState<'already_spent' | 'remaining_planned' | null>(null);
     const [showForecastModal, setShowForecastModal] = useState(false);
-    const [sortBy, setSortBy] = useState<'value' | 'name'>('value');
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
     const formatCurrency = (amount: number) =>
@@ -85,10 +84,9 @@ export function ExpenseProgressCenter({
 
     const sortedCategories = useMemo(() => {
         const list = [...byCategory];
-        if (sortBy === 'value') list.sort((a, b) => b.spent - a.spent);
-        else list.sort((a, b) => a.name.localeCompare(b.name, i18n.language === 'he' ? 'he' : 'en'));
+        list.sort((a, b) => b.spent - a.spent);
         return list;
-    }, [byCategory, sortBy, i18n.language]);
+    }, [byCategory]);
 
     const healthLabel = (h: Health) => {
         if (h === 'critical') return t('dashboard.status_critical');
@@ -121,23 +119,6 @@ export function ExpenseProgressCenter({
 
             {!collapsed && (
                 <div className="px-6 pb-8 sm:px-8 space-y-4 pt-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <label className="inline-flex items-center gap-2 rounded-full bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-700">
-                            <span className="text-gray-500">{t('dashboard.sort_by')}:</span>
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as 'value' | 'name')}
-                                className="bg-transparent font-semibold text-gray-800 border-none cursor-pointer focus:ring-0 py-0 pr-6"
-                            >
-                                <option value="value">{t('dashboard.sort_value')}</option>
-                                <option value="name">{t('dashboard.sort_name')}</option>
-                            </select>
-                        </label>
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                            {t('dashboard.monthly_view')}
-                        </span>
-                    </div>
-
             <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">

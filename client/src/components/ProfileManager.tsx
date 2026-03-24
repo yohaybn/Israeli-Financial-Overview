@@ -17,11 +17,11 @@ interface ProfileManagerProps {
     restrictNewProfile?: boolean;
 }
 
-interface ProviderIconProps {
+export interface ProviderIconProps {
     companyId: string;
 }
 
-function ProviderIcon({ companyId }: ProviderIconProps) {
+export function ProviderIcon({ companyId }: ProviderIconProps) {
     const [hasError, setHasError] = useState(false);
     const iconPath = `/icons/providers/${companyId}.png`;
     

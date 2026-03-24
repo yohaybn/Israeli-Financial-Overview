@@ -87,7 +87,11 @@ export function DashboardAlertsDropdown({ selectedMonth }: DashboardAlertsDropdo
                         ) : count === 0 ? (
                             <p className="px-2 py-6 text-center text-sm text-gray-500">{t('dashboard.no_alerts')}</p>
                         ) : (
-                            <AnomalyAlerts anomalies={anomalies} className="space-y-2 mb-0" />
+                            <AnomalyAlerts
+                                anomalies={anomalies}
+                                className="space-y-2 mb-0"
+                                storageMonthKey={selectedMonth}
+                            />
                         )}
                     </div>
                 </div>

@@ -178,7 +178,6 @@ export class BackupService {
             notificationChatIds: Array.isArray(fromFile.notificationChatIds) ? fromFile.notificationChatIds : [],
             allowedUsers: Array.isArray(fromFile.allowedUsers) ? fromFile.allowedUsers : [],
             language: fromFile.language === 'he' || fromFile.language === 'en' ? fromFile.language : 'en',
-            spendingDigestEnabled: typeof fromFile.spendingDigestEnabled === 'boolean' ? fromFile.spendingDigestEnabled : false
         };
 
         const idx = entries.findIndex(e => e.path === TELEGRAM_CONFIG_SNAPSHOT_PATH);

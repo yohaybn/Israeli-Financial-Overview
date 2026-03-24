@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
+import { getApiRoot } from '../../lib/api';
 import { useFinancialSummary } from '../../hooks/useFinancialSummary';
 import { useUnifiedData } from '../../hooks/useUnifiedData';
 import { useAISettings } from '../../hooks/useScraper';
@@ -47,6 +48,27 @@ export function FinancialCommandCenter({
     const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<string | null>(null);
     const [analyticsDayFilter, setAnalyticsDayFilter] = useState<AnalyticsDayFilter | null>(null);
     const [cardsCollapsedOnMobile] = useState(() => getInitialCollapsedOnMobile());
+    const [exportingKey, setExportingKey] = useState<'all-csv' | 'all-json' | 'month-csv' | 'month-json' | null>(null);
+    const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+    const downloadMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!downloadMenuOpen) return;
+        const onDoc = (e: MouseEvent) => {
+            if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
+                setDownloadMenuOpen(false);
+            }
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setDownloadMenuOpen(false);
+        };
+        document.addEventListener('mousedown', onDoc);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDoc);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [downloadMenuOpen]);
 
     // If props provided, use them. Otherwise fetch unified data.
     const { data: unifiedTransactions, isLoading /*, error*/ } = useUnifiedData();
@@ -77,6 +99,36 @@ export function FinancialCommandCenter({
             i18n.language === 'he' ? 'he-IL' : 'en-US',
             { month: 'long', year: 'numeric' }
         );
+
+    const downloadExport = async (scope: 'all' | 'month', format: 'csv' | 'json') => {
+        const key = `${scope}-${format}` as const;
+        setExportingKey(key);
+        try {
+            const params = new URLSearchParams({ format });
+            if (scope === 'month') params.set('month', selectedMonth);
+            const res = await fetch(`${getApiRoot()}/results/export?${params.toString()}`);
+            if (!res.ok) throw new Error('export failed');
+            const blob = await res.blob();
+            const disp = res.headers.get('Content-Disposition');
+            let filename = `transactions.${format}`;
+            const m = disp && /filename="([^"]+)"/.exec(disp);
+            if (m) filename = m[1];
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch {
+            window.alert(t('dashboard.export_failed'));
+        } finally {
+            setExportingKey(null);
+        }
+    };
+
+    const runDownload = (scope: 'all' | 'month', format: 'csv' | 'json') => {
+        setDownloadMenuOpen(false);
+        void downloadExport(scope, format);
+    };
 
     const adjacentMonths = useMemo(
         () => [shiftMonth(selectedMonth, -1), selectedMonth, shiftMonth(selectedMonth, 1)] as const,
@@ -176,6 +228,91 @@ export function FinancialCommandCenter({
                                 {formatMonthDate(ym)}
                             </button>
                         ))}
+                    </div>
+                    <div className="relative" ref={downloadMenuRef}>
+                        <button
+                            type="button"
+                            id="dashboard-export-download-trigger"
+                            aria-haspopup="menu"
+                            aria-expanded={downloadMenuOpen}
+                            aria-controls="dashboard-export-download-menu"
+                            disabled={exportingKey !== null}
+                            onClick={() => setDownloadMenuOpen((o) => !o)}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-gray-100/90 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-800 border border-gray-200/60 shadow-inner hover:bg-white hover:text-emerald-800 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 whitespace-nowrap"
+                        >
+                            {exportingKey !== null ? (
+                                '…'
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                        />
+                                    </svg>
+                                    {t('dashboard.download')}
+                                    <svg
+                                        className={`w-4 h-4 opacity-70 transition-transform ${downloadMenuOpen ? 'rotate-180' : ''}`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        aria-hidden
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </>
+                            )}
+                        </button>
+                        {downloadMenuOpen && exportingKey === null && (
+                            <div
+                                id="dashboard-export-download-menu"
+                                role="menu"
+                                aria-labelledby="dashboard-export-download-trigger"
+                                className="absolute end-0 top-full z-50 mt-1 min-w-[min(100vw-2rem,16rem)] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                            >
+                                <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                    {t('dashboard.download_section_all')}
+                                </p>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
+                                    onClick={() => runDownload('all', 'csv')}
+                                >
+                                    {t('dashboard.download_all_csv')}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
+                                    onClick={() => runDownload('all', 'json')}
+                                >
+                                    {t('dashboard.download_all_json')}
+                                </button>
+                                <div className="my-1 border-t border-gray-100" />
+                                <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                    {t('dashboard.download_section_month', { month: formatMonthDate(selectedMonth) })}
+                                </p>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
+                                    onClick={() => runDownload('month', 'csv')}
+                                >
+                                    {t('dashboard.download_month_csv')}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
+                                    onClick={() => runDownload('month', 'json')}
+                                >
+                                    {t('dashboard.download_month_json')}
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <CCPaymentDateSettings />
                 </div>

@@ -10,6 +10,8 @@ import { ScrapeRequest, PROVIDERS } from '@app/shared';
 import { Server } from 'socket.io';
 import multer from 'multer';
 import path from 'path';
+import { transactionsToCsv, transactionsToJson } from '@app/shared';
+import { attachScrapeRunFilename } from '../utils/scrapeRunLogger.js';
 
 export function createScrapeRoutes(
     scraperService: ScraperService,
@@ -92,6 +94,8 @@ export function createScrapeRoutes(
 
             try {
                 let { filename } = await storageService.saveScrapeResult(result, request.companyId);
+                const scrapeLogId = (request as any).__scrapeRunLogId as string | undefined;
+                if (scrapeLogId && filename) attachScrapeRunFilename(scrapeLogId, filename);
 
                 // Handle automatic categorization if requested
                 if (request.options.autoCategorize && result.transactions && result.transactions.length > 0) {
@@ -102,6 +106,7 @@ export function createScrapeRoutes(
                         // Update the result object and save it again
                         result.transactions = categorizedTransactions;
                         ({ filename } = await storageService.saveScrapeResult(result, request.companyId));
+                        if (scrapeLogId && filename) attachScrapeRunFilename(scrapeLogId, filename);
                         await storageService.applyCategoryColumnsFromTransactions(categorizedTransactions);
 
                         console.log(`Auto-categorization complete for ${filename}`);
@@ -285,6 +290,46 @@ export function createScrapeRoutes(
         try {
             const transactions = await storageService.getAllTransactions(true);
             res.json({ success: true, transactions });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    // Download unified transactions as CSV or JSON. Optional month=YYYY-MM limits to that calendar month.
+    router.get('/results/export', async (req, res) => {
+        try {
+            const format = String(req.query.format || 'json').toLowerCase();
+            const includeIgnored =
+                req.query.includeIgnored !== '0' && String(req.query.includeIgnored).toLowerCase() !== 'false';
+            const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+            if (monthRaw && !/^\d{4}-\d{2}$/.test(monthRaw)) {
+                return res.status(400).json({ success: false, error: 'Invalid month. Use YYYY-MM.' });
+            }
+
+            if (format !== 'csv' && format !== 'json') {
+                return res.status(400).json({ success: false, error: 'Invalid format. Use csv or json.' });
+            }
+
+            let transactions = await storageService.getAllTransactions(includeIgnored);
+            if (monthRaw) {
+                transactions = transactions.filter(
+                    (t) => typeof t.date === 'string' && t.date.startsWith(monthRaw)
+                );
+            }
+            const stamp = new Date().toISOString().slice(0, 10);
+            const fileBase = monthRaw ? `transactions-${monthRaw}` : `transactions-${stamp}`;
+
+            if (format === 'json') {
+                const body = transactionsToJson(transactions);
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.setHeader('Content-Disposition', `attachment; filename="${fileBase}.json"`);
+                return res.send(body);
+            }
+
+            const body = transactionsToCsv(transactions);
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${fileBase}.csv"`);
+            return res.send(body);
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -578,6 +623,8 @@ export function createScrapeRoutes(
             const dbRestored = await backupService.restoreFromLocalBackup(filename);
             if (!dbRestored) {
                 await storageService.reloadTransactionsFromFiles();
+            } else {
+                await storageService.reconcileInternalTransferFromRawData();
             }
             res.json({ success: true, message: 'Restore completed from local backup', dbRestored });
         } catch (error: any) {
@@ -607,6 +654,8 @@ export function createScrapeRoutes(
             const dbRestored = await backupService.restoreFromDriveBackup(fileId);
             if (!dbRestored) {
                 await storageService.reloadTransactionsFromFiles();
+            } else {
+                await storageService.reconcileInternalTransferFromRawData();
             }
             res.json({ success: true, message: 'Restore completed from Google Drive backup', dbRestored });
         } catch (error: any) {
@@ -624,6 +673,8 @@ export function createScrapeRoutes(
             const dbRestored = await backupService.restoreFromUploadedBackup(req.file.path);
             if (!dbRestored) {
                 await storageService.reloadTransactionsFromFiles();
+            } else {
+                await storageService.reconcileInternalTransferFromRawData();
             }
             await fs.remove(req.file.path).catch(() => {});
             res.json({ success: true, message: 'Restore completed from uploaded backup', dbRestored });

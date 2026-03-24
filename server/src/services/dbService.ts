@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { Transaction, FraudDetectorType, FraudFinding, FraudSeverity } from '@app/shared';
 import { serverLogger } from '../utils/logger.js';
+import { normalizeAiMemoryKey } from '../utils/aiMemoryNormalize.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const DB_PATH = path.join(DATA_DIR, 'app.db');
@@ -110,6 +111,14 @@ function initialize(db: Database.Database) {
     db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_insights_created ON ai_memory_insights(created_at)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_insights_score ON ai_memory_insights(score DESC)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_alerts_score ON ai_memory_alerts(score DESC)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_alerts_created ON ai_memory_alerts(created_at)');
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_memory_dismissed_alert_keys (
+            normalized_key TEXT PRIMARY KEY,
+            dismissed_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
 
     serverLogger.info('Database initialized');
 }
@@ -202,14 +211,65 @@ export class DbService {
             // Override with DB values if they differ (e.g. category update)
             txn.category = row.category;
             txn.isIgnored = Boolean(row.isIgnored);
-            if (row.isInternalTransfer !== null) {
-                txn.isInternalTransfer = Boolean(row.isInternalTransfer);
+            // Same derivation as addTransaction — raw txnType/type must win over a stale isInternalTransfer column
+            // (otherwise explicit false blocks isInternalTransfer() from ever seeing txnType).
+            let isInternalValue: number | null = null;
+            if (txn.isInternalTransfer === true || txn.txnType === 'internal_transfer' || txn.type === 'internal_transfer') {
+                isInternalValue = 1;
+            } else if (txn.isInternalTransfer === false) {
+                isInternalValue = 0;
+            }
+            if (isInternalValue === null) {
+                if (row.isInternalTransfer !== null && row.isInternalTransfer !== undefined) {
+                    txn.isInternalTransfer = Boolean(row.isInternalTransfer);
+                } else {
+                    txn.isInternalTransfer = undefined;
+                }
+            } else {
+                txn.isInternalTransfer = Boolean(isInternalValue);
             }
             txn.isSubscription = Boolean(row.isSubscription);
             txn.subscriptionInterval = row.subscriptionInterval;
             txn.excludeFromSubscriptions = Boolean(row.excludeFromSubscriptions);
             return txn;
         });
+    }
+
+    /**
+     * Align isInternalTransfer column and raw_data with txnType/type from raw_data.
+     * Run after backup restore when an older DB had the column out of sync with JSON in raw_data.
+     */
+    reconcileInternalTransferColumnFromRawData(): number {
+        const stmt = this.db.prepare('SELECT id, raw_data, isInternalTransfer FROM transactions');
+        const rows = stmt.all() as { id: string; raw_data: string; isInternalTransfer: number | null }[];
+        const updateStmt = this.db.prepare('UPDATE transactions SET raw_data = ?, isInternalTransfer = ? WHERE id = ?');
+        let count = 0;
+        for (const row of rows) {
+            let txn: Transaction;
+            try {
+                txn = JSON.parse(row.raw_data);
+            } catch {
+                continue;
+            }
+            let isInternalValue: number | null = null;
+            if (txn.isInternalTransfer === true || txn.txnType === 'internal_transfer' || txn.type === 'internal_transfer') {
+                isInternalValue = 1;
+            } else if (txn.isInternalTransfer === false) {
+                isInternalValue = 0;
+            }
+            if (isInternalValue === null) continue;
+
+            const expectedBool = isInternalValue === 1;
+            const colTrue = row.isInternalTransfer === 1;
+            const colMatch = colTrue === expectedBool;
+            const rawMatch = txn.isInternalTransfer === expectedBool;
+            if (colMatch && rawMatch) continue;
+
+            txn.isInternalTransfer = expectedBool;
+            updateStmt.run(JSON.stringify(txn), isInternalValue, row.id);
+            count++;
+        }
+        return count;
     }
 
     updateTransactionCategory(id: string, category: string): boolean {
@@ -476,6 +536,10 @@ export class DbService {
         return info.changes > 0;
     }
 
+    clearAllAiMemoryFacts(): number {
+        return this.db.prepare(`DELETE FROM ai_memory_facts`).run().changes;
+    }
+
     /** For prompts: highest score first, then recent */
     listAiMemoryInsights(limit: number = 200): { id: string; text: string; score: number; createdAt: string }[] {
         const stmt = this.db.prepare(
@@ -509,6 +573,21 @@ export class DbService {
         return info.changes > 0;
     }
 
+    clearAllAiMemoryInsights(): number {
+        return this.db.prepare(`DELETE FROM ai_memory_insights`).run().changes;
+    }
+
+    /** Deletes rows strictly older than `days` (by created_at). No-op if days < 1. */
+    deleteAiMemoryInsightsOlderThan(days: number): number {
+        const d = Math.floor(days);
+        if (d < 1 || !Number.isFinite(d)) return 0;
+        const mod = `-${d} days`;
+        const stmt = this.db.prepare(
+            `DELETE FROM ai_memory_insights WHERE datetime(created_at) < datetime('now', ?)`
+        );
+        return stmt.run(mod).changes;
+    }
+
     listAiMemoryAlerts(limit: number = 200): { id: string; text: string; score: number; createdAt: string }[] {
         const stmt = this.db.prepare(
             `SELECT id, text, score, created_at FROM ai_memory_alerts ORDER BY score DESC, created_at DESC LIMIT ?`
@@ -530,9 +609,42 @@ export class DbService {
         stmt.run(id, text, s);
     }
 
+    isAiMemoryAlertDismissed(normalizedKey: string): boolean {
+        const row = this.db
+            .prepare(`SELECT 1 AS ok FROM ai_memory_dismissed_alert_keys WHERE normalized_key = ? LIMIT 1`)
+            .get(normalizedKey) as { ok: number } | undefined;
+        return !!row;
+    }
+
     deleteAiMemoryAlert(id: string): boolean {
+        const row = this.db.prepare(`SELECT text FROM ai_memory_alerts WHERE id = ?`).get(id) as
+            | { text: string }
+            | undefined;
+        if (!row) return false;
+        const key = normalizeAiMemoryKey(row.text);
+        this.db
+            .prepare(
+                `INSERT OR IGNORE INTO ai_memory_dismissed_alert_keys (normalized_key, dismissed_at) VALUES (?, CURRENT_TIMESTAMP)`
+            )
+            .run(key);
         const stmt = this.db.prepare(`DELETE FROM ai_memory_alerts WHERE id = ?`);
         const info = stmt.run(id);
         return info.changes > 0;
+    }
+
+    /** Removes all alert rows without recording dismissal keys (explicit bulk clear). */
+    clearAllAiMemoryAlerts(): number {
+        return this.db.prepare(`DELETE FROM ai_memory_alerts`).run().changes;
+    }
+
+    /** Deletes rows strictly older than `days` (by created_at). No-op if days < 1. */
+    deleteAiMemoryAlertsOlderThan(days: number): number {
+        const d = Math.floor(days);
+        if (d < 1 || !Number.isFinite(d)) return 0;
+        const mod = `-${d} days`;
+        const stmt = this.db.prepare(
+            `DELETE FROM ai_memory_alerts WHERE datetime(created_at) < datetime('now', ?)`
+        );
+        return stmt.run(mod).changes;
     }
 }

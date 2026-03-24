@@ -42,9 +42,9 @@ router.get('/config', async (req: Request, res: Response) => {
  */
 router.post('/config', async (req: Request, res: Response) => {
   try {
-    const { botToken, enabled, adminChatIds, notificationChatIds, allowedUsers, language, spendingDigestEnabled } = req.body;
+    const { botToken, enabled, adminChatIds, notificationChatIds, allowedUsers, language } = req.body;
 
-    if (!botToken && enabled === undefined && !adminChatIds && !notificationChatIds && allowedUsers === undefined && !language && spendingDigestEnabled === undefined) {
+    if (!botToken && enabled === undefined && !adminChatIds && !notificationChatIds && allowedUsers === undefined && !language) {
       return res.status(400).json({ success: false, error: 'At least one field is required' });
     }
 
@@ -55,7 +55,6 @@ router.post('/config', async (req: Request, res: Response) => {
     if (notificationChatIds) config.notificationChatIds = notificationChatIds;
     if (allowedUsers !== undefined) config.allowedUsers = allowedUsers;
     if (language) config.language = language;
-    if (spendingDigestEnabled !== undefined) config.spendingDigestEnabled = Boolean(spendingDigestEnabled);
 
     telegramBotService.updateConfig(config);
 

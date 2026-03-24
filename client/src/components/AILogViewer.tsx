@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { apiClient } from '../lib/api';
 import { format } from 'date-fns';
 import { he, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { useServerActivity } from '../contexts/ServerActivityContext';
 
 interface AILogEntry {
   id: string;
@@ -43,14 +44,22 @@ interface AILogsStats {
   modelBreakdown: Record<string, { calls: number; tokens: number; cost: number }>;
 }
 
-export const AILogViewer: React.FC = () => {
+interface AILogViewerProps {
+  initialEntryId?: string | null;
+  onEntryIdChange?: (id: string | null) => void;
+}
+
+export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntryIdChange }) => {
   const { t, i18n } = useTranslation();
+  const { activity, fetchActivity } = useServerActivity();
   const [logs, setLogs] = useState<AILogEntry[]>([]);
   const [stats, setStats] = useState<AILogsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLog, setSelectedLog] = useState<AILogEntry | null>(null);
   const [filter, setFilter] = useState({ model: '', provider: '', includeErrors: true });
   const [pagination, setPagination] = useState({ offset: 0, limit: 50, total: 0 });
+  const selectedLogRef = useRef<AILogEntry | null>(null);
+  selectedLogRef.current = selectedLog;
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -117,6 +126,24 @@ export const AILogViewer: React.FC = () => {
     fetchStats();
   }, [fetchLogs, fetchStats]);
 
+  useEffect(() => {
+    if (!initialEntryId) return;
+    if (selectedLogRef.current?.id === initialEntryId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await apiClient.get(`/ai-logs/logs/entry/${encodeURIComponent(initialEntryId)}`);
+        if (cancelled || !response.data?.success) return;
+        setSelectedLog(response.data.data);
+      } catch {
+        /* not found or network */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialEntryId]);
+
   const handleFilterChange = (newFilter: typeof filter) => {
     setFilter(newFilter);
     setPagination(prev => ({ ...prev, offset: 0 }));
@@ -158,12 +185,37 @@ export const AILogViewer: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-left sm:hidden">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('ai_logs.title')}</h1>
         <button
-          onClick={() => fetchLogs()}
+          onClick={() => { void fetchLogs(); void fetchActivity(); }}
           className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
         >
           {t('ai_logs.refresh')}
         </button>
       </div>
+
+      {/* Live activity — only while something is running (same source as top bar) */}
+      {(activity.aiActive || activity.scrapeActive) && (
+        <div className="flex flex-wrap items-center gap-3" role="status" aria-live="polite">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('ai_logs.live_activity')}</span>
+          {activity.aiActive && (
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-violet-50 text-violet-800 border-violet-200">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-600" />
+              </span>
+              {t('ai_logs.ai_running')}
+            </span>
+          )}
+          {activity.scrapeActive && (
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-amber-50 text-amber-900 border-amber-200">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600" />
+              </span>
+              {t('ai_logs.scrape_running')}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Stats Cards */}
       {stats && (
@@ -308,7 +360,10 @@ export const AILogViewer: React.FC = () => {
                     <tr
                       key={log.id}
                       className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition"
-                      onClick={() => setSelectedLog(log)}
+                      onClick={() => {
+                        setSelectedLog(log);
+                        onEntryIdChange?.(log.id);
+                      }}
                     >
                       <td className="px-4 py-3 text-gray-900 whitespace-nowrap">{formatDate(log.timestamp)}</td>
                       <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{log.model}</td>
@@ -389,7 +444,10 @@ export const AILogViewer: React.FC = () => {
                 <p className="text-xs text-gray-500 font-mono mt-0.5">{selectedLog.id}</p>
               </div>
               <button
-                onClick={() => setSelectedLog(null)}
+                onClick={() => {
+                  setSelectedLog(null);
+                  onEntryIdChange?.(null);
+                }}
                 className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-200 rounded-full transition-colors"
                 aria-label={t('common.close')}
               >
@@ -548,7 +606,10 @@ export const AILogViewer: React.FC = () => {
 
             <div className="bg-gray-50 border-t border-gray-200 p-4 shrink-0 flex justify-end">
               <button
-                onClick={() => setSelectedLog(null)}
+                onClick={() => {
+                  setSelectedLog(null);
+                  onEntryIdChange?.(null);
+                }}
                 className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-all shadow-md active:scale-95 font-medium"
               >
                 {t('common.close')}

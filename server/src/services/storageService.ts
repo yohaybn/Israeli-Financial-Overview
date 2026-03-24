@@ -33,9 +33,11 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
             query: '',
             notifyOnResult: true,
             scope: 'current',
+            skipIfNoTransactions: true,
         },
         notificationChannels: ['console'],
         aggregateTelegramNotifications: true,
+        spendingDigestEnabled: false,
         transactionReviewReminder: {
             enabled: true,
             notifyTransfersCategory: true,
@@ -655,6 +657,15 @@ export class StorageService {
         serverLogger.info('Manual reload complete');
     }
 
+    /** After restoring app.db from backup, realign internal-transfer flags with raw_data (txnType / type). */
+    async reconcileInternalTransferFromRawData(): Promise<void> {
+        await this.initPromise;
+        const n = this.dbService.reconcileInternalTransferColumnFromRawData();
+        if (n > 0) {
+            serverLogger.info(`Reconciled isInternalTransfer for ${n} transaction(s) after restore`);
+        }
+    }
+
     async resetAllUserChanges() {
         serverLogger.info('Resetting all user changes to defaults...');
 
@@ -678,19 +689,33 @@ export class StorageService {
         try {
             if (await fs.pathExists(SCRAPE_CONFIG_PATH)) {
                 const loaded = await fs.readJson(SCRAPE_CONFIG_PATH);
+                let postScrapeMerged: GlobalScrapeConfig['postScrapeConfig'] = {
+                    ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig,
+                    ...loaded.postScrapeConfig,
+                    transactionReviewReminder: {
+                        ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.transactionReviewReminder,
+                        ...loaded.postScrapeConfig?.transactionReviewReminder,
+                    },
+                };
+                if (loaded.postScrapeConfig?.spendingDigestEnabled === undefined) {
+                    try {
+                        const telPath = path.join(CONFIG_DIR, 'telegram_config.json');
+                        if (await fs.pathExists(telPath)) {
+                            const tel = await fs.readJson(telPath) as { spendingDigestEnabled?: boolean };
+                            if (typeof tel?.spendingDigestEnabled === 'boolean') {
+                                postScrapeMerged = { ...postScrapeMerged, spendingDigestEnabled: tel.spendingDigestEnabled };
+                            }
+                        }
+                    } catch {
+                        /* ignore migration read */
+                    }
+                }
                 // Deep merge or at least ensure all fields exist
                 return {
                     ...DEFAULT_GLOBAL_CONFIG,
                     ...loaded,
                     scraperOptions: { ...DEFAULT_GLOBAL_CONFIG.scraperOptions, ...loaded.scraperOptions },
-                    postScrapeConfig: {
-                        ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig,
-                        ...loaded.postScrapeConfig,
-                        transactionReviewReminder: {
-                            ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.transactionReviewReminder,
-                            ...loaded.postScrapeConfig?.transactionReviewReminder,
-                        },
-                    }
+                    postScrapeConfig: postScrapeMerged,
                 };
             }
         } catch (error) {

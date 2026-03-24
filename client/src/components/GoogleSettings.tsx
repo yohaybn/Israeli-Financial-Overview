@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGoogleSettings, useUpdateGoogleSettings } from '../hooks/useScraper';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -30,6 +30,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     const [folderPath, setFolderPath] = useState<Array<{ id: string | null; name: string }>>([]);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [testError, setTestError] = useState<string | null>(null);
+    const lastSavedCredentialsRef = useRef<string | null>(null);
 
     const showNotification = useCallback((type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
@@ -44,7 +45,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
             const data = await res.json();
             return data.data;
         },
-        enabled: isOpen
+        enabled: isInline || !!isOpen
     });
 
     // Fetch root folders
@@ -55,7 +56,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
             const data = await res.json();
             return data.data || [];
         },
-        enabled: isOpen && currentBrowsingFolderId === null
+        enabled: (isInline || !!isOpen) && currentBrowsingFolderId === null
     });
 
     // Fetch folder contents when browsing
@@ -165,6 +166,11 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
             setClientId(settings.clientId || '');
             setClientSecret(settings.clientSecret || '');
             setRedirectUri(settings.redirectUri || getGoogleOAuthCallbackUrl());
+            lastSavedCredentialsRef.current = JSON.stringify({
+                clientId: settings.clientId || '',
+                clientSecret: settings.clientSecret || '',
+                redirectUri: settings.redirectUri || getGoogleOAuthCallbackUrl()
+            });
         }
     }, [settings]);
 
@@ -175,18 +181,24 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
         }
     }, [folderConfig]);
 
-    const handleSave = () => {
-        updateSettings({ clientId, clientSecret, redirectUri }, {
-            onSuccess: () => {
-                showNotification('success', t('common.save_success'));
-                onClose?.();
-            },
-            onError: (err: any) => {
-                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
-                showNotification('error', t('common.save_failed_with_error', { error: errorMsg }));
-            }
-        });
-    };
+    useEffect(() => {
+        if (!clientId || !clientSecret) return;
+        const snap = JSON.stringify({ clientId, clientSecret, redirectUri });
+        if (lastSavedCredentialsRef.current === snap) return;
+        const timer = setTimeout(() => {
+            updateSettings({ clientId, clientSecret, redirectUri }, {
+                onSuccess: () => {
+                    lastSavedCredentialsRef.current = JSON.stringify({ clientId, clientSecret, redirectUri });
+                    showNotification('success', t('common.save_success'));
+                },
+                onError: (err: any) => {
+                    const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                    showNotification('error', t('common.save_failed_with_error', { error: errorMsg }));
+                }
+            });
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [clientId, clientSecret, redirectUri, updateSettings, showNotification, t]);
 
     if (!isInline && !isOpen) return null;
 
@@ -373,16 +385,20 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                     </div>
                 )}
                 <div className="flex gap-3">
+                    {onClose && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 py-2.5 text-sm font-bold text-gray-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-gray-200"
+                        >
+                            {t('common.cancel')}
+                        </button>
+                    )}
                     <button
-                        onClick={onClose}
-                        className="flex-1 py-2.5 text-sm font-bold text-gray-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-gray-200"
-                    >
-                        {t('common.cancel')}
-                    </button>
-                    <button
+                        type="button"
                         onClick={() => testDriveConnection()}
                         disabled={isTestingDrive || !clientId || !clientSecret}
-                        className="flex-1 py-2.5 text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className={`py-2.5 text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${onClose ? 'flex-1' : 'w-full'}`}
                     >
                         {isTestingDrive ? (
                             <>
@@ -393,16 +409,10 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                             t('google_settings.test')
                         )}
                     </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isUpdating || !clientId || !clientSecret}
-                        className="flex-1 py-2.5 text-sm font-black text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        {isUpdating ? (
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : t('ai_settings.save_button')}
-                    </button>
                 </div>
+                {isUpdating && (
+                    <p className="text-xs text-green-700 font-semibold text-center">{t('common.saving')}</p>
+                )}
             </div>
         </div>
     );

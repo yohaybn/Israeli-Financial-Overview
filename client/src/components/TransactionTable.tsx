@@ -1,6 +1,6 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Transaction, expenseCategoryKey } from '@app/shared';
+import { Transaction, expenseCategoryKey, transactionsToCsv, transactionsToJson } from '@app/shared';
 import { ArrowRightLeft, EyeOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import { TransactionModal } from './TransactionModal';
@@ -110,8 +110,29 @@ export function TransactionTable({
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+    const [exportingView, setExportingView] = useState<'csv' | 'json' | null>(null);
+    const [viewDownloadOpen, setViewDownloadOpen] = useState(false);
+    const viewDownloadRef = useRef<HTMLDivElement>(null);
 
     const customCCKeywords = config.customCCKeywords ?? [];
+
+    useEffect(() => {
+        if (!viewDownloadOpen) return;
+        const onDoc = (e: MouseEvent) => {
+            if (viewDownloadRef.current && !viewDownloadRef.current.contains(e.target as Node)) {
+                setViewDownloadOpen(false);
+            }
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setViewDownloadOpen(false);
+        };
+        document.addEventListener('mousedown', onDoc);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDoc);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [viewDownloadOpen]);
 
     // Available categories in the current set of transactions
     const availableCategories = useMemo(() => {
@@ -234,6 +255,31 @@ export function TransactionTable({
         }
     };
 
+    const downloadCurrentView = (format: 'csv' | 'json') => {
+        setViewDownloadOpen(false);
+        const rows = filteredAndSortedTransactions;
+        if (rows.length === 0) {
+            window.alert(t('table.export_empty'));
+            return;
+        }
+        setExportingView(format);
+        try {
+            const stamp = new Date().toISOString().slice(0, 10);
+            const body = format === 'json' ? transactionsToJson(rows) : transactionsToCsv(rows);
+            const mime =
+                format === 'json' ? 'application/json;charset=utf-8' : 'text/csv;charset=utf-8';
+            const ext = format === 'json' ? 'json' : 'csv';
+            const blob = new Blob([body], { type: mime });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `transactions-view-${stamp}.${ext}`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } finally {
+            setExportingView(null);
+        }
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
@@ -277,6 +323,74 @@ export function TransactionTable({
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </select>
+                    <div
+                        className="relative border-gray-200 border-s ps-2 ms-0"
+                        ref={viewDownloadRef}
+                    >
+                        <button
+                            type="button"
+                            id="transaction-table-download-trigger"
+                            aria-haspopup="menu"
+                            aria-expanded={viewDownloadOpen}
+                            aria-controls="transaction-table-download-menu"
+                            disabled={exportingView !== null}
+                            onClick={() => setViewDownloadOpen((o) => !o)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white py-2 px-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 whitespace-nowrap"
+                        >
+                            {exportingView !== null ? (
+                                '…'
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                        />
+                                    </svg>
+                                    {t('dashboard.download')}
+                                    <svg
+                                        className={`w-4 h-4 opacity-70 transition-transform ${viewDownloadOpen ? 'rotate-180' : ''}`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        aria-hidden
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </>
+                            )}
+                        </button>
+                        {viewDownloadOpen && exportingView === null && (
+                            <div
+                                id="transaction-table-download-menu"
+                                role="menu"
+                                aria-labelledby="transaction-table-download-trigger"
+                                className={`absolute top-full z-50 mt-1 min-w-[10rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg ${i18n.language === 'he' ? 'left-0' : 'right-0'}`}
+                            >
+                                <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                    {t('table.export_view_aria')}
+                                </p>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-blue-50"
+                                    onClick={() => downloadCurrentView('csv')}
+                                >
+                                    {t('table.export_view_csv')}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-blue-50"
+                                    onClick={() => downloadCurrentView('json')}
+                                >
+                                    {t('table.export_view_json')}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="relative">

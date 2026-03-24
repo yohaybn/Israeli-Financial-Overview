@@ -1,16 +1,49 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnomalyAlert } from '@app/shared';
 import { CategoryIcon } from '../../utils/categoryIcons';
 
+const DISMISSED_ANOMALIES_STORAGE_KEY = 'dashboard.dismissedAnomalyIds.v1';
+
+function readDismissedForMonth(monthKey: string | undefined): Set<string> {
+    if (typeof window === 'undefined' || !monthKey) return new Set();
+    try {
+        const raw = localStorage.getItem(DISMISSED_ANOMALIES_STORAGE_KEY);
+        if (!raw) return new Set();
+        const parsed = JSON.parse(raw) as Record<string, string[]>;
+        const ids = parsed[monthKey];
+        return Array.isArray(ids) ? new Set(ids) : new Set();
+    } catch {
+        return new Set();
+    }
+}
+
+function persistDismissed(monthKey: string | undefined, ids: Set<string>) {
+    if (typeof window === 'undefined' || !monthKey) return;
+    try {
+        const raw = localStorage.getItem(DISMISSED_ANOMALIES_STORAGE_KEY);
+        const parsed = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+        parsed[monthKey] = Array.from(ids);
+        localStorage.setItem(DISMISSED_ANOMALIES_STORAGE_KEY, JSON.stringify(parsed));
+    } catch {
+        /* ignore quota / private mode */
+    }
+}
+
 interface AnomalyAlertsProps {
     anomalies?: AnomalyAlert[];
     className?: string;
+    /** Persist dismissals per calendar month (YYYY-MM) so they survive refresh */
+    storageMonthKey?: string;
 }
 
-export function AnomalyAlerts({ anomalies = [], className }: AnomalyAlertsProps) {
+export function AnomalyAlerts({ anomalies = [], className, storageMonthKey }: AnomalyAlertsProps) {
     const { t, i18n } = useTranslation();
-    const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+    const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => readDismissedForMonth(storageMonthKey));
+
+    useEffect(() => {
+        setDismissedIds(readDismissedForMonth(storageMonthKey));
+    }, [storageMonthKey]);
 
     const activeAnomalies = anomalies.filter(a => !dismissedIds.has(a.id));
 
@@ -74,6 +107,7 @@ export function AnomalyAlerts({ anomalies = [], className }: AnomalyAlertsProps)
         setDismissedIds(prev => {
             const next = new Set(prev);
             next.add(id);
+            persistDismissed(storageMonthKey, next);
             return next;
         });
     };

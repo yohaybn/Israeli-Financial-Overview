@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
@@ -13,14 +13,28 @@ import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
+import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { isDemoMode } from './demo/isDemo';
+import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
 
+function consumeSessionConfigTab(): string | null {
+    try {
+        const raw = sessionStorage.getItem('configOpenTab');
+        if (raw) sessionStorage.removeItem('configOpenTab');
+        return raw;
+    } catch {
+        return null;
+    }
+}
 
 function App() {
     const { t, i18n } = useTranslation();
     const onboarding = useOnboarding();
-    const [view, setView] = useState<'dashboard' | 'scrape' | 'logs' | 'configuration'>('dashboard');
-    const [initialLogType, setInitialLogType] = useState<'server' | 'client' | 'ai'>('server');
+    const [nav, setNav] = useState<AppUrlState>(() =>
+        parseAppUrlState(window.location.search, consumeSessionConfigTab())
+    );
+    const urlHadViewAtMount = useRef(new URLSearchParams(window.location.search).has('view')).current;
+    const { view, configTab, logType, logEntryId } = nav;
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState<string>(() => {
         const now = new Date();
@@ -31,16 +45,34 @@ function App() {
     const { data: unifiedTransactions, isLoading: isLoadingUnified } = useUnifiedData();
     const [hasCheckedData, setHasCheckedData] = useState(false);
 
-    // Default to scrape view if no data exists
+    useEffect(() => {
+        replaceAppUrlState(nav);
+    }, [nav]);
+
+    useEffect(() => {
+        const onPop = () => setNav(parseAppUrlState(window.location.search, null));
+        window.addEventListener('popstate', onPop);
+        return () => window.removeEventListener('popstate', onPop);
+    }, []);
+
+    // Default to scrape view if no data exists (unless URL already specified a view)
     useEffect(() => {
         if (!hasCheckedData && !isLoadingScrape && !isLoadingUnified && scrapeResults && unifiedTransactions) {
             const noData = scrapeResults.length === 0 && unifiedTransactions.length === 0;
-            if (noData) {
-                setView('scrape');
+            if (noData && !urlHadViewAtMount) {
+                setNav((prev) => ({ ...prev, view: 'scrape' }));
             }
             setHasCheckedData(true);
         }
-    }, [scrapeResults, unifiedTransactions, isLoadingScrape, isLoadingUnified, hasCheckedData]);
+    }, [scrapeResults, unifiedTransactions, isLoadingScrape, isLoadingUnified, hasCheckedData, urlHadViewAtMount]);
+
+    const setView = (next: AppUrlState['view']) => {
+        setNav((prev) => ({
+            ...prev,
+            view: next,
+            logEntryId: next === 'logs' ? prev.logEntryId : null,
+        }));
+    };
 
     const { mutate: updateCategory } = useUpdateTransactionCategory();
     const { categorizationFailure, clearCategorizationFailure, transactionReviewAlert, clearTransactionReviewAlert } =
@@ -57,13 +89,11 @@ function App() {
     };
 
     const handleNavigateToAILogs = () => {
-        setInitialLogType('ai');
-        setView('logs');
+        setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: null }));
     };
 
     const openAiSettingsTab = () => {
-        sessionStorage.setItem('configOpenTab', 'ai');
-        setView('configuration');
+        setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
     };
 
     return (
@@ -75,7 +105,8 @@ function App() {
                             <h1 className="text-base sm:text-lg font-bold text-emerald-800 tracking-tight truncate min-w-0 flex-1">
                                 {t('common.title')}
                             </h1>
-                            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
+                                <TopBarActivityIndicators />
                                 {view === 'dashboard' && <DashboardAlertsDropdown selectedMonth={selectedMonth} />}
 
                                 <div className="flex items-center gap-0.5 border-s border-gray-200 ps-1.5 ms-0.5">
@@ -298,10 +329,18 @@ function App() {
                             <ScrapeWorkspace onOpenImport={() => setIsImportModalOpen(true)} />
                         </div>
                         <div className={view === 'configuration' ? 'h-full' : 'hidden'}>
-                            <ConfigurationPanel />
+                            <ConfigurationPanel
+                                activeTab={configTab}
+                                onTabChange={(tab) => setNav((prev) => ({ ...prev, configTab: tab }))}
+                            />
                         </div>
                         <div className={view === 'logs' ? 'h-full' : 'hidden'}>
-                            <LogViewer initialType={initialLogType} />
+                            <LogViewer
+                                logType={logType}
+                                onLogTypeChange={(t) => setNav((prev) => ({ ...prev, logType: t, logEntryId: null }))}
+                                logEntryId={logEntryId}
+                                onLogEntryIdChange={(id) => setNav((prev) => ({ ...prev, logEntryId: id }))}
+                            />
                         </div>
                     </div>
                 </div>

@@ -4,6 +4,8 @@ import { AiService } from '../services/aiService.js';
 import { StorageService } from '../services/storageService.js';
 import { DbService } from '../services/dbService.js';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from '../services/unifiedAiChatMemory.js';
+import { telegramBotService } from '../services/telegramBotService.js';
+import { runAiMemoryRetentionPrune } from '../services/aiMemoryRetention.js';
 
 const router = Router();
 const aiService = new AiService();
@@ -102,7 +104,8 @@ router.post('/chat/unified', async (req, res) => {
             conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : undefined,
             temperature: 0.7
         });
-        const { factsAdded, insightsAdded, alertsAdded } = mergeAndPersistAiMemory(structured);
+        const { factsAdded, insightsAdded, alertsAdded, newAlerts } = mergeAndPersistAiMemory(structured);
+        void telegramBotService.notifyNewAiMemoryAlerts(newAlerts);
 
         res.json({
             success: true,
@@ -139,6 +142,7 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
     try {
         const settings = await aiService.updateSettings(req.body);
+        await runAiMemoryRetentionPrune();
         res.json({ success: true, data: settings });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
@@ -197,6 +201,15 @@ router.patch('/memory/facts/:id', (req, res) => {
     }
 });
 
+router.delete('/memory/facts', (_req, res) => {
+    try {
+        const removed = dbService.clearAllAiMemoryFacts();
+        res.json({ success: true, data: { removed } });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 router.delete('/memory/facts/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -240,6 +253,15 @@ router.get('/memory/alerts', (_req, res) => {
     }
 });
 
+router.delete('/memory/alerts', (_req, res) => {
+    try {
+        const removed = dbService.clearAllAiMemoryAlerts();
+        res.json({ success: true, data: { removed } });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 router.delete('/memory/alerts/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -248,6 +270,15 @@ router.delete('/memory/alerts/:id', (req, res) => {
             return res.status(404).json({ success: false, error: 'Alert not found' });
         }
         res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.delete('/memory/insights', (_req, res) => {
+    try {
+        const removed = dbService.clearAllAiMemoryInsights();
+        res.json({ success: true, data: { removed } });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }

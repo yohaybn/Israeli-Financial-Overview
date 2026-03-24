@@ -21,14 +21,24 @@ export interface PostScrapeConfig {
         query: string;
         notifyOnResult: boolean;
         scope?: 'current' | 'all';
+        /**
+         * When true or omitted (default), do not call the custom AI if there are no transactions in scope.
+         * Set to false to still run the query with an empty transaction list (e.g. general reminders).
+         */
+        skipIfNoTransactions?: boolean;
     };
     notificationChannels: string[];
     /**
      * When true (default), Telegram messages from a scrape run (scrape summary, post-scrape steps, spending digest)
-     * are combined into one notification per run. Controlled from Scrape Settings → Post-Scrape Actions.
+     * are combined into one notification per run. Controlled from Scrape Settings → Post-Scrape Actions (same section as spending digest toggle).
      * Per-request options still override when set by the Telegram bot or API.
      */
     aggregateTelegramNotifications?: boolean;
+    /**
+     * After a successful scrape, send a short budget pace / anomaly digest to configured channels (deduped by fingerprint).
+     * Telegram delivery still requires the bot enabled; digest text locale follows Telegram bot language when sending to Telegram.
+     */
+    spendingDigestEnabled?: boolean;
     /**
      * After a scrape, remind you about new transactions classified as Transfers (העברות)
      * or the default bucket (אחר) so you can set memo or a more specific category.
@@ -82,17 +92,23 @@ export interface FraudDetectionSummary {
 export interface FraudDetectionLocalRulesConfig {
     enableOutlierAmount?: boolean;
     enableNewMerchant?: boolean;
+    /** When true (default), new merchants with Latin letters and no Hebrew in the description bypass the ₪ minimum. */
+    enableNewMerchantNonHebrew?: boolean;
     enableRapidRepeats?: boolean;
     enableForeignCurrency?: boolean;
 }
 
 export interface FraudDetectionLocalThresholdsConfig {
     minAmountForNewMerchantIls?: number;     // Only flag "new" merchants above this amount
+    /** Score when the new-merchant rule fires for Latin-only / no-Hebrew descriptions (default 35). */
+    newMerchantNonHebrewPoints?: number;
     foreignCurrencyMinOriginalAmount?: number;
+    /** Max span for “similar” peers: same calendar day OR within this many minutes (for real clock times). */
     rapidRepeatWindowMinutes?: number;
     rapidRepeatCountThreshold?: number;      // # of repeats within window to flag
     outlierMinHistoryCount?: number;         // Need at least N historical points for outlier calc
     outlierZScore?: number;                  // Z-score threshold
+    /** Reserved; severity mapping uses medium/high cutoffs in practice. */
     severityLowMinScore?: number;
     severityMediumMinScore?: number;
     severityHighMinScore?: number;

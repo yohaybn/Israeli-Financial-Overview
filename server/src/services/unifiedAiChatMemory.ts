@@ -2,12 +2,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { DbService } from './dbService.js';
 import type { StructuredChatResult } from './aiService.js';
 import type { ConversationTurn } from './aiService.js';
+import { normalizeAiMemoryKey } from '../utils/aiMemoryNormalize.js';
 
 const db = new DbService();
-
-function normalizeMemoryKey(s: string): string {
-    return s.trim().toLowerCase().replace(/\s+/g, ' ');
-}
 
 /**
  * Builds the unified chat prompt including stored facts and recent insights (single shared workspace).
@@ -46,48 +43,52 @@ export function mergeAndPersistAiMemory(structured: StructuredChatResult): {
     factsAdded: number;
     insightsAdded: number;
     alertsAdded: number;
+    newAlerts: { text: string; score: number }[];
 } {
     const existing = db.listAiMemoryFacts();
-    const existingKeys = new Set(existing.map((f) => normalizeMemoryKey(f.text)));
+    const existingKeys = new Set(existing.map((f) => normalizeAiMemoryKey(f.text)));
 
     let factsAdded = 0;
     for (const raw of structured.facts) {
         const t = raw.trim();
         if (!t) continue;
-        const key = normalizeMemoryKey(t);
+        const key = normalizeAiMemoryKey(t);
         if (existingKeys.has(key)) continue;
         existingKeys.add(key);
         db.insertAiMemoryFact(uuidv4(), t);
         factsAdded++;
     }
 
-    const recentInsightKeys = new Set(db.listAiMemoryInsights(120).map((i) => normalizeMemoryKey(i.text)));
+    const recentInsightKeys = new Set(db.listAiMemoryInsights(120).map((i) => normalizeAiMemoryKey(i.text)));
 
     let insightsAdded = 0;
     for (const item of structured.insights) {
         const t = item.text.trim();
         if (!t) continue;
-        const key = normalizeMemoryKey(t);
+        const key = normalizeAiMemoryKey(t);
         if (recentInsightKeys.has(key)) continue;
         recentInsightKeys.add(key);
         db.insertAiMemoryInsight(uuidv4(), t, item.score);
         insightsAdded++;
     }
 
-    const recentAlertKeys = new Set(db.listAiMemoryAlerts(120).map((a) => normalizeMemoryKey(a.text)));
+    const recentAlertKeys = new Set(db.listAiMemoryAlerts(120).map((a) => normalizeAiMemoryKey(a.text)));
 
     let alertsAdded = 0;
+    const newAlerts: { text: string; score: number }[] = [];
     for (const item of structured.alerts) {
         const t = item.text.trim();
         if (!t) continue;
-        const key = normalizeMemoryKey(t);
+        const key = normalizeAiMemoryKey(t);
         if (recentAlertKeys.has(key)) continue;
+        if (db.isAiMemoryAlertDismissed(key)) continue;
         recentAlertKeys.add(key);
         db.insertAiMemoryAlert(uuidv4(), t, item.score);
         alertsAdded++;
+        newAlerts.push({ text: t, score: item.score });
     }
 
-    return { factsAdded, insightsAdded, alertsAdded };
+    return { factsAdded, insightsAdded, alertsAdded, newAlerts };
 }
 
 export type { ConversationTurn };

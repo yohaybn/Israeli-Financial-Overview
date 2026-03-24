@@ -2,6 +2,11 @@ import { createScraper, CompanyTypes } from 'israeli-bank-scrapers';
 import { ScrapeResult, ScrapeRequest } from '@app/shared';
 import { Server } from 'socket.io';
 import { postScrapeService } from './postScrapeService.js';
+import type { ScrapeRunActionRecord } from '../utils/scrapeRunLogger.js';
+import {
+    generateScrapeRunLogId,
+    writeScrapeRunLog,
+} from '../utils/scrapeRunLogger.js';
 import puppeteer from 'puppeteer';
 import fs from 'fs-extra';
 import { StorageService } from './storageService.js';
@@ -25,6 +30,18 @@ export interface ScrapeProgress {
     type: ScraperProgressTypes | string;
     message: string;
     timestamp: string;
+}
+
+let activeScrapeCount = 0;
+
+export function getActiveScrapeCount(): number {
+    return activeScrapeCount;
+}
+
+function scrapeRunSourceForLog(request: ScrapeRequest): 'telegram_bot' | 'scheduler' | 'manual' {
+    const r = (request as any)?.options?.runSource;
+    if (r === 'telegram_bot' || r === 'scheduler' || r === 'manual') return r;
+    return 'manual';
 }
 
 export class ScraperService {
@@ -218,6 +235,7 @@ export class ScraperService {
         }
 
         try {
+            activeScrapeCount++;
             this.emitProgress(ScraperProgressTypes.Initializing, 'Initializing scraper...');
             addLog(`Starting scrape for ${request.companyId}...`);
             addLog(`Options: startDate=${libOptions.startDate.toISOString().split('T')[0]}, showBrowser=${libOptions.showBrowser}`);
@@ -271,33 +289,88 @@ export class ScraperService {
                     // Caller will run post-scrape once after all scrapes finish (batch)
                     return successResult;
                 }
+
+                const scrapeRunLogId = generateScrapeRunLogId();
+                (request as any).__scrapeRunLogId = scrapeRunLogId;
+
                 if (aggregateTelegramNotifications) {
+                    let postActions: ScrapeRunActionRecord[] = [];
                     try {
-                        await postScrapeService.handleResult(successResult, request);
+                        postActions = await postScrapeService.handleResult(successResult, request);
                     } catch (err: any) {
                         this.emitLog(`Post-scrape actions failed: ${err?.message || err}`);
+                        postActions = [{ key: 'post-scrape', status: 'failed', detail: err?.message || String(err) }];
                     }
+                    let notifAction: ScrapeRunActionRecord = { key: 'scrape-notification', status: 'ok' };
                     try {
                         await postScrapeService.sendScrapeNotification(successResult, request);
                     } catch (err: any) {
                         this.emitLog(`Scrape notification failed: ${err?.message || err}`);
+                        notifAction = {
+                            key: 'scrape-notification',
+                            status: 'failed',
+                            detail: err?.message || String(err),
+                        };
                     }
+                    let flushAction: ScrapeRunActionRecord = { key: 'telegram-aggregate-flush', status: 'ok' };
                     try {
                         await postScrapeService.flushAggregatedTelegramNotification(request);
                     } catch (err: any) {
                         this.emitLog(`Aggregated Telegram notification failed: ${err?.message || err}`);
+                        flushAction = {
+                            key: 'telegram-aggregate-flush',
+                            status: 'failed',
+                            detail: err?.message || String(err),
+                        };
                     }
+                    await writeScrapeRunLog({
+                        id: scrapeRunLogId,
+                        pipelineId: request.profileName || request.companyId || 'unknown',
+                        companyId: request.companyId,
+                        profileName: request.profileName,
+                        runSource: scrapeRunSourceForLog(request),
+                        kind: 'single',
+                        transactionCount: transactions.length,
+                        scrapeSuccess: true,
+                        actions: [...postActions, notifAction, flushAction],
+                    });
                 } else {
-                    // Run post-scrape actions asynchronously (categorization, fraud check, custom AI, notifications)
-                    postScrapeService.handleResult(successResult, request).catch((err: any) => {
-                        // Log but don't fail the scrape
-                        this.emitLog(`Post-scrape actions failed: ${err?.message || err}`);
-                    });
-
-                    // Notify configured channels (Telegram, etc.) about the scrape result
-                    postScrapeService.sendScrapeNotification(successResult, request).catch((err: any) => {
-                        this.emitLog(`Scrape notification failed: ${err?.message || err}`);
-                    });
+                    // Run post-scrape actions concurrently with scrape notification (same as before)
+                    void (async () => {
+                        const [hRes, nRes] = await Promise.allSettled([
+                            postScrapeService.handleResult(successResult, request),
+                            postScrapeService.sendScrapeNotification(successResult, request),
+                        ]);
+                        const postActions: ScrapeRunActionRecord[] =
+                            hRes.status === 'fulfilled'
+                                ? hRes.value
+                                : [{ key: 'post-scrape', status: 'failed', detail: String(hRes.reason) }];
+                        if (hRes.status === 'rejected') {
+                            this.emitLog(`Post-scrape actions failed: ${String(hRes.reason)}`);
+                        }
+                        const notifAction: ScrapeRunActionRecord =
+                            nRes.status === 'fulfilled'
+                                ? { key: 'scrape-notification', status: 'ok' }
+                                : {
+                                      key: 'scrape-notification',
+                                      status: 'failed',
+                                      detail: String(nRes.reason),
+                                  };
+                        if (nRes.status === 'rejected') {
+                            this.emitLog(`Scrape notification failed: ${String(nRes.reason)}`);
+                        }
+                        await writeScrapeRunLog({
+                            id: scrapeRunLogId,
+                            pipelineId: request.profileName || request.companyId || 'unknown',
+                            companyId: request.companyId,
+                            profileName: request.profileName,
+                            runSource: scrapeRunSourceForLog(request),
+                            kind: 'single',
+                            transactionCount: transactions.length,
+                            scrapeSuccess: true,
+                            actions: [...postActions, notifAction],
+                        });
+                    })();
                 }
 
                 return successResult;
@@ -378,6 +451,8 @@ export class ScraperService {
             }
 
             return errorResult;
+        } finally {
+            activeScrapeCount--;
         }
     }
 }

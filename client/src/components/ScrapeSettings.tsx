@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlobalScrapeConfig, ScraperOptions } from '@app/shared';
 import { api } from '../lib/api';
@@ -18,6 +18,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
     const [telegramStatus, setTelegramStatus] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [toast, setToast] = useState<string | null>(null);
+    const lastSerializedRef = useRef<string | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -28,7 +29,11 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                     api.get<{ success: boolean; data: any }>('/telegram/status')
                 ]);
 
-                if (configRes.data.success) setConfig(configRes.data.data);
+                if (configRes.data.success) {
+                    const c = configRes.data.data;
+                    setConfig(c);
+                    lastSerializedRef.current = JSON.stringify(c);
+                }
                 if (channelsRes.data.success) setAvailableChannels(channelsRes.data.data);
                 if (telegramRes.data.success) setTelegramStatus(telegramRes.data.data);
             } catch (err) {
@@ -41,6 +46,31 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
 
         fetchData();
     }, []);
+
+    useEffect(() => {
+        if (!config) return;
+        const json = JSON.stringify(config);
+        if (lastSerializedRef.current === json) return;
+        const timer = setTimeout(async () => {
+            setSaving(true);
+            setError(null);
+            try {
+                const res = await api.put<{ success: boolean; data: GlobalScrapeConfig }>('/config', config);
+                if (!res.data.success) throw new Error(t('common.save_failed'));
+                const next = res.data.data;
+                setConfig(next);
+                lastSerializedRef.current = JSON.stringify(next);
+                setToast(t('common.save_success'));
+                setTimeout(() => setToast(null), 1500);
+            } catch (e: any) {
+                console.error('Failed to save scrape config', e);
+                setError(e?.message || t('scraper.errors.save_failed'));
+            } finally {
+                setSaving(false);
+            }
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [config, t]);
 
     const updateOption = <K extends keyof ScraperOptions>(key: K, value: ScraperOptions[K]) => {
         if (!config) return;
@@ -56,28 +86,6 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
             ...config,
             postScrapeConfig: { ...config.postScrapeConfig, ...patch }
         });
-    };
-
-    const handleSave = async () => {
-        if (!config) return;
-
-        setSaving(true);
-        setError(null);
-        try {
-            const res = await api.put<{ success: boolean; data: GlobalScrapeConfig }>('/config', config);
-            if (!res.data.success) throw new Error(t('common.save_failed'));
-            setConfig(res.data.data);
-            setToast(t('common.save_success'));
-            setTimeout(() => {
-                setToast(null);
-                if (!isInline) onClose?.();
-            }, 1500);
-        } catch (e: any) {
-            console.error('Failed to save scrape config', e);
-            setError(e?.message || t('scraper.errors.save_failed'));
-        } finally {
-            setSaving(false);
-        }
     };
 
     if (!isInline && (!isOpen || !config)) return null;
@@ -418,6 +426,25 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                         {t('post_scrape.scope_all')}
                                     </button>
                                 </div>
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={config.postScrapeConfig.customAI?.skipIfNoTransactions !== false}
+                                        onChange={(e) =>
+                                            updatePostScrape({
+                                                customAI: {
+                                                    ...config.postScrapeConfig.customAI,
+                                                    skipIfNoTransactions: e.target.checked,
+                                                },
+                                            })
+                                        }
+                                        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <span>
+                                        <span className="block text-xs font-semibold text-gray-700">{t('post_scrape.custom_ai_skip_if_no_tx')}</span>
+                                        <span className="text-[11px] text-gray-500">{t('post_scrape.custom_ai_skip_if_no_tx_desc')}</span>
+                                    </span>
+                                </label>
                             </div>
                         </div>
 
@@ -439,6 +466,23 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                             <p className="text-xs text-gray-500 pl-8 border-l-2 border-indigo-100 ml-1">
                                 {t('post_scrape.whale_where')}
                             </p>
+                        </div>
+
+                        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={config.postScrapeConfig.spendingDigestEnabled === true}
+                                    onChange={(e) =>
+                                        updatePostScrape({ spendingDigestEnabled: e.target.checked })
+                                    }
+                                    className="w-5 h-5 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-gray-700">{t('post_scrape.spending_digest')}</span>
+                                    <span className="text-xs text-gray-500">{t('post_scrape.spending_digest_help')}</span>
+                                </span>
+                            </label>
                         </div>
 
                         <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
@@ -537,27 +581,32 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
             </div>
 
             <div className={`flex justify-end gap-3 shrink-0 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm py-4 border-t border-gray-200 -mx-6 px-6 z-10' : 'p-6 bg-gray-50 border-t border-gray-100'}`}>
-                {error && <div className="mr-auto text-xs text-red-600 font-bold flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {error}
-                </div>}
-
-                <button
-                    onClick={onClose}
-                    className="px-6 py-2.5 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-2xl transition-all"
-                >
-                    {t('common.cancel')}
-                </button>
-
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className={`px-8 py-2.5 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95 ${saving ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-200'}`}
-                >
-                    {saving ? t('common.saving') : t('common.save')}
-                </button>
+                {error && (
+                    <div className="mr-auto text-xs text-red-600 font-bold flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {error}
+                    </div>
+                )}
+                {saving && (
+                    <span className="mr-auto text-xs text-indigo-600 font-bold flex items-center gap-1.5">
+                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" aria-hidden>
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        {t('common.saving')}
+                    </span>
+                )}
+                {!isInline && onClose && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-6 py-2.5 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-2xl transition-all"
+                    >
+                        {t('common.cancel')}
+                    </button>
+                )}
             </div>
             {toast && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur-sm text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 z-[110]">
