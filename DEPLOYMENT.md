@@ -21,6 +21,18 @@ The project is structured into two main components:
 - `/app`: The standalone Node.js application.
 - `/ha-addon`: Home Assistant Add-on configuration and startup scripts.
 
+## Windows desktop (installer / portable folder)
+
+The Windows package is a normal **Node production tree** plus a **bundled `node.exe`** (see `packaging/windows/package.ps1`). The server listens on **`PORT`** (default **3000**) and stores SQLite and runtime settings under **`DATA_DIR`**.
+
+| Variable | Description | Typical default |
+|----------|-------------|-----------------|
+| `PORT` | HTTP port | `3000` |
+| `DATA_DIR` | Database, `config/runtime-settings.json`, uploads | `%AppData%\FinancialOverview\data` when using the bundled launcher |
+| `NODE_ENV` | Set to `production` by the launcher | `production` |
+
+Set variables in **System → Environment variables** or in a wrapper script before starting `launch-FinancialOverview.cmd`. The in-app **Configuration** and setup wizard still apply for OAuth, Telegram, Gemini, app lock, etc.
+
 ## Standalone Docker Deployment
 
 To build and run the application using Docker Compose:

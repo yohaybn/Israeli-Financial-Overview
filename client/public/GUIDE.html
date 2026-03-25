@@ -117,7 +117,7 @@
                 title: "User Guide",
                 subtitle: "The complete manual for setting up and using Financial Overview.",
                 nav: [
-                    { label: "Setup", items: [{ id: "getting-started", label: "Getting started" }, { id: "env-setup", label: "Runtime & secrets" }, { id: "app-lock", label: "App lock" }, { id: "api-guides", label: "API keys" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "Setup", items: [{ id: "getting-started", label: "Getting started" }, { id: "windows-install", label: "Windows installation" }, { id: "env-setup", label: "Runtime & secrets" }, { id: "app-lock", label: "App lock" }, { id: "api-guides", label: "API keys" }, { id: "google-setup", label: "Google Sheets" }] },
                     { label: "Web app", items: [{ id: "dashboard", label: "Dashboard" }, { id: "scrape", label: "Scrape" }, { id: "profiles", label: "Profiles" }, { id: "results", label: "Results explorer" }, { id: "logs", label: "Logs" }, { id: "configuration", label: "Configuration" }] },
                     { label: "Intelligence", items: [{ id: "ai", label: "AI features" }, { id: "fraud", label: "Fraud detection" }, { id: "automation", label: "Scheduler & backups" }] },
                     { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "telegram-guide", label: "Telegram bot" }, { id: "credits", label: "Credits" }] }
@@ -187,6 +187,24 @@ GEMINI_API_KEY=(optional)
                             </ol>
                             <h3>Setup wizard (onboarding)</h3>
                             <p>The guided steps cover Telegram, Gemini, Google OAuth, Drive folder selection, and creating your <strong>app lock</strong> password. Completing the wizard is the easiest way to get a consistent, working configuration.</p>
+                        `
+                    },
+                    "windows-install": {
+                        title: "🪟 Windows installation",
+                        html: `
+                            <p>The <strong>Windows</strong> build is a single installer (<code>FinancialOverview-Windows-Setup.exe</code>) that installs the server, the web UI, dependencies, and a <strong>bundled Node.js</strong>—you do not install Node yourself.</p>
+                            <h3>Install</h3>
+                            <ol>
+                                <li>Run the installer and finish the wizard (default folder: <code>%LocalAppData%\\FinancialOverview</code>).</li>
+                                <li>Start <strong>Financial Overview</strong> from the Start menu, or run <code>launch-FinancialOverview.cmd</code> in the install directory. A console window stays open while the app runs; close it to stop the server.</li>
+                                <li>Open <code>http://127.0.0.1:3000</code> in your browser (default port <strong>3000</strong>). Use the shortcut <strong>Open Financial Overview in browser</strong> after the server has started if the page does not load immediately.</li>
+                            </ol>
+                            <h3>Where data is stored</h3>
+                            <p>By default, databases and settings go under <code>%AppData%\\FinancialOverview\\data</code> (<strong>DATA_DIR</strong>). You can change <code>PORT</code> or <code>DATA_DIR</code> via Windows environment variables before launch—see the project <strong>DEPLOYMENT.md</strong>.</p>
+                            <div class="callout info">
+                                <strong>Scraping:</strong> Install <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on this PC (the Windows package does not bundle Puppeteer’s Chromium by default).
+                            </div>
+                            <p>After installation, use the in-app <strong>setup wizard</strong> for Telegram, Gemini, Google, and app lock—same as other deployment methods.</p>
                         `
                     },
                     "app-lock": {
@@ -391,7 +409,7 @@ GEMINI_API_KEY=(optional)
                 title: "מדריך למשתמש",
                 subtitle: "המדריך המלא להגדרה ושימוש במבט כלכלי.",
                 nav: [
-                    { label: "התקנה", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "env-setup", label: "זמן ריצה וסודות" }, { id: "app-lock", label: "נעילת אפליקציה" }, { id: "api-guides", label: "מפתחות API" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "התקנה", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "windows-install", label: "התקנה ב-Windows" }, { id: "env-setup", label: "זמן ריצה וסודות" }, { id: "app-lock", label: "נעילת אפליקציה" }, { id: "api-guides", label: "מפתחות API" }, { id: "google-setup", label: "Google Sheets" }] },
                     { label: "ממשק", items: [{ id: "dashboard", label: "דשבורד" }, { id: "scrape", label: "סריקה" }, { id: "profiles", label: "פרופילים" }, { id: "results", label: "סייר תוצאות" }, { id: "logs", label: "יומנים" }, { id: "configuration", label: "הגדרות" }] },
                     { label: "חכם", items: [{ id: "ai", label: "תכונות AI" }, { id: "fraud", label: "זיהוי הונאה" }, { id: "automation", label: "מתזמן וגיבויים" }] },
                     { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "telegram-guide", label: "בוט טלגרם" }, { id: "credits", label: "קרדיטים" }] }
@@ -461,6 +479,24 @@ GEMINI_API_KEY=(optional)
                             </ol>
                             <h3>אשף התקנה (Onboarding)</h3>
                             <p>הצעדים המודרכים כוללים Telegram, Gemini, Google OAuth, בחירת תיקיית Drive, ויצירת <strong>סיסמת נעילת האפליקציה</strong>. השלמת האשף היא הדרך הקלה ביותר להגדרה עקבית ועובדת.</p>
+                        `
+                    },
+                    "windows-install": {
+                        title: "🪟 התקנה ב-Windows",
+                        html: `
+                            <p>בגרסת <strong>Windows</strong> מקבלים קובץ התקנה אחד (<code>FinancialOverview-Windows-Setup.exe</code>) שמתקין את השרת, את ממשק האינטרנט, את התלויות ואת <strong>Node.js מוטמע</strong> — אין צורך להתקין Node בנפרד.</p>
+                            <h3>התקנה והפעלה</h3>
+                            <ol>
+                                <li>הרצת מתקין והשלמת האשף (ברירת מחדל לתיקייה: <code>%LocalAppData%\\FinancialOverview</code>).</li>
+                                <li>הפעלה דרך תפריט התחל — <strong>Financial Overview</strong>, או הרצת <code>launch-FinancialOverview.cmd</code> מתיקיית ההתקנה. חלון קונסולה נשאר פתוח כל עוד השרת רץ; סגירה עוצרת את השרת.</li>
+                                <li>פתיחת <code>http://127.0.0.1:3000</code> בדפדפן (פורט ברירת מחדל <strong>3000</strong>). אפשר להשתמש בקיצור <strong>Open Financial Overview in browser</strong> אחרי שהשרת עלה.</li>
+                            </ol>
+                            <h3>איפה הנתונים נשמרים</h3>
+                            <p>ברירת מחדל: <code>%AppData%\\FinancialOverview\\data</code> (<strong>DATA_DIR</strong>). ניתן לשנות <code>PORT</code> או <code>DATA_DIR</code> במשתני סביבה של Windows לפני ההפעלה — ראו <strong>DEPLOYMENT.md</strong> בפרויקט.</p>
+                            <div class="callout info">
+                                <strong>סריקה:</strong> יש להתקין <strong>Google Chrome</strong> או <strong>Microsoft Edge</strong> במחשב (חבילת Windows כברירת מחדל לא כוללת את Chromium של Puppeteer).
+                            </div>
+                            <p>לאחר ההתקנה השתמשו ב<strong>אשף ההתקנה</strong> באפליקציה עבור Telegram, Gemini, Google ונעילה — כמו בכל שיטת פריסה אחרת.</p>
                         `
                     },
                     "app-lock": {
@@ -681,7 +717,7 @@ GEMINI_API_KEY=(optional)
 
             // Render Sections (fixed order so nav and reading order stay logical)
             const sectionOrder = [
-                'getting-started', 'env-setup', 'app-lock', 'api-guides', 'google-setup',
+                'getting-started', 'windows-install', 'env-setup', 'app-lock', 'api-guides', 'google-setup',
                 'dashboard', 'scrape', 'profiles', 'results', 'logs', 'configuration',
                 'ai', 'fraud', 'automation', 'troubleshooting', 'telegram-guide', 'credits'
             ];

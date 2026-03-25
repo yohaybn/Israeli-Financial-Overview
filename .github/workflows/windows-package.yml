@@ -1,0 +1,32 @@
+# Builds dist/windows-package on Windows (native better-sqlite3). Upload artifact; compile Inno Setup locally or add a step with Chocolatey innosetup.
+name: Windows package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Build Windows package folder
+        shell: pwsh
+        env:
+          CI: "true"
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+        run: npm run windows:package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: dist/windows-package
+          if-no-files-found: error

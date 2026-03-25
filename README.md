@@ -12,7 +12,7 @@ Self-hosted tool to pull transactions from Israeli banks and credit cards, explo
 | **Languages** | English and Hebrew with LTR/RTL. |
 | **App lock & profiles** | **App lock** (min. 8 characters) protects the session and **encrypts stored profile credentials**. You can use most of the app (dashboard, logs, configuration, exploring results) **without** unlocking; **running scrapes** and **creating/editing saved bank profiles** require the app to be **unlocked** when app lock is enabled. **Forgot password:** encrypted profiles cannot be recovered—you must **delete those profiles** and **re-enter** bank credentials after resetting lock (see **[GUIDE.html](client/public/GUIDE.html)**). |
 | **Integrations** | Google OAuth → Drive/Sheets; **Gemini** for categorization and analyst chat; **Telegram** bot — see **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** (commands, notifications, optional `/unlock` when the UI is locked). |
-| **Deployment** | Docker / Compose, **Home Assistant** add-on, local **Node** monorepo for development. |
+| **Deployment** | Docker / Compose, **Home Assistant** add-on, **Windows** installer (see below), local **Node** monorepo for development. |
 
 ## Repository layout
 
@@ -49,6 +49,25 @@ Then open the Web UI at **`http://localhost:3000`** (or the port mapped in your 
 
 Details: [DEPLOYMENT.md](DEPLOYMENT.md).
 
+## Windows desktop app (single installer)
+
+For a **one-file** distribution on Windows, build an installer that bundles the production server, the built web UI, **npm dependencies** (after pruning dev tools), and a **portable Node.js** runtime—users do **not** install Node separately.
+
+**Maintainers — create the package and installer**
+
+1. On **Windows x64**, from the repo root: `npm run windows:package` (or run [`packaging/windows/package.ps1`](packaging/windows/package.ps1)). This produces `dist/windows-package/`.
+2. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) and compile [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) to get **`dist/FinancialOverview-Windows-Setup.exe`**.
+
+**End users**
+
+1. Run **`FinancialOverview-Windows-Setup.exe`** and complete the wizard (default install folder: `%LocalAppData%\FinancialOverview`).
+2. Start the app from the Start menu shortcut **`Financial Overview`**, or run `launch-FinancialOverview.cmd` in the install folder. A console window stays open while the server runs; close it to stop.
+3. Open **`http://127.0.0.1:3000`** in your browser (default **PORT** is `3000`). Use the second shortcut **Open Financial Overview in browser** after the server has started, or wait a few seconds on first launch.
+4. **Data and settings** default to **`%AppData%\FinancialOverview\data`** (`DATA_DIR`). You can override `DATA_DIR` or `PORT` via environment variables before launch; see [DEPLOYMENT.md](DEPLOYMENT.md).
+5. **Bank scraping** uses a Chromium-based browser. The Windows build skips downloading Puppeteer’s browser during packaging; install **Google Chrome** or **Microsoft Edge** on the PC (or run `npm install` in the repo without `PUPPETEER_SKIP_DOWNLOAD` before packaging if you need a bundled Chromium).
+
+Full maintainer notes: [packaging/windows/README.md](packaging/windows/README.md).
+
 ## GitHub Pages (demo UI only)
 
 The workflow in `.github/workflows/pages.yml` can publish a **static demo** (`VITE_DEMO=true`, in-browser API mocks, sample data). It does **not** connect to banks or your server. Full functionality requires the server stack above.
@@ -66,7 +85,8 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | **[client/public/GUIDE.html](client/public/GUIDE.html)** | Full user guide (EN/HE toggle) — same file the app opens from **Help**. |
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior. |
-| **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment. |
+| **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
+| **[packaging/windows/README.md](packaging/windows/README.md)** | Building the Windows installer and `dist/windows-package`. |
 | **[app/API.md](app/API.md)** | API reference (Swagger-style). |
 
 Re-capture guide screenshots/PDFs (requires dev server + Playwright):

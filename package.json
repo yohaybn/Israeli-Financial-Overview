@@ -14,7 +14,8 @@
         "kill-port": "powershell ./kill-port.ps1",
         "start": "npm run dev",
         "video-guide:capture": "node scripts/capture-video-guide-media.mjs",
-        "video-guide:capture-configs": "node scripts/capture-video-guide-media.mjs --only-configs"
+        "video-guide:capture-configs": "node scripts/capture-video-guide-media.mjs --only-configs",
+        "windows:package": "powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1"
     },
     "devDependencies": {
         "concurrently": "^8.2.2",
