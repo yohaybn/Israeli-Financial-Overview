@@ -1,5 +1,5 @@
 {
-    "name": "israeli-bank-scraper-monorepo",
+    "name": "israeli-financial-overview",
     "private": true,
     "workspaces": [
         "shared",

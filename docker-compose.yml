@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/yohaybn/israeli-bank-scraper-docker-app:master
+    image: ghcr.io/yohaybn/israeli-financial-overview-app:master
     restart: unless-stopped
     ports:
       - "3000:3000"

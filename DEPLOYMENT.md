@@ -76,7 +76,7 @@ To deploy as a Home Assistant Add-on:
 
 ### Prerequisites
 1. You must publish the Docker images to GHCR (GitHub Container Registry).
-2. The images must be named `ghcr.io/your-username/bank-scraper-docker-addon-{arch}`.
+2. The images must be named `ghcr.io/your-username/your-repo-name-addon-{arch}` (GitHub publishes lowercase, e.g. `ghcr.io/yohaybn/israeli-financial-overview-addon-{arch}`).
 
 ### Installation
 1. Go to Home Assistant > Settings > Add-ons > Add-on Store.

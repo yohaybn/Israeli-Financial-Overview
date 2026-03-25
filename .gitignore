@@ -22,7 +22,7 @@ data/app.db
 data/app.db-shm
 data/app.db-wal
 .idea/.gitignore
-.idea/israeli-bank-scraper-docker.iml
+.idea/israeli-financial-overview.iml
 .idea/misc.xml
 .idea/modules.xml
 .idea/vcs.xml
