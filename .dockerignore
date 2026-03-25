@@ -14,7 +14,6 @@ data/config/runtime-settings.json
 *.log
 *.xls
 *.xlsx
-debug-storage.js
 mizrhai2025.json
 data
 results

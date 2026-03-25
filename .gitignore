@@ -15,6 +15,7 @@ coverage
 server/data/
 git_files*.txt
 client/dist/
+client/dev-dist/
 server/dist/
 node_modules/
 data/app.db
