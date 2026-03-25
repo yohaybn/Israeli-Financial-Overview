@@ -25,10 +25,21 @@ The project is structured into two main components:
 
 The Windows package is a normal **Node production tree** plus a **bundled `node.exe`** (see `packaging/windows/package.ps1`). The server listens on **`PORT`** (default **3000**) and stores SQLite and runtime settings under **`DATA_DIR`**.
 
+### `financial-overview.json` (install folder)
+
+Next to `server/` and `launch-FinancialOverview.cmd`, you can add **`financial-overview.json`** (see **`financial-overview.json.example`** in the repo). The server reads it at startup **before** resolving `DATA_DIR`. **OS environment variables still win** if set.
+
+| Field | Maps to | Description |
+|-------|---------|-------------|
+| `port` | `PORT` | HTTP port (number). Used only if `PORT` is not already set in the environment. |
+| `dataDir` | `DATA_DIR` | Absolute path or Windows path with `%VAR%` (e.g. `%APPDATA%\FinancialOverview\data`). Used only if `DATA_DIR` is not already set. |
+
+### Environment variables
+
 | Variable | Description | Typical default |
 |----------|-------------|-----------------|
 | `PORT` | HTTP port | `3000` |
-| `DATA_DIR` | Database, `config/runtime-settings.json`, uploads | `%AppData%\FinancialOverview\data` when using the bundled launcher |
+| `DATA_DIR` | Database, `config/runtime-settings.json`, uploads | From `financial-overview.json` `dataDir`, or `./data` if unset |
 | `NODE_ENV` | Set to `production` by the launcher | `production` |
 
 Set variables in **System → Environment variables** or in a wrapper script before starting `launch-FinancialOverview.cmd`. The in-app **Configuration** and setup wizard still apply for OAuth, Telegram, Gemini, app lock, etc.

@@ -92,17 +92,24 @@ foreach ($rel in @("client\src", "client\public", "server\src", "shared\src")) {
 Copy-Item (Join-Path $PackagingWindows "launch-FinancialOverview.ps1") (Join-Path $Stage "launch-FinancialOverview.ps1") -Force
 Copy-Item (Join-Path $PackagingWindows "launch-FinancialOverview.cmd") (Join-Path $Stage "launch-FinancialOverview.cmd") -Force
 Copy-Item (Join-Path $PackagingWindows "open-browser.cmd") (Join-Path $Stage "open-browser.cmd") -Force
+Copy-Item (Join-Path $PackagingWindows "open-browser.ps1") (Join-Path $Stage "open-browser.ps1") -Force
+
+$foExample = Join-Path $RepoRoot "financial-overview.json.example"
+$foDst = Join-Path $Stage "financial-overview.json"
+if (Test-Path $foExample) {
+    Copy-Item $foExample $foDst -Force
+}
 
 $readmeTxt = @"
-Financial Overview — Windows package
+Financial Overview - Windows package
 =====================================
 
 Start: double-click launch-FinancialOverview.cmd (or use the Start menu shortcut from the installer).
 
-Open in browser: http://127.0.0.1:3000  (default port; set PORT to change)
+Edit financial-overview.json next to this folder to set port and data folder (defaults are set for a typical install).
+You can copy financial-overview.json.example and rename if needed.
 
-Data folder (default): %APPDATA%\FinancialOverview\data
-Override: set DATA_DIR before launch, or use Environment in the app (see DEPLOYMENT.md).
+Open in browser: http://127.0.0.1:<port>/  (open-browser.cmd uses the same port from env or JSON)
 
 Scraping needs Google Chrome or Microsoft Edge (Chromium) on this PC.
 

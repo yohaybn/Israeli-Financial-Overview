@@ -27,3 +27,20 @@
 4. **Test:** Run `dist\windows-package\launch-FinancialOverview.cmd` and open `http://127.0.0.1:3000`.
 
 Native modules (`better-sqlite3`) must be built for Windows — run the packaging script on Windows (or use a Windows CI runner).
+
+## Port and environment (installed app)
+
+The server reads **`financial-overview.json`** next to `server/` (see repo root [`financial-overview.json.example`](../../financial-overview.json.example)). The packaged folder includes a default **`financial-overview.json`** with **`port`** and **`dataDir`**.
+
+| Key | Purpose |
+|-----|---------|
+| `port` | HTTP port (default `3000`) if **`PORT`** is not set in the environment |
+| `dataDir` | Data directory if **`DATA_DIR`** is not set in the environment (`%APPDATA%\...` expansion works on Windows) |
+
+**OS environment variables always win** over the JSON file.
+
+**Change the port without editing JSON:** set **`PORT`** before starting (PowerShell: `$env:PORT = "4000"; .\launch-FinancialOverview.cmd`), a user env var, or a wrapper `.cmd` with `set PORT=4000`.
+
+Then open **`http://127.0.0.1:<port>/`**. **`open-browser.cmd`** uses **`PORT`** from the environment or **`port`** from **`financial-overview.json`**, then defaults to `3000`.
+
+If **`financial-overview.json`** is missing and **`PORT`** is unset, the server listens on **3000**. See [DEPLOYMENT.md](../../DEPLOYMENT.md).

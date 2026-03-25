@@ -201,6 +201,8 @@ GEMINI_API_KEY=(optional)
                             </ol>
                             <h3>Where data is stored</h3>
                             <p>By default, databases and settings go under <code>%AppData%\\FinancialOverview\\data</code> (<strong>DATA_DIR</strong>). You can change <code>PORT</code> or <code>DATA_DIR</code> via Windows environment variables before launch—see the project <strong>DEPLOYMENT.md</strong>.</p>
+                            <h3>Config file (port and data folder)</h3>
+                            <p>Edit <code>financial-overview.json</code> in the install folder (a default file is included). Use <code>port</code> and optional <code>dataDir</code>. Environment variables override the file if set.</p>
                             <div class="callout info">
                                 <strong>Scraping:</strong> Install <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on this PC (the Windows package does not bundle Puppeteer’s Chromium by default).
                             </div>
@@ -493,6 +495,8 @@ GEMINI_API_KEY=(optional)
                             </ol>
                             <h3>איפה הנתונים נשמרים</h3>
                             <p>ברירת מחדל: <code>%AppData%\\FinancialOverview\\data</code> (<strong>DATA_DIR</strong>). ניתן לשנות <code>PORT</code> או <code>DATA_DIR</code> במשתני סביבה של Windows לפני ההפעלה — ראו <strong>DEPLOYMENT.md</strong> בפרויקט.</p>
+                            <h3>קובץ הגדרות (פורט ותיקיית נתונים)</h3>
+                            <p>ערכו את <code>financial-overview.json</code> בתיקיית ההתקנה (קובץ ברירת מחדל כלול). השתמשו ב-<code>port</code> וב-<code>dataDir</code> אופציונלי. משתני סביבה דורסים את הקובץ אם הם מוגדרים.</p>
                             <div class="callout info">
                                 <strong>סריקה:</strong> יש להתקין <strong>Google Chrome</strong> או <strong>Microsoft Edge</strong> במחשב (חבילת Windows כברירת מחדל לא כוללת את Chromium של Puppeteer).
                             </div>

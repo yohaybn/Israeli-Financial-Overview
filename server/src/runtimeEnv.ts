@@ -8,6 +8,33 @@ const __dirname = path.dirname(__filename);
 /** Repository root (parent of server/). */
 export const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
+/** Optional install-local JSON: `port`, `dataDir` (OS env still wins). */
+export const FINANCIAL_OVERVIEW_CONFIG_PATH = path.join(PROJECT_ROOT, 'financial-overview.json');
+
+function expandWindowsEnvInPath(s: string): string {
+    if (process.platform !== 'win32') return s;
+    return s.replace(/%([^%]+)%/g, (_, name: string) => process.env[name] ?? `%${name}%`);
+}
+
+function loadFinancialOverviewConfig(): void {
+    if (!fs.existsSync(FINANCIAL_OVERVIEW_CONFIG_PATH)) {
+        return;
+    }
+    try {
+        const cfg = fs.readJsonSync(FINANCIAL_OVERVIEW_CONFIG_PATH) as Record<string, unknown>;
+        if (cfg.port != null && cfg.port !== '' && process.env.PORT === undefined) {
+            process.env.PORT = String(cfg.port);
+        }
+        if (cfg.dataDir != null && typeof cfg.dataDir === 'string' && cfg.dataDir.trim() !== '' && process.env.DATA_DIR === undefined) {
+            process.env.DATA_DIR = expandWindowsEnvInPath(cfg.dataDir.trim());
+        }
+    } catch (e) {
+        console.warn('[runtime] Could not read financial-overview.json:', (e as Error).message);
+    }
+}
+
+loadFinancialOverviewConfig();
+
 const DATA_DIR_RESOLVED = path.resolve(process.env.DATA_DIR || './data');
 /** Persisted env (API keys, OAuth, etc.) under the data directory so Docker volume mounts keep settings across restarts. */
 export const RUNTIME_SETTINGS_PATH = path.join(DATA_DIR_RESOLVED, 'config', 'runtime-settings.json');

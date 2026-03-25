@@ -40,7 +40,8 @@ async function startServer() {
   const { appLockRoutes } = await import('./routes/appLockRoutes.js');
 
   const app = express();
-  const port = process.env.PORT || 3001;
+  const rawPort = parseInt(process.env.PORT || '3000', 10);
+  const port = Number.isFinite(rawPort) && rawPort > 0 ? rawPort : 3000;
 
   // Create HTTP server and Socket.IO instance
   const httpServer = createServer(app);

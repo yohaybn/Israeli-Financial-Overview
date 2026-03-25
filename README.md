@@ -62,8 +62,8 @@ For a **one-file** distribution on Windows, build an installer that bundles the 
 
 1. Run **`FinancialOverview-Windows-Setup.exe`** and complete the wizard (default install folder: `%LocalAppData%\FinancialOverview`).
 2. Start the app from the Start menu shortcut **`Financial Overview`**, or run `launch-FinancialOverview.cmd` in the install folder. A console window stays open while the server runs; close it to stop.
-3. Open **`http://127.0.0.1:3000`** in your browser (default **PORT** is `3000`). Use the second shortcut **Open Financial Overview in browser** after the server has started, or wait a few seconds on first launch.
-4. **Data and settings** default to **`%AppData%\FinancialOverview\data`** (`DATA_DIR`). You can override `DATA_DIR` or `PORT` via environment variables before launch; see [DEPLOYMENT.md](DEPLOYMENT.md).
+3. Open **`http://127.0.0.1:3000`** in your browser (default **port** is `3000`). Use the second shortcut **Open Financial Overview in browser** after the server has started, or wait a few seconds on first launch.
+4. **Port and data folder:** edit **`financial-overview.json`** in the install folder (a default file is included; see [`financial-overview.json.example`](financial-overview.json.example)). Set **`port`** and optional **`dataDir`** (Windows paths can use `%APPDATA%`, etc.). **Environment variables** (`PORT`, `DATA_DIR`) override the file if set. See [DEPLOYMENT.md](DEPLOYMENT.md).
 5. **Bank scraping** uses a Chromium-based browser. The Windows build skips downloading Puppeteer’s browser during packaging; install **Google Chrome** or **Microsoft Edge** on the PC (or run `npm install` in the repo without `PUPPETEER_SKIP_DOWNLOAD` before packaging if you need a bundled Chromium).
 
 Full maintainer notes: [packaging/windows/README.md](packaging/windows/README.md).
@@ -87,6 +87,7 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior. |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
 | **[packaging/windows/README.md](packaging/windows/README.md)** | Building the Windows installer and `dist/windows-package`. |
+| **[financial-overview.json.example](financial-overview.json.example)** | Optional install-local JSON (`port`, `dataDir`) read by the server (copy to `financial-overview.json`). |
 | **[app/API.md](app/API.md)** | API reference (Swagger-style). |
 
 Re-capture guide screenshots/PDFs (requires dev server + Playwright):

@@ -1,10 +1,12 @@
-# Financial Overview — production launcher (bundled Node, no global Node required)
+# Financial Overview - production launcher (bundled Node, no global Node required)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $env:NODE_ENV = "production"
-if (-not $env:PORT) { $env:PORT = "3000" }
-if (-not $env:DATA_DIR) {
+# PORT and dataDir: financial-overview.json (server reads it). OS env overrides JSON.
+# If there is no JSON file yet (older installs), set DATA_DIR so behavior matches previous releases.
+$cfgPath = Join-Path $root "financial-overview.json"
+if (-not $env:DATA_DIR -and -not (Test-Path $cfgPath)) {
     $env:DATA_DIR = Join-Path $env:APPDATA "FinancialOverview\data"
 }
 
@@ -21,9 +23,19 @@ if (-not (Test-Path $server)) {
     exit 1
 }
 
-Write-Host "Financial Overview — http://127.0.0.1:$($env:PORT)" -ForegroundColor Cyan
-Write-Host "DATA_DIR: $($env:DATA_DIR)" -ForegroundColor DarkGray
-Write-Host "Close this window to stop the server." -ForegroundColor DarkGray
+$cfg = $null
+if (Test-Path $cfgPath) {
+    try { $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json } catch { }
+}
+$displayPort = $env:PORT
+if (-not $displayPort -and $null -ne $cfg -and $null -ne $cfg.port) { $displayPort = [string]$cfg.port }
+if (-not $displayPort) { $displayPort = "3000" }
+Write-Host "Financial Overview - http://127.0.0.1:$displayPort" -ForegroundColor Cyan
+$displayDataDir = $env:DATA_DIR
+if (-not $displayDataDir -and $null -ne $cfg -and $null -ne $cfg.dataDir) { $displayDataDir = [string]$cfg.dataDir }
+if (-not $displayDataDir) { $displayDataDir = "(default ./data or set in financial-overview.json)" }
+Write-Host "DATA_DIR: $displayDataDir" -ForegroundColor DarkGray
+Write-Host 'Close this window to stop the server.' -ForegroundColor DarkGray
 Write-Host ""
 
 & $node $server

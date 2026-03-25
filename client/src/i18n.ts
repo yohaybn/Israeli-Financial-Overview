@@ -4,14 +4,19 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import en from './locales/en.json';
 import he from './locales/he.json';
+import scrapeEn from './locales/scrape-en.json';
+import scrapeHe from './locales/scrape-he.json';
+
+const translationEn = { ...en, ...scrapeEn };
+const translationHe = { ...he, ...scrapeHe };
 
 i18n
     .use(LanguageDetector)
     .use(initReactI18next)
     .init({
         resources: {
-            en: { translation: en },
-            he: { translation: he }
+            en: { translation: translationEn },
+            he: { translation: translationHe }
         },
         fallbackLng: 'he',
         lng: 'he', // Default language is Hebrew

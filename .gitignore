@@ -2,6 +2,7 @@ node_modules
 dist
 .env
 runtime-settings.json
+financial-overview.json
 data/config/runtime-settings.json
 .DS_Store
 coverage

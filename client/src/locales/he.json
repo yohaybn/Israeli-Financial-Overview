@@ -119,8 +119,8 @@
         "backup_destination": "יעד הגיבוי",
         "backup_local": "מקומי",
         "backup_drive": "Google Drive",
-        "aboutTitle": "About Scheduling",
-        "aboutDescription": "The scheduler runs on the server. Make sure the container is running during the scheduled time. Notifications will be sent according to your global pipeline settings."
+        "aboutTitle": "אודות התזמון",
+        "aboutDescription": "המתזמן רץ בשרת. ודא שהקונטיינר פועל בזמן המתוזמן. ההתראות יישלחו לפי הגדרות הצינור הכלליות שלך."
     },
     "explorer": {
         "records": "רשומות",
