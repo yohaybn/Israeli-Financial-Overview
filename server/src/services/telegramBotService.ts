@@ -497,7 +497,9 @@ export class TelegramBotService {
       this.config.botToken = token;
       this.lastStartError = null;
       serverLogger.debug('Creating Telegraf instance');
-      this.bot = new Telegraf(token);
+      // Telegraf defaults handlerTimeout to 90s; scrapes often run longer, which caused
+      // "Promise timed out after 90000 milliseconds". 30 minutes is enough for long scrapes while still bounding stuck handlers.
+      this.bot = new Telegraf(token, { handlerTimeout: 30 * 60 * 1000 });
       serverLogger.debug('Telegraf instance created');
 
       // Global authorization middleware: logs unauthorized attempts and returns
