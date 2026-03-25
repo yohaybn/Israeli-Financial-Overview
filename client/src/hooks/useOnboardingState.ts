@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { isDemoMode } from '../demo/isDemo';
 
 const STORAGE_KEY = 'bank-scraper-onboarding-v1';
 
@@ -90,12 +91,12 @@ export function useOnboardingState() {
     }, [persist]);
 
     const showModal = useMemo(
-        () => !snapshot.completed && !snapshot.minimized,
+        () => !isDemoMode() && !snapshot.completed && !snapshot.minimized,
         [snapshot.completed, snapshot.minimized]
     );
 
     const showResumeBanner = useMemo(
-        () => !snapshot.completed && snapshot.minimized,
+        () => !isDemoMode() && !snapshot.completed && snapshot.minimized,
         [snapshot.completed, snapshot.minimized]
     );
 

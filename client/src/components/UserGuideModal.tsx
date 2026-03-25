@@ -8,7 +8,7 @@ interface UserGuideModalProps {
 
 export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
     const { i18n } = useTranslation();
-    const [expandedSections, setExpandedSections] = useState<string[]>(['overview']);
+    const [expandedSections, setExpandedSections] = useState<string[]>(['overview', 'setupWizard']);
 
     if (!isOpen) return null;
 
@@ -25,40 +25,76 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
     const guides = {
         en: {
             title: 'User Guide',
-            subtitle: 'Welcome to Israeli Bank Scraper',
+            subtitle: 'Welcome to Financial Overview',
             getStarted: 'Getting Started',
             features: 'features',
             configuration: 'Configuration & Settings',
             sections: [
                 {
                     id: 'overview',
-                    title: 'What is the Israeli Bank Scraper?',
+                    title: 'What is Financial Overview?',
                     icon: '📱',
                     content: 'A secure financial data management tool that allows you to extract transactions from Israeli banks and credit cards, organize your data with AI, and export to Google Sheets or CSV.'
+                },
+                {
+                    id: 'setupWizard',
+                    title: 'Setup wizard (recommended)',
+                    icon: '✨',
+                    content: 'Use the in-app setup wizard (onboarding) as the preferred way to configure Telegram, Gemini, Google OAuth/Drive, and your app lock password. It keeps everything consistent and is easier than hunting settings one by one.'
                 },
                 {
                     id: 'requirements',
                     title: 'System Requirements',
                     icon: '⚙️',
-                    content: 'Modern web browser (Chrome, Firefox, Safari, Edge), Internet connection, JavaScript enabled, and a Master Key (secure password you create).'
+                    content: 'Modern web browser (Chrome, Firefox, Safari, Edge), Internet connection, and JavaScript enabled. App lock (your encryption password) is required for scraping and saved profiles once configured—not for browsing the rest of the UI.'
                 },
                 {
                     id: 'runScrape',
                     title: 'How to Run a Scrape',
                     icon: '🔄',
-                    content: '1. Select a Provider (your bank)\n2. Enter credentials\n3. Configure options (start date, timeout, etc.)\n4. Click Start Scrape\n5. Wait for completion and download results'
+                    content: 'Scraping uses the open-source israeli-bank-scrapers library (github.com/eshaham/israeli-bank-scrapers)—not AI. Credentials stay on your server.\n1. Select a Provider (your bank)\n2. Enter credentials\n3. Configure options (start date, timeout, etc.)\n4. Click Start Scrape\n5. Wait for completion and download results'
                 },
                 {
                     id: 'profiles',
                     title: 'Save & Use Profiles',
                     icon: '💾',
-                    content: 'Save credentials as profiles to avoid re-entering them. Check "Save Profile", name it, enter your Master Key. Load profiles anytime by selecting from the dropdown.'
+                    content: 'Save credentials as profiles to avoid re-entering them. Credentials are encrypted with a key derived from your app lock password. Check "Save Profile", name it, and unlock when app lock is on. Load profiles from the dropdown.'
                 },
                 {
                     id: 'explorer',
                     title: 'Results Explorer',
                     icon: '📊',
                     content: 'View all scrape results in the sidebar. Click files to load them, select multiple for aggregation, filter transactions, and categorize with AI.'
+                },
+                {
+                    id: 'dashboard',
+                    title: 'Dashboard',
+                    icon: '📈',
+                    content: 'Monthly overview: income and expenses, subscriptions, analytics, export, and optional AI chat. On narrow screens (<640px) main sections start collapsed. For the current month, completed income dated after today counts as expected inflow, not already received.'
+                },
+                {
+                    id: 'logs',
+                    title: 'Logs',
+                    icon: '📋',
+                    content: 'Server and Client logs (live text), plus structured AI and Scrape histories for debugging pipelines and post-scrape actions.'
+                },
+                {
+                    id: 'configuration',
+                    title: 'Configuration',
+                    icon: '⚙️',
+                    content: 'AI and memory, Scheduler (and scheduled backups), scraper defaults, fraud rules, Google OAuth/Sheets, Telegram, environment variables, and maintenance tools. Use deep links ?view=configuration&tab=<id> when needed.'
+                },
+                {
+                    id: 'telegram',
+                    title: 'Telegram bot',
+                    icon: '✈️',
+                    content: 'Optional bot for notifications and commands (e.g. /unlock). Full instructions: docs/TELEGRAM_BOT_GUIDE.md in the repo. Configure under Configuration → Telegram or via the setup wizard.'
+                },
+                {
+                    id: 'appLock',
+                    title: 'App lock & profile encryption',
+                    icon: '🔒',
+                    content: 'Your app lock password (min 8 characters) derives the key that encrypts saved bank profiles. Session unlock is required to run scrapes and create/edit profiles when app lock is configured; you can still use dashboard, logs, and much of the UI without unlocking. If you forget the password, you cannot recover encrypted data—delete the profiles (files or UI), reset app lock per host docs, then create profiles again and re-enter bank credentials. Telegram /unlock may work when locked (session only).'
                 },
                 {
                     id: 'filters',
@@ -70,7 +106,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'ai',
                     title: 'AI Features',
                     icon: '🤖',
-                    content: 'Automatically categorize transactions with AI, or chat with the AI Analyst to get spending insights. Customize categories in AI Settings.'
+                    content: 'Gemini categorization and analyst chat: AI does not see your encrypted profile passwords—only transaction text you send for those features. Scraping is separate (israeli-bank-scrapers, no AI). Customize categories in AI Settings.'
                 },
                 {
                     id: 'export',
@@ -91,55 +127,85 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     content: 'Get OAuth credentials from Google Cloud Console. Configure in app settings, authorize with Google, and results will auto-upload.'
                 },
                 {
-                    id: 'security',
-                    title: 'Security & Master Key',
-                    icon: '🔐',
-                    content: 'Your Master Key encrypts all saved profiles. Never share it. Use a strong password and keep it safe. If lost, profiles cannot be decrypted.'
-                },
-                {
                     id: 'help',
                     title: 'Need Help?',
                     icon: '❓',
-                    content: 'Check the Logs tab for execution details. Look for connection errors or timeout messages. Verify credentials and internet connection. This guide is always available via the help button.'
+                    content: 'Check the Logs tab. Open full GUIDE.html (Help). README.md, docs/TELEGRAM_BOT_GUIDE.md, and docs/VIDEO_GUIDE.md cover deployment, the Telegram bot, and video storyboards. Verify credentials and internet connection.'
                 }
             ]
         },
         he: {
             title: 'מדריך משתמש',
-            subtitle: 'ברוכים הבאים לסורק בנקים ישראלי',
+            subtitle: 'ברוכים הבאים למבט כלכלי',
             getStarted: 'התחלה',
             features: 'תכונות',
             configuration: 'הגדרות',
             sections: [
                 {
                     id: 'overview',
-                    title: 'מהו סורק הבנקים הישראלי?',
+                    title: 'מהו מבט כלכלי?',
                     icon: '📱',
                     content: 'כלי ניהול נתונים פיננסיים מאובטח המאפשר לך הוצאת עסקאות מבנקים וכרטיסי אשראי ישראליים, ארגון הנתונים שלך עם AI וייצוא ל-Google Sheets או CSV.'
+                },
+                {
+                    id: 'setupWizard',
+                    title: 'אשף התקנה (מומלץ)',
+                    icon: '✨',
+                    content: 'מומלץ להשתמש באשף ההתקנה (Onboarding) כדרך הראשית להגדרת Telegram, Gemini, Google OAuth/Drive וסיסמת נעילת האפליקציה — עקבי ונוח יותר מלחפש כל הגדרה בנפרד.'
                 },
                 {
                     id: 'requirements',
                     title: 'דרישות מערכת',
                     icon: '⚙️',
-                    content: 'דפדפן אינטרנט מודרני (Chrome, Firefox, Safari, Edge), חיבור אינטרנט, JavaScript מופעל, ומפתח ראשי (סיסמה מאובטחת שאתה יוצר).'
+                    content: 'דפדפן מודרני, חיבור אינטרנט ו-JavaScript. נעילת אפליקציה (סיסמת ההצפנה) נדרשת לסריקה ולפרופילים שמורים כשהיא מוגדרת — לא לצפייה בשאר הממשק.'
                 },
                 {
                     id: 'runScrape',
                     title: 'כיצד להפעיל סריקה',
                     icon: '🔄',
-                    content: '1. בחר ספק (בנק שלך)\n2. הזן אישורים\n3. הגדר אפשרויות (תאריך התחלה, timeout וכו\')\n4. לחץ על Start Scrape\n5. חכה לסיום והורד תוצאות'
+                    content: 'הסריקה מבוססת על israeli-bank-scrapers (קוד פתוח, לא AI). האישורים נשארים בשרת שלך.\n1. בחר ספק (בנק שלך)\n2. הזן אישורים\n3. הגדר אפשרויות (תאריך התחלה, timeout וכו\')\n4. לחץ על Start Scrape\n5. חכה לסיום והורד תוצאות'
                 },
                 {
                     id: 'profiles',
                     title: 'שמור והשתמש בפרופילים',
                     icon: '💾',
-                    content: 'שמור אישורים כפרופילים כדי להימנע מהזנת אותם שוב. סמן "Save Profile", תן לו שם, הזן את המפתח הראשי שלך. טען פרופילים בכל עת על ידי בחירה מהתפריט הנפתח.'
+                    content: 'שמור אישורים כפרופילים; הם מוצפנים במפתח מסיסמת נעילת האפליקציה. סמן "Save Profile", תן שם, ושחרר כשנעילה פעילה. טען פרופילים מהתפריט.'
                 },
                 {
                     id: 'explorer',
                     title: 'סייר התוצאות',
                     icon: '📊',
                     content: 'הצג את כל תוצאות הסריקה בסרגל הצד. לחץ על קבצים כדי לטעון אותם, בחר מרובים לאיחוד, סנן עסקאות וסווג עם AI.'
+                },
+                {
+                    id: 'dashboard',
+                    title: 'דשבורד',
+                    icon: '📈',
+                    content: 'סיכום חודשי: הכנסות והוצאות, מנויים, אנליטיקה, ייצוא וצ\'אט AI אופציונלי. במסכים צרים (<640px) אזורים מרכזיים מתחילים מכווצים. בחודש הנוכחי, הכנסה שהושלמה עם תאריך אחרי היום נספרת כצפי להגיע, לא כבר התקבלה.'
+                },
+                {
+                    id: 'logs',
+                    title: 'יומנים',
+                    icon: '📋',
+                    content: 'יומני שרת ולקוח (טקסט חי), וכן היסטוריות AI וסריקה מובנות לניפוי שגיאות וצינור פעולות אחרי סריקה.'
+                },
+                {
+                    id: 'configuration',
+                    title: 'הגדרות',
+                    icon: '⚙️',
+                    content: 'AI וזיכרון, מתזמן (וגיבויים מתוזמנים), ברירות מחדל לסריקה, הונאה, Google OAuth/Sheets, Telegram, משתני סביבה ותחזוקה. קישורים עמוקים: ?view=configuration&tab=<id>.'
+                },
+                {
+                    id: 'telegram',
+                    title: 'בוט טלגרם',
+                    icon: '✈️',
+                    content: 'בוט אופציונלי להתראות ופקודות (למשל /unlock). מדריך מלא: docs/TELEGRAM_BOT_GUIDE.md במאגר. הגדרה תחת הגדרות → Telegram או דרך אשף ההתקנה.'
+                },
+                {
+                    id: 'appLock',
+                    title: 'נעילה והצפנת פרופילים',
+                    icon: '🔒',
+                    content: 'סיסמת נעילת האפליקציה (מינימום 8 תווים) מפיקה את מפתח ההצפנה לפרופילי בנק. כשנעילה מוגדרת, נדרש שחרור סשן לסריקה וליצירה/עריכת פרופילים; אפשר עדיין להשתמש בדשבורד, יומנים ורוב הממשק בלי לשחרר. אם שכחת את הסיסמה — אין שחזור לנתונים מוצפנים: מחק פרופילים (קבצים או בממשק), אפס נעילה לפי תיעוד המארח, צור פרופילים מחדש והזן מחדש פרטי בנק. ב-Telegram /unlock לסשן בלבד.'
                 },
                 {
                     id: 'filters',
@@ -151,7 +217,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'ai',
                     title: 'תכונות AI',
                     icon: '🤖',
-                    content: 'סווג באופן אוטומטי עסקאות עם AI, או צ\'אט עם אנליסט AI כדי לקבל תובנות הוצאה. התאם קטגוריות בהגדרות AI.'
+                    content: 'Gemini לסיווג וצ\'אט: ל-AI אין גישה לסיסמאות פרופיל מוצפנות—רק לטקסט עסקאות לתכונות אלה. הסריקה נפרדת (israeli-bank-scrapers, ללא AI). התאם קטגוריות בהגדרות AI.'
                 },
                 {
                     id: 'export',
@@ -172,16 +238,10 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     content: 'קבל אישורי OAuth מקונסולת Google Cloud. הגדר בהגדרות האפליקציה, אשר עם Google, והתוצאות יעלו באופן אוטומטי.'
                 },
                 {
-                    id: 'security',
-                    title: 'ביטחון ומפתח ראשי',
-                    icon: '🔐',
-                    content: 'המפתח הראשי שלך מצפין את כל הפרופילים השמורים. לא תשתף אותו. השתמש בסיסמה חזקה ושמור עליה בטוח. אם הוא אבוד, לא ניתן להצפין פרופילים.'
-                },
-                {
                     id: 'help',
                     title: 'צריך עזרה?',
                     icon: '❓',
-                    content: 'בדוק את כרטיסייה Logs לפרטי הביצוע. חפש שגיאות חיבור או הודעות timeout. אמת אישורים וחיבור אינטרנט. מדריך זה זמין תמיד דרך כפתור העזרה.'
+                    content: 'בדוק את לשונית יומנים. GUIDE.html המלא (עזרה). README, docs/TELEGRAM_BOT_GUIDE.md ו-docs/VIDEO_GUIDE.md. אמת אישורים וחיבור אינטרנט.'
                 }
             ]
         }
@@ -247,7 +307,10 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     {/* Footer Info */}
                     <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-xs text-blue-800">
-                            <strong>💡 Tip:</strong> For complete details with setup instructions and screenshots, open the full guide in a new tab using the button below!
+                            <strong>💡 {isHebrew ? 'טיפ:' : 'Tip:'}</strong>{' '}
+                            {isHebrew
+                                ? 'למדריך מלא (עברית/אנגלית), README, ומדריך וידאו (docs/VIDEO_GUIDE.md) — פתח את המדריך המלא בלשונית חדשה למטה.'
+                                : 'For the full bilingual guide (GUIDE.html), README, and video storyboard (docs/VIDEO_GUIDE.md), open the full guide in a new tab below.'}
                         </p>
                     </div>
                 </div>

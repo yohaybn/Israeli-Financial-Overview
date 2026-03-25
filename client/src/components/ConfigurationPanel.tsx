@@ -20,7 +20,7 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
     const { t } = useTranslation();
 
     return (
-        <div className="flex flex-col h-full bg-gray-50">
+        <div className="flex flex-col h-full bg-gray-50" data-testid="configuration-panel">
             <header className="bg-white border-b border-gray-200 p-6 shrink-0">
                 <nav className="flex gap-2 scrollbar-hide overflow-x-auto pb-2">
                     <button

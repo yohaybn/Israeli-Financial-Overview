@@ -21,6 +21,21 @@ function apiPath(path: string) {
 
 const emptyOk = () => HttpResponse.json({ success: true });
 
+/** In-memory app lock for demo: any non-empty password unlocks. */
+let demoAppLockConfigured = false;
+let demoAppLockUnlocked = true;
+
+function demoAppLockStatusResponse() {
+    return HttpResponse.json({
+        success: true,
+        data: {
+            lockConfigured: demoAppLockConfigured,
+            unlocked: demoAppLockUnlocked,
+            restricted: demoAppLockConfigured && !demoAppLockUnlocked,
+        },
+    });
+}
+
 /** Single scrape file: pathname is /<base>/api/results/<filename> (e.g. GitHub Pages base). */
 function isSingleScrapeResultFilePath(pathname: string): boolean {
     const marker = '/api/results/';
@@ -33,12 +48,53 @@ function isSingleScrapeResultFilePath(pathname: string): boolean {
 }
 
 export const demoHandlers = [
-    http.get(apiPath('/app-lock/status'), () =>
-        HttpResponse.json({
+    http.get(apiPath('/app-lock/status'), () => demoAppLockStatusResponse()),
+
+    http.post(apiPath('/app-lock/unlock'), async ({ request }) => {
+        const body = (await request.json().catch(() => ({}))) as { password?: string };
+        const password = typeof body.password === 'string' ? body.password : '';
+        if (!password) {
+            return HttpResponse.json({ success: false, error: 'password is required' }, { status: 400 });
+        }
+        demoAppLockUnlocked = true;
+        return HttpResponse.json({
             success: true,
-            data: { lockConfigured: false, unlocked: true, restricted: false },
-        })
-    ),
+            migratedProfiles: 0,
+            migrationSkipped: true,
+        });
+    }),
+
+    http.post(apiPath('/app-lock/lock'), () => {
+        demoAppLockUnlocked = false;
+        return HttpResponse.json({ success: true });
+    }),
+
+    http.post(apiPath('/app-lock/setup'), async ({ request }) => {
+        const body = (await request.json().catch(() => ({}))) as { password?: string };
+        const password = typeof body.password === 'string' ? body.password : '';
+        if (!password) {
+            return HttpResponse.json({ success: false, error: 'password is required' }, { status: 400 });
+        }
+        if (demoAppLockConfigured) {
+            return HttpResponse.json(
+                { success: false, error: 'App lock is already configured' },
+                { status: 400 }
+            );
+        }
+        if (password.length < 8) {
+            return HttpResponse.json(
+                { success: false, error: 'Password must be at least 8 characters' },
+                { status: 400 }
+            );
+        }
+        demoAppLockConfigured = true;
+        demoAppLockUnlocked = true;
+        return HttpResponse.json({
+            success: true,
+            migratedProfiles: 0,
+            migrationSkipped: true,
+        });
+    }),
 
     http.get(apiPath('/results/all'), () =>
         HttpResponse.json({
@@ -286,7 +342,7 @@ export const demoHandlers = [
             success: true,
             data: {
                 response:
-                    'This is a **demo** reply. Connect the full app with a real backend to use AI chat on your data.',
+                    'זוהי **תשובת הדגמה**. כדי להשתמש בצ׳אט AI על הנתונים האמיתיים שלך, הפעל את האפליקציה המלאה מול שרת.',
                 factsAdded: 0,
                 insightsAdded: 0,
                 alertsAdded: 0,
@@ -297,7 +353,7 @@ export const demoHandlers = [
     http.post(apiPath('/ai/chat'), async () =>
         HttpResponse.json({
             success: true,
-            data: 'Demo: AI chat is not connected here.',
+            data: 'מצב הדגמה: צ׳אט AI אינו מחובר לשרת כאן.',
         })
     ),
 

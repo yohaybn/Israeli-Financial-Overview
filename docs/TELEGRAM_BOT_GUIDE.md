@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Israeli Bank Scraper now includes a full-featured Telegram bot that allows you to:
+Financial Overview (מבט כלכלי) includes a full-featured Telegram bot that allows you to:
 
 - 📬 **Receive notifications** about transaction scrapers
 - 💬 **Chat with AI** about your financial transactions
@@ -40,10 +40,15 @@ To receive notifications or use the bot, you need your Telegram Chat ID:
 
 **For Private Chats:**
 1. Start a chat with your bot by searching it on Telegram
-2. Send any message to your bot
-3. Go to: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
-4. Look for your `"chat": {"id": <YOUR_CHAT_ID>}` 
-5. Copy the chat ID number
+2. Send any message to your bot (e.g. `/start`)
+3. In a **private** chat, your **chat ID** is the same number as your **Telegram user ID**.
+
+**If you are not authorized yet** (server uses an `allowedUsers` list and your account is not on it): send any message to the bot anyway. You will get an “access denied” style reply that still includes **Your User ID** as a copyable number—share that with the admin so they can add you to `allowedUsers` and to notification chats if needed.
+
+**Alternative — getUpdates API:**
+1. After messaging the bot, open: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+2. Look for `"chat": {"id": <YOUR_CHAT_ID>}` or `"from": {"id": ...}` for the sender
+3. Copy the chat ID number
 
 **For Group Chats:**
 1. Add your bot to a Telegram group

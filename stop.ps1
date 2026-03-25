@@ -1,6 +1,6 @@
-# Stop Script for Israeli Bank Scraper
+# Stop Script for Financial Overview
 
-Write-Host "Stopping Israeli Bank Scraper..." -ForegroundColor Cyan
+Write-Host "Stopping Financial Overview..." -ForegroundColor Cyan
 
 # Kill process on port 3000 (Client/Server)
 $Process3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -35,4 +35,4 @@ else {
     Write-Host "No Node.js processes found." -ForegroundColor Yellow
 }
 
-Write-Host "Israeli Bank Scraper stopped." -ForegroundColor Green
+Write-Host "Financial Overview stopped." -ForegroundColor Green

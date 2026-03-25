@@ -1,6 +1,6 @@
-# Restart Script for Israeli Bank Scraper
+# Restart Script for Financial Overview
 
-Write-Host "Restarting Israeli Bank Scraper..." -ForegroundColor Cyan
+Write-Host "Restarting Financial Overview..." -ForegroundColor Cyan
 Write-Host ""
 
 # Stop the application

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "icons:generate": "node scripts/generate-app-icons.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -32,7 +33,9 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.1.4",
     "postcss": "^8.4.32",
+    "sharp": "^0.34.1",
     "tailwindcss": "^3.4.19",
+    "to-ico": "^1.1.5",
     "typescript": "^5.7.3",
     "vite": "^7.3.1",
     "vite-plugin-pwa": "^1.2.0"

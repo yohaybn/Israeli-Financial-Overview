@@ -43,7 +43,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     accessDenied: '❌ <b>Access Denied</b>\n\nYou don\'t have permission to use this bot yet.',
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
-    welcome: '👋 Welcome to Israeli Bank Scraper Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
+    welcome: '👋 Welcome to Financial Overview Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
     helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
@@ -135,7 +135,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     accessDenied: '❌ <b>גישה נדחתה</b>\n\nאין לך הרשאה להשתמש בבוט זה עדיין.',
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
-    welcome: '👋 ברוך הבא לבוט סריקת הבנקים הישראלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
+    welcome: '👋 ברוך הבא לבוט מבט כלכלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
     helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
@@ -2146,7 +2146,7 @@ export class TelegramBotService {
     let sent = 0;
 
     if (count <= 0) {
-      const text = '✅ Test message from Israeli Bank Scraper. If you see this, notifications are working.';
+      const text = '✅ Test message from Financial Overview. If you see this, notifications are working.';
       for (const id of targetIds) {
         try {
           await this.bot.telegram.sendMessage(id, text);

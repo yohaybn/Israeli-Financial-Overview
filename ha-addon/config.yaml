@@ -1,7 +1,7 @@
-name: "Israeli Bank Scraper"
+name: "Financial Overview"
 version: "1.0.0"
 slug: "bank_scraper"
-description: "Scrape financial data from Israeli banks and upload to Google Drive"
+description: "Financial Overview (מבט כלכלי) — scrape Israeli banks and upload to Google Drive"
 url: "https://github.com/yohaybn/bank-scraper-docker"
 startup: application
 arch:

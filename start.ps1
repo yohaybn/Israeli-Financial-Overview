@@ -1,6 +1,6 @@
-# Startup Script for Israeli Bank Scraper
+# Startup Script for Financial Overview
 
-Write-Host "Starting Israeli Bank Scraper..." -ForegroundColor Cyan
+Write-Host "Starting Financial Overview..." -ForegroundColor Cyan
 
 # Check for node_modules
 if (-not (Test-Path "node_modules")) {

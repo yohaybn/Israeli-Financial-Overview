@@ -2,7 +2,7 @@
 set -e
 
 CONFIG_PATH=/data/options.json
-echo "Starting Bank Scraper Add-on..."
+echo "Starting Financial Overview Add-on..."
 
 if [ -f "$CONFIG_PATH" ]; then
     echo "Reading config from $CONFIG_PATH"

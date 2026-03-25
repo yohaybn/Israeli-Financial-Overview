@@ -1,4 +1,4 @@
-# Israeli Bank Scraper - User Guide
+# Financial Overview (מבט כלכלי) - User Guide
 
 ---
 
@@ -22,9 +22,9 @@
 
 ### Getting Started (English)
 
-#### What is the Israeli Bank Scraper?
+#### What is Financial Overview?
 
-The Israeli Bank Scraper is a secure financial data management tool that allows you to:
+Financial Overview is a secure financial data management tool that allows you to:
 - Extract transactions from Israeli banks and credit cards
 - Organize and categorize your financial data with AI
 - Export results to Google Sheets or download as CSV/JSON
@@ -495,9 +495,9 @@ The application supports scraping from the following Israeli financial instituti
 
 ### התחלה (עברית)
 
-#### מהו סורק הבנקים הישראלי?
+#### מהו מבט כלכלי?
 
-סורק הבנקים הישראלי הוא כלי ניהול נתונים פיננסיים מאובטח שמאפשר לך:
+מבט כלכלי הוא כלי ניהול נתונים פיננסיים מאובטח שמאפשר לך:
 - הוצאת עסקאות מבנקים וכרטיסי אשראי ישראליים
 - ארגון וסיווג נתונים פיננסיים באמצעות AI
 - ייצוא תוצאות ל-Google Sheets או הורדה כ-CSV/JSON

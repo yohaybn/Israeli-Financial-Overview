@@ -12,9 +12,12 @@
         "client": "npm run dev -w client",
         "dev": "npx concurrently \"npm run server\" \"npm run client\"",
         "kill-port": "powershell ./kill-port.ps1",
-        "start": "npm run dev"
+        "start": "npm run dev",
+        "video-guide:capture": "node scripts/capture-video-guide-media.mjs",
+        "video-guide:capture-configs": "node scripts/capture-video-guide-media.mjs --only-configs"
     },
     "devDependencies": {
-        "concurrently": "^8.2.2"
+        "concurrently": "^8.2.2",
+        "playwright": "^1.49.1"
     }
 }

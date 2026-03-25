@@ -66,6 +66,10 @@ function App() {
         }
     }, [scrapeResults, unifiedTransactions, isLoadingScrape, isLoadingUnified, hasCheckedData, urlHadViewAtMount]);
 
+    useEffect(() => {
+        document.title = t('common.title');
+    }, [t, i18n.language]);
+
     const setView = (next: AppUrlState['view']) => {
         setNav((prev) => ({
             ...prev,
@@ -100,12 +104,20 @@ function App() {
         <>
             <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
                 <header className="bg-white border-b border-gray-200/80 shadow-sm z-10 w-full">
-                    <div className="container mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                            <h1 className="text-base sm:text-lg font-bold text-emerald-800 tracking-tight truncate min-w-0 flex-1">
-                                {t('common.title')}
+                    <div className="container mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3 xl:gap-4 min-w-0">
+                        <div className="flex items-center justify-between gap-2 min-w-0 lg:contents">
+                            <h1 className="text-lg sm:text-xl font-bold text-emerald-800 tracking-tight truncate min-w-0 flex-1 lg:flex-none lg:max-w-[min(100%,28rem)] lg:shrink-0 lg:order-1 flex items-center gap-2">
+                                <img
+                                    src="/pwa-192x192.png"
+                                    alt=""
+                                    width={32}
+                                    height={32}
+                                    className="h-8 w-8 shrink-0 rounded-lg object-cover shadow-sm border border-emerald-100/80"
+                                    decoding="async"
+                                />
+                                <span className="truncate">{t('common.title')}</span>
                             </h1>
-                            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
+                            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0 lg:order-3">
                                 <TopBarActivityIndicators />
                                 {view === 'dashboard' && <DashboardAlertsDropdown selectedMonth={selectedMonth} />}
 
@@ -142,7 +154,7 @@ function App() {
                                             />
                                         </svg>
                                     </button>
-                                    {onboarding.completed ? (
+                                    {onboarding.completed && !isDemoMode() ? (
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -187,7 +199,7 @@ function App() {
                         </div>
 
                         <nav
-                            className="flex flex-nowrap overflow-x-auto scrollbar-none items-stretch gap-0.5 sm:gap-3 min-w-0 w-full justify-start sm:justify-center -mx-1 px-1"
+                            className="flex flex-nowrap overflow-x-auto scrollbar-none items-stretch gap-0.5 sm:gap-3 min-w-0 w-full justify-start sm:justify-center lg:justify-center lg:flex-1 lg:order-2 -mx-1 px-1 lg:mx-0 lg:px-0"
                             role="tablist"
                             aria-label={t('common.main_navigation_aria')}
                         >

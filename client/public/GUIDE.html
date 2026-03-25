@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Documentation | Israeli Bank Scraper</title>
+    <title>Professional Documentation | Financial Overview</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
@@ -103,7 +103,7 @@
 
     <div class="wrapper">
         <aside>
-            <div class="nav-logo"><span>₪</span> Bank Scraper</div>
+            <div class="nav-logo"><span>₪</span> <span id="nav-brand"></span></div>
             <nav id="sidebar-nav"></nav>
         </aside>
 
@@ -113,26 +113,26 @@
     <script>
         const content = {
             en: {
+                brand: "Financial Overview",
                 title: "User Guide",
-                subtitle: "The complete manual for setting up and using the Israeli Bank Scraper.",
+                subtitle: "The complete manual for setting up and using Financial Overview.",
                 nav: [
-                    { label: "Configuration", items: [{ id: "env-setup", label: "Runtime settings" }, { id: "api-guides", label: "Obtaining Keys" }, { id: "google-setup", label: "Google Sheets" }] },
-                    { label: "Usage", items: [{ id: "getting-started", label: "Getting Started" }, { id: "scrape", label: "Running Scrapes" }, { id: "profiles", label: "Managing Profiles" }] },
-                    { label: "Features", items: [{ id: "results", label: "Results Explorer" }, { id: "ai", label: "AI Features" }, { id: "automation", label: "Automation" }] },
-                    { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "credits", label: "Credits" }] }
+                    { label: "Setup", items: [{ id: "getting-started", label: "Getting started" }, { id: "env-setup", label: "Runtime & secrets" }, { id: "app-lock", label: "App lock" }, { id: "api-guides", label: "API keys" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "Web app", items: [{ id: "dashboard", label: "Dashboard" }, { id: "scrape", label: "Scrape" }, { id: "profiles", label: "Profiles" }, { id: "results", label: "Results explorer" }, { id: "logs", label: "Logs" }, { id: "configuration", label: "Configuration" }] },
+                    { label: "Intelligence", items: [{ id: "ai", label: "AI features" }, { id: "fraud", label: "Fraud detection" }, { id: "automation", label: "Scheduler & backups" }] },
+                    { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "telegram-guide", label: "Telegram bot" }, { id: "credits", label: "Credits" }] }
                 ],
                 sections: {
                     "env-setup": {
                         title: "⚙️ Environment setup (runtime-settings.json)",
                         html: `
-                            <p>To secure your connection and enable advanced features, create <code>runtime-settings.json</code> in the project root (or use the in-app Environment settings). Example:</p>
+                            <p>Optional file in the project root or the in-app <strong>Environment</strong> settings for integrations and API keys. Example:</p>
                             <div class="code-block">
 DRIVE_FOLDER_ID=(optional)<br>
-GEMINI_API_KEY=(optional)<br>
-ENCRYPTION_KEY=somelongkey
+GEMINI_API_KEY=(optional)
                             </div>
-                            <div class="callout warning">
-                                <strong>Important:</strong> The <code>ENCRYPTION_KEY</code> is your Master Key. It encrypts your credentials locally. If you lose this key, your saved profiles cannot be decrypted or recovered.
+                            <div class="callout info">
+                                <strong>Profile encryption:</strong> Saved bank credentials are encrypted with a key derived from your <strong>app lock password</strong> (set in the app). Do not use a separate <code>ENCRYPTION_KEY</code> for normal setups.
                             </div>
                         `
                     },
@@ -170,6 +170,9 @@ ENCRYPTION_KEY=somelongkey
                     "getting-started": {
                         title: "🚀 Getting Started",
                         html: `
+                            <div class="callout success">
+                                <strong>Recommended:</strong> Use the in-app <strong>setup wizard</strong> (onboarding) as your primary way to configure the app—Telegram, Gemini, Google OAuth/Drive, and <strong>app lock</strong> in one guided flow.
+                            </div>
                             <h3>System Requirements</h3>
                             <ul>
                                 <li><strong>Browser:</strong> Chrome, Firefox, Safari, or Edge.</li>
@@ -178,16 +181,41 @@ ENCRYPTION_KEY=somelongkey
                             </ul>
                             <h3>First Launch</h3>
                             <ol>
-                                <li>Navigate to the application URL (usually <code>localhost:3000</code>).</li>
+                                <li>Navigate to the application URL (Docker/Home Assistant often use <code>localhost:3000</code>; local dev with Vite may use <code>127.0.0.1:5173</code>).</li>
                                 <li>Choose your preferred language.</li>
-                                <li>Set your initial <strong>Master Key</strong> (which matches <code>ENCRYPTION_KEY</code> in <code>runtime-settings.json</code> if you use legacy migration).</li>
+                                <li>Follow the <strong>setup wizard</strong> when prompted, or open it from onboarding banners—this is the preferred path to app lock and integrations.</li>
                             </ol>
+                            <h3>Setup wizard (onboarding)</h3>
+                            <p>The guided steps cover Telegram, Gemini, Google OAuth, Drive folder selection, and creating your <strong>app lock</strong> password. Completing the wizard is the easiest way to get a consistent, working configuration.</p>
+                        `
+                    },
+                    "app-lock": {
+                        title: "🔒 App lock",
+                        html: `
+                            <p>Your <strong>app lock password</strong> (minimum <strong>8 characters</strong>) is used to derive the AES key that <strong>encrypts saved bank profile credentials</strong> on disk. It also controls session unlock when app lock is enabled.</p>
+                            <p>You can use much of the app—dashboard, logs, configuration, browsing results—<strong>without</strong> unlocking the session. <strong>Running scrapes</strong> and <strong>creating or editing saved profiles</strong> require the app to be <strong>unlocked</strong> when app lock is configured.</p>
+                            <p>Unlock is <strong>session-based</strong>. If enabled, Telegram <code>/unlock</code> may be available where supported.</p>
+                            <div class="callout warning">
+                                There is no cloud “forgot password” and <strong>encrypted profiles cannot be decrypted</strong> without the correct password. If you forget it, you must <strong>delete the saved profiles</strong> (remove files under <code>data/profiles</code> or delete them in the UI), reset or recreate app lock via <code>data/security</code> as described in your deployment docs, set a <strong>new</strong> password, then <strong>create profiles again</strong> and re-enter your bank credentials.
+                            </div>
+                        `
+                    },
+                    "dashboard": {
+                        title: "📈 Dashboard & analytics",
+                        html: `
+                            <p>The <strong>Dashboard</strong> summarizes the selected month: income progress, expenses, subscriptions, monthly transactions, top insights, analytics, and an optional <strong>AI chat</strong> scoped to your data.</p>
+                            <h3>Income in the current month</h3>
+                            <p>For the <strong>live calendar month</strong>, a positive <strong>completed</strong> transaction whose <strong>date is after today</strong> counts as <strong>expected inflow</strong> (not yet received), together with pending income and recurring income—so salary or transfers dated later in the month do not inflate “already received.”</p>
+                            <h3>Responsive layout</h3>
+                            <p>On viewports narrower than <strong>640px</strong> (Tailwind <code>sm</code>), main section cards <strong>start collapsed</strong>; on wider screens they start expanded.</p>
+                            <h3>Export</h3>
+                            <p>Use the export menu to download dashboard-oriented data (e.g. CSV/JSON) where available.</p>
                         `
                     },
                     "scrape": {
                         title: "🔄 Running a Scrape",
                         html: `
-                            <p>Powered by the <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> library.</p>
+                            <p>Scraping is <strong>not powered by AI</strong>. It uses the open-source <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> library (MIT license, <strong>community-maintained</strong>), which automates bank and card portals—typically via headless browser automation. Your login flow stays on your server; <strong>no AI provider receives your bank credentials</strong>.</p>
                             <ol>
                                 <li><strong>Select Provider:</strong> Choose your bank or credit card (Hapoalim, Leumi, Isracard, Max, etc.).</li>
                                 <li><strong>Enter Credentials:</strong> Input your username and password.</li>
@@ -199,12 +227,12 @@ ENCRYPTION_KEY=somelongkey
                     "profiles": {
                         title: "💾 Managing Profiles",
                         html: `
-                            <p>Profiles securely store your bank credentials encrypted with your Master Key.</p>
+                            <p>Profiles store bank credentials encrypted with a key derived from your <strong>app lock password</strong> (AES-256-GCM on disk).</p>
                             <h4>Creating a Profile</h4>
                             <ul>
                                 <li>Check the <strong>"Save Profile"</strong> box during a scrape session.</li>
                                 <li>Assign a name (e.g., "Personal Savings").</li>
-                                <li>The details are stored locally on your disk via AES-256 encryption.</li>
+                                <li>Ensure the app is <strong>unlocked</strong> when app lock is configured.</li>
                             </ul>
                             <h4>Using a Profile</h4>
                             <p>Select your saved profile from the <strong>"Start from Profile"</strong> dropdown to auto-fill all settings instantly.</p>
@@ -229,27 +257,69 @@ ENCRYPTION_KEY=somelongkey
                             </ul>
                         `
                     },
+                    "logs": {
+                        title: "📋 Logs",
+                        html: `
+                            <p>The <strong>Logs</strong> tab groups output by type:</p>
+                            <ul>
+                                <li><strong>Server / Client</strong> — live text streams for debugging.</li>
+                                <li><strong>AI</strong> — structured history of AI categorization and related actions.</li>
+                                <li><strong>Scrape</strong> — structured post-scrape pipeline entries (files, actions, counts).</li>
+                            </ul>
+                        `
+                    },
+                    "configuration": {
+                        title: "⚙️ Configuration",
+                        html: `
+                            <p>Open <strong>Configuration</strong> from the main navigation. Sub-tabs include <strong>AI</strong> and AI memory, <strong>Scheduler</strong> (and scheduled backups), global <strong>Scraper</strong> defaults, <strong>Fraud</strong> rules, <strong>Google</strong> OAuth and Sheets, <strong>Telegram</strong>, <strong>Environment</strong> variables, and <strong>Maintenance</strong> / database tools.</p>
+                            <p class="callout info">Deep links use <code>?view=configuration&amp;tab=&lt;id&gt;</code> (for example <code>tab=sheets</code> for Google).</p>
+                        `
+                    },
                     "ai": {
                         title: "🤖 AI-Powered Features",
                         html: `
-                            <p>Leverage Google Gemini AI for advanced financial insights.</p>
+                            <p><strong>Google Gemini</strong> drives categorization, the dashboard <strong>AI analyst chat</strong>, and (if enabled) AI-assisted fraud checks. Optional AI runs only on <strong>your</strong> deployment and only for features you turn on.</p>
+                            <div class="callout info">
+                                <strong>Profiles and bank logins:</strong> AI does <strong>not</strong> have access to your encrypted <strong>profile credentials</strong> or bank login secrets. Scraping itself is separate (see <strong>Scrape</strong>) and does not use AI. Gemini only sees the <strong>transaction text and context</strong> you send it for categorization, chat, or optional AI fraud analysis—not your stored passwords.
+                            </div>
+                            <h3>AI memory — facts, insights, and alerts</h3>
+                            <p>Under <strong>Configuration → AI</strong> (and the <strong>AI memory</strong> sub-tab), the app stores three kinds of structured items the model can reuse:</p>
                             <ul>
-                                <li><strong>Automatic Categorization:</strong> Automatically assign labels like 'Groceries' or 'Utilities' to every transaction.</li>
-                                <li><strong>AI Analyst Chat:</strong> Ask questions like <em>"What was my highest expense last month?"</em> or <em>"Summarize my travel costs."</em></li>
+                                <li><strong>Facts:</strong> Long-term context you want remembered—goals, household situation, preferences. The assistant may suggest new facts; you can edit or delete them anytime.</li>
+                                <li><strong>Insights:</strong> Analytical observations from past replies so the assistant does not repeat the same takeaway unnecessarily. Remove an insight if you want that topic to be re-analyzed later.</li>
+                                <li><strong>Alerts:</strong> Urgent or time-sensitive items the assistant records with a <strong>score (1–100)</strong>. Dismissing removes the row and blocks the same text from being saved again. Retention (days) can prune old insights and alerts automatically.</li>
                             </ul>
+                            <h3>Dashboard — Top AI Insights</h3>
+                            <p>On the <strong>Dashboard</strong>, the <strong>Top AI Insights</strong> card surfaces the highest-scored recent insights from memory so you see important takeaways at a glance. You can dismiss individual cards.</p>
+                            <h3>Analyst chat</h3>
+                            <p>Ask natural-language questions about spending, trends, or anomalies. When memory is enabled, the chat may add facts, insights, or alerts (shown in the UI and AI logs). Use the explorer’s <strong>Categorize with AI</strong> for batch labeling.</p>
+                        `
+                    },
+                    "fraud": {
+                        title: "🛡️ Fraud detection (local)",
+                        html: `
+                            <p><strong>Local</strong> fraud detection runs <strong>on your server</strong> after a scrape. It uses <strong>rules and math on your stored transaction history</strong>—no cloud AI is required for this path, and nothing is sent to a model unless you enable the separate <strong>AI</strong> fraud mode.</p>
+                            <h3>What local detection looks for</h3>
+                            <ul>
+                                <li><strong>Foreign currency:</strong> Non-ILS charges that look like expenses, above a configurable minimum.</li>
+                                <li><strong>New merchant / description:</strong> First-time payees, especially above an ILS threshold, or descriptions that look non-Hebrew when that rule is on.</li>
+                                <li><strong>Amount outliers:</strong> Unusually high amounts vs your own history for the same normalized description (z-score), when enough past data exists.</li>
+                                <li><strong>Rapid repeats:</strong> Multiple very similar charges in the same scrape batch within a time window (possible duplicates or card abuse).</li>
+                            </ul>
+                            <p>Each hit adds <strong>points</strong> toward a score (0–100) and a <strong>severity</strong> (low / medium / high). Tune thresholds and which rules are enabled under <strong>Configuration → Fraud</strong>. You can run <strong>local only</strong>, <strong>AI only</strong>, or <strong>both</strong>, and scope analysis to the current scrape or a wider history depending on settings.</p>
+                            <p class="callout info">Findings can feed notifications (e.g. Telegram) when severity meets your minimum—configured in the same area.</p>
                         `
                     },
                     "automation": {
                         title: "⏱️ Automation & Scheduling",
                         html: `
-                            <p>Automate your bookkeeping so you never have to manual scrape again.</p>
-                            <h3>Scheduler Setup</h3>
+                            <p>Automate scrapes and optional <strong>scheduled backups</strong> from <strong>Configuration → Scheduler</strong>.</p>
+                            <h3>Scheduler setup</h3>
                             <ol>
-                                <li>Navigate to the <strong>Automation</strong> tab.</li>
-                                <li>Enable the <strong>Scheduler</strong>.</li>
-                                <li>Set your preferred frequency (e.g., Daily at 8 AM).</li>
-                                <li>Select which <strong>Profiles</strong> to run automatically.</li>
-                                <li>Enable <strong>"Save to Sheets"</strong> for a fully hands-off experience.</li>
+                                <li>Open <strong>Configuration</strong> and select the <strong>Scheduler</strong> tab.</li>
+                                <li>Enable the scheduler and set frequency (daily, weekly, monthly, every N days, or custom cron).</li>
+                                <li>Choose which <strong>profiles</strong> to run.</li>
+                                <li>Configure notifications and Sheets upload in line with your pipeline settings.</li>
                             </ol>
                         `
                     },
@@ -260,10 +330,47 @@ ENCRYPTION_KEY=somelongkey
                             <ul>
                                 <li><strong>Credentials Rejected:</strong> Ensure you can log in directly on the bank's official website.</li>
                                 <li><strong>Timeout Error:</strong> Increase the <code>timeout</code> setting in the scrape options for slow connections.</li>
-                                <li><strong>Cannot Decrypt:</strong> Double-check your <code>ENCRYPTION_KEY</code> in <code>runtime-settings.json</code> matches the one used to save the profile.</li>
+                                <li><strong>Cannot decrypt profile / wrong password:</strong> Unlock with the same <strong>app lock password</strong> used when the profile was saved. If you <strong>forgot</strong> it, see the <strong>App lock</strong> section: delete profiles and re-enter credentials after resetting lock.</li>
                                 <li><strong>Google Sheets Failed:</strong> Verify your OAuth session hasn't expired or re-authorize the app.</li>
                             </ul>
                             <p>For persistent issues, check the <strong>Logs</strong> tab for technical error codes.</p>
+                        `
+                    },
+                    "telegram-guide": {
+                        title: "✈️ Telegram bot",
+                        html: `
+                            <h3>Quick setup</h3>
+                            <ol>
+                                <li>In Telegram, open <strong>@BotFather</strong>, send <code>/newbot</code>, and copy the <strong>bot token</strong>.</li>
+                                <li>In the web app: <strong>Configuration → Telegram</strong> → paste the token → <strong>Save</strong> → <strong>Start</strong>. Alternatively set <code>TELEGRAM_BOT_TOKEN</code> in your server environment.</li>
+                                <li><strong>Find your chat ID:</strong> open a <strong>private</strong> chat with your bot and send any message (e.g. <code>/start</code> or “hello”). For private chats, your <strong>chat ID</strong> is the same numeric value as your <strong>Telegram user ID</strong>.</li>
+                            </ol>
+                            <p><strong>Unauthorized users:</strong> If the bot is configured with an <strong>allowed users</strong> list and your account is not on it yet, commands are blocked—but when you <strong>send a message to the bot</strong>, it still replies with <strong>Your User ID</strong> (a number in monospace). Copy that ID and send it to your admin so they can add it to allowed users / notifications. After you are authorized, you can use commands normally.</p>
+                            <p><strong>Alternative (getUpdates):</strong> After messaging the bot, open <code>https://api.telegram.org/bot&lt;YOUR_BOT_TOKEN&gt;/getUpdates</code> in a browser and read <code>"chat":{"id": …}</code> (or <code>"from":{"id": …}</code> for the sender). For <strong>groups</strong>, add the bot and post a message mentioning it; group chat IDs are negative numbers.</p>
+                            <ol start="4">
+                                <li>Add the relevant chat IDs under <strong>Notification Chats</strong> (and allowed users in config if you restrict access), then use <strong>Test</strong> to confirm delivery.</li>
+                            </ol>
+                            <h3>Commands</h3>
+                            <table>
+                                <tr><th>Command</th><th>What it does</th></tr>
+                                <tr><td><code>/start</code></td><td>Welcome and initialize the bot in a private chat.</td></tr>
+                                <tr><td><code>/help</code></td><td>List available commands.</td></tr>
+                                <tr><td><code>/scrape</code></td><td>Pick a saved profile (inline buttons) and run a scrape.</td></tr>
+                                <tr><td><code>/chat</code></td><td>Enter AI mode—ask questions about your transactions (same idea as the web analyst).</td></tr>
+                                <tr><td><code>/settings</code></td><td>Notification and preference menus.</td></tr>
+                                <tr><td><code>/subscribe</code> / <code>/unsubscribe</code></td><td>Turn scrape notifications on or off.</td></tr>
+                                <tr><td><code>/status</code></td><td>Bot and system status.</td></tr>
+                                <tr><td><code>/unlock</code></td><td>When the web UI is app-locked, unlock the session from Telegram (where enabled).</td></tr>
+                            </table>
+                            <h3>Notifications</h3>
+                            <p>The bot can notify you when scrapes succeed or fail, when post-scrape pipelines finish, when <strong>AI insights</strong> are produced, and for system-style alerts. Choose a detail level: <strong>Minimal</strong> (status only), <strong>Normal</strong> (counts, stages, insights), <strong>Detailed</strong> (more account context), or <strong>Verbose</strong> (full detail / JSON for advanced use).</p>
+                            <h3>Good practices</h3>
+                            <ul>
+                                <li>Never share your bot token; it is masked in the UI. Rotate via BotFather if leaked.</li>
+                                <li>Only add trusted chats to notification lists.</li>
+                                <li>Long AI replies are split automatically to fit Telegram message limits.</li>
+                            </ul>
+                            <p class="callout info">Full reference (API endpoints, troubleshooting): <code>docs/TELEGRAM_BOT_GUIDE.md</code> in the repository.</p>
                         `
                     },
                     "credits": {
@@ -271,35 +378,35 @@ ENCRYPTION_KEY=somelongkey
                         html: `
                             <p>This project is made possible by the incredible open-source community.</p>
                             <h4>Core Library</h4>
-                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — The foundation of this project.</p>
+                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — Open-source scraping layer (community-maintained).</p>
                             <div class="callout success">
-                                Version 2.1 | Professional User Documentation
+                                Version 2.1 | User documentation
                             </div>
                         `
                     }
                 }
             },
             he: {
+                brand: "מבט כלכלי",
                 title: "מדריך למשתמש",
-                subtitle: "המדריך המלא להגדרה ושימוש ב-Israeli Bank Scraper.",
+                subtitle: "המדריך המלא להגדרה ושימוש במבט כלכלי.",
                 nav: [
-                    { label: "הגדרות", items: [{ id: "env-setup", label: "הגדרות זמן ריצה" }, { id: "api-guides", label: "קבלת מפתחות" }, { id: "google-setup", label: "Google Sheets" }] },
-                    { label: "שימוש", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "scrape", label: "ביצוע סריקה" }, { id: "profiles", label: "ניהול פרופילים" }] },
-                    { label: "תכונות", items: [{ id: "results", label: "דפדפן תוצאות" }, { id: "ai", label: "תכונות AI" }, { id: "automation", label: "אוטומציה" }] },
-                    { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "credits", label: "קרדיטים" }] }
+                    { label: "התקנה", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "env-setup", label: "זמן ריצה וסודות" }, { id: "app-lock", label: "נעילת אפליקציה" }, { id: "api-guides", label: "מפתחות API" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "ממשק", items: [{ id: "dashboard", label: "דשבורד" }, { id: "scrape", label: "סריקה" }, { id: "profiles", label: "פרופילים" }, { id: "results", label: "סייר תוצאות" }, { id: "logs", label: "יומנים" }, { id: "configuration", label: "הגדרות" }] },
+                    { label: "חכם", items: [{ id: "ai", label: "תכונות AI" }, { id: "fraud", label: "זיהוי הונאה" }, { id: "automation", label: "מתזמן וגיבויים" }] },
+                    { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "telegram-guide", label: "בוט טלגרם" }, { id: "credits", label: "קרדיטים" }] }
                 ],
                 sections: {
                     "env-setup": {
                         title: "⚙️ הגדרת סביבה (runtime-settings.json)",
                         html: `
-                            <p>כדי לאבטח את החיבור ולהפעיל תכונות מתקדמות, צור את קובץ <code>runtime-settings.json</code> בשורש הפרויקט (או השתמש בהגדרות בממשק). לדוגמה:</p>
+                            <p>קובץ אופציונלי בשורש הפרויקט או בהגדרות <strong>סביבה</strong> בממשק, לאינטגרציות ומפתחות API. לדוגמה:</p>
                             <div class="code-block">
 DRIVE_FOLDER_ID=(optional)<br>
-GEMINI_API_KEY=(optional)<br>
-ENCRYPTION_KEY=somelongkey
+GEMINI_API_KEY=(optional)
                             </div>
-                            <div class="callout warning">
-                                <strong>חשוב:</strong> ה-<code>ENCRYPTION_KEY</code> הוא ה-Master Key שלך. הוא מצפין את הפרטים שלך מקומית. אם תאבד מפתח זה, לא ניתן יהיה לשחזר את הפרופילים.
+                            <div class="callout info">
+                                <strong>הצפנת פרופילים:</strong> פרטי בנק שמורים מוצפנים עם מפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong> (מוגדרת בממשק). אין להשתמש ב-<code>ENCRYPTION_KEY</code> בהתקנה רגילה.
                             </div>
                         `
                     },
@@ -337,6 +444,9 @@ ENCRYPTION_KEY=somelongkey
                     "getting-started": {
                         title: "🚀 איך מתחילים",
                         html: `
+                            <div class="callout success">
+                                <strong>מומלץ:</strong> להשתמש ב<strong>אשף ההתקנה</strong> (Onboarding) בדרך הראשית להגדרת האפליקציה — Telegram, Gemini, Google OAuth/Drive, ו<strong>נעילת אפליקציה</strong> בזרימה אחת מודרכת.
+                            </div>
                             <h3>דרישות מערכת</h3>
                             <ul>
                                 <li><strong>דפדפן:</strong> Chrome, Firefox, Safari, או Edge.</li>
@@ -345,16 +455,41 @@ ENCRYPTION_KEY=somelongkey
                             </ul>
                             <h3>הפעלה ראשונית</h3>
                             <ol>
-                                <li>עבור לכתובת האפליקציה (בדרך כלל <code>localhost:3000</code>).</li>
+                                <li>עבור לכתובת האפליקציה (Docker/Home Assistant לרוב <code>localhost:3000</code>; פיתוח מקומי עם Vite לעיתים <code>127.0.0.1:5173</code>).</li>
                                 <li>בחר את השפה המועדפת עליך.</li>
-                                <li>הגדר את ה- <strong>Master Key</strong> הראשוני שלך (התואם ל- <code>ENCRYPTION_KEY</code> ב-<code>runtime-settings.json</code> אם יש מיגרציה ישנה).</li>
+                                <li>עקוב אחרי <strong>אשף ההתקנה</strong> כשמופיע, או פתח אותו מבאנרי ה-Onboarding — זו הדרך המועדפת לנעילה ואינטגרציות.</li>
                             </ol>
+                            <h3>אשף התקנה (Onboarding)</h3>
+                            <p>הצעדים המודרכים כוללים Telegram, Gemini, Google OAuth, בחירת תיקיית Drive, ויצירת <strong>סיסמת נעילת האפליקציה</strong>. השלמת האשף היא הדרך הקלה ביותר להגדרה עקבית ועובדת.</p>
+                        `
+                    },
+                    "app-lock": {
+                        title: "🔒 נעילת אפליקציה",
+                        html: `
+                            <p><strong>סיסמת נעילת האפליקציה</strong> (מינימום <strong>8 תווים</strong>) משמשת לגזירת מפתח AES ש<strong>מצפין פרטי פרופילי בנק</strong> שמורים על הדיסק. היא גם שולטת בשחרור סשן כשנעילת האפליקציה מופעלת.</p>
+                            <p>ניתן להשתמש ברוב הממשק — דשבורד, יומנים, הגדרות, צפייה בתוצאות — <strong>בלי</strong> לשחרר סשן. <strong>הרצת סריקות</strong> ו<strong>יצירה או עריכה של פרופילים שמורים</strong> דורשות שהאפליקציה תהיה <strong>במצב שחרור</strong> כשנעילת האפליקציה מוגדרת.</p>
+                            <p>השחרור מבוסס <strong>סשן</strong>. אם הוגדר, ניתן לעיתים לשחרר דרך Telegram עם <code>/unlock</code>.</p>
+                            <div class="callout warning">
+                                אין "שכחתי סיסמה" בענן, ו<strong>לא ניתן לפענח פרופילים מוצפנים</strong> בלי הסיסמה הנכונה. אם שכחת — חובה <strong>למחוק את הפרופילים השמורים</strong> (קבצים תחת <code>data/profiles</code> או מחיקה בממשק), לאפס/ליצור מחדש נעילה דרך <code>data/security</code> לפי תיעוד ההתקנה, להגדיר <strong>סיסמה חדשה</strong>, ואז <strong>ליצור פרופילים מחדש</strong> ולהזין שוב את פרטי הבנק.
+                            </div>
+                        `
+                    },
+                    "dashboard": {
+                        title: "📈 דשבורד ואנליטיקה",
+                        html: `
+                            <p>ה<strong>דשבורד</strong> מסכם את החודש הנבחר: התקדמות הכנסות, הוצאות, מנויים, עסקאות חודשיות, תובנות, אנליטיקה וצ'אט <strong>AI</strong> אופציונלי על הנתונים.</p>
+                            <h3>הכנסות בחודש הנוכחי</h3>
+                            <p>ב<strong>חודש הקלנדרי הנוכחי</strong>, תנועה חיובית בסטטוס <strong>הושלם</strong> ש<strong>תאריכה אחרי היום</strong> נספרת כ<strong>צפוי להגיע</strong> (עדיין לא התקבל), יחד עם הכנסות ממתינות והכנסות חוזרות — כדי שמשכורת או העברות בתאריך עתידי לא ינפחו את "כבר התקבל".</p>
+                            <h3>תצוגה רספונסיבית</h3>
+                            <p>ברוחב צר מ-<strong>640px</strong> (Tailwind <code>sm</code>), אזורים מרכזיים מתחילים <strong>מכווצים</strong>; במסך רחב הם מתחילים מורחבים.</p>
+                            <h3>ייצוא</h3>
+                            <p>תפריט הייצוא מאפשר הורדת נתונים (למשל CSV/JSON) בהתאם ליכולות הממשק.</p>
                         `
                     },
                     "scrape": {
                         title: "🔄 ביצוע סריקה",
                         html: `
-                            <p>מופעל על ידי ספריית <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a>.</p>
+                            <p>הסריקה <strong>לא מבוססת AI</strong>. היא משתמשת בספריית הקוד הפתוח <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> (רישיון MIT, <strong>מתוחזקת על ידי הקהילה</strong>), שמבצעת אוטומציה לאתרי בנקים וכרטיסים — בדרך כלל דפדפן ללא ממשק. תהליך ההתחברות נשאר בשרת שלך; <strong>סיסמאות בנק לא נשלחות לספקי AI</strong>.</p>
                             <ol>
                                 <li><strong>בחר ספק:</strong> בחר בנק או כרטיס אשראי (הפועלים, לאומי, ישראכרט וכו').</li>
                                 <li><strong>הזן פרטים:</strong> שם משתמש וסיסמה.</li>
@@ -366,12 +501,12 @@ ENCRYPTION_KEY=somelongkey
                     "profiles": {
                         title: "💾 ניהול פרופילים",
                         html: `
-                            <p>פרופילים מאחסנים בבטחה את פרטי הבנק שלך מוצפנים עם ה-Master Key שלך.</p>
+                            <p>פרופילים שומרים פרטי הבנק מוצפנים במפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong> (AES-256-GCM על הדיסק).</p>
                             <h4>יצירת פרופיל</h4>
                             <ul>
                                 <li>סמן את <strong>"Save Profile"</strong> במהלך הסריקה.</li>
                                 <li>תן שם לפרופיל (למשל "חשבון אישי").</li>
-                                <li>הפרטים נשמרים מקומית בהצפנת AES-256.</li>
+                                <li>ודא שהאפליקציה <strong>משוחררת</strong> כשנעילת האפליקציה מוגדרת.</li>
                             </ul>
                             <h4>שימוש בפרופיל</h4>
                             <p>בחר את הפרופיל מרשימת <strong>"Start from Profile"</strong> למילוי אוטומטי מיידי.</p>
@@ -396,27 +531,69 @@ ENCRYPTION_KEY=somelongkey
                             </ul>
                         `
                     },
+                    "logs": {
+                        title: "📋 יומנים",
+                        html: `
+                            <p>בלשונית <strong>יומנים</strong> מחולק הפלט לפי סוג:</p>
+                            <ul>
+                                <li><strong>שרת / לקוח</strong> — זרמי טקסט חיים לניפוי שגיאות.</li>
+                                <li><strong>AI</strong> — היסטוריה מובנית של סיווג AI ופעולות קשורות.</li>
+                                <li><strong>סריקה</strong> — רשומות מובנות אחרי סריקה (קבצים, פעולות, ספירות).</li>
+                            </ul>
+                        `
+                    },
+                    "configuration": {
+                        title: "⚙️ הגדרות",
+                        html: `
+                            <p>פתחו <strong>הגדרות</strong> מהניווט הראשי. תת-לשונות כוללות <strong>AI</strong> וזיכרון AI, <strong>מתזמן</strong> (וגיבויים מתוזמנים), ברירות מחדל גלובליות ל<strong>סריקה</strong>, כללי <strong>הונאה</strong>, <strong>Google</strong> OAuth ו-Sheets, <strong>Telegram</strong>, משתני <strong>סביבה</strong>, ו<strong>תחזוקה</strong> / כלי מסד נתונים.</p>
+                            <p class="callout info">קישורים עמוקים: <code>?view=configuration&amp;tab=&lt;id&gt;</code> (למשל <code>tab=sheets</code> לגוגל).</p>
+                        `
+                    },
                     "ai": {
                         title: "🤖 תכונות מבוססות AI",
                         html: `
-                            <p>שימוש ב-Google Gemini AI לתובנות פיננסיות מתקדמות.</p>
+                            <p><strong>Google Gemini</strong> מפעיל סיווג אוטומטי, את <strong>צ'אט המנתח</strong> בדשבורד, ואם הופעל — גם בדיקות הונאה מבוססות AI. AI אופציונלי רץ רק בהתקנה שלך ורק לתכונות שתפעילו.</p>
+                            <div class="callout info">
+                                <strong>פרופילים והתחברות לבנק:</strong> ל-AI <strong>אין</strong> גישה ל<strong>אישורי הפרופיל המוצפנים</strong> או לסודות התחברות לבנק. הסריקה עצמה נפרדת (ראו <strong>סריקה</strong>) ולא משתמשת ב-AI. Gemini רואה רק <strong>טקסט עסקאות והקשר</strong> שאתם שולחים לסיווג, צ'אט או הונאת AI אופציונלית — לא סיסמאות שמורות.
+                            </div>
+                            <h3>זיכרון AI — עובדות, תובנות והתראות</h3>
+                            <p>תחת <strong>הגדרות → AI</strong> (ולשונית <strong>זיכרון AI</strong>) נשמרים שלושה סוגים של פריטים שהמודל יכול לעשות בהם שימוש חוזר:</p>
                             <ul>
-                                <li><strong>סיווג אוטומטי:</strong> שיוך אוטומטי של קטגוריות כמו 'מזון' או 'חשבונות'.</li>
-                                <li><strong>צ'אט מנתח AI:</strong> שאל שאלות כמו <em>"כמה הוצאתי על טיולים השנה?"</em></li>
+                                <li><strong>עובדות (Facts):</strong> הקשר ארוך טווח שתרצה לזכור — יעדים, משק בית, העדפות. העוזר עשוי להציע עובדות חדשות; ניתן לערוך או למחוק.</li>
+                                <li><strong>תובנות (Insights):</strong> מסקנות אנליטיות מתשובות קודמות, כדי שלא יחזור על אותה נקודה. מחק תובנה אם תרצה שניתחו שוב נושא זה.</li>
+                                <li><strong>התראות (Alerts):</strong> פריטים דחופים או רגישים לזמן שהעוזר שומר עם <strong>ציון (1–100)</strong>. הסרה מוחקת את השורה ומונעת שמירה חוזרת של אותו טקסט. ניתן להגדיר מחיקה אוטומטית של תובנות/התראות ישנות לפי ימים.</li>
                             </ul>
+                            <h3>דשבורד — תובנות AI מובילות</h3>
+                            <p>ב<strong>דשבורד</strong>, כרטיס <strong>תובנות AI מובילות</strong> מציג את התובנות בעלות הציון הגבוה לאחרונה כדי שתראה מסקנות חשובות במבט אחד. ניתן להסיר תובנות בודדות.</p>
+                            <h3>צ'אט מנתח</h3>
+                            <p>שאלו בשפה טבעית על הוצאות, מגמות או חריגים. כשהזיכרון פעיל, הצ'אט עשוי להוסיף עובדות, תובנות או התראות (מוצגות בממשק וביומני AI). ב<strong>סייר התוצאות</strong> השתמשו ב<strong>קטלוג עם AI</strong> לתיוג אצווה.</p>
+                        `
+                    },
+                    "fraud": {
+                        title: "🛡️ זיהוי הונאה (מקומי)",
+                        html: `
+                            <p>זיהוי <strong>מקומי</strong> רץ <strong>בשרת שלך</strong> אחרי סריקה. הוא משתמש <strong>בכללים ובחישובים על היסטוריית העסקאות השמורה</strong> — לא נדרש AI בענן לנתיב הזה, ולא נשלח למודל כלום אלא אם מפעילים בנפרד מצב <strong>AI</strong> להונאה.</p>
+                            <h3>מה המקומי בודק</h3>
+                            <ul>
+                                <li><strong>מטבע זר:</strong> חיובים שאינם בשקל שנראים כהוצאה, מעל סף מינימום.</li>
+                                <li><strong>ספק/תיאור חדש:</strong> תשלום לגורם שלא נראה בהיסטוריה, במיוחד מעל סף בשקלים או עם תיאור שאינו בעברית (כשהכלל פעיל).</li>
+                                <li><strong>חריגי סכום:</strong> סכומים חריגים ביחס להיסטוריה שלך לאותו תיאור מנורמל (z-score), כשיש מספיק נתוני עבר.</li>
+                                <li><strong>חזרות מהירות:</strong> מספר חיובים דומים מאוד באותה קבוצת סריקה בחלון זמן (כפילויות או שימוש חשוד בכרטיס).</li>
+                            </ul>
+                            <p>כל התאמה מוסיפה <strong>נקודות</strong> לציון (0–100) ורמת <strong>חומרה</strong> (נמוכה / בינונית / גבוהה). מכוונים ספים וכללים תחת <strong>הגדרות → הונאה</strong>. אפשר <strong>מקומי בלבד</strong>, <strong>AI בלבד</strong>, או <strong>שניהם</strong>, ולבחור אם לנתח רק את הסריקה הנוכחית או היסטוריה רחבה יותר.</p>
+                            <p class="callout info">ממצאים יכולים להזניק התראות (למשל לטלגרם) כשרמת החומרה עומדת בסף שקבעת — באותו אזור בהגדרות.</p>
                         `
                     },
                     "automation": {
                         title: "⏱️ אוטומציה ותזמון",
                         html: `
-                            <p>הפוך את ניהול החשבונות לאוטומטי לחלוטין.</p>
+                            <p>אוטומציה של סריקות ו<strong>גיבויים מתוזמנים</strong> מתוך <strong>הגדרות → מתזמן</strong>.</p>
                             <h3>הגדרת מתזמן</h3>
                             <ol>
-                                <li>עבור ללשונית <strong>Automation</strong>.</li>
-                                <li>הפעל את ה- <strong>Scheduler</strong>.</li>
-                                <li>קבע תדירות (למשל, יומי ב-8 בבוקר).</li>
-                                <li>בחר אילו פרופילים להריץ אוטומטית.</li>
-                                <li>הפעל <strong>"Save to Sheets"</strong> לסנכרון מלא ללא התערבות ידנית.</li>
+                                <li>פתחו <strong>הגדרות</strong> ובחרו בלשונית <strong>מתזמן</strong>.</li>
+                                <li>הפעילו את המתזמן והגדירו תדירות (יומי, שבועי, חודשי, כל N ימים, או cron מותאם).</li>
+                                <li>בחרו אילו <strong>פרופילים</strong> להריץ.</li>
+                                <li>הגדירו התראות והעלאה ל-Sheets בהתאם להגדרות הצינור.</li>
                             </ol>
                         `
                     },
@@ -427,9 +604,46 @@ ENCRYPTION_KEY=somelongkey
                             <ul>
                                 <li><strong>פרטים נדחו:</strong> ודא שאתה יכול להתחבר לאתר הבנק ישירות.</li>
                                 <li><strong>שגיאת זמן (Timeout):</strong> הגדל את ערך ה-timeout בהגדרות הסריקה.</li>
-                                <li><strong>שגיאת פענוח:</strong> ודא שה- <code>ENCRYPTION_KEY</code> ב-<code>runtime-settings.json</code> תואם למפתח איתו נשמר הפרופיל.</li>
+                                <li><strong>שגיאת פענוח / סיסמה שגויה:</strong> שחרר עם אותה <strong>סיסמת נעילת אפליקציה</strong> ששימשה בעת שמירת הפרופיל. אם <strong>שכחת</strong> — ראה סעיף <strong>נעילת אפליקציה</strong>: מחק פרופילים והזן מחדש.</li>
                             </ul>
                             <p>לבעיות מתקדמות, בדוק את לשונית ה- <strong>Logs</strong> לקבלת קודי שגיאה.</p>
+                        `
+                    },
+                    "telegram-guide": {
+                        title: "✈️ בוט טלגרם",
+                        html: `
+                            <h3>התחלה מהירה</h3>
+                            <ol>
+                                <li>בטלגרם פתחו את <strong>@BotFather</strong>, שלחו <code>/newbot</code>, והעתיקו את <strong>טוקן הבוט</strong>.</li>
+                                <li>בממשק האינטרנט: <strong>הגדרות → Telegram</strong> → הדביקו את הטוקן → <strong>שמור</strong> → <strong>התחל</strong>. לחלופין הגדירו <code>TELEGRAM_BOT_TOKEN</code> בסביבת השרת.</li>
+                                <li><strong>מזהה צ'אט:</strong> פתחו <strong>צ'אט פרטי</strong> עם הבוט ושלחו כל הודעה (למשל <code>/start</code> או "שלום"). בצ'אט פרטי, <strong>מזהה הצ'אט</strong> הוא אותו מספר כמו <strong>מזהה המשתמש בטלגרם</strong>.</li>
+                            </ol>
+                            <p><strong>משתמשים לא מורשים:</strong> אם מוגדרת רשימת <strong>משתמשים מורשים</strong> והחשבון שלכם עדיין לא ברשימה, פקודות נחסמות — אבל כש<strong>שולחים הודעה לבוט</strong>, הוא עדיין משיב עם <strong>מזהה המשתמש שלך</strong> (מספר בקוד מונוספייס). העתיקו את המספר ושלחו למנהל כדי שיוסיף אותו למורשים / להתראות. אחרי שקיבלתם הרשאה, הפקודות יעבדו כרגיל.</p>
+                            <p><strong>חלופה (getUpdates):</strong> אחרי ששלחתם הודעה לבוט, פתחו בדפדפן <code>https://api.telegram.org/bot&lt;טוקן&gt;/getUpdates</code> וקראו את <code>"chat":{"id": …}</code> (או <code>"from":{"id": …}</code>). ב<strong>קבוצות</strong> הוסיפו את הבוט ופרסמו הודעה שמזכירה אותו; מזהי קבוצות שליליים.</p>
+                            <ol start="4">
+                                <li>הוסיפו את מזהי הצ'אט הרלוונטיים תחת <strong>צ'אטים להתראות</strong> (ורשימת מורשים בהגדרות אם מגבילים גישה), ובדקו עם <strong>בדיקה</strong>.</li>
+                            </ol>
+                            <h3>פקודות</h3>
+                            <table>
+                                <tr><th>פקודה</th><th>תיאור</th></tr>
+                                <tr><td><code>/start</code></td><td>הודעת פתיחה ואתחול בצ'אט פרטי.</td></tr>
+                                <tr><td><code>/help</code></td><td>רשימת פקודות.</td></tr>
+                                <tr><td><code>/scrape</code></td><td>בחירת פרופיל (כפתורים) והרצת סריקה.</td></tr>
+                                <tr><td><code>/chat</code></td><td>מצב AI — שאלות על עסקאות (כמו המנתח בממשק).</td></tr>
+                                <tr><td><code>/settings</code></td><td>העדפות והתראות.</td></tr>
+                                <tr><td><code>/subscribe</code> / <code>/unsubscribe</code></td><td>הפעלה/כיבוי התראות סריקה.</td></tr>
+                                <tr><td><code>/status</code></td><td>סטטוס הבוט והמערכת.</td></tr>
+                                <tr><td><code>/unlock</code></td><td>כשהממשק נעול — שחרור סשן מטלגרם (אם מופעל).</td></tr>
+                            </table>
+                            <h3>התראות</h3>
+                            <p>הבוט יכול להודיע על סריקות שהצליחו או נכשלו, על סיום צינור אחרי סריקה, על <strong>תובנות AI</strong>, ועל התראות מערכת. רמת פירוט: <strong>מינימלי</strong>, <strong>רגיל</strong>, <strong>מפורט</strong>, או <strong>מפורט מאוד</strong> (כולל JSON למתקדמים).</p>
+                            <h3>המלצות</h3>
+                            <ul>
+                                <li>אל תחלקו את טוקן הבוט; בממשק הוא מוסתר. אם דלף — החליפו ב-BotFather.</li>
+                                <li>הוסיפו לרשימת ההתראות רק צ'אטים מהימנים.</li>
+                                <li>תשובות AI ארוכות מפוצלות אוטומטית למגבלת טלגרם.</li>
+                            </ul>
+                            <p class="callout info">הפניה מלאה (API, ניפוי שגיאות): <code>docs/TELEGRAM_BOT_GUIDE.md</code> במאגר.</p>
                         `
                     },
                     "credits": {
@@ -437,7 +651,7 @@ ENCRYPTION_KEY=somelongkey
                         html: `
                             <p>פרויקט זה מתאפשר בזכות קהילת הקוד הפתוח.</p>
                             <h4>ספריית ליבה</h4>
-                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — הבסיס של הפרויקט.</p>
+                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — שכבת סריקה בקוד פתוח (מתוחזקת על ידי הקהילה).</p>
                         `
                     }
                 }
@@ -451,6 +665,8 @@ ENCRYPTION_KEY=somelongkey
             document.documentElement.lang = currentLang;
             document.documentElement.dir = currentLang === 'he' ? 'rtl' : 'ltr';
             document.getElementById('lang-label').textContent = currentLang === 'en' ? 'עברית' : 'English';
+            const navBrand = document.getElementById('nav-brand');
+            if (navBrand) navBrand.textContent = data.brand;
 
             // Render Nav
             const navHtml = data.nav.map(group => `
@@ -463,10 +679,16 @@ ENCRYPTION_KEY=somelongkey
             `).join('');
             document.getElementById('sidebar-nav').innerHTML = navHtml;
 
-            // Render Sections
+            // Render Sections (fixed order so nav and reading order stay logical)
+            const sectionOrder = [
+                'getting-started', 'env-setup', 'app-lock', 'api-guides', 'google-setup',
+                'dashboard', 'scrape', 'profiles', 'results', 'logs', 'configuration',
+                'ai', 'fraud', 'automation', 'troubleshooting', 'telegram-guide', 'credits'
+            ];
             let mainHtml = `<header><h1>${data.title}</h1><p>${data.subtitle}</p></header>`;
-            Object.keys(data.sections).forEach(key => {
+            sectionOrder.forEach(key => {
                 const sec = data.sections[key];
+                if (!sec) return;
                 mainHtml += `<section id="${key}"><h2>${sec.title}</h2>${sec.html}</section>`;
             });
             document.getElementById('main-content').innerHTML = mainHtml;

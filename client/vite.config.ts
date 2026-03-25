@@ -38,12 +38,18 @@ export default defineConfig(() => {
         devOptions: {
             enabled: true
         },
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        includeAssets: [
+            'favicon.ico',
+            'favicon-32x32.png',
+            'favicon-16x16.png',
+            'apple-touch-icon.png',
+            'mask-icon.svg',
+        ],
         manifest: {
-            name: 'Israeli Bank Scraper',
-            short_name: 'BankScraper',
-            description: 'Scrape and analyze your Israeli bank and credit card transactions',
-            theme_color: '#0f172a',
+            name: 'מבט כלכלי',
+            short_name: 'מבט כלכלי',
+            description: 'Financial Overview — scrape and analyze your Israeli bank and credit card transactions',
+            theme_color: '#1e4d5e',
             background_color: '#0f172a',
             display: 'standalone',
             scope: base,

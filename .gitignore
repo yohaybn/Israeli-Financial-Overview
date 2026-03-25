@@ -27,3 +27,7 @@ data/app.db-wal
 favicon_extractor/download_favicons.js
 favicon_extractor/package-lock.json
 favicon_extractor/package.json
+client/.env.local
+docs/
+scripts/capture-video-guide-media.mjs
+client/scripts/generate-app-icons.mjs

@@ -60,7 +60,7 @@ To deploy as a Home Assistant Add-on:
 2. Click the 3 dots (...) > Repositories.
 3. Add the URL of this GitHub repository.
 4. Refresh/reload the store.
-5. Find "Israeli Bank Scraper" and install it.
+5. Find "Financial Overview" and install it.
 
 ### Configuration
 In the Add-on "Configuration" tab, fill in your Google OAuth details and Drive Folder ID.
