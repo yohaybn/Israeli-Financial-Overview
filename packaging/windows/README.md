@@ -44,3 +44,12 @@ The server reads **`financial-overview.json`** next to `server/` (see repo root 
 Then open **`http://127.0.0.1:<port>/`**. **`open-browser.cmd`** uses **`PORT`** from the environment or **`port`** from **`financial-overview.json`**, then defaults to `3000`.
 
 If **`financial-overview.json`** is missing and **`PORT`** is unset, the server listens on **3000**. See [DEPLOYMENT.md](../../DEPLOYMENT.md).
+
+## GitHub Releases
+
+When you **publish a GitHub Release** (not draft), the workflow [`.github/workflows/windows-package.yml`](../../.github/workflows/windows-package.yml) uploads:
+
+- **`windows-package.zip`** — portable folder (`dist/windows-package`)
+- **`FinancialOverview-Windows-Setup.exe`** — Inno Setup installer
+
+The workflow checks out the **release tag**, then builds. Create the release from an existing tag, or create tag + release together; publishing triggers the upload.

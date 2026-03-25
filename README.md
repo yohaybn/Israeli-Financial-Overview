@@ -57,6 +57,7 @@ For a **one-file** distribution on Windows, build an installer that bundles the 
 
 1. On **Windows x64**, from the repo root: `npm run windows:package` (or run [`packaging/windows/package.ps1`](packaging/windows/package.ps1)). This produces `dist/windows-package/`.
 2. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) and compile [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) to get **`dist/FinancialOverview-Windows-Setup.exe`**.
+3. **GitHub Releases:** publish a **release** (e.g. tag `v1.0.0`). The [Windows package workflow](.github/workflows/windows-package.yml) runs on **`release: published`**, builds the zip and installer, and **uploads `windows-package.zip` and `FinancialOverview-Windows-Setup.exe`** to that release. You can also run the workflow manually from the **Actions** tab (`workflow_dispatch`).
 
 **End users**
 
@@ -88,7 +89,7 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
 | **[packaging/windows/README.md](packaging/windows/README.md)** | Building the Windows installer and `dist/windows-package`. |
 | **[financial-overview.json.example](financial-overview.json.example)** | Optional install-local JSON (`port`, `dataDir`) read by the server (copy to `financial-overview.json`). |
-| **[app/API.md](app/API.md)** | API reference (Swagger-style). |
+| **[server/src/index.ts](server/src/index.ts)** | Mounts REST routes under `/api/*` (see `server/src/routes/`). Health: `GET /api/health`. |
 
 Re-capture guide screenshots/PDFs (requires dev server + Playwright):
 
@@ -100,7 +101,7 @@ Optional: `node scripts/capture-video-guide-media.mjs --only <asset-id>` — see
 
 ## API
 
-👉 **[API Reference (Swagger-style)](app/API.md)**
+REST JSON under **`/api/*`** (Express). Route modules live in **`server/src/routes/`**; **`server/src/index.ts`** shows how they are mounted. **`GET /api/health`** returns `{ status, version }`.
 
 ## Credits
 

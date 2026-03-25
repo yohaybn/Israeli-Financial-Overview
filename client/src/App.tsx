@@ -357,16 +357,7 @@ function App() {
                     </div>
                 </div>
             </div>
-            <ImportModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                onSuccess={(results) => {
-                    console.log('Import successful:', results);
-                    // The query invalidation happens via the shared queryClient if we had a central one,
-                    // but since ResultsExplorer handles its own state, we might need a way to trigger refresh.
-                    // For now, simple success logging.
-                }}
-            />
+            <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
 
             {onboarding.showModal && <OnboardingWizard />}
         </>

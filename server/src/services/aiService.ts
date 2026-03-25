@@ -12,7 +12,6 @@ import { logAICall, logAIError, withAILogging, runWithAILoadTracking } from '../
 import { DbService } from './dbService.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
-// const CACHE_FILE = path.join(DATA_DIR, 'config', 'ai_categories_cache.json'); // Legacy
 const SETTINGS_FILE = path.join(DATA_DIR, 'config', 'ai_settings.json');
 
 export interface AiSettings {
@@ -118,7 +117,6 @@ const DEFAULT_SETTINGS: AiSettings = {
 
 export class AiService {
     private genAI: GoogleGenerativeAI | null = null;
-    // private cache: Record<string, string> = {}; // Legacy
     private dbService: DbService;
     private settings: AiSettings = DEFAULT_SETTINGS;
 
@@ -139,7 +137,6 @@ export class AiService {
     }
 
     private async initialize() {
-        // await this.loadCache(); // Legacy
         await this.loadSettings();
         await this.migrateCacheToDb();
     }

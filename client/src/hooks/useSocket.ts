@@ -68,12 +68,10 @@ export function useSocket() {
         }) as any;
 
         socketInstance.on('connect', () => {
-            console.log('[Socket] Connected:', socketInstance.id);
             setIsConnected(true);
         });
 
         socketInstance.on('disconnect', () => {
-            console.log('[Socket] Disconnected');
             setIsConnected(false);
         });
 

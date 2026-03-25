@@ -73,7 +73,6 @@ async function startServer() {
       url.startsWith('/api/ai-logs') ||
       url.startsWith('/api/scrape-logs') ||
       url.startsWith('/api/telegram/status') ||
-      
       url.startsWith('/api/app-lock/status') ||
       url.includes('/settings')
     );

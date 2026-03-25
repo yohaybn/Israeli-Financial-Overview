@@ -307,6 +307,7 @@ export function useImportFiles() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
         },
     });
 }
