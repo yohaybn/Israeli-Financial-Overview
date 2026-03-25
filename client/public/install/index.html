@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Installation guide | Financial Overview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #475569;
+            --border: #e2e8f0;
+            --sidebar-width: 280px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', 'Assistant', sans-serif; background: var(--bg); color: var(--text-main); line-height: 1.65; }
+        .top-bar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1001;
+            display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem;
+            padding: 0.75rem 1rem; background: rgba(248, 250, 252, 0.92); backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border);
+        }
+        .top-bar a { color: var(--primary); font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+        .top-bar a:hover { text-decoration: underline; }
+        .lang-switcher {
+            background: var(--card-bg); border: 1px solid var(--border);
+            padding: 0.55rem 1.1rem; border-radius: 9999px; cursor: pointer;
+            font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .lang-switcher:hover { border-color: var(--primary); }
+        [dir="rtl"] .top-bar { flex-direction: row-reverse; }
+        [dir="rtl"] .lang-switcher { margin-left: 0; margin-right: auto; }
+        .wrapper { display: flex; min-height: 100vh; padding-top: 3.25rem; }
+        aside {
+            width: var(--sidebar-width); background: var(--card-bg);
+            border-right: 1px solid var(--border); padding: 1.5rem 1.25rem;
+            position: fixed; top: 3.25rem; height: calc(100vh - 3.25rem); overflow-y: auto; z-index: 50;
+        }
+        .nav-logo { font-size: 1.15rem; font-weight: 800; color: var(--primary); margin-bottom: 1.5rem; }
+        nav .nav-group { margin-bottom: 1.25rem; }
+        nav .nav-label { font-size: 0.65rem; font-weight: 800; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; padding-left: 0.35rem; }
+        nav ul { list-style: none; }
+        nav ul li a {
+            text-decoration: none; color: var(--text-muted); font-weight: 500;
+            padding: 0.5rem 0.65rem; border-radius: 8px; display: block; font-size: 0.9rem;
+        }
+        nav ul li a:hover { background: #eff6ff; color: var(--primary); }
+        main { flex: 1; margin-left: var(--sidebar-width); padding: 2rem 6% 4rem; max-width: 920px; }
+        header { margin-bottom: 2.5rem; }
+        header h1 { font-size: 2rem; font-weight: 800; color: #0f172a; margin-bottom: 0.75rem; }
+        header p { font-size: 1.05rem; color: var(--secondary); }
+        section { margin-bottom: 3rem; scroll-margin-top: 5rem; }
+        h2 { font-size: 1.45rem; margin-bottom: 1rem; color: #1e293b; border-bottom: 2px solid var(--border); padding-bottom: 0.6rem; }
+        h3 { font-size: 1.1rem; margin: 1.25rem 0 0.65rem; color: var(--primary-dark); font-weight: 700; }
+        p, li { margin-bottom: 0.75rem; font-size: 1rem; color: #475569; }
+        ol.steps { margin: 0 0 1.25rem 1.35rem; }
+        ol.steps > li { margin-bottom: 1rem; padding-left: 0.25rem; }
+        ol.steps ol { margin: 0.5rem 0 0 1.25rem; list-style: lower-alpha; }
+        ul { margin: 0.5rem 0 1rem 1.35rem; }
+        .callout { padding: 1rem 1.25rem; border-radius: 10px; margin: 1.25rem 0; border-left: 4px solid; }
+        .callout.info { background: #eff6ff; border-color: var(--primary); color: #1e40af; }
+        .callout.warning { background: #fffbeb; border-color: var(--warning); color: #92400e; }
+        .callout.success { background: #f0fdf4; border-color: var(--success); color: #166534; }
+        code { color: #be123c; background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 0.9em; }
+        .screenshot { margin: 1.25rem 0; }
+        .screenshot figcaption { font-size: 0.85rem; color: var(--secondary); margin-top: 0.5rem; }
+        .screenshot img {
+            max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+        }
+        .screenshot .missing-img-hint { display: none; font-size: 0.9rem; color: var(--secondary); padding: 0.75rem; background: #f1f5f9; border-radius: 8px; margin-bottom: 0.5rem; }
+        .screenshot.no-img .missing-img-hint { display: block; }
+        .screenshot.no-img img { display: none; }
+        html[lang="en"] .only-he { display: none !important; }
+        html[lang="he"] .only-en { display: none !important; }
+        [dir="rtl"] aside { border-right: none; border-left: 1px solid var(--border); right: 0; left: auto; }
+        [dir="rtl"] main { margin-left: 0; margin-right: var(--sidebar-width); }
+        [dir="rtl"] .callout { border-left: none; border-right: 4px solid; }
+        [dir="rtl"] ol.steps, [dir="rtl"] ul { margin-right: 1.35rem; margin-left: 0; }
+        @media (max-width: 960px) {
+            aside { display: none; }
+            main { margin: 0 !important; padding: 1.25rem 1rem 3rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a id="repo-link" href="https://github.com/yohaybn/israeli-bank-scraper-docker" target="_blank" rel="noopener">GitHub</a>
+        <button type="button" class="lang-switcher" onclick="toggleLanguage()"><span id="lang-label">עברית</span></button>
+    </div>
+    <div class="wrapper">
+        <aside>
+            <div class="nav-logo" id="nav-brand"></div>
+            <nav id="sidebar-nav"></nav>
+        </aside>
+        <main id="main-content"></main>
+    </div>
+    <script>
+        const REPO = 'https://github.com/yohaybn/israeli-bank-scraper-docker';
+
+        function imgFigure(src, caption) {
+            var esc = String(caption).replace(/"/g, '&quot;');
+            var missEn = 'Screenshot not bundled yet. Add PNGs to <code>install/screenshots/</code> (same names as <code>docs/video-guide-screenshots/</code>) or run <code>npm run video-guide:capture</code> and copy files.';
+            var missHe = 'צילום מסך עדיין לא נכלל. הוסף קבצי PNG ל־<code>install/screenshots/</code> (אותם שמות כמו ב־<code>docs/video-guide-screenshots/</code>) או הרץ <code>npm run video-guide:capture</code> והעתק קבצים.';
+            return '<figure class="screenshot"><div class="missing-img-hint"><span class="only-en">' + missEn + '</span><span class="only-he">' + missHe + '</span></div>' +
+                '<img src="' + src + '" alt="' + esc + '" loading="lazy" onerror="this.closest(\'figure\').classList.add(\'no-img\')">' +
+                '<figcaption>' + caption + '</figcaption></figure>';
+        }
+
+        const content = {
+            en: {
+                brand: 'Financial Overview',
+                title: 'Installation & getting started',
+                subtitle: 'Windows desktop app: download, run the server, open the web UI, and complete first-time setup (app lock, Telegram, Gemini).',
+                nav: [
+                    { label: 'Guide', items: [
+                        { id: 'overview', label: 'Overview' },
+                        { id: 'windows-install', label: '1. Download & install' },
+                        { id: 'run-ui', label: '2. Start server & browser' },
+                        { id: 'first-setup', label: '3. First setup & security' },
+                        { id: 'gemini-key', label: '4. Gemini API key' }
+                    ]}
+                ],
+                sections: {
+                    overview: {
+                        title: 'Overview',
+                        html: '<p>This guide is for the <strong>Windows installer</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) published on <a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. It walks through every step: downloading, trusting the installer, launching the app, opening the interface in your browser, setting a password, connecting Telegram and Gemini, and where screenshots help.</p>' +
+                            '<div class="callout info"><strong>Demo on GitHub Pages:</strong> The main site deployment is a <strong>static demo</strong> with mocked data. Real banking features require the server running on your PC (this installer) or Docker / Home Assistant as described in the repository README.</div>' +
+                            '<p><strong>Optional visuals:</strong> Screenshots are loaded from <code>install/screenshots/</code> (same filenames as <code>docs/video-guide-screenshots/</code> in the repo). If an image is missing, the figure is hidden automatically. You can generate them locally with <code>npm run video-guide:capture</code> and copy PNGs into the install folder.</p>'
+                    },
+                    'windows-install': {
+                        title: 'Step 1 — Download and install',
+                        html: '<ol class="steps">' +
+                            '<li><strong>Find the release.</strong> Open the repository’s <a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases</a> page and download <code>FinancialOverview-Windows-Setup.exe</code> for the version you want.</li>' +
+                            '<li><strong>Run the file.</strong> Double-click the downloaded <code>.exe</code>. If Windows shows a blue <strong>Windows protected your PC</strong> SmartScreen prompt, click <strong>More info</strong>, then <strong>Run anyway</strong>. This is normal for many open-source apps until they are broadly signed.</li>' +
+                            '<li><strong>Installer wizard.</strong> Click <strong>Next</strong> through the welcome and license screens. Choose the install folder if offered (default is under your user profile, e.g. <code>%LocalAppData%\\FinancialOverview</code>).</li>' +
+                            '<li><strong>Desktop shortcut.</strong> When asked, enable <strong>Create a desktop shortcut</strong> so you can start the app easily later.</li>' +
+                            '<li><strong>Finish.</strong> Click <strong>Install</strong>, wait for completion, then <strong>Finish</strong>. You should see shortcuts such as <strong>Financial Overview</strong> and optionally <strong>Open Financial Overview in browser</strong> in the Start menu.</li>' +
+                            '</ol>' +
+                            '<div class="callout warning"><strong>Note:</strong> The app bundles a portable Node.js runtime and dependencies—you do <strong>not</strong> need to install Node.js separately.</div>'
+                    },
+                    'run-ui': {
+                        title: 'Step 2 — Start the server and open the UI',
+                        html: '<ol class="steps">' +
+                            '<li><strong>Launch.</strong> Double-click the <strong>Financial Overview</strong> desktop or Start menu shortcut. A <strong>console (black) window</strong> opens and stays open while the server runs—this is expected.</li>' +
+                            '<li><strong>Wait for startup.</strong> On first launch, dependency checks may take a few seconds. Wait until the console shows that the server is listening (messages mentioning the port, usually <code>3000</code>).</li>' +
+                            '<li><strong>Open the web UI.</strong> By default the app is at <code>http://127.0.0.1:3000</code>. You can:' +
+                            '<ul><li>Use the second shortcut <strong>Open Financial Overview in browser</strong> after the server has started, or</li>' +
+                            '<li>Paste <code>http://127.0.0.1:3000</code> into the address bar, or</li>' +
+                            '<li>If the console prints a clickable link, <strong>hold Ctrl</strong> and click the link to open it in your default browser (some terminals require Ctrl+click for http links).</li></ul></li>' +
+                            '<li><strong>Port and data folder.</strong> To change port or data directory, edit <code>financial-overview.json</code> in the install folder (see <code>financial-overview.json.example</code> in the repo). Environment variables <code>PORT</code> and <code>DATA_DIR</code> override the file when set.</li>' +
+                            '</ol>' +
+                            imgFigure('screenshots/dashboard-expanded.png', 'Web UI — Dashboard (example)') +
+                            '<div class="callout success"><strong>Scraping in Windows:</strong> Scraping uses a Chromium-based browser. Install <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on the PC if the scraper cannot find a browser.</div>'
+                    },
+                    'first-setup': {
+                        title: 'Step 3 — First-time setup and security',
+                        html: '<h3>App lock (password)</h3>' +
+                            '<ol class="steps">' +
+                            '<li>When the onboarding or <strong>App lock</strong> screen appears, set a <strong>strong password</strong> (minimum length as shown in the UI). This protects your session and is used to derive encryption for <strong>saved bank profiles</strong> on this machine.</li>' +
+                            '<li>Confirm the password and continue. If you forget the password, encrypted profiles cannot be recovered—you must remove those profiles and enter bank credentials again after resetting lock (see the in-app Help / <code>GUIDE.html</code>).</li>' +
+                            '</ol>' +
+                            '<h3>Telegram bot (BotFather)</h3>' +
+                            '<ol class="steps">' +
+                            '<li>In Telegram, open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> and tap <strong>Start</strong>.</li>' +
+                            '<li>Send <code>/newbot</code>. Follow the prompts to choose a <strong>display name</strong> and a <strong>username</strong> ending in <code>bot</code>.</li>' +
+                            '<li>BotFather replies with a long <strong>token</strong> (API key for your bot). Copy it.</li>' +
+                            '<li>In Financial Overview, go to <strong>Configuration → Telegram</strong>, paste the token, save, and use <strong>Start</strong> / test as the UI allows. Add your chat ID under notification settings as documented in <a href="' + REPO + '/blob/master/docs/TELEGRAM_BOT_GUIDE.md" target="_blank" rel="noopener">TELEGRAM_BOT_GUIDE.md</a>.</li>' +
+                            '</ol>' +
+                            imgFigure('screenshots/config-telegram.png', 'Configuration — Telegram tab (example)') +
+                            '<p>Full command list and notification behavior: see the Telegram guide linked above.</p>'
+                    },
+                    'gemini-key': {
+                        title: 'Step 4 — Gemini API key (Google AI Studio)',
+                        html: '<ol class="steps">' +
+                            '<li><strong>Open Google AI Studio from the app.</strong> In the onboarding or Configuration area under <strong>Enable AI features</strong>, use the link <strong>Open Google AI Studio to get an API key</strong>. A new browser tab opens.</li>' +
+                            '<li><strong>Welcome / consent.</strong> If you see <strong>Welcome to AI Studio</strong> or terms, accept that you are building apps with Google and continue.</li>' +
+                            '<li><strong>Get API key.</strong> On the AI Studio home screen, click <strong>Get API key</strong> (sidebar or top area). If this is your first key, choose <strong>Create API key in new project</strong> (wording may vary slightly).</li>' +
+                            '<li><strong>Copy the key.</strong> Google shows a secret string—use <strong>Copy</strong>. Treat it like a password; do not share it or commit it to public repos.</li>' +
+                            '<li><strong>Paste in Financial Overview.</strong> Return to <code>http://127.0.0.1:3000</code>, open <strong>Configuration → AI</strong> (or the onboarding step), paste into the <strong>Gemini API key</strong> field, and continue / save.</li>' +
+                            '<li><strong>Enable features.</strong> After saving, AI categorization, analyst chat, and related features can run against Google’s API according to your quota and settings.</li>' +
+                            '</ol>' +
+                            imgFigure('screenshots/config-ai.png', 'Configuration — AI / Gemini (example)') +
+                            '<div class="callout info">Optional: Restrict the key to Gemini in Google Cloud and monitor usage in Google AI Studio / Cloud console.</div>'
+                    }
+                }
+            },
+            he: {
+                brand: 'מבט כלכלי',
+                title: 'מדריך התקנה והפעלה מרוכז',
+                subtitle: 'אפליקציית Windows: הורדה, הרצת השרת, פתיחת הממשק, והגדרות ראשוניות (נעילת אפליקציה, טלגרם, Gemini).',
+                nav: [
+                    { label: 'מדריך', items: [
+                        { id: 'overview', label: 'סקירה' },
+                        { id: 'windows-install', label: '1. הורדה והתקנה' },
+                        { id: 'run-ui', label: '2. שרת ודפדפן' },
+                        { id: 'first-setup', label: '3. הגדרות ראשוניות' },
+                        { id: 'gemini-key', label: '4. מפתח Gemini' }
+                    ]}
+                ],
+                sections: {
+                    overview: {
+                        title: 'סקירה',
+                        html: '<p>מדריך זה מיועד ל<strong>מתקין Windows</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) שמפורסם ב־<a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. הוא מפרט שלב אחר שלב: הורדה, אישור אבטחה של Windows, הפעלה, פתיחת הממשק בדפדפן, הגדרת סיסמה, חיבור טלגרם ו־Gemini, והיכן שימוש בצילומי מסך עוזר.</p>' +
+                            '<div class="callout info"><strong>הדגמה ב־GitHub Pages:</strong> האתר המפורסם שם הוא <strong>דמו סטטי</strong> עם נתונים מדומים. יכולות בנקאיות אמיתיות דורשות את השרת על המחשב שלך (מתקין זה) או Docker / Home Assistant כמפורט ב־README של המאגר.</div>' +
+                            '<p><strong>תמונות (אופציונלי):</strong> צילומי מסך נטענים מ־<code>install/screenshots/</code> (אותם שמות כמו ב־<code>docs/video-guide-screenshots/</code> במאגר). אם קובץ חסר, השדה מוסתר אוטומטית. אפשר ליצור מקומית עם <code>npm run video-guide:capture</code> ולהעתיק PNG לתיקיית ההתקנה.</p>'
+                    },
+                    'windows-install': {
+                        title: 'שלב 1: הורדה והתקנה',
+                        html: '<ol class="steps">' +
+                            '<li><strong>מציאת הגרסה.</strong> היכנס לעמוד <a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases</a> ב־GitHub והורד את <code>FinancialOverview-Windows-Setup.exe</code> של הגרסה הרצויה.</li>' +
+                            '<li><strong>הרצת הקובץ.</strong> לחץ פעמיים על קובץ ה־<code>.exe</code>. אם מופיע חלון כחול של Windows (<strong>Windows protected your PC</strong>), לחץ <strong>More info</strong> ואז <strong>Run anyway</strong>. זה נפוץ באפליקציות קוד פתוח לפני חתימה רחבה.</li>' +
+                            '<li><strong>אשף ההתקנה.</strong> לחץ <strong>Next</strong> במסכי הפתיחה והרישיון. אם מוצעת בחירת תיקייה, ברירת המחדל היא לרוב תחת הפרופיל שלך (למשל <code>%LocalAppData%\\FinancialOverview</code>).</li>' +
+                            '<li><strong>קיצור דרך בשולחן העבודה.</strong> סמן את האפשרות <strong>Create a desktop shortcut</strong> כדי להפעיל את התוכנה בקלות בהמשך.</li>' +
+                            '<li><strong>סיום.</strong> לחץ <strong>Install</strong>, המתן לסיום, ואז <strong>Finish</strong>. אמורים להופיע קיצורים כמו <strong>Financial Overview</strong> ואופציונלית <strong>Open Financial Overview in browser</strong> בתפריט התחל.</li>' +
+                            '</ol>' +
+                            '<div class="callout warning"><strong>שימו לב:</strong> החבילה כוללת זמן ריצה של Node.js נייד ותלויות—<strong>אין צורך</strong> להתקין Node.js בנפרד.</div>'
+                    },
+                    'run-ui': {
+                        title: 'שלב 2: הפעלת השרת והממשק',
+                        html: '<ol class="steps">' +
+                            '<li><strong>הרצה.</strong> לחץ פעמיים על קיצור הדרך <strong>Financial Overview</strong> בשולחן העבודה או בתפריט התחל. נפתח חלון <strong>שורת פקודה (שחור)</strong> שנשאר פתוח כל עוד השרת רץ—זה התנהגות תקינה.</li>' +
+                            '<li><strong>טעינה.</strong> בהפעלה ראשונה בדיקות עלולות לקחת מספר שניות. המתן עד שהחלון מציין שהשרת מאזין (לרוב פורט <code>3000</code>).</li>' +
+                            '<li><strong>כניסה לממשק.</strong> כתובת ברירת המחדל: <code>http://127.0.0.1:3000</code>. אפשר:' +
+                            '<ul><li>להשתמש בקיצור <strong>Open Financial Overview in browser</strong> אחרי שהשרת עלה, או</li>' +
+                            '<li>להדביק את <code>http://127.0.0.1:3000</code> בשורת הכתובת, או</li>' +
+                            '<li>אם מופיע קישור ירוק בקונסולה, <strong>החזק Ctrl</strong> ולחץ על הקישור כדי לפתוח בדפדפן (בחלק מהמסופים נדרש Ctrl+לחיצה על קישורי http).</li></ul></li>' +
+                            '<li><strong>פורט ותיקיית נתונים.</strong> לעריכה: קובץ <code>financial-overview.json</code> בתיקיית ההתקנה (ראו <code>financial-overview.json.example</code> במאגר). משתני סביבה <code>PORT</code> ו־<code>DATA_DIR</code> דורסים את הקובץ אם מוגדרים.</li>' +
+                            '</ol>' +
+                            imgFigure('screenshots/dashboard-expanded.png', 'ממשק אינטרנט — לוח בקרה (דוגמה)') +
+                            '<div class="callout success"><strong>סריקה ב־Windows:</strong> הסריקה משתמשת בדפדפן מבוסס Chromium. התקן <strong>Google Chrome</strong> או <strong>Microsoft Edge</strong> במחשב אם הסורק לא מוצא דפדפן.</div>'
+                    },
+                    'first-setup': {
+                        title: 'שלב 3: הגדרות ראשוניות ואבטחה',
+                        html: '<h3>נעילת אפליקציה (סיסמה)</h3>' +
+                            '<ol class="steps">' +
+                            '<li>במסך ההגדרות הראשוני (<strong>App lock</strong>), הגדר <strong>סיסמה חזקה</strong> (אורך מינימלי כפי שמוצג בממשק). הסיסמה מגינה על הסשן ומשמשת לגזירת מפתח להצפנת <strong>פרופילי בנק שמורים</strong> במחשב זה.</li>' +
+                            '<li>אשר את הסיסמה והמשך. אם שכחת סיסמה, פרופילים מוצפנים לא ניתנים לשחזור—יש למחוק פרופילים אלה ולהזין מחדש אחרי איפוס הנעילה (ראו עזרה בממשק / <code>GUIDE.html</code>).</li>' +
+                            '</ol>' +
+                            '<h3>בוט טלגרם (BotFather)</h3>' +
+                            '<ol class="steps">' +
+                            '<li>בטלגרם פתח את <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> ולחץ <strong>Start</strong>.</li>' +
+                            '<li>שלח <code>/newbot</code>, בחר <strong>שם תצוגה</strong> ו־<strong>שם משתמש</strong> שמסתיים ב־<code>bot</code>.</li>' +
+                            '<li>BotFather מחזיר <strong>טוקן</strong> ארוך—העתק אותו.</li>' +
+                            '<li>ב־Financial Overview: <strong>Configuration → Telegram</strong>, הדבק את הטוקן, שמור והפעל לפי הממשק. הוסף מזהה צ׳אט להתראות לפי <a href="' + REPO + '/blob/master/docs/TELEGRAM_BOT_GUIDE.md" target="_blank" rel="noopener">TELEGRAM_BOT_GUIDE.md</a>.</li>' +
+                            '</ol>' +
+                            imgFigure('screenshots/config-telegram.png', 'הגדרות — טלגרם (דוגמה)') +
+                            '<p>פירוט פקודות והתראות: במדריך הטלגרם במאגר.</p>'
+                    },
+                    'gemini-key': {
+                        title: 'מדריך להוצאת מפתח API עבור Gemini',
+                        html: '<ol class="steps">' +
+                            '<li><strong>פתיחת Google AI Studio.</strong> בממשק, תחת <strong>הפעל תכונות AI</strong>, לחץ על הקישור לפתיחת <strong>Google AI Studio</strong> לקבלת מפתח API. נפתח דף חדש בדפדפן.</li>' +
+                            '<li><strong>הסכמה.</strong> אם מופיע חלון ברוכים הבאים / תנאים, סמן את האישור שאתה מפתח וממשיך.</li>' +
+                            '<li><strong>יצירת מפתח.</strong> במסך הראשי של AI Studio לחץ <strong>Get API key</strong> (בתפריט הצדדי או בראש הדף). אם זה המפתח הראשון, לחץ <strong>Create API key in new project</strong> (ניסוח עשוי להשתנות מעט).</li>' +
+                            '<li><strong>העתקה.</strong> העתק את המחרוזת הסודית (<strong>Copy</strong>). אל תשתף ואל תעלה לריפו ציבורי.</li>' +
+                            '<li><strong>חיבור לתוכנה.</strong> חזור ל־<code>http://127.0.0.1:3000</code>, פתח <strong>Configuration → AI</strong> (או שלב בהגדרות ראשוניות), והדבק בשדה <strong>Gemini API key</strong>, שמור / המשך.</li>' +
+                            '<li><strong>הפעלת יכולות.</strong> לאחר השמירה, ניתן להשתמש בקטגוריזציה, צ׳אט אנליסט ותכונות AI נוספות לפי המכסה וההגדרות בגוגל.</li>' +
+                            '</ol>' +
+                            imgFigure('screenshots/config-ai.png', 'הגדרות — AI / Gemini (דוגמה)') +
+                            '<div class="callout info">אופציונלי: הגבל את המפתח ל־Gemini ב־Google Cloud ועקוב אחר שימוש ב־AI Studio / Cloud.</div>'
+                    }
+                }
+            }
+        };
+
+        let currentLang = localStorage.getItem('installGuideLang') || 'en';
+
+        const sectionOrder = ['overview', 'windows-install', 'run-ui', 'first-setup', 'gemini-key'];
+
+        function render() {
+            const data = content[currentLang];
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'he' ? 'rtl' : 'ltr';
+            document.getElementById('lang-label').textContent = currentLang === 'en' ? 'עברית' : 'English';
+            document.getElementById('nav-brand').textContent = data.brand;
+
+            const navHtml = data.nav.map(function (group) {
+                return '<div class="nav-group"><div class="nav-label">' + group.label + '</div><ul>' +
+                    group.items.map(function (item) {
+                        return '<li><a href="#' + item.id + '">' + item.label + '</a></li>';
+                    }).join('') + '</ul></div>';
+            }).join('');
+            document.getElementById('sidebar-nav').innerHTML = navHtml;
+
+            let mainHtml = '<header><h1>' + data.title + '</h1><p>' + data.subtitle + '</p></header>';
+            sectionOrder.forEach(function (key) {
+                const sec = data.sections[key];
+                if (!sec) return;
+                mainHtml += '<section id="' + key + '"><h2>' + sec.title + '</h2>' + sec.html + '</section>';
+            });
+            document.getElementById('main-content').innerHTML = mainHtml;
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'he' : 'en';
+            localStorage.setItem('installGuideLang', currentLang);
+            render();
+        }
+
+        render();
+
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest('a');
+            if (a && a.hash && a.pathname === location.pathname) {
+                e.preventDefault();
+                const target = document.querySelector(a.hash);
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    </script>
+</body>
+</html>

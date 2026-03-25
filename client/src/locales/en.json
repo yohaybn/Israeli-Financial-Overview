@@ -36,6 +36,7 @@
         "expand_sidebar": "Expand Sidebar",
         "collapse_sidebar": "Collapse Sidebar",
         "help": "Help & Guide",
+        "help_docs": "Help Docs (full guide)",
         "english": "English",
         "hebrew": "Hebrew",
         "sidebar_placeholder": "Sidebar content available in Scrape view",
@@ -85,7 +86,8 @@
         "language_toggle_aria": "Switch language",
         "open_configuration_aria": "Open configuration",
         "profile_placeholder_aria": "Profile",
-        "main_navigation_aria": "Main navigation"
+        "main_navigation_aria": "Main navigation",
+        "error_occurred": "An error occurred. Please try again."
     },
     "scheduler": {
         "title": "Scheduler",
@@ -1029,18 +1031,46 @@
         "steps": {
             "welcome_title": "Welcome",
             "lock_title": "Protect saved bank logins",
+            "telegram_title": "Telegram notifications (optional)",
             "gemini_title": "Enable AI features",
             "google_title": "Connect Google (Sheets & Drive)",
-            "drive_title": "Default Drive folder (optional)",
+            "drive_title": "Default Drive folder for optional backup",
             "done_title": "You are ready",
             "welcome_tip": "Tip: use the EN / HE button in the header to switch language anytime.",
-            "step_0_body": "This app runs on your computer. Your bank data stays local unless you choose to sync with Google.\n\nWe will walk you through optional settings: securing saved profiles, AI (Gemini), Google sign-in, and an optional Drive folder. You can paste a Telegram bot token below (from @BotFather) or add it later under Configuration → Telegram along with allowed user IDs. You can skip anything and finish later.",
+            "step_0_body": "This app runs on your computer. Your bank data stays local unless you choose to sync with Google.\n\nWe will walk you through optional settings: securing saved profiles, optional Telegram notifications, AI (Gemini), Google sign-in, and an optional Drive folder for backup. You can skip anything and finish later.",
             "step_1_body": "If you save bank profiles in the app, they are encrypted with a password you choose. This password is not sent to the cloud — it only unlocks your saved credentials on this machine.\n\nMinimum 8 characters. You can skip and enable the lock later from the banner.",
-            "step_2_body": "Gemini powers automatic categorization of transactions and the financial assistant chat. Without a key, those features stay off; scraping and viewing data still work.\n\nGet a free API key from Google AI Studio and paste it below.",
-            "step_3_body": "To connect Google Sheets and Google Drive backup, the app needs OAuth credentials from Google Cloud: a Client ID and Client Secret. You must also add the redirect URI below to your OAuth client in Google Cloud — it must match exactly.\n\nYou can skip this and add Google later under Configuration.",
-            "step_4_body": "If you use a specific Google Drive folder for backups or exports, paste its folder ID here (the long part of the URL after /folders/). Leave empty to skip — you can pick a folder in the app later.",
-            "step_5_body": "That is it for the guided setup. If you saved API keys or OAuth settings, you may need to restart the server once for them to apply."
+            "step_2_body": "Optional Telegram bot notifications. Paste a bot token from @BotFather, or add it later under Configuration → Telegram along with allowed user IDs.\n\nSkip this step if you do not use Telegram.",
+            "step_3_body": "Gemini powers automatic categorization of transactions and the financial assistant chat. Without a key, those features stay off; scraping and viewing data still work.\n\nGet a free API key from Google AI Studio and paste it below.",
+            "step_4_body": "To connect Google Sheets and Google Drive for optional backup and exports, the app needs OAuth credentials from Google Cloud: a Client ID and Client Secret. You must also add the redirect URI below to your OAuth client in Google Cloud — it must match exactly.\n\nGoogle Drive is used only for optional backup when you configure it. You can skip this and add Google later under Configuration.",
+            "step_5_body": "Optional backup: if you use a specific Google Drive folder for backups or exports, paste its folder ID here (the long part of the URL after /folders/). Leave empty to skip — you can pick a folder in the app later.",
+            "step_6_body": "That is it for the guided setup. If you saved API keys or OAuth settings, you may need to restart the server once for them to apply."
         }
+    },
+    "getting_started": {
+        "badge": "App tour",
+        "continue_later": "Continue later",
+        "dismiss_tour": "Dismiss tour",
+        "resume": "Resume tour",
+        "resume_banner": "App tour paused at step {{step}}. Resume when you are ready.",
+        "skip_all": "Skip tour",
+        "next": "Next",
+        "back": "Back",
+        "finish": "Finish tour",
+        "footer_hint": "Use the top tabs to switch areas anytime. The App Assistant and Help Docs in the header stay available. You can close this tour and resume from the banner below.",
+        "rerun_tour": "App tour",
+        "rerun_confirm": "Start the app tour again from the beginning?",
+        "step_0_title": "How to use this app",
+        "step_0_body": "This short tour walks you through the main workflow: save a bank profile, run your first scrape, then explore the dashboard, logs, and configuration.\n\nNothing here is required to continue — follow along when you are ready.\n\nHelp is always in the top-right of the header (next to the language switch): open App Assistant (blue bot icon) to ask how the app works. Next to it, Help Docs (question mark icon) opens the full bilingual guide (GUIDE.html) in a new tab.",
+        "step_1_title": "Configure your first profile",
+        "step_1_body": "Open the Scrape tab (we switch there for you). In the form at the top, choose your bank and sign in, or pick a saved profile if you already created one.\n\nIf app lock is enabled, unlock when prompted so the app can use saved credentials. Use the gear next to the form for advanced scraper options.",
+        "step_2_title": "Run your first scrape",
+        "step_2_body": "Still on Scrape: start a run with your profile. Watch live progress, then review transactions in the results area below.\n\nAfter a successful run, your data feeds the dashboard and explorer.",
+        "step_3_title": "Explore the dashboard",
+        "step_3_body": "The Dashboard tab summarizes income and spending by month, categories, subscriptions, and trends. Pick a month from the selector and drill into charts and lists.\n\nThis is the best place for a high-level picture of your finances.\n\nFor AI questions about your own transactions and trends, tap the floating indigo button at the bottom-right to open the AI Financial Analyst (set up Gemini under Configuration → AI first). That is separate from App Assistant in the header, which answers how to use the app and opens from the blue bot icon.",
+        "step_4_title": "Logs",
+        "step_4_body": "The Logs tab shows server, client, AI, and scrape activity. Use it to troubleshoot failed scrapes, API issues, or automation.\n\nSwitch log types with the tabs at the top and inspect entries when something goes wrong.",
+        "step_5_title": "Configuration",
+        "step_5_body": "Configuration holds AI settings, memory, scheduler, scraper defaults, Google Sheets, Telegram, environment variables, and maintenance tools.\n\nWe open the Scraper section first — tune defaults here; other tabs cover integrations and automation."
     },
     "env": {
         "title": "Environment Variables",
@@ -1105,5 +1135,12 @@
     },
     "transactions": {
         "merchant": "Merchant"
+    },
+    "help": {
+        "title": "App Assistant",
+        "empty_state": "Ask me anything about how to use the app!",
+        "thinking": "Thinking...",
+        "input_placeholder": "Ask a question...",
+        "open_button": "App Assistant"
     }
 }

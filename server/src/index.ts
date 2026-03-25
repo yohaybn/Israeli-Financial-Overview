@@ -38,6 +38,7 @@ async function startServer() {
   const { configRoutes } = await import('./routes/configRoutes.js');
   const { fraudRoutes } = await import('./routes/fraudRoutes.js');
   const { appLockRoutes } = await import('./routes/appLockRoutes.js');
+  const { helpRoutes } = await import('./routes/helpRoutes.js');
 
   const app = express();
   const rawPort = parseInt(process.env.PORT || '3000', 10);
@@ -135,6 +136,7 @@ async function startServer() {
   app.use('/api/notifications', createNotificationRoutes());
   app.use('/api/config', configRoutes);
   app.use('/api/fraud', fraudRoutes);
+  app.use('/api/help', helpRoutes);
 
   // Socket.IO connection handling
   io.on('connection', (socket) => {

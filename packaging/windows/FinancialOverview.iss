@@ -22,6 +22,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+SetupIconFile=..\..\client\public\favicon.ico
+UninstallDisplayIcon={app}\app.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -33,6 +35,6 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\launch-FinancialOverview.cmd"; WorkingDir: "{app}"
-Name: "{group}\Open Financial Overview in browser"; Filename: "{app}\open-browser.cmd"; WorkingDir: "{app}"
-Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\launch-FinancialOverview.cmd"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\launch-FinancialOverview.cmd"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
+Name: "{group}\Open Financial Overview in browser"; Filename: "{app}\open-browser.cmd"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\launch-FinancialOverview.cmd"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"; Tasks: desktopicon

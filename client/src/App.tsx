@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
@@ -12,10 +12,15 @@ import { AppLockBanner } from './components/AppLockBanner';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
 import { useOnboarding } from './contexts/OnboardingContext';
+import { useGettingStarted } from './contexts/GettingStartedContext';
+import { GettingStartedWizard } from './components/onboarding/GettingStartedWizard';
+import { GettingStartedResumeBanner } from './components/onboarding/GettingStartedResumeBanner';
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { isDemoMode } from './demo/isDemo';
+import { Map, HelpCircle, Bot } from 'lucide-react';
 import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
+import { HelpAssistantChat } from './components/help/HelpAssistantChat';
 
 function consumeSessionConfigTab(): string | null {
     try {
@@ -30,6 +35,17 @@ function consumeSessionConfigTab(): string | null {
 function App() {
     const { t, i18n } = useTranslation();
     const onboarding = useOnboarding();
+    const gettingStarted = useGettingStarted();
+
+    const navigateGettingStarted = useCallback((patch: Partial<AppUrlState>) => {
+        setNav((prev) => ({ ...prev, ...patch }));
+    }, []);
+
+    const showGettingStartedWizard =
+        !isDemoMode() &&
+        onboarding.completed &&
+        !onboarding.showModal &&
+        gettingStarted.showModal;
     const [nav, setNav] = useState<AppUrlState>(() =>
         parseAppUrlState(window.location.search, consumeSessionConfigTab())
     );
@@ -140,10 +156,21 @@ function App() {
                                     </button>
                                     <button
                                         type="button"
+                                        onClick={() => {
+                                            window.dispatchEvent(new CustomEvent('toggle-help-widget', { detail: { open: true } }));
+                                        }}
+                                        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-800 hover:bg-blue-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                        title={t('help.open_button', 'App Assistant')}
+                                        aria-label={t('help.open_button', 'App Assistant')}
+                                    >
+                                        <Bot className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => window.open(`${import.meta.env.BASE_URL}GUIDE.html`, '_blank')}
                                         className="h-9 w-9 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                                        title={t('common.help')}
-                                        aria-label={t('common.help')}
+                                        title={t('common.help_docs', 'Help Docs')}
+                                        aria-label={t('common.help_docs', 'Help Docs')}
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                                             <path
@@ -155,26 +182,43 @@ function App() {
                                         </svg>
                                     </button>
                                     {onboarding.completed && !isDemoMode() ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (window.confirm(t('onboarding.rerun_confirm'))) {
-                                                    onboarding.restartWizard();
-                                                }
-                                            }}
-                                            className="h-9 w-9 inline-flex items-center justify-center rounded-full text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                            title={t('onboarding.rerun_wizard')}
-                                            aria-label={t('onboarding.rerun_wizard')}
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={1.75}
-                                                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-                                                />
-                                            </svg>
-                                        </button>
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (window.confirm(t('onboarding.rerun_confirm'))) {
+                                                        onboarding.restartWizard();
+                                                    }
+                                                }}
+                                                className="h-9 w-9 inline-flex items-center justify-center rounded-full text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                title={t('onboarding.rerun_wizard')}
+                                                aria-label={t('onboarding.rerun_wizard')}
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={1.75}
+                                                        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            {gettingStarted.completed && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (window.confirm(t('getting_started.rerun_confirm'))) {
+                                                            gettingStarted.restartTour();
+                                                        }
+                                                    }}
+                                                    className="h-9 w-9 inline-flex items-center justify-center rounded-full text-teal-600 hover:text-teal-800 hover:bg-teal-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                                                    title={t('getting_started.rerun_tour')}
+                                                    aria-label={t('getting_started.rerun_tour')}
+                                                >
+                                                    <Map className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                                </button>
+                                            )}
+                                        </>
                                     ) : (
                                         <button
                                             type="button"
@@ -242,6 +286,8 @@ function App() {
                 <AppLockBanner />
 
                 {onboarding.showResumeBanner && <OnboardingResumeBanner />}
+
+                {gettingStarted.showResumeBanner && <GettingStartedResumeBanner />}
 
                 {transactionReviewAlert && transactionReviewAlert.count > 0 && (
                     <div
@@ -360,6 +406,10 @@ function App() {
             <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
 
             {onboarding.showModal && <OnboardingWizard />}
+
+            {showGettingStartedWizard && <GettingStartedWizard onNavigate={navigateGettingStarted} />}
+
+            <HelpAssistantChat />
         </>
     );
 }

@@ -5,6 +5,7 @@ import './index.css';
 import './i18n';
 import { QueryProvider } from './providers/QueryProvider';
 import { OnboardingProvider } from './contexts/OnboardingContext';
+import { GettingStartedProvider } from './contexts/GettingStartedContext';
 import { ServerActivityProvider } from './contexts/ServerActivityContext';
 import { isDemoMode } from './demo/isDemo';
 
@@ -24,9 +25,11 @@ async function bootstrap() {
         <React.StrictMode>
             <QueryProvider>
                 <OnboardingProvider>
-                    <ServerActivityProvider>
-                        <App />
-                    </ServerActivityProvider>
+                    <GettingStartedProvider>
+                        <ServerActivityProvider>
+                            <App />
+                        </ServerActivityProvider>
+                    </GettingStartedProvider>
                 </OnboardingProvider>
             </QueryProvider>
         </React.StrictMode>

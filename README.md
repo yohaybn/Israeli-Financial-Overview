@@ -61,6 +61,8 @@ For a **one-file** distribution on Windows, build an installer that bundles the 
 
 **End users**
 
+Step-by-step (download, SmartScreen, shortcuts, browser, app lock, Telegram, Gemini): **[Installation guide on GitHub Pages](https://yohaybn.github.io/israeli-bank-scraper-docker/install/)** (English / Hebrew).
+
 1. Run **`FinancialOverview-Windows-Setup.exe`** and complete the wizard (default install folder: `%LocalAppData%\FinancialOverview`).
 2. Start the app from the Start menu shortcut **`Financial Overview`**, or run `launch-FinancialOverview.cmd` in the install folder. A console window stays open while the server runs; close it to stop.
 3. Open **`http://127.0.0.1:3000`** in your browser (default **port** is `3000`). Use the second shortcut **Open Financial Overview in browser** after the server has started, or wait a few seconds on first launch.
@@ -69,9 +71,12 @@ For a **one-file** distribution on Windows, build an installer that bundles the 
 
 Full maintainer notes: [packaging/windows/README.md](packaging/windows/README.md).
 
-## GitHub Pages (demo UI only)
+## GitHub Pages (demo UI + installation guide)
 
-The workflow in `.github/workflows/pages.yml` can publish a **static demo** (`VITE_DEMO=true`, in-browser API mocks, sample data). It does **not** connect to banks or your server. Full functionality requires the server stack above.
+The workflow in `.github/workflows/pages.yml` publishes:
+
+- A **static demo** (`VITE_DEMO=true`, in-browser API mocks, sample data). It does **not** connect to banks or your server. Full functionality requires the server stack above.
+- A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/israeli-bank-scraper-docker/install/](https://yohaybn.github.io/israeli-bank-scraper-docker/install/) after Pages is enabled). PNGs are merged from `docs/video-guide-screenshots/` when that folder exists in the build; you can also place files under `client/public/install/screenshots/` so they ship with the static site.
 
 ## Dashboard behavior (recent logic)
 
@@ -83,6 +88,7 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 
 | Doc | Purpose |
 |-----|---------|
+| **[Installation guide (GitHub Pages)](https://yohaybn.github.io/israeli-bank-scraper-docker/install/)** | Step-by-step Windows install, first run, Telegram, and Gemini API (EN/HE); source: [`client/public/install/index.html`](client/public/install/index.html). |
 | **[client/public/GUIDE.html](client/public/GUIDE.html)** | Full user guide (EN/HE toggle) — same file the app opens from **Help**. |
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior. |

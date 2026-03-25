@@ -8,6 +8,7 @@ import {
     CheckCircle2,
     KeyRound,
     Lock,
+    MessageCircle,
     Sparkles,
     Cloud,
     FolderOpen,
@@ -54,7 +55,7 @@ export function OnboardingWizard() {
             const data = await res.json();
             return data.data as { botToken?: string } | undefined;
         },
-        enabled: step === 0
+        enabled: step === 2
     });
 
     useEffect(() => {
@@ -75,7 +76,7 @@ export function OnboardingWizard() {
     }, [telegramConfig]);
 
     useEffect(() => {
-        if (step === 3 && !redirectUri) {
+        if (step === 4 && !redirectUri) {
             setRedirectUri(getGoogleOAuthCallbackUrl());
         }
     }, [step, redirectUri]);
@@ -89,29 +90,29 @@ export function OnboardingWizard() {
         return Boolean(fromEnv || fromForm);
     }, [envConfig?.GOOGLE_CLIENT_ID, googleId]);
 
-    const totalWizardSteps = showDriveStep ? 6 : 5;
+    const totalWizardSteps = showDriveStep ? 7 : 6;
     const progressCurrent =
-        showDriveStep || step < 4 ? Math.min(step + 1, totalWizardSteps) : totalWizardSteps;
+        showDriveStep || step < 5 ? Math.min(step + 1, totalWizardSteps) : totalWizardSteps;
 
     const advanceAfterGoogleStep = () => {
         if (!showDriveStep) {
-            setStep(5);
+            setStep(6);
         } else {
             nextStep();
         }
     };
 
     const onboardingPrevStep = () => {
-        if (step === 5 && !showDriveStep) {
-            setStep(3);
+        if (step === 6 && !showDriveStep) {
+            setStep(4);
         } else {
             prevStep();
         }
     };
 
     useLayoutEffect(() => {
-        if (step === 4 && !showDriveStep) {
-            setStep(5);
+        if (step === 5 && !showDriveStep) {
+            setStep(6);
         }
     }, [step, showDriveStep, setStep]);
 
@@ -119,11 +120,11 @@ export function OnboardingWizard() {
         complete();
     };
 
-    const handleWelcomeContinue = async () => {
+    const handleTelegramStepContinue = async () => {
         setSaveError(null);
         const trimmed = telegramToken.trim();
         if (!trimmed || trimmed.includes('***')) {
-            setStep(1);
+            nextStep();
             return;
         }
         setIsSavingTelegram(true);
@@ -135,7 +136,7 @@ export function OnboardingWizard() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || t('onboarding.save_failed'));
-            setStep(1);
+            nextStep();
         } catch (e: unknown) {
             setSaveError(e instanceof Error ? e.message : t('onboarding.save_failed'));
         } finally {
@@ -234,6 +235,7 @@ export function OnboardingWizard() {
         const keys = [
             'onboarding.steps.welcome_title',
             'onboarding.steps.lock_title',
+            'onboarding.steps.telegram_title',
             'onboarding.steps.gemini_title',
             'onboarding.steps.google_title',
             'onboarding.steps.drive_title',
@@ -275,10 +277,11 @@ export function OnboardingWizard() {
                         <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
                             {step === 0 && <Sparkles className="w-6 h-6" />}
                             {step === 1 && <Lock className="w-6 h-6" />}
-                            {step === 2 && <KeyRound className="w-6 h-6" />}
-                            {step === 3 && <Cloud className="w-6 h-6" />}
-                            {step === 4 && showDriveStep && <FolderOpen className="w-6 h-6" />}
-                            {step === 5 && <CheckCircle2 className="w-6 h-6" />}
+                            {step === 2 && <MessageCircle className="w-6 h-6" />}
+                            {step === 3 && <KeyRound className="w-6 h-6" />}
+                            {step === 4 && <Cloud className="w-6 h-6" />}
+                            {step === 5 && showDriveStep && <FolderOpen className="w-6 h-6" />}
+                            {step === 6 && <CheckCircle2 className="w-6 h-6" />}
                         </div>
                         <div className="min-w-0 flex-1">
                             <h2 id="onboarding-title" className="text-xl font-black text-slate-900 leading-tight">
@@ -297,6 +300,15 @@ export function OnboardingWizard() {
                     )}
 
                     {step === 0 && (
+                        <div className="space-y-4">
+                            <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 flex gap-2 text-sm text-slate-600">
+                                <BookOpen className="w-5 h-5 shrink-0 text-slate-400" />
+                                <p>{t('onboarding.steps.welcome_tip')}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 2 && (
                         <div className="space-y-4">
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-600 block">
@@ -318,10 +330,6 @@ export function OnboardingWizard() {
                                 >
                                     {t('onboarding.open_botfather')}
                                 </a>
-                            </div>
-                            <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 flex gap-2 text-sm text-slate-600">
-                                <BookOpen className="w-5 h-5 shrink-0 text-slate-400" />
-                                <p>{t('onboarding.steps.welcome_tip')}</p>
                             </div>
                         </div>
                     )}
@@ -380,7 +388,7 @@ export function OnboardingWizard() {
                         </div>
                     )}
 
-                    {step === 2 && (
+                    {step === 3 && (
                         <div className="space-y-3">
                             <label className="text-xs font-bold text-slate-600 block">
                                 {t('onboarding.gemini_label')}
@@ -404,7 +412,7 @@ export function OnboardingWizard() {
                         </div>
                     )}
 
-                    {step === 3 && (
+                    {step === 4 && (
                         <div className="space-y-3">
                             <div>
                                 <label className="text-xs font-bold text-slate-600 block mb-1">
@@ -449,7 +457,7 @@ export function OnboardingWizard() {
                         </div>
                     )}
 
-                    {step === 4 && showDriveStep && (
+                    {step === 5 && showDriveStep && (
                         <div className="space-y-3">
                             <label className="text-xs font-bold text-slate-600 block">
                                 {t('onboarding.drive_folder_label')}
@@ -463,7 +471,7 @@ export function OnboardingWizard() {
                         </div>
                     )}
 
-                    {step === 5 && (
+                    {step === 6 && (
                         <div className="space-y-4">
                             <ul className="text-sm text-slate-700 space-y-2 list-disc list-inside">
                                 <li>{t('onboarding.done_next_scrape')}</li>
@@ -528,11 +536,10 @@ export function OnboardingWizard() {
                                 </button>
                                 <button
                                     type="button"
-                                    disabled={isSavingTelegram}
-                                    onClick={() => void handleWelcomeContinue()}
-                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 disabled:opacity-50"
+                                    onClick={() => nextStep()}
+                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700"
                                 >
-                                    {isSavingTelegram ? t('common.loading') : t('onboarding.get_started')}
+                                    {t('onboarding.get_started')}
                                     <ArrowRight className="w-4 h-4" />
                                 </button>
                             </>
@@ -569,6 +576,26 @@ export function OnboardingWizard() {
                                 </button>
                                 <button
                                     type="button"
+                                    disabled={isSavingTelegram}
+                                    onClick={() => void handleTelegramStepContinue()}
+                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    {isSavingTelegram ? t('common.loading') : t('onboarding.next')}
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                        {step === 3 && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => nextStep()}
+                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
+                                >
+                                    {t('onboarding.skip_step')}
+                                </button>
+                                <button
+                                    type="button"
                                     disabled={isSavingEnv}
                                     onClick={applyGeminiAndAdvance}
                                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black disabled:opacity-50"
@@ -578,7 +605,7 @@ export function OnboardingWizard() {
                                 </button>
                             </>
                         )}
-                        {step === 3 && (
+                        {step === 4 && (
                             <>
                                 <button
                                     type="button"
@@ -598,7 +625,7 @@ export function OnboardingWizard() {
                                 </button>
                             </>
                         )}
-                        {step === 4 && showDriveStep && (
+                        {step === 5 && showDriveStep && (
                             <>
                                 <button
                                     type="button"
@@ -618,7 +645,7 @@ export function OnboardingWizard() {
                                 </button>
                             </>
                         )}
-                        {step === 5 && (
+                        {step === 6 && (
                             <button
                                 type="button"
                                 onClick={complete}

@@ -94,6 +94,15 @@ Copy-Item (Join-Path $PackagingWindows "launch-FinancialOverview.cmd") (Join-Pat
 Copy-Item (Join-Path $PackagingWindows "open-browser.cmd") (Join-Path $Stage "open-browser.cmd") -Force
 Copy-Item (Join-Path $PackagingWindows "open-browser.ps1") (Join-Path $Stage "open-browser.ps1") -Force
 
+$iconSrc = Join-Path $RepoRoot "client\public\favicon.ico"
+$iconDst = Join-Path $Stage "app.ico"
+if (Test-Path $iconSrc) {
+    Copy-Item $iconSrc $iconDst -Force
+    Write-Host "Copied app icon -> app.ico" -ForegroundColor DarkGray
+} else {
+    Write-Warning "Missing $iconSrc — run: npm run icons:generate -w client. Shortcuts/installer will use default icons."
+}
+
 $foExample = Join-Path $RepoRoot "financial-overview.json.example"
 $foDst = Join-Path $Stage "financial-overview.json"
 if (Test-Path $foExample) {
