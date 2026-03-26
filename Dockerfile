@@ -13,16 +13,18 @@ RUN apt-get update && apt-get install -y \
 # Copy root configurations
 COPY package.json package-lock.json ./
 
+# postinstall (ensure-rollup-native.mjs) needs to exist before npm ci
+COPY scripts ./scripts
+
 # Copy packages
 COPY shared ./shared
 COPY server ./server
 COPY client ./client
 
 # Install all dependencies (including devDependencies for build).
-# Rollup 4.x needs @rollup/rollup-linux-x64-gnu in Linux images; npm can omit it when the
-# lockfile was generated on another OS (optional-deps bug: https://github.com/npm/cli/issues/4828).
-RUN npm ci \
-    && npm install --no-save @rollup/rollup-linux-x64-gnu@$(node -p "require('rollup/package.json').version")
+# Root postinstall (scripts/ensure-rollup-native.mjs) installs the matching @rollup/rollup-* NAPI
+# for this image's OS/arch (amd64, arm64, armv7, etc.). Do not hardcode @rollup/rollup-linux-x64-gnu here.
+RUN npm ci
 
 # Build workspaces in order
 RUN npm run build -w shared

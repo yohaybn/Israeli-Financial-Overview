@@ -10,6 +10,9 @@ WORKDIR /usr/src/app
 # Copy root configurations
 COPY package.json package-lock.json ./
 
+# Root postinstall (ensure-rollup-native.mjs) must exist before npm install
+COPY scripts ./scripts
+
 # Copy packages
 COPY shared ./shared
 COPY server ./server
