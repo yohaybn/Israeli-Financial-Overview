@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GoogleAIFileManager, FileState } from '@google/generative-ai/server';
-import { Transaction, Account } from '@app/shared';
+import { Transaction, Account, mergeCategoryMeta, type ExpenseMetaCategory } from '@app/shared';
 import fs from 'fs-extra';
 import path from 'path';
 import axios from 'axios';
@@ -19,6 +19,8 @@ export interface AiSettings {
     chatModel: string;
     categories: string[];
     defaultCategory: string;
+    /** Per allowed category label: fixed / variable / optimization / excluded (income & transfers). */
+    categoryMeta?: Record<string, ExpenseMetaCategory>;
     /** 0 = disabled. Insights older than this many days are removed periodically and after saving settings. */
     memoryInsightRetentionDays?: number;
     /** 0 = disabled. Alerts older than this many days are removed periodically and after saving settings. */
@@ -183,6 +185,10 @@ export class AiService {
             );
             this.settings = raw;
         }
+        this.settings = {
+            ...this.settings,
+            categoryMeta: mergeCategoryMeta(this.settings.categories, this.settings.categoryMeta),
+        };
     }
 
     async getSettings(): Promise<AiSettings> {
@@ -198,6 +204,7 @@ export class AiService {
         if (next.memoryAlertRetentionDays !== undefined) {
             next.memoryAlertRetentionDays = Math.max(0, Math.min(3650, Math.floor(Number(next.memoryAlertRetentionDays) || 0)));
         }
+        next.categoryMeta = mergeCategoryMeta(next.categories, next.categoryMeta);
         this.settings = next;
         const CONFIG_DIR = path.join(DATA_DIR, 'config');
         await fs.ensureDir(CONFIG_DIR);
@@ -373,7 +380,10 @@ export class AiService {
                 'gemini',
                 `Categorize ${descriptions.length} descriptions`,
                 error,
-                { latencyMs }
+                {
+                    latencyMs,
+                    systemPrompt: `Categorize Israeli bank transactions. Categories: ${this.settings.categories.join(', ')}`
+                }
             );
 
             serverLogger.error(`Categorization failed: ${error.message}`);
@@ -762,13 +772,10 @@ export class AiService {
             const latencyMs = Date.now() - startTime;
 
             // Log the error
-            await logAIError(
-                this.settings.chatModel,
-                'gemini',
-                query,
-                error,
-                { latencyMs }
-            );
+            await logAIError(this.settings.chatModel, 'gemini', query, error, {
+                latencyMs,
+                systemPrompt: systemInstruction
+            });
 
             throw error;
         } finally {
@@ -786,6 +793,30 @@ export class AiService {
      * Same transaction attachment behavior as {@link analyzeData} for the non-split path only,
      * but the model must return JSON with `response`, `facts`, and `insights`.
      */
+    /** Groups user category labels by meta bucket for unified-chat context. */
+    private categoryMetaContextForPrompt(): string {
+        const meta = this.settings.categoryMeta;
+        if (!meta || Object.keys(meta).length === 0) return '';
+        const by: Record<ExpenseMetaCategory, string[]> = {
+            fixed: [],
+            variable: [],
+            optimization: [],
+            excluded: [],
+        };
+        for (const [cat, bucket] of Object.entries(meta)) {
+            if (bucket && by[bucket as ExpenseMetaCategory]) {
+                by[bucket as ExpenseMetaCategory].push(cat);
+            }
+        }
+        return (
+            '\nUser expense meta-categories (fixed = obligations-style, variable = fluctuating spend, optimization = discretionary levers, excluded = income/transfers/out of this lens):\n' +
+            `- fixed: ${by.fixed.join(', ') || '—'}\n` +
+            `- variable: ${by.variable.join(', ') || '—'}\n` +
+            `- optimization: ${by.optimization.join(', ') || '—'}\n` +
+            `- excluded_from_expense_meta: ${by.excluded.join(', ') || '—'}\n`
+        );
+    }
+
     async analyzeDataStructured(query: string, transactions: Transaction[], options?: AnalyzeDataOptions): Promise<StructuredChatResult> {
         if (options?.transactionSplit) {
             throw new Error('Structured chat does not support transactionSplit; use analyzeData instead.');
@@ -843,7 +874,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             if (up) {
                 currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
-
+            ${this.categoryMetaContextForPrompt()}
             The attached CSV file contains all ${transactions.length} transactions (${transactions.length} rows). Use it for the question below.
 
             Question and instructions:
@@ -853,7 +884,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             } else {
                 currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
-
+            ${this.categoryMetaContextForPrompt()}
             [Note: CSV is inline because upload to the AI file service failed (e.g. network/DNS/firewall/proxy).]
 
             Question and instructions:
@@ -869,7 +900,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         } else {
             currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
-            
+            ${this.categoryMetaContextForPrompt()}
             Question and instructions:
             ${fullQuery}
 
@@ -954,7 +985,10 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             };
         } catch (error: any) {
             const latencyMs = Date.now() - startTime;
-            await logAIError(this.settings.chatModel, 'gemini', query, error, { latencyMs });
+            await logAIError(this.settings.chatModel, 'gemini', query, error, {
+                latencyMs,
+                systemPrompt: systemInstruction
+            });
             throw error;
         } finally {
             for (const name of uploadedResourceNames) {

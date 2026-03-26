@@ -70,6 +70,12 @@ export function FinancialCommandCenter({
         };
     }, [downloadMenuOpen]);
 
+    useEffect(() => {
+        const openAnalyst = () => setIsChatOpen(true);
+        window.addEventListener('open-ai-analyst-chat', openAnalyst);
+        return () => window.removeEventListener('open-ai-analyst-chat', openAnalyst);
+    }, []);
+
     // If props provided, use them. Otherwise fetch unified data.
     const { data: unifiedTransactions, isLoading /*, error*/ } = useUnifiedData();
     const { data: aiSettings } = useAISettings();
@@ -405,6 +411,8 @@ export function FinancialCommandCenter({
                     customCCKeywords={config.customCCKeywords}
                     onDayFilterChange={setAnalyticsDayFilter}
                     activeDayFilter={analyticsDayFilter}
+                    categories={availableCategories}
+                    categoryMeta={aiSettings?.categoryMeta}
                 />
             </div>
 

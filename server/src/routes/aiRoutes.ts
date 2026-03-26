@@ -6,6 +6,7 @@ import { DbService } from '../services/dbService.js';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from '../services/unifiedAiChatMemory.js';
 import { telegramBotService } from '../services/telegramBotService.js';
 import { runAiMemoryRetentionPrune } from '../services/aiMemoryRetention.js';
+import { AI_MODEL_HIGH_DEMAND_ERROR_KEY, isAiModelHighDemandMessage } from '../utils/aiModelHighDemand.js';
 
 const router = Router();
 const aiService = new AiService();
@@ -67,9 +68,11 @@ router.post('/chat', async (req, res) => {
     } catch (error: any) {
         const status = error.status || error.response?.status || 500;
         const code = error.code || error.response?.data?.error?.code || 'INTERNAL_ERROR';
+        const msg = typeof error?.message === 'string' ? error.message : String(error);
         res.status(status).json({
             success: false,
-            error: error.message,
+            error: msg,
+            ...(isAiModelHighDemandMessage(msg) ? { errorKey: AI_MODEL_HIGH_DEMAND_ERROR_KEY } : {}),
             code,
             status
         });
@@ -119,9 +122,11 @@ router.post('/chat/unified', async (req, res) => {
     } catch (error: any) {
         const status = error.status || error.response?.status || 500;
         const code = error.code || error.response?.data?.error?.code || 'INTERNAL_ERROR';
+        const msg = typeof error?.message === 'string' ? error.message : String(error);
         res.status(status).json({
             success: false,
-            error: error.message,
+            error: msg,
+            ...(isAiModelHighDemandMessage(msg) ? { errorKey: AI_MODEL_HIGH_DEMAND_ERROR_KEY } : {}),
             code,
             status
         });

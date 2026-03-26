@@ -18,7 +18,7 @@ import { GettingStartedResumeBanner } from './components/onboarding/GettingStart
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { isDemoMode } from './demo/isDemo';
-import { Map, Bot } from 'lucide-react';
+import { Map, Bot, Sparkles } from 'lucide-react';
 import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
 import { HelpAssistantChat } from './components/help/HelpAssistantChat';
 
@@ -154,6 +154,19 @@ function App() {
                                             />
                                         </svg>
                                     </button>
+                                    {view === 'dashboard' && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                window.dispatchEvent(new CustomEvent('open-ai-analyst-chat'))
+                                            }
+                                            className="h-9 w-9 inline-flex items-center justify-center rounded-full text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                            title={t('dashboard.ai_analyst')}
+                                            aria-label={t('dashboard.open_ai_chat')}
+                                        >
+                                            <Sparkles className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         onClick={() => {

@@ -1,9 +1,30 @@
-import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Treemap } from 'recharts';
+import {
+    BarChart,
+    Bar,
+    Cell,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+    Treemap,
+    PieChart,
+    Pie,
+} from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+    mergeCategoryMeta,
+    defaultExpenseMetaForCategory,
+    expenseCategoryKey,
+    isTransactionIgnored,
+    type ExpenseMetaCategory,
+    type Transaction,
+} from '@app/shared';
 import { TREEMAP_SMALL_MERGED_ID, useAnalytics } from '../hooks/useAnalytics';
 import type { CategoryParentGroupKey } from '../utils/categoryParentGroup';
-import { Transaction } from '@app/shared';
+import { isInternalTransfer, isLoanCategory } from '../utils/transactionUtils';
 
 interface AnalyticsDashboardProps {
     transactions: Transaction[];
@@ -13,6 +34,10 @@ interface AnalyticsDashboardProps {
     onViewRangeChange?: (range: ViewRange) => void;
     onDayFilterChange?: (filter: AnalyticsDayFilter | null) => void;
     activeDayFilter?: AnalyticsDayFilter | null;
+    /** Allowed category labels (from AI settings); used with categoryMeta for meta spend chart. */
+    categories?: string[];
+    /** Per-category meta bucket; merged with defaults on the client. */
+    categoryMeta?: Partial<Record<string, ExpenseMetaCategory>>;
 }
 
 type MerchantSortBy = 'amount' | 'frequency';
@@ -30,6 +55,21 @@ function truncateLabel(text: string, maxChars: number): string {
     return `${text.slice(0, Math.max(0, maxChars - 1))}…`;
 }
 
+function skipLoanExpense(t: Transaction): boolean {
+    const amount = t.chargedAmount || t.amount || 0;
+    return amount < 0 && isLoanCategory(t.category);
+}
+
+/** In-scope meta slices for the analytics pie (excludes out-of-scope / income & transfers). */
+const META_PIE_KEYS = ['fixed', 'variable', 'optimization'] as const;
+
+const META_SPEND_COLORS: Record<ExpenseMetaCategory, string> = {
+    fixed: '#6366f1',
+    variable: '#3b82f6',
+    optimization: '#f59e0b',
+    excluded: '#94a3b8',
+};
+
 export function AnalyticsDashboard({
     transactions: monthTransactions,
     allTransactions,
@@ -37,7 +77,9 @@ export function AnalyticsDashboard({
     customCCKeywords = [],
     onViewRangeChange,
     onDayFilterChange,
-    activeDayFilter
+    activeDayFilter,
+    categories = [],
+    categoryMeta,
 }: AnalyticsDashboardProps) {
     const { t, i18n } = useTranslation();
     const [viewRange, setViewRange] = useState<ViewRange>('month');
@@ -46,6 +88,37 @@ export function AnalyticsDashboard({
 
     const displayTransactions = viewRange === 'all' && allTransactions ? allTransactions : monthTransactions;
     const analytics = useAnalytics(displayTransactions, customCCKeywords);
+
+    const mergedCategoryMeta = useMemo(
+        () => mergeCategoryMeta(categories, categoryMeta),
+        [categories, categoryMeta]
+    );
+
+    const metaSpendChart = useMemo(() => {
+        const sums: Record<ExpenseMetaCategory, number> = {
+            fixed: 0,
+            variable: 0,
+            optimization: 0,
+            excluded: 0,
+        };
+        for (const t of displayTransactions) {
+            if (isTransactionIgnored(t)) continue;
+            if (isInternalTransfer(t, customCCKeywords)) continue;
+            if (skipLoanExpense(t)) continue;
+            const amount = t.chargedAmount || t.amount || 0;
+            if (amount >= 0) continue;
+            const cat = expenseCategoryKey(t.category);
+            const bucket = mergedCategoryMeta[cat] ?? defaultExpenseMetaForCategory(cat);
+            sums[bucket] += Math.abs(amount);
+        }
+        const rows = META_PIE_KEYS.map((key) => ({
+            key,
+            amount: Math.round(sums[key] * 100) / 100,
+            fill: META_SPEND_COLORS[key],
+        }));
+        const total = rows.reduce((s, r) => s + r.amount, 0);
+        return { rows, total };
+    }, [displayTransactions, mergedCategoryMeta, customCCKeywords]);
 
     useEffect(() => {
         if (!activeDayFilter) {
@@ -271,7 +344,7 @@ export function AnalyticsDashboard({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_category')}</h3>
                     {analytics.byCategoryTree.length === 0 ? (
@@ -373,6 +446,183 @@ export function AnalyticsDashboard({
                     </p>
                 </div>
 
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">
+                    <h3 className="text-sm font-bold text-gray-700 mb-1">{t('analytics.meta_spend_title')}</h3>
+                    <p className="text-[10px] text-gray-500 mb-3 leading-snug">{t('analytics.meta_spend_subtitle')}</p>
+                    {metaSpendChart.total <= 0 ? (
+                        <div className="flex flex-1 items-center justify-center min-h-[220px] text-xs text-gray-400">
+                            {t('analytics.meta_spend_empty')}
+                        </div>
+                    ) : (
+                        <div
+                            className={`flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4 ${
+                                i18n.dir() === 'rtl' ? 'sm:flex-row-reverse' : ''
+                            }`}
+                        >
+                            <div className="mx-auto h-[200px] w-full max-w-[220px] shrink-0 sm:mx-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={metaSpendChart.rows
+                                                .filter((r) => r.amount > 0)
+                                                .map((r) => ({
+                                                    ...r,
+                                                    label: t(`ai_settings.meta_${r.key}`),
+                                                }))}
+                                            dataKey="amount"
+                                            nameKey="label"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={78}
+                                            innerRadius={0}
+                                            paddingAngle={1}
+                                            stroke="#fff"
+                                            strokeWidth={2}
+                                            isAnimationActive={false}
+                                            label={false}
+                                        >
+                                            {metaSpendChart.rows
+                                                .filter((r) => r.amount > 0)
+                                                .map((r) => (
+                                                    <Cell key={r.key} fill={r.fill} />
+                                                ))}
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                            }}
+                                            formatter={(value: number | string | undefined, _name, item) => {
+                                                const n = Number(value ?? 0);
+                                                const payload = item?.payload as { label?: string } | undefined;
+                                                const pct =
+                                                    metaSpendChart.total > 0
+                                                        ? Math.round((n / metaSpendChart.total) * 1000) / 10
+                                                        : 0;
+                                                return [`${formatCurrency(n)} (${pct}%)`, payload?.label ?? ''];
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <ul className="min-w-0 flex-1 space-y-1.5 text-[11px] sm:py-1">
+                                {metaSpendChart.rows
+                                    .filter((r) => r.amount > 0)
+                                    .map((r) => {
+                                        const pct =
+                                            metaSpendChart.total > 0
+                                                ? Math.round((r.amount / metaSpendChart.total) * 1000) / 10
+                                                : 0;
+                                        return (
+                                            <li
+                                                key={r.key}
+                                                className="flex items-center justify-between gap-2 border-b border-gray-50 pb-1.5 last:border-0 last:pb-0"
+                                            >
+                                                <span className="flex min-w-0 items-center gap-2">
+                                                    <span
+                                                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                                        style={{ backgroundColor: r.fill }}
+                                                        aria-hidden
+                                                    />
+                                                    <span className="truncate font-medium text-gray-800">
+                                                        {t(`ai_settings.meta_${r.key}`)}
+                                                    </span>
+                                                </span>
+                                                <span className="shrink-0 tabular-nums text-gray-700">
+                                                    {formatCurrency(r.amount)}{' '}
+                                                    <span className="text-gray-400">({pct}%)</span>
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-3">
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-800">{t('analytics.top_merchants')}</h3>
+                            <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
+                                {t('analytics.merchants_subtitle')}
+                            </p>
+                        </div>
+                        <div className="flex shrink-0 gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => setMerchantSortBy('amount')}
+                                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all border ${
+                                    merchantSortBy === 'amount'
+                                        ? 'bg-indigo-50 text-indigo-600 border-indigo-200'
+                                        : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'
+                                }`}
+                            >
+                                {t('analytics.total_amount')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMerchantSortBy('frequency')}
+                                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all border ${
+                                    merchantSortBy === 'frequency'
+                                        ? 'bg-indigo-50 text-indigo-600 border-indigo-200'
+                                        : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'
+                                }`}
+                            >
+                                {t('analytics.txns')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto -mx-1">
+                        <table className="w-full text-left text-xs">
+                            <thead>
+                                <tr className="border-b border-gray-50">
+                                    <th className="pb-2 pl-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                                        {t('transactions.merchant')}
+                                    </th>
+                                    <th className="pb-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
+                                        {t('analytics.txns')}
+                                    </th>
+                                    <th className="pb-2 pr-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">
+                                        {t('analytics.total_amount')}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {analytics.topMerchants
+                                    .slice(0, 6)
+                                    .sort((a, b) =>
+                                        merchantSortBy === 'amount' ? b.total - a.total : b.count - a.count
+                                    )
+                                    .map((m, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="py-2 pl-1">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-6 h-6 rounded-md bg-gray-50 border border-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shrink-0">
+                                                        {m.description.charAt(0)}
+                                                    </div>
+                                                    <span className="text-xs font-semibold text-gray-700 truncate">
+                                                        {m.description}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="py-2 text-center">
+                                                <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                                    {m.count}
+                                                </span>
+                                            </td>
+                                            <td className="py-2 pr-1 text-right font-bold text-gray-900 text-xs tabular-nums">
+                                                {formatCurrency(m.total)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.monthly_spending_trend')}</h3>
                     <ResponsiveContainer width="100%" height={300}>
@@ -387,6 +637,41 @@ export function AnalyticsDashboard({
                             <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
                             <Bar dataKey="income" name={t('analytics.income')} fill="#10ac84" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="expenses" name={t('analytics.expenses')} fill="#ee5253" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_month_day')}</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={analytics.byMonthDay}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                            <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={2} />
+                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                formatter={(value) => formatCurrency(Number(value))}
+                            />
+                            <Bar
+                                dataKey="value"
+                                name={t('analytics.expenses')}
+                                radius={[3, 3, 0, 0]}
+                                onClick={(data: any) => {
+                                    if (!data) return;
+                                    handleDayFilterClick('monthday', data.day, String(data.day));
+                                }}
+                            >
+                                {analytics.byMonthDay.map((entry) => {
+                                    const isSelected = selectedDayFilter?.kind === 'monthday' && selectedDayFilter.value === entry.day;
+                                    return (
+                                        <Cell
+                                            key={`monthday-${entry.day}`}
+                                            fill={isSelected ? '#ea580c' : '#fb923c'}
+                                            className="cursor-pointer"
+                                        />
+                                    );
+                                })}
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -431,111 +716,6 @@ export function AnalyticsDashboard({
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_month_day')}</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={analytics.byMonthDay}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={2} />
-                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                formatter={(value) => formatCurrency(Number(value))}
-                            />
-                            <Bar
-                                dataKey="value"
-                                name={t('analytics.expenses')}
-                                radius={[3, 3, 0, 0]}
-                                onClick={(data: any) => {
-                                    if (!data) return;
-                                    handleDayFilterClick('monthday', data.day, String(data.day));
-                                }}
-                            >
-                                {analytics.byMonthDay.map((entry) => {
-                                    const isSelected = selectedDayFilter?.kind === 'monthday' && selectedDayFilter.value === entry.day;
-                                    return (
-                                        <Cell
-                                            key={`monthday-${entry.day}`}
-                                            fill={isSelected ? '#ea580c' : '#fb923c'}
-                                            className="cursor-pointer"
-                                        />
-                                    );
-                                })}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h3 className="text-sm font-bold text-gray-800">{t('analytics.top_merchants')}</h3>
-                        <p className="text-xs text-gray-400 mt-1">{t('analytics.merchants_subtitle')}</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setMerchantSortBy('amount')}
-                            className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all border ${merchantSortBy === 'amount'
-                                ? 'bg-indigo-50 text-indigo-600 border-indigo-200'
-                                : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'
-                                }`}
-                        >
-                            {t('analytics.total_amount')}
-                        </button>
-                        <button
-                            onClick={() => setMerchantSortBy('frequency')}
-                            className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all border ${merchantSortBy === 'frequency'
-                                ? 'bg-indigo-50 text-indigo-600 border-indigo-200'
-                                : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'
-                                }`}
-                        >
-                            {t('analytics.txns')}
-                        </button>
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-gray-50">
-                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t('transactions.merchant')}</th>
-                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">{t('analytics.txns')}</th>
-                                <th className="pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">{t('analytics.total_amount')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {analytics.topMerchants
-                                .slice(0, 10)
-                                .sort((a, b) =>
-                                    merchantSortBy === 'amount'
-                                        ? b.total - a.total
-                                        : b.count - a.count
-                                )
-                                .map((m, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="py-3.5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">
-                                                    {m.description.charAt(0)}
-                                                </div>
-                                                <span className="text-sm font-semibold text-gray-700">{m.description}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-3.5 text-center">
-                                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                                                {m.count}
-                                            </span>
-                                        </td>
-                                        <td className="py-3.5 text-right font-black text-gray-900 text-sm">
-                                            {formatCurrency(m.total)}
-                                        </td>
-                                    </tr>
-                                ))}
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>

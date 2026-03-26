@@ -215,6 +215,10 @@
         "type_filter_expense": "Expenses",
         "type_filter_income": "Income",
         "type_filter_subscription": "Subscriptions",
+        "type_meta_filter_label": "Filter by transaction type or meta-category",
+        "type_meta_filter_all": "All types & meta-categories",
+        "type_filter_group": "Transaction type",
+        "meta_category_filter_group": "Meta-category",
         "export_view_csv": "CSV",
         "export_view_json": "JSON",
         "export_view_aria": "Download current table (filters and sort applied)",
@@ -303,7 +307,14 @@
         "force_recategorize": "Force Recategorization (overwrite existing)",
         "recategorize_button": "Recategorize All Now",
         "recategorize_success": "Successfully updated {{count}} transactions!",
-        "recategorize_ai_failed": "AI categorization failed: {{error}}. Still updated {{count}} rows from cache where possible."
+        "recategorize_ai_failed": "AI categorization failed: {{error}}. Still updated {{count}} rows from cache where possible.",
+        "meta_title": "Expense meta-categories",
+        "meta_description": "Drag each category into one bucket. Fixed and variable help structure analysis; optimization marks discretionary spend. Income-style categories and transfers belong in “Not in scope”.",
+        "meta_fixed": "Fixed",
+        "meta_variable": "Variable",
+        "meta_optimization": "Optimization",
+        "meta_excluded": "Not in scope",
+        "meta_drop_hint": "Drop categories here"
     },
     "analytics": {
         "total_income": "Total Income",
@@ -335,7 +346,10 @@
         "spending_by_month_day": "Spending by Month Day",
         "weekday_filter_label": "Weekday: {{label}}",
         "month_day_filter_label": "Day: {{label}}",
-        "transactions_for_day_scope": "Transactions for {{filter}} ({{scope}})"
+        "transactions_for_day_scope": "Transactions for {{filter}} ({{scope}})",
+        "meta_spend_title": "Spending by meta-category",
+        "meta_spend_subtitle": "Share of expenses in fixed, variable, and optimization (out-of-scope categories are excluded from this chart).",
+        "meta_spend_empty": "No expense transactions in this range for the meta breakdown."
     },
     "google_settings": {
         "title": "Google Drive Setup",
@@ -767,6 +781,13 @@
         "greeting": "Hello! I am your AI financial analyst. I can help answer questions about your spending habits, trends, or anomalies. What would you like to know?",
         "error": "Sorry — I hit an error while analyzing your data. Please try again.",
         "memory_saved": "Memory: +{{facts}} fact(s), +{{insights}} insight(s), +{{alerts}} alert(s) saved"
+    },
+    "ai_errors": {
+        "model_high_demand": {
+            "title": "AI model is busy",
+            "description": "This model is currently experiencing high demand. Spikes in demand are usually temporary.",
+            "solution": "Please try again in a few moments."
+        }
     },
     "ai_memory": {
         "title": "AI memory",

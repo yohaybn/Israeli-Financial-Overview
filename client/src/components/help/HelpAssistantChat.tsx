@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MessageSquare, X, Send, User, Bot, HelpCircle, Loader2 } from 'lucide-react';
+import { X, Send, User, Bot, HelpCircle, Loader2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,24 +13,17 @@ interface Message {
 export function HelpAssistantChat() {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
-    const [isHidden, setIsHidden] = useState(() => {
-        return localStorage.getItem('hideHelpWidget') === 'true';
-    });
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const handleToggleHelp = (e: any) => {
-            setIsHidden(false);
-            localStorage.removeItem('hideHelpWidget');
-            if (e.detail?.open) {
-                setIsOpen(true);
-            }
+        const handleToggleHelp = (e: CustomEvent<{ open?: boolean }>) => {
+            if (e.detail?.open) setIsOpen(true);
         };
-        window.addEventListener('toggle-help-widget', handleToggleHelp);
-        return () => window.removeEventListener('toggle-help-widget', handleToggleHelp);
+        window.addEventListener('toggle-help-widget', handleToggleHelp as EventListener);
+        return () => window.removeEventListener('toggle-help-widget', handleToggleHelp as EventListener);
     }, []);
 
     useEffect(() => {
@@ -38,13 +31,6 @@ export function HelpAssistantChat() {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
-
-    const handleHide = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setIsHidden(true);
-        setIsOpen(false);
-        localStorage.setItem('hideHelpWidget', 'true');
-    };
 
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -71,12 +57,11 @@ export function HelpAssistantChat() {
         }
     };
 
-    if (isHidden) return null;
+    if (!isOpen) return null;
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-            {isOpen && (
-                <div className="mb-4 w-96 max-w-[calc(100vw-3rem)] h-[500px] max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
+            <div className="pointer-events-auto w-96 max-w-[calc(100vw-3rem)] h-[500px] max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200">
                     <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-2 font-bold">
                             <HelpCircle className="w-5 h-5" />
@@ -160,27 +145,7 @@ export function HelpAssistantChat() {
                             <Send className="w-4 h-4" />
                         </button>
                     </form>
-                </div>
-            )}
-
-            {!isOpen && (
-                <div className="relative group">
-                    <button
-                        onClick={() => setIsOpen(true)}
-                        className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
-                        aria-label={t('help.open_button', 'Open Help Assistant')}
-                    >
-                        <MessageSquare className="w-6 h-6" />
-                    </button>
-                    <button
-                        onClick={handleHide}
-                        className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-gray-200 text-gray-500 rounded-full shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500"
-                        title={t('common.hide_section', 'Hide')}
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
+            </div>
         </div>
     );
 }

@@ -112,7 +112,15 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
             }]);
         } catch (error: any) {
             console.error('AI Chat Error:', error);
-            const errorDetails = mapAIError(error.response?.data || error);
+            const mapped = mapAIError(error.response?.data || error);
+            const errorDetails: AIErrorDetails = mapped.i18nKey
+                ? {
+                    ...mapped,
+                    title: t(`ai_errors.${mapped.i18nKey}.title`),
+                    description: t(`ai_errors.${mapped.i18nKey}.description`),
+                    solution: t(`ai_errors.${mapped.i18nKey}.solution`)
+                }
+                : mapped;
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',

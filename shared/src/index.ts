@@ -19,6 +19,17 @@ export {
     expenseCategoryKeyFromTxn
 } from './expenseCategory.js';
 export {
+    EXPENSE_META_BUCKETS,
+    INCOME_CATEGORY_LABELS,
+    defaultExpenseMetaForCategory,
+    isExcludedFromExpenseMetaByDefault,
+    isIncomeCategoryLabel,
+    isTransferCategoryLabel,
+    isValidExpenseMeta,
+    mergeCategoryMeta
+} from './categoryMeta.js';
+export type { ExpenseMetaCategory } from './categoryMeta.js';
+export {
     TRANSFERS_CATEGORY_LABEL,
     transactionNeedsReview
 } from './txnReview.js';

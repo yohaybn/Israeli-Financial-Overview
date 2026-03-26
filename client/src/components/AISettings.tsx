@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CategoryIcon } from '../utils/categoryIcons';
+import { CategoryMetaBoard } from './CategoryMetaBoard';
 import { useAISettings, useUpdateAISettings, useAIModels, useRecategorizeAll } from '../hooks/useScraper';
 
 interface AISettingsProps {
@@ -194,6 +195,18 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                             </div>
                         ))}
                     </div>
+                </section>
+
+                {/* Meta-categories (fixed / variable / optimization / excluded) */}
+                <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'} space-y-3`}>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        {t('ai_settings.meta_title')}
+                    </label>
+                    <CategoryMetaBoard
+                        categories={localSettings.categories}
+                        categoryMeta={localSettings.categoryMeta}
+                        onChange={(next) => persistSettings({ ...localSettings, categoryMeta: next })}
+                    />
                 </section>
 
                 {/* Bulk Recategorization */}

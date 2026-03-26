@@ -3,11 +3,36 @@ export interface AIErrorDetails {
     description: string;
     solution: string;
     code?: string;
+    /** When set, UI should use `ai_errors.<key>.*` translations for title/description/solution */
+    i18nKey?: 'model_high_demand';
+}
+
+function isModelHighDemandMessage(message: string): boolean {
+    return (
+        message.includes('[503 Service Unavailable]') &&
+        message.includes('This model is currently experiencing high demand')
+    );
 }
 
 export const mapAIError = (error: any): AIErrorDetails => {
-    const errorCode = error.code || error.status || (error.message?.match(/status code (\d+)/)?.[1]);
-    const message = error.message || '';
+    const apiBodyError = typeof error?.error === 'string' ? error.error : '';
+    const message =
+        (typeof error?.message === 'string' ? error.message : '') ||
+        apiBodyError ||
+        '';
+
+    if (error?.errorKey === 'AI_MODEL_HIGH_DEMAND' || isModelHighDemandMessage(message)) {
+        return {
+            title: 'Service busy',
+            description:
+                'This model is currently experiencing high demand. Spikes in demand are usually temporary.',
+            solution: 'Please try again in a few moments.',
+            code: '503_MODEL_HIGH_DEMAND',
+            i18nKey: 'model_high_demand'
+        };
+    }
+
+    const errorCode = error.code || error.status || (message.match(/status code (\d+)/)?.[1]);
 
     // Standard Gemini API Error Codes
     // https://ai.google.dev/gemini-api/docs/troubleshooting
@@ -69,7 +94,7 @@ export const mapAIError = (error: any): AIErrorDetails => {
         return {
             title: 'Service Unavailable',
             description: 'The Gemini API service is temporarily overloaded or down for maintenance.',
-            solution: 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.',
+            solution: 'Please try again in a few moments.',
             code: '503'
         };
     }

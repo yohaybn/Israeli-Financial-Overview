@@ -190,7 +190,7 @@ export async function logAIError(
   provider: 'gemini' | 'openai' | 'ollama',
   userInput: string,
   error: Error,
-  metadata?: { latencyMs?: number }
+  metadata?: { latencyMs?: number; systemPrompt?: string }
 ): Promise<void> {
   try {
     await ensureLogsDirectory();
@@ -202,14 +202,28 @@ export async function logAIError(
     const errorCode = (error as any).code || (error as any).status || 'UNKNOWN_ERROR';
     const errorMessage = error.message;
 
+    const origUser = userInput;
+    const maskedUser = maskSensitiveData(userInput);
+    const userRedacted = origUser !== maskedUser;
+
+    let systemPromptField: string | undefined;
+    let systemRedacted = false;
+    if (metadata?.systemPrompt) {
+      const origSys = metadata.systemPrompt;
+      const maskedSys = maskSensitiveData(origSys);
+      systemRedacted = origSys !== maskedSys;
+      systemPromptField = systemRedacted ? maskedSys : origSys;
+    }
+
     const logEntry: AILogEntry = {
       id,
       timestamp,
       model,
       provider,
       requestInfo: {
-        userInput: maskSensitiveData(userInput),
-        inputLength: userInput.length
+        userInput: userRedacted ? maskedUser : origUser,
+        inputLength: userInput.length,
+        ...(systemPromptField !== undefined && { systemPrompt: systemPromptField })
       },
       responseInfo: {
         success: false
@@ -222,7 +236,7 @@ export async function logAIError(
         message: errorMessage,
         timestamp
       },
-      redactedData: userInput !== maskSensitiveData(userInput)
+      redactedData: userRedacted || systemRedacted
     };
 
     // Write individual JSON file for this error
@@ -499,7 +513,10 @@ export async function withAILogging<T>(
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorCode = (error as any).code || (error as any).status || 'UNKNOWN_ERROR';
 
-    await logAIError(logConfig.model, logConfig.provider, logConfig.userInput, error as Error, { latencyMs });
+    await logAIError(logConfig.model, logConfig.provider, logConfig.userInput, error as Error, {
+      latencyMs,
+      systemPrompt: logConfig.systemPrompt
+    });
 
     throw error;
   }

@@ -1,11 +1,21 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Transaction, expenseCategoryKey, transactionsToCsv, transactionsToJson } from '@app/shared';
+import {
+    Transaction,
+    expenseCategoryKey,
+    transactionsToCsv,
+    transactionsToJson,
+    mergeCategoryMeta,
+    defaultExpenseMetaForCategory,
+    EXPENSE_META_BUCKETS,
+    type ExpenseMetaCategory,
+} from '@app/shared';
 import { ArrowRightLeft, EyeOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import { TransactionModal } from './TransactionModal';
 import { isInternalTransfer } from '../utils/transactionUtils';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
+import { useAISettings } from '../hooks/useScraper';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { getCategoryLucideIcon } from '../utils/categoryIcons';
 
@@ -62,6 +72,36 @@ function matchesTransactionTypeFilter(
     return true;
 }
 
+const TYPE_FILTER_OPTIONS: Exclude<TransactionTypeFilter, 'all'>[] = [
+    'ignored',
+    'installment',
+    'internal_transfer',
+    'expense',
+    'income',
+    'subscription',
+];
+
+/** Combined dropdown value: `all` | `type_*` | `meta_*` */
+function parseTypeMetaFilterKey(key: string): {
+    typeFilter: TransactionTypeFilter;
+    metaCategoryFilter: 'all' | ExpenseMetaCategory;
+} {
+    if (key === 'all') return { typeFilter: 'all', metaCategoryFilter: 'all' };
+    if (key.startsWith('meta_')) {
+        const m = key.slice(5) as ExpenseMetaCategory;
+        if ((EXPENSE_META_BUCKETS as readonly string[]).includes(m)) {
+            return { typeFilter: 'all', metaCategoryFilter: m };
+        }
+    }
+    if (key.startsWith('type_')) {
+        const v = key.slice(5) as TransactionTypeFilter;
+        if (v !== 'all' && TYPE_FILTER_OPTIONS.includes(v as Exclude<TransactionTypeFilter, 'all'>)) {
+            return { typeFilter: v, metaCategoryFilter: 'all' };
+        }
+    }
+    return { typeFilter: 'all', metaCategoryFilter: 'all' };
+}
+
 interface ColumnConfig {
     key: ColumnKey;
     label: string;
@@ -108,13 +148,30 @@ export function TransactionTable({
     });
     const [showColumnPicker, setShowColumnPicker] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
-    const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all');
+    /** Combined type + meta filter (single dropdown with optgroups). */
+    const [typeMetaFilterKey, setTypeMetaFilterKey] = useState<string>('all');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [exportingView, setExportingView] = useState<'csv' | 'json' | null>(null);
     const [viewDownloadOpen, setViewDownloadOpen] = useState(false);
     const viewDownloadRef = useRef<HTMLDivElement>(null);
 
     const customCCKeywords = config.customCCKeywords ?? [];
+    const { data: aiSettings } = useAISettings();
+
+    const categoryListForMeta = useMemo(
+        () => (categories.length > 0 ? categories : aiSettings?.categories ?? []),
+        [categories, aiSettings?.categories]
+    );
+
+    const mergedCategoryMeta = useMemo(
+        () => mergeCategoryMeta(categoryListForMeta, aiSettings?.categoryMeta),
+        [categoryListForMeta, aiSettings?.categoryMeta]
+    );
+
+    const { typeFilter, metaCategoryFilter } = useMemo(
+        () => parseTypeMetaFilterKey(typeMetaFilterKey),
+        [typeMetaFilterKey]
+    );
 
     useEffect(() => {
         if (!viewDownloadOpen) return;
@@ -188,6 +245,15 @@ export function TransactionTable({
             result = result.filter(t => t.category === selectedCategory);
         }
 
+        // Meta-category filter (fixed / variable / optimization / excluded)
+        if (metaCategoryFilter !== 'all') {
+            result = result.filter((t) => {
+                const key = expenseCategoryKey(t.category);
+                const meta = mergedCategoryMeta[key] ?? defaultExpenseMetaForCategory(key);
+                return meta === metaCategoryFilter;
+            });
+        }
+
         // Type filter (ignored, installment, internal transfer, expense/income, subscription)
         if (typeFilter !== 'all') {
             result = result.filter(t => matchesTransactionTypeFilter(t, typeFilter, customCCKeywords));
@@ -221,7 +287,17 @@ export function TransactionTable({
         });
 
         return result;
-    }, [transactions, sortField, sortOrder, search, selectedCategory, typeFilter, customCCKeywords]);
+    }, [
+        transactions,
+        sortField,
+        sortOrder,
+        search,
+        selectedCategory,
+        metaCategoryFilter,
+        mergedCategoryMeta,
+        typeFilter,
+        customCCKeywords,
+    ]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -300,18 +376,26 @@ export function TransactionTable({
 
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     <select
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value as TransactionTypeFilter)}
-                        aria-label={t('table.type_filter_label')}
-                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto min-w-[10rem] ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
+                        value={typeMetaFilterKey}
+                        onChange={(e) => setTypeMetaFilterKey(e.target.value)}
+                        aria-label={t('table.type_meta_filter_label')}
+                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto min-w-[12rem] ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
                     >
-                        <option value="all">{t('table.type_filter_all')}</option>
-                        <option value="ignored">{t('table.type_filter_ignored')}</option>
-                        <option value="installment">{t('table.type_filter_installment')}</option>
-                        <option value="internal_transfer">{t('table.type_filter_internal_transfer')}</option>
-                        <option value="expense">{t('table.type_filter_expense')}</option>
-                        <option value="income">{t('table.type_filter_income')}</option>
-                        <option value="subscription">{t('table.type_filter_subscription')}</option>
+                        <option value="all">{t('table.type_meta_filter_all')}</option>
+                        <optgroup label={t('table.type_filter_group')}>
+                            {TYPE_FILTER_OPTIONS.map((opt) => (
+                                <option key={opt} value={`type_${opt}`}>
+                                    {t(`table.type_filter_${opt}`)}
+                                </option>
+                            ))}
+                        </optgroup>
+                        <optgroup label={t('table.meta_category_filter_group')}>
+                            {EXPENSE_META_BUCKETS.map((key) => (
+                                <option key={key} value={`meta_${key}`}>
+                                    {t(`ai_settings.meta_${key}`)}
+                                </option>
+                            ))}
+                        </optgroup>
                     </select>
                     <select
                         value={selectedCategory}

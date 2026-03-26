@@ -215,6 +215,10 @@
         "type_filter_expense": "הוצאות",
         "type_filter_income": "הכנסות",
         "type_filter_subscription": "מנויים",
+        "type_meta_filter_label": "סנן לפי סוג עסקה או מטא־קטגוריה",
+        "type_meta_filter_all": "כל הסוגים והמטא־קטגוריות",
+        "type_filter_group": "סוג עסקה",
+        "meta_category_filter_group": "מטא־קטגוריה",
         "export_view_csv": "CSV",
         "export_view_json": "JSON",
         "export_view_aria": "הורד את התצוגה הנוכחית (מסננים ומיון)",
@@ -303,7 +307,14 @@
         "force_recategorize": "קטלוג מחדש כפוי (דריסת קטגוריות קיימות)",
         "recategorize_button": "קטלג הכל עכשיו",
         "recategorize_success": "עודכנו בהצלחה {{count}} עסקאות!",
-        "recategorize_ai_failed": "סיווג AI נכשל: {{error}}. עודכנו {{count}} שורות מהמטמון ככל שניתן."
+        "recategorize_ai_failed": "סיווג AI נכשל: {{error}}. עודכנו {{count}} שורות מהמטמון ככל שניתן.",
+        "meta_title": "מטא־קטגוריות להוצאות",
+        "meta_description": "גרור כל קטגוריה לעמודה המתאימה. קבוע ומשתנה מסייעים למבנה הניתוח; אופטימיזציה מסמנת הוצאות לשיפור. הכנסות והעברות שייכות ל״מחוץ לתחום״.",
+        "meta_fixed": "קבוע",
+        "meta_variable": "משתנה",
+        "meta_optimization": "אופטימיזציה",
+        "meta_excluded": "מחוץ לתחום",
+        "meta_drop_hint": "שחרר קטגוריות כאן"
     },
     "analytics": {
         "total_income": "סך הכנסות",
@@ -335,7 +346,10 @@
         "spending_by_month_day": "הוצאות לפי יום בחודש",
         "weekday_filter_label": "יום בשבוע: {{label}}",
         "month_day_filter_label": "יום בחודש: {{label}}",
-        "transactions_for_day_scope": "עסקאות עבור {{filter}} ({{scope}})"
+        "transactions_for_day_scope": "עסקאות עבור {{filter}} ({{scope}})",
+        "meta_spend_title": "הוצאות לפי מטא־קטגוריה",
+        "meta_spend_subtitle": "חלק ההוצאות בקבוע, משתנה ואופטימיזציה (קטגוריות מחוץ לתחום אינן מוצגות בתרשים).",
+        "meta_spend_empty": "אין עסקאות הוצאה בטווח הזה לפירוט המטא־קטגוריות."
     },
     "google_settings": {
         "title": "הגדרות Google Drive",
@@ -830,6 +844,13 @@
         "greeting": "שלום! אני האנליסט הפיננסי שלך. אני יכול לעזור בתשובות לשאלות על ההוצאות שלך, מגמות או חריגות ספציפיות. מה תרצה לדעת?",
         "error": "מצטער, נתקלתי בשגיאה בעת ניתוח הנתונים שלך. אנא נסה שוב.",
         "memory_saved": "זיכרון: +{{facts}} עובדות, +{{insights}} תובנות, +{{alerts}} התראות"
+    },
+    "ai_errors": {
+        "model_high_demand": {
+            "title": "המודל עמוס כרגע",
+            "description": "המודל חווה כרגע ביקוש גבוה. עומסים כאלה בדרך כלל זמניים.",
+            "solution": "נסה שוב בעוד רגע."
+        }
     },
     "ai_memory": {
         "title": "זיכרון AI",
