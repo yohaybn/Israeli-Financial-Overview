@@ -61,7 +61,7 @@ For a **one-file** distribution on Windows, build an installer that bundles the 
 
 **End users**
 
-Step-by-step (download, SmartScreen, shortcuts, browser, app lock, Telegram, Gemini): **[Installation guide on GitHub Pages](https://yohaybn.github.io/israeli-bank-scraper-docker/install/)** (English / Hebrew).
+Step-by-step (download, SmartScreen, shortcuts, browser, app lock, Telegram, Gemini): **[Installation guide on GitHub Pages](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** (English / Hebrew).
 
 1. Run **`FinancialOverview-Windows-Setup.exe`** and complete the wizard (default install folder: `%LocalAppData%\FinancialOverview`).
 2. Start the app from the Start menu shortcut **`Financial Overview`**, or run `launch-FinancialOverview.cmd` in the install folder. A console window stays open while the server runs; close it to stop.
