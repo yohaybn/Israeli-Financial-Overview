@@ -18,7 +18,7 @@ import { GettingStartedResumeBanner } from './components/onboarding/GettingStart
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { isDemoMode } from './demo/isDemo';
-import { Map, HelpCircle, Bot } from 'lucide-react';
+import { Map, Bot } from 'lucide-react';
 import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
 import { HelpAssistantChat } from './components/help/HelpAssistantChat';
 
