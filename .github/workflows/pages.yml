@@ -40,13 +40,6 @@ jobs:
           VITE_DEMO: 'true'
         run: npm run build -w client -- --base /${{ github.event.repository.name }}/
 
-      - name: Copy installation guide screenshots
-        run: |
-          mkdir -p client/dist/install/screenshots
-          if [ -d docs/video-guide-screenshots ]; then
-            cp -f docs/video-guide-screenshots/*.png client/dist/install/screenshots/ 2>/dev/null || true
-          fi
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

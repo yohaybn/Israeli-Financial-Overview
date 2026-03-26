@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -85,6 +85,13 @@
         th { background: #f8fafc; text-align: left; padding: 1.2rem; border-bottom: 2px solid var(--border); font-weight: 700; color: #64748b; }
         td { padding: 1.2rem; border-bottom: 1px solid var(--border); }
 
+        /* Embedded TELEGRAM_BOT_GUIDE.md (markdown → HTML) */
+        .telegram-guide-body { margin-top: 0.5rem; }
+        .telegram-guide-body h2 { font-size: 1.35rem; margin: 2rem 0 0.75rem; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+        .telegram-guide-body h3 { font-size: 1.15rem; margin: 1.5rem 0 0.6rem; color: var(--primary-dark); font-weight: 700; }
+        .telegram-guide-body h4 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; color: #334155; font-weight: 600; }
+        .telegram-guide-body .code-block { margin: 1rem 0; }
+
         /* RTL Specifics */
         [dir="rtl"] aside { border-right: none; border-left: 1px solid var(--border); right: 0; left: auto; }
         [dir="rtl"] main { margin-left: 0; margin-right: var(--sidebar-width); }
@@ -117,10 +124,10 @@
                 title: "User Guide",
                 subtitle: "The complete manual for setting up and using Financial Overview.",
                 nav: [
-                    { label: "Setup", items: [{ id: "getting-started", label: "Getting started" }, { id: "windows-install", label: "Windows installation" }, { id: "env-setup", label: "Runtime & secrets" }, { id: "app-lock", label: "App lock" }, { id: "api-guides", label: "API keys" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "Setup", items: [{ id: "getting-started", label: "Getting started" }, { id: "windows-install", label: "Windows installation" }, { id: "env-setup", label: "Runtime & secrets" }, { id: "app-lock", label: "App lock" }, { id: "api-guides", label: "API keys" }, { id: "google-setup", label: "Google Drive & Sheets" }, { id: "telegram-guide", label: "Telegram bot" }] },
                     { label: "Web app", items: [{ id: "dashboard", label: "Dashboard" }, { id: "scrape", label: "Scrape" }, { id: "profiles", label: "Profiles" }, { id: "results", label: "Results explorer" }, { id: "logs", label: "Logs" }, { id: "configuration", label: "Configuration" }] },
                     { label: "Intelligence", items: [{ id: "ai", label: "AI features" }, { id: "fraud", label: "Fraud detection" }, { id: "automation", label: "Scheduler & backups" }] },
-                    { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "telegram-guide", label: "Telegram bot" }, { id: "credits", label: "Credits" }] }
+                    { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "credits", label: "Credits" }] }
                 ],
                 sections: {
                     "env-setup": {
@@ -146,25 +153,62 @@ GEMINI_API_KEY=(optional)
                                 <li>Sign in and click <strong>"Get API Key"</strong>.</li>
                                 <li>Paste the key into <code>GEMINI_API_KEY</code> in <code>runtime-settings.json</code> (or Environment settings).</li>
                             </ol>
-                            <h3>Google Drive Folder ID</h3>
-                            <p>Required for cloud backups and spreadsheet synchronization.</p>
+                            <h3>Google Drive folder ID (optional)</h3>
+                            <p>Used as a default folder for backups and exports when Google is connected. Not the same as OAuth credentials—see <a href="#google-setup">Google Drive &amp; Sheets (OAuth)</a> for the full Cloud Console setup.</p>
                             <ol>
-                                <li>Create a folder in Google Drive.</li>
-                                <li>Copy the string of characters at the end of the folder's URL (after <code>/folders/</code>).</li>
-                                <li>Paste this string into <code>DRIVE_FOLDER_ID</code>.</li>
+                                <li>Create a folder in Google Drive (or pick an existing one).</li>
+                                <li>Copy the folder ID from the URL—the long id after <code>/folders/</code>.</li>
+                                <li>Paste into <code>DRIVE_FOLDER_ID</code> in Environment settings (optional; you can also pick a folder in the app after signing in).</li>
                             </ol>
                         `
                     },
                     "google-setup": {
-                        title: "🔗 Google Sheets Integration",
+                        title: "🔗 Google Drive &amp; Sheets (OAuth setup)",
                         html: `
-                            <p>Syncing to Google Sheets allows you to access data anywhere and share it with accountants.</p>
+                            <div class="callout info">
+                                <strong>Optional:</strong> Connecting Google is only needed for <strong>Google Sheets sync</strong>, <strong>Google Drive backups</strong>, and related export features. It is a bit more involved than other settings—you can <strong>skip it</strong> and use the app fully for scraping and analysis; add Google later under <strong>Configuration</strong> when you want cloud backup or Sheets.
+                            </div>
+                            <p>To connect the app to your Google account, create your own OAuth credentials in Google Cloud. Summary:</p>
+                            <h3>1. Create a new project</h3>
                             <ol>
-                                <li>Create a project in the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
-                                <li>Enable the <strong>Google Drive API</strong> and <strong>Google Sheets API</strong>.</li>
-                                <li>Create <strong>OAuth 2.0 Credentials</strong> (Client ID and Secret).</li>
-                                <li>Configure these within the App Settings and authorize the connection.</li>
+                                <li>Open the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>.</li>
+                                <li>Use the project dropdown (top left) → <strong>New Project</strong>.</li>
+                                <li>Name the project (e.g. “Financial Overview”) and click <strong>Create</strong>.</li>
                             </ol>
+                            <h3>2. Enable APIs</h3>
+                            <ol>
+                                <li>Go to <strong>APIs &amp; Services</strong> → <strong>Library</strong>.</li>
+                                <li>Search for <strong>Google Drive API</strong> → <strong>Enable</strong>.</li>
+                                <li>Return to the Library, search for <strong>Google Sheets API</strong> → <strong>Enable</strong>.</li>
+                            </ol>
+                            <h3>3. OAuth consent screen</h3>
+                            <ol>
+                                <li>Go to <strong>APIs &amp; Services</strong> → <strong>OAuth consent screen</strong>.</li>
+                                <li>Choose <strong>External</strong> (unless you use Google Workspace with Internal) and create.</li>
+                                <li>Fill required fields: app name, user support email, developer contact.</li>
+                                <li>Use <strong>Save and Continue</strong> for Scopes and Test users—you can leave defaults for personal use.</li>
+                            </ol>
+                            <h3>4. Create OAuth 2.0 credentials</h3>
+                            <ol>
+                                <li>Go to <strong>APIs &amp; Services</strong> → <strong>Credentials</strong>.</li>
+                                <li><strong>Create Credentials</strong> → <strong>OAuth client ID</strong>.</li>
+                                <li>Application type: <strong>Web application</strong>.</li>
+                                <li>Under <strong>Authorized redirect URIs</strong>, add <strong>exactly</strong> the callback URL your app uses. Default for a local install is:
+                                    <div class="code-block">http://127.0.0.1:3000/api/auth/google/callback</div>
+                                    Replace <code>3000</code> with your server <strong>PORT</strong> if you changed it (same value as in Configuration → Environment / <code>financial-overview.json</code>). If you open the UI as <code>http://localhost:…</code>, add a second URI with <code>localhost</code> and the same path—Google requires an exact match.
+                                </li>
+                                <li>Create and note the <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
+                            </ol>
+                            <h3>5. Paste into the app</h3>
+                            <ol>
+                                <li>Open <strong>Configuration</strong> → <strong>Environment</strong> (or edit runtime settings on disk).</li>
+                                <li>Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>.</li>
+                                <li>Set <code>GOOGLE_REDIRECT_URI</code> to the same redirect URI you registered (must match character-for-character).</li>
+                                <li>Restart the server if required, then use <strong>Google Sheets</strong> / Google connection flows in the app to sign in.</li>
+                            </ol>
+                            <div class="callout warning">
+                                <strong>“Google hasn’t verified this app”:</strong> Normal for a personal Cloud project. Click <strong>Advanced</strong>, then <strong>Go to … (unsafe)</strong> to continue.
+                            </div>
                         `
                     },
                     "getting-started": {
@@ -358,39 +402,360 @@ GEMINI_API_KEY=(optional)
                     },
                     "telegram-guide": {
                         title: "✈️ Telegram bot",
-                        html: `
-                            <h3>Quick setup</h3>
-                            <ol>
-                                <li>In Telegram, open <strong>@BotFather</strong>, send <code>/newbot</code>, and copy the <strong>bot token</strong>.</li>
-                                <li>In the web app: <strong>Configuration → Telegram</strong> → paste the token → <strong>Save</strong> → <strong>Start</strong>. Alternatively set <code>TELEGRAM_BOT_TOKEN</code> in your server environment.</li>
-                                <li><strong>Find your chat ID:</strong> open a <strong>private</strong> chat with your bot and send any message (e.g. <code>/start</code> or “hello”). For private chats, your <strong>chat ID</strong> is the same numeric value as your <strong>Telegram user ID</strong>.</li>
-                            </ol>
-                            <p><strong>Unauthorized users:</strong> If the bot is configured with an <strong>allowed users</strong> list and your account is not on it yet, commands are blocked—but when you <strong>send a message to the bot</strong>, it still replies with <strong>Your User ID</strong> (a number in monospace). Copy that ID and send it to your admin so they can add it to allowed users / notifications. After you are authorized, you can use commands normally.</p>
-                            <p><strong>Alternative (getUpdates):</strong> After messaging the bot, open <code>https://api.telegram.org/bot&lt;YOUR_BOT_TOKEN&gt;/getUpdates</code> in a browser and read <code>"chat":{"id": …}</code> (or <code>"from":{"id": …}</code> for the sender). For <strong>groups</strong>, add the bot and post a message mentioning it; group chat IDs are negative numbers.</p>
-                            <ol start="4">
-                                <li>Add the relevant chat IDs under <strong>Notification Chats</strong> (and allowed users in config if you restrict access), then use <strong>Test</strong> to confirm delivery.</li>
-                            </ol>
-                            <h3>Commands</h3>
-                            <table>
-                                <tr><th>Command</th><th>What it does</th></tr>
-                                <tr><td><code>/start</code></td><td>Welcome and initialize the bot in a private chat.</td></tr>
-                                <tr><td><code>/help</code></td><td>List available commands.</td></tr>
-                                <tr><td><code>/scrape</code></td><td>Pick a saved profile (inline buttons) and run a scrape.</td></tr>
-                                <tr><td><code>/chat</code></td><td>Enter AI mode—ask questions about your transactions (same idea as the web analyst).</td></tr>
-                                <tr><td><code>/settings</code></td><td>Notification and preference menus.</td></tr>
-                                <tr><td><code>/subscribe</code> / <code>/unsubscribe</code></td><td>Turn scrape notifications on or off.</td></tr>
-                                <tr><td><code>/status</code></td><td>Bot and system status.</td></tr>
-                                <tr><td><code>/unlock</code></td><td>When the web UI is app-locked, unlock the session from Telegram (where enabled).</td></tr>
-                            </table>
-                            <h3>Notifications</h3>
-                            <p>The bot can notify you when scrapes succeed or fail, when post-scrape pipelines finish, when <strong>AI insights</strong> are produced, and for system-style alerts. Choose a detail level: <strong>Minimal</strong> (status only), <strong>Normal</strong> (counts, stages, insights), <strong>Detailed</strong> (more account context), or <strong>Verbose</strong> (full detail / JSON for advanced use).</p>
-                            <h3>Good practices</h3>
-                            <ul>
-                                <li>Never share your bot token; it is masked in the UI. Rotate via BotFather if leaked.</li>
-                                <li>Only add trusted chats to notification lists.</li>
-                                <li>Long AI replies are split automatically to fit Telegram message limits.</li>
-                            </ul>
-                            <p class="callout info">Full reference (API endpoints, troubleshooting): <code>docs/TELEGRAM_BOT_GUIDE.md</code> in the repository.</p>
+                        html: `<p class="callout info">Source: <code>docs/TELEGRAM_BOT_GUIDE.md</code> in the repository.</p>
+<div class="telegram-guide-body"><h2>Overview</h2>
+<p>Financial Overview (מבט כלכלי) includes a full-featured Telegram bot that allows you to:</p>
+<ul>
+<li>📬 <strong>Receive notifications</strong> about transaction scrapers</li>
+<li>💬 <strong>Chat with AI</strong> about your financial transactions</li>
+<li>🏦 <strong>Control scrapers</strong> directly from Telegram</li>
+<li>⚙️ <strong>Manage settings</strong> via chat commands</li>
+</ul>
+<h2>Quick Start</h2>
+<h3>1. Create a Telegram Bot</h3>
+<ol>
+<li>Open Telegram and search for <strong>@BotFather</strong></li>
+<li>Send <code>/newbot</code> command</li>
+<li>Follow the prompts to name your bot</li>
+<li>BotFather will provide your <strong>Bot Token</strong> (e.g., <code>123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>)</li>
+</ol>
+<h3>2. Configure the Bot Token</h3>
+<h4>Option A: Via Environment Variables (.env)</h4>
+<p>Add to your <code>.env</code> file:</p>
+<pre class="code-block"><code>TELEGRAM_BOT_TOKEN=your_bot_token_here
+</code></pre>
+<h4>Option B: Via UI</h4>
+<ol>
+<li>Go to <strong>Configuration</strong> → <strong>Telegram</strong> tab</li>
+<li>Paste your bot token in the &quot;Bot Token&quot; field</li>
+<li>Click <strong>Save</strong></li>
+<li>Click <strong>Start</strong> to activate the bot</li>
+</ol>
+<h3>3. Get Your Chat ID</h3>
+<p>To receive notifications or use the bot, you need your Telegram Chat ID:</p>
+<p><strong>For Private Chats:</strong></p>
+<ol>
+<li>Start a chat with your bot by searching it on Telegram</li>
+<li>Send any message to your bot (e.g. <code>/start</code>)</li>
+<li>In a <strong>private</strong> chat, your <strong>chat ID</strong> is the same number as your <strong>Telegram user ID</strong>.</li>
+</ol>
+<p><strong>If you are not authorized yet</strong> (server uses an <code>allowedUsers</code> list and your account is not on it): send any message to the bot anyway. You will get an “access denied” style reply that still includes <strong>Your User ID</strong> as a copyable number—share that with the admin so they can add you to <code>allowedUsers</code> and to notification chats if needed.</p>
+<p><strong>Alternative — getUpdates API:</strong></p>
+<ol>
+<li>After messaging the bot, open: <code>https://api.telegram.org/bot&lt;YOUR_BOT_TOKEN&gt;/getUpdates</code></li>
+<li>Look for <code>&quot;chat&quot;: {&quot;id&quot;: &lt;YOUR_CHAT_ID&gt;}</code> or <code>&quot;from&quot;: {&quot;id&quot;: ...}</code> for the sender</li>
+<li>Copy the chat ID number</li>
+</ol>
+<p><strong>For Group Chats:</strong></p>
+<ol>
+<li>Add your bot to a Telegram group</li>
+<li>Send a message mentioning the bot: <code>@your_bot_name hello</code></li>
+<li>Use the same method above to find the group&#39;s chat ID (will start with <code>-</code>)</li>
+</ol>
+<h2>Features &amp; Commands</h2>
+<h3>Available Commands</h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/start</code></td>
+<td>Initialize bot and show welcome message</td>
+<td>Send in private chat with bot</td>
+</tr>
+<tr>
+<td><code>/help</code></td>
+<td>Show all available commands</td>
+<td>Send in any chat</td>
+</tr>
+<tr>
+<td><code>/scrape</code></td>
+<td>Choose and run a scraper</td>
+<td>Select profile from inline buttons</td>
+</tr>
+<tr>
+<td><code>/chat</code></td>
+<td>Enter AI conversation mode</td>
+<td>Ask questions about transactions</td>
+</tr>
+<tr>
+<td><code>/settings</code></td>
+<td>Manage notification preferences</td>
+<td>Configure via interactive menu</td>
+</tr>
+<tr>
+<td><code>/subscribe</code></td>
+<td>Enable transaction notifications</td>
+<td>Get alerts for new scrapes</td>
+</tr>
+<tr>
+<td><code>/unsubscribe</code></td>
+<td>Disable notifications</td>
+<td>No more alerts</td>
+</tr>
+<tr>
+<td><code>/status</code></td>
+<td>Check bot and system status</td>
+<td>See if bot is active</td>
+</tr>
+</tbody></table>
+<h3>Using AI Chat</h3>
+<pre class="code-block"><code>You: /chat
+Bot: 💬 AI Chat Mode activated!
+
+You: What are my largest expenses?
+Bot: Based on your transactions, your largest expense categories are...
+
+You: Show me spending trends
+Bot: [Detailed analysis of spending patterns]
+</code></pre>
+<h3>Running Scrapers</h3>
+<pre class="code-block"><code>You: /scrape
+Bot: 🏦 Select the profile to scrape:
+     [Leumi Bank] [Bank Hapoalim] [Other Bank]
+
+You: Click on desired bank
+Bot: ⏳ Executing scraper, please wait...
+     ✅ Scrape Completed Successfully
+     
+     📊 Results:
+     • Accounts: 3
+     • Transactions: 487
+     • Duration: 2350ms
+</code></pre>
+<h2>Notification Chats Setup</h2>
+<h3>Add Chat to Notifications</h3>
+<ol>
+<li>Go to <strong>Configuration</strong> → <strong>Telegram</strong> → <strong>Notification Chats</strong></li>
+<li>Enter the chat ID of the chat that should receive notifications</li>
+<li>Click <strong>Add</strong></li>
+</ol>
+<h3>Notification Events</h3>
+<p>The bot will send notifications when:</p>
+<ul>
+<li>Scraper completes successfully ✅</li>
+<li>Scraper encounters an error ❌</li>
+<li>Transactions are analyzed with AI insights</li>
+<li>Pipeline executions complete</li>
+<li>System alerts occur</li>
+</ul>
+<h3>Notification Detail Levels</h3>
+<p>Configure how detailed notifications should be:</p>
+<ul>
+<li><strong>Minimal</strong>: Just status and duration</li>
+<li><strong>Normal</strong>: Status, duration, stages, transaction count, insights</li>
+<li><strong>Detailed</strong>: Full information including account details and balance</li>
+<li><strong>Verbose</strong>: Complete JSON dump for advanced users</li>
+</ul>
+<h2>Configuration Panel</h2>
+<p>Access the Telegram settings from the web UI:</p>
+<ol>
+<li>Navigate to <strong>Configuration</strong> → <strong>Telegram</strong> tab</li>
+<li>Configure:<ul>
+<li>Bot Token (with masked display for security)</li>
+<li>Notification Chats (add/remove chat IDs)</li>
+<li>Test connection</li>
+<li>View advanced settings</li>
+</ul>
+</li>
+</ol>
+<h3>Test Connection</h3>
+<p>To verify your configuration:</p>
+<ol>
+<li>Enter your bot token</li>
+<li>Enter your chat ID  </li>
+<li>Click <strong>Test</strong></li>
+<li>You should receive a confirmation message in Telegram</li>
+</ol>
+<h2>API Endpoints</h2>
+<p>The Telegram feature exposes the following API endpoints:</p>
+<h3>Configuration</h3>
+<pre class="code-block"><code class="language-bash"># Get Telegram config
+GET /api/telegram/config
+
+# Update configuration
+POST /api/telegram/config
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;adminChatIds&quot;: [&quot;123456&quot;],
+  &quot;notificationChatIds&quot;: [&quot;123456&quot;, &quot;-789012&quot;]
+}
+</code></pre>
+<h3>Bot Control</h3>
+<pre class="code-block"><code class="language-bash"># Start the bot
+POST /api/telegram/start
+{
+  &quot;botToken&quot;: &quot;optional_token_to_override_config&quot;
+}
+
+# Stop the bot
+POST /api/telegram/stop
+
+# Get bot status
+GET /api/telegram/status
+
+# Test connection
+POST /api/telegram/test
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;chatId&quot;: &quot;...&quot;
+}
+</code></pre>
+<h3>Notification Chats</h3>
+<pre class="code-block"><code class="language-bash"># Get all notification chats
+GET /api/telegram/notification-chats
+
+# Add chat to notifications
+POST /api/telegram/notification-chat/add
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+
+# Remove chat from notifications
+POST /api/telegram/notification-chat/remove
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+</code></pre>
+<h2>Advanced Features</h2>
+<h3>Multi-Language Support</h3>
+<p>The Telegram UI automatically detects your language preference from the web interface:</p>
+<ul>
+<li>🇺🇸 English</li>
+<li>🇮🇱 Hebrew</li>
+</ul>
+<h3>Inline Buttons</h3>
+<p>The bot uses Telegram&#39;s inline buttons for easy interaction:</p>
+<ul>
+<li>Profile selection for scrapers</li>
+<li>Settings toggles</li>
+<li>Navigation between menu options</li>
+</ul>
+<h3>Long Message Handling</h3>
+<p>If AI responses exceed Telegram&#39;s 4096 character limit, they&#39;re automatically split into multiple messages.</p>
+<h3>Message Templating</h3>
+<p>Notifications use HTML formatting for better readability:</p>
+<ul>
+<li><strong>Bold text</strong> for titles</li>
+<li><code>code formatting</code> for IDs</li>
+<li>✅/❌ emojis for status</li>
+</ul>
+<h2>Troubleshooting</h2>
+<h3>Bot Not Responding</h3>
+<ol>
+<li>Check bot token is correct</li>
+<li>Verify bot was started: <strong>Configuration</strong> → <strong>Telegram</strong> → <strong>Start</strong> button</li>
+<li>Ensure you&#39;ve added the bot to Telegram by typing <code>/start</code></li>
+<li>Check server logs for errors: <strong>Configuration</strong> → <strong>Maintenance</strong> → View logs</li>
+</ol>
+<h3>Not Receiving Notifications</h3>
+<ol>
+<li>Verify chat ID is correct</li>
+<li>Check chat is added to notification list: <strong>Configuration</strong> → <strong>Telegram</strong> → <strong>Notification Chats</strong></li>
+<li>Test connection: Click <strong>Test</strong> button with your chat ID</li>
+<li>Ensure bot status is &quot;Active&quot; (green indicator)</li>
+</ol>
+<h3>Can&#39;t Get Chat ID</h3>
+<p>Try these methods:</p>
+<ol>
+<li>Send a message to the bot, then check: <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code></li>
+<li>For groups, add bot and mention it: <code>@botname hello</code></li>
+<li>Look for <code>&quot;chat&quot;: {&quot;id&quot;: &lt;number&gt;}</code></li>
+</ol>
+<h3>Errors in Web UI</h3>
+<ul>
+<li><strong>&quot;Bot token not provided&quot;</strong>: Add token to config and save</li>
+<li><strong>&quot;Telegram API error&quot;</strong>: Token might be invalid - verify with @BotFather</li>
+<li><strong>&quot;Failed to add chat&quot;</strong>: Chat ID format might be wrong (should be all numbers for private, <code>-</code> prefix for groups)</li>
+</ul>
+<h2>Security Considerations</h2>
+<ol>
+<li><p><strong>Bot Token Protection</strong>: </p>
+<ul>
+<li>Never share your bot token publicly</li>
+<li>Token is masked in UI display (shows <code>***...last10chars</code>)</li>
+<li>Regenerate token via @BotFather if compromised</li>
+</ul>
+</li>
+<li><p><strong>Chat ID Privacy</strong>:</p>
+<ul>
+<li>Store securely, like passwords</li>
+<li>Only add trusted chats for notifications</li>
+<li>Remove old/unused chat IDs</li>
+</ul>
+</li>
+<li><p><strong>Admin Chats</strong>:</p>
+<ul>
+<li>Configure specific admin-level permissions</li>
+<li>Only admins can execute sensitive commands</li>
+<li>Consider using a private group for admin alerts</li>
+</ul>
+</li>
+</ol>
+<h2>Examples</h2>
+<h3>Example 1: Get Weekly Spending Summary</h3>
+<pre class="code-block"><code>You: /chat
+You: Can you summarize my spending this week by category?
+Bot: 📊 Weekly Spending Summary:
+     💰 Total: ₪4,250
+     - Groceries: ₪800
+     - Transportation: ₪300
+     - Entertainment: ₪450
+     - Utilities: ₪200
+     ... detailed breakdown ...
+</code></pre>
+<h3>Example 2: Automated Scraper Execution</h3>
+<pre class="code-block"><code>1. Setup monthly scraper in Pipeline Configuration
+2. Add notification chat in Telegram settings
+3. When pipeline runs:
+   - Bot sends: &quot;📬 Pipeline started&quot;
+   - After completion: &quot;✅ Scrape completed - 487 transactions&quot;
+   - AI insights included automatically
+</code></pre>
+<h3>Example 3: Financial Analysis</h3>
+<pre class="code-block"><code>You: /chat
+You: Have my expenses increased this month?
+Bot: 📈 Yes, your spending increased by 12% compared to last month
+     
+     Main drivers:
+     • Travel: +₪450
+     • Dining: +₪280
+     • Shopping: +₪150
+     
+     Areas within budget:
+     ✅ Groceries
+     ✅ Utilities
+</code></pre>
+<h2>Limitations &amp; Known Issues</h2>
+<ol>
+<li><strong>Message Rate Limiting</strong>: Telegram has rate limits (avoid sending 25+ messages/second)</li>
+<li><strong>File Uploads</strong>: Currently doesn&#39;t support file uploads to bot</li>
+<li><strong>Media Messages</strong>: Transactions shown as text only (no visual charts yet)</li>
+<li><strong>Group Permissions</strong>: Ensure bot has required permissions in groups</li>
+</ol>
+<h2>Future Enhancements</h2>
+<p>Planned features for future releases:</p>
+<ul>
+<li>📊 Interactive transaction charts</li>
+<li>📝 Export data to files</li>
+<li>🔔 Smart notifications (only major changes)</li>
+<li>🌙 Scheduled reports</li>
+<li>👥 Multi-user support with roles</li>
+<li>🔄 Sync with Google Sheets via Telegram</li>
+</ul>
+<h2>Support</h2>
+<p>For issues or feature requests:</p>
+<ol>
+<li>Check the troubleshooting section above</li>
+<li>Review server logs in <strong>Configuration</strong> → <strong>Logs</strong> tab</li>
+<li>Test with the <strong>Test Connection</strong> feature</li>
+<li>Report issues with detailed error messages</li>
+</ol>
+</div>
                         `
                     },
                     "credits": {
@@ -411,10 +776,10 @@ GEMINI_API_KEY=(optional)
                 title: "מדריך למשתמש",
                 subtitle: "המדריך המלא להגדרה ושימוש במבט כלכלי.",
                 nav: [
-                    { label: "התקנה", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "windows-install", label: "התקנה ב-Windows" }, { id: "env-setup", label: "זמן ריצה וסודות" }, { id: "app-lock", label: "נעילת אפליקציה" }, { id: "api-guides", label: "מפתחות API" }, { id: "google-setup", label: "Google Sheets" }] },
+                    { label: "התקנה", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "windows-install", label: "התקנה ב-Windows" }, { id: "env-setup", label: "זמן ריצה וסודות" }, { id: "app-lock", label: "נעילת אפליקציה" }, { id: "api-guides", label: "מפתחות API" }, { id: "google-setup", label: "Google Drive ו-Sheets" }, { id: "telegram-guide", label: "בוט טלגרם" }] },
                     { label: "ממשק", items: [{ id: "dashboard", label: "דשבורד" }, { id: "scrape", label: "סריקה" }, { id: "profiles", label: "פרופילים" }, { id: "results", label: "סייר תוצאות" }, { id: "logs", label: "יומנים" }, { id: "configuration", label: "הגדרות" }] },
                     { label: "חכם", items: [{ id: "ai", label: "תכונות AI" }, { id: "fraud", label: "זיהוי הונאה" }, { id: "automation", label: "מתזמן וגיבויים" }] },
-                    { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "telegram-guide", label: "בוט טלגרם" }, { id: "credits", label: "קרדיטים" }] }
+                    { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "credits", label: "קרדיטים" }] }
                 ],
                 sections: {
                     "env-setup": {
@@ -440,25 +805,62 @@ GEMINI_API_KEY=(optional)
                                 <li>התחבר ולחץ על <strong>"Get API Key"</strong>.</li>
                                 <li>הדבק את המפתח ב- <code>GEMINI_API_KEY</code> בקובץ <code>runtime-settings.json</code> (או בהגדרות סביבה באפליקציה).</li>
                             </ol>
-                            <h3>מזהה תיקיית Google Drive</h3>
-                            <p>נדרש לגיבוי בענן וסנכרון גיליונות.</p>
+                            <h3>מזהה תיקיית Google Drive (אופציונלי)</h3>
+                            <p>תיקיית ברירת מחדל לגיבויים ולייצוא כשמחוברים ל-Google. זה לא אותו דבר כמו אישורי OAuth — ראו <a href="#google-setup">Google Drive ו-Sheets (OAuth)</a> להגדרה מלאה ב-Cloud Console.</p>
                             <ol>
-                                <li>צור תיקייה ב-Google Drive.</li>
-                                <li>העתק את מחרוזת התווים בסוף ה-URL (אחרי <code>/folders/</code>).</li>
-                                <li>הדבק את המחרוזת ב- <code>DRIVE_FOLDER_ID</code>.</li>
+                                <li>צור תיקייה ב-Google Drive (או בחר קיימת).</li>
+                                <li>העתק את המזהה הארוך מה-URL אחרי <code>/folders/</code>.</li>
+                                <li>הדבק ל-<code>DRIVE_FOLDER_ID</code> בהגדרות סביבה (אופציונלי; אפשר גם לבחור תיקייה בממשק אחרי התחברות).</li>
                             </ol>
                         `
                     },
                     "google-setup": {
-                        title: "🔗 סנכרון Google Sheets",
+                        title: "🔗 Google Drive ו-Sheets (הגדרת OAuth)",
                         html: `
-                            <p>סנכרון ל-Google Sheets מאפשר לך לגשת לנתונים מכל מקום ולשתף אותם עם רואי חשבון.</p>
+                            <div class="callout info">
+                                <strong>אופציונלי:</strong> חיבור ל-Google נדרש ל<strong>סנכרון Google Sheets</strong>, <strong>גיבויים ל-Google Drive</strong> ותכונות ייצוא קשורות. ההגדרה מעט מורכבת יותר מהגדרות אחרות — אפשר <strong>לדלג</strong> ולהשתמש באפליקציה במלואה לסריקה וניתוח; להוסיף Google מאוחר יותר תחת <strong>הגדרות</strong> כשצריך גיבוי בענן או Sheets.
+                            </div>
+                            <p>כדי לחבר את האפליקציה לחשבון Google, יוצרים אישורי OAuth ב-Google Cloud. תמצית:</p>
+                            <h3>1. יצירת פרויקט</h3>
                             <ol>
-                                <li>צור פרויקט ב- <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
-                                <li>הפעל את <strong>Google Drive API</strong> ו- <strong>Google Sheets API</strong>.</li>
-                                <li>צור <strong>OAuth 2.0 Credentials</strong> (מזהה לקוח וסוד).</li>
-                                <li>הגדר אותם באפליקציה ואשר את החיבור.</li>
+                                <li>פתחו את <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>.</li>
+                                <li>בוחרים פרויקט (למעלה משמאל) → <strong>New Project</strong>.</li>
+                                <li>שם הפרויקט (למשל "Financial Overview") ו-<strong>Create</strong>.</li>
                             </ol>
+                            <h3>2. הפעלת APIs</h3>
+                            <ol>
+                                <li><strong>APIs &amp; Services</strong> → <strong>Library</strong>.</li>
+                                <li>חיפוש <strong>Google Drive API</strong> → <strong>Enable</strong>.</li>
+                                <li>חזרה ל-Library, חיפוש <strong>Google Sheets API</strong> → <strong>Enable</strong>.</li>
+                            </ol>
+                            <h3>3. מסך הסכמת OAuth</h3>
+                            <ol>
+                                <li><strong>APIs &amp; Services</strong> → <strong>OAuth consent screen</strong>.</li>
+                                <li>בוחרים <strong>External</strong> (אלא אם ארגון Workspace עם Internal) ויוצרים.</li>
+                                <li>ממלאים שדות חובה: שם אפליקציה, אימייל לתמיכה, פרטי מפתח.</li>
+                                <li><strong>Save and Continue</strong> ב-Scopes וב-Test users — אפשר ברירות מחדל לשימוש אישי.</li>
+                            </ol>
+                            <h3>4. יצירת אישורי OAuth 2.0</h3>
+                            <ol>
+                                <li><strong>APIs &amp; Services</strong> → <strong>Credentials</strong>.</li>
+                                <li><strong>Create Credentials</strong> → <strong>OAuth client ID</strong>.</li>
+                                <li>סוג: <strong>Web application</strong>.</li>
+                                <li>תחת <strong>Authorized redirect URIs</strong> מוסיפים בדיוק את כתובת ה-callback שהאפליקציה משתמשת בה. ברירת מחדל להתקנה מקומית:
+                                    <div class="code-block">http://127.0.0.1:3000/api/auth/google/callback</div>
+                                    מחליפים את <code>3000</code> ב-<strong>PORT</strong> של השרת אם שיניתם (כמו ב-<strong>Configuration → Environment</strong> / <code>financial-overview.json</code>). אם נכנסים דרך <code>http://localhost:…</code>, הוסיפו גם URI עם <code>localhost</code> — Google דורש התאמה מדויקת.
+                                </li>
+                                <li>יוצרים ושומרים את <strong>Client ID</strong> ו-<strong>Client Secret</strong>.</li>
+                            </ol>
+                            <h3>5. הדבקה באפליקציה</h3>
+                            <ol>
+                                <li><strong>Configuration</strong> → <strong>Environment</strong> (או קובץ runtime).</li>
+                                <li>מגדירים <code>GOOGLE_CLIENT_ID</code> ו-<code>GOOGLE_CLIENT_SECRET</code>.</li>
+                                <li><code>GOOGLE_REDIRECT_URI</code> חייב להיות זהה ל-URI שרשומים ב-Google (תו-תו).</li>
+                                <li>הפעלה מחדש של השרת אם נדרש, ואז התחברות דרך לשוניות Google / Sheets בממשק.</li>
+                            </ol>
+                            <div class="callout warning">
+                                <strong>„Google hasn’t verified this app”:</strong> נורמלי לפרויקט אישי. לחצו <strong>Advanced</strong> ואז <strong>Go to … (unsafe)</strong> כדי להמשיך.
+                            </div>
                         `
                     },
                     "getting-started": {
@@ -651,39 +1053,359 @@ GEMINI_API_KEY=(optional)
                     },
                     "telegram-guide": {
                         title: "✈️ בוט טלגרם",
-                        html: `
-                            <h3>התחלה מהירה</h3>
-                            <ol>
-                                <li>בטלגרם פתחו את <strong>@BotFather</strong>, שלחו <code>/newbot</code>, והעתיקו את <strong>טוקן הבוט</strong>.</li>
-                                <li>בממשק האינטרנט: <strong>הגדרות → Telegram</strong> → הדביקו את הטוקן → <strong>שמור</strong> → <strong>התחל</strong>. לחלופין הגדירו <code>TELEGRAM_BOT_TOKEN</code> בסביבת השרת.</li>
-                                <li><strong>מזהה צ'אט:</strong> פתחו <strong>צ'אט פרטי</strong> עם הבוט ושלחו כל הודעה (למשל <code>/start</code> או "שלום"). בצ'אט פרטי, <strong>מזהה הצ'אט</strong> הוא אותו מספר כמו <strong>מזהה המשתמש בטלגרם</strong>.</li>
-                            </ol>
-                            <p><strong>משתמשים לא מורשים:</strong> אם מוגדרת רשימת <strong>משתמשים מורשים</strong> והחשבון שלכם עדיין לא ברשימה, פקודות נחסמות — אבל כש<strong>שולחים הודעה לבוט</strong>, הוא עדיין משיב עם <strong>מזהה המשתמש שלך</strong> (מספר בקוד מונוספייס). העתיקו את המספר ושלחו למנהל כדי שיוסיף אותו למורשים / להתראות. אחרי שקיבלתם הרשאה, הפקודות יעבדו כרגיל.</p>
-                            <p><strong>חלופה (getUpdates):</strong> אחרי ששלחתם הודעה לבוט, פתחו בדפדפן <code>https://api.telegram.org/bot&lt;טוקן&gt;/getUpdates</code> וקראו את <code>"chat":{"id": …}</code> (או <code>"from":{"id": …}</code>). ב<strong>קבוצות</strong> הוסיפו את הבוט ופרסמו הודעה שמזכירה אותו; מזהי קבוצות שליליים.</p>
-                            <ol start="4">
-                                <li>הוסיפו את מזהי הצ'אט הרלוונטיים תחת <strong>צ'אטים להתראות</strong> (ורשימת מורשים בהגדרות אם מגבילים גישה), ובדקו עם <strong>בדיקה</strong>.</li>
-                            </ol>
-                            <h3>פקודות</h3>
-                            <table>
-                                <tr><th>פקודה</th><th>תיאור</th></tr>
-                                <tr><td><code>/start</code></td><td>הודעת פתיחה ואתחול בצ'אט פרטי.</td></tr>
-                                <tr><td><code>/help</code></td><td>רשימת פקודות.</td></tr>
-                                <tr><td><code>/scrape</code></td><td>בחירת פרופיל (כפתורים) והרצת סריקה.</td></tr>
-                                <tr><td><code>/chat</code></td><td>מצב AI — שאלות על עסקאות (כמו המנתח בממשק).</td></tr>
-                                <tr><td><code>/settings</code></td><td>העדפות והתראות.</td></tr>
-                                <tr><td><code>/subscribe</code> / <code>/unsubscribe</code></td><td>הפעלה/כיבוי התראות סריקה.</td></tr>
-                                <tr><td><code>/status</code></td><td>סטטוס הבוט והמערכת.</td></tr>
-                                <tr><td><code>/unlock</code></td><td>כשהממשק נעול — שחרור סשן מטלגרם (אם מופעל).</td></tr>
-                            </table>
-                            <h3>התראות</h3>
-                            <p>הבוט יכול להודיע על סריקות שהצליחו או נכשלו, על סיום צינור אחרי סריקה, על <strong>תובנות AI</strong>, ועל התראות מערכת. רמת פירוט: <strong>מינימלי</strong>, <strong>רגיל</strong>, <strong>מפורט</strong>, או <strong>מפורט מאוד</strong> (כולל JSON למתקדמים).</p>
-                            <h3>המלצות</h3>
-                            <ul>
-                                <li>אל תחלקו את טוקן הבוט; בממשק הוא מוסתר. אם דלף — החליפו ב-BotFather.</li>
-                                <li>הוסיפו לרשימת ההתראות רק צ'אטים מהימנים.</li>
-                                <li>תשובות AI ארוכות מפוצלות אוטומטית למגבלת טלגרם.</li>
-                            </ul>
-                            <p class="callout info">הפניה מלאה (API, ניפוי שגיאות): <code>docs/TELEGRAM_BOT_GUIDE.md</code> במאגר.</p>
+                        html: `<p class="callout info">מקור: <code>client/public/guides/TELEGRAM_BOT_GUIDE.he.md</code></p>
+<div class="telegram-guide-body"><h2>סקירה</h2>
+<p><strong>מבט כלכלי</strong> כולל בוט טלגרם מלא שמאפשר:</p>
+<ul>
+<li>📬 <strong>קבלת התראות</strong> על סורקי עסקאות</li>
+<li>💬 <strong>שיחה עם AI</strong> על עסקאות פיננסיות</li>
+<li>🏦 <strong>הפעלת סורקים</strong> ישירות מטלגרם</li>
+<li>⚙️ <strong>ניהול הגדרות</strong> דרך פקודות בצ&#39;אט</li>
+</ul>
+<h2>התחלה מהירה</h2>
+<h3>1. יצירת בוט בטלגרם</h3>
+<ol>
+<li>פתחו את טלגרם וחפשו <strong>@BotFather</strong></li>
+<li>שלחו את הפקודה <code>/newbot</code></li>
+<li>עקבו אחר ההנחיות לתת שם לבוט</li>
+<li>BotFather יספק את <strong>טוקן הבוט</strong> (למשל <code>123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>)</li>
+</ol>
+<h3>2. הגדרת טוקן הבוט</h3>
+<h4>אפשרות א׳: משתני סביבה (.env)</h4>
+<p>הוסיפו לקובץ <code>.env</code>:</p>
+<pre class="code-block"><code>TELEGRAM_BOT_TOKEN=your_bot_token_here
+</code></pre>
+<h4>אפשרות ב׳: דרך הממשק</h4>
+<ol>
+<li>עברו ל־<strong>הגדרות</strong> → לשונית <strong>Telegram</strong></li>
+<li>הדביקו את טוקן הבוט בשדה &quot;Bot Token&quot;</li>
+<li>לחצו <strong>שמור</strong></li>
+<li>לחצו <strong>התחל</strong> כדי להפעיל את הבוט</li>
+</ol>
+<h3>3. קבלת מזהה צ&#39;אט (Chat ID)</h3>
+<p>כדי לקבל התראות או להשתמש בבוט, נדרש <strong>מזהה הצ&#39;אט</strong> בטלגרם:</p>
+<p><strong>בצ&#39;אט פרטי:</strong></p>
+<ol>
+<li>התחילו צ&#39;אט עם הבוט (חיפוש בשם הבוט)</li>
+<li>שלחו כל הודעה לבוט (למשל <code>/start</code>)</li>
+<li>בצ&#39;אט <strong>פרטי</strong>, <strong>מזהה הצ&#39;אט</strong> הוא אותו מספר כמו <strong>מזהה המשתמש בטלגרם</strong>.</li>
+</ol>
+<p><strong>אם עדיין אין הרשאה</strong> (השרת משתמש ברשימת <code>allowedUsers</code> והחשבון שלכם לא ברשימה): שלחו בכל זאת הודעה לבוט. תקבלו תשובה בסגנון &quot;גישה נדחית&quot; שעדיין כוללת את <strong>מזהה המשתמש שלכם</strong> כמספר להעתקה — שלחו אותו למנהל כדי שיוסיף אתכם ל־<code>allowedUsers</code> ולצ&#39;אטי התראות לפי הצורך.</p>
+<p><strong>חלופה — API getUpdates:</strong></p>
+<ol>
+<li>אחרי שליחת הודעה לבוט, פתחו: <code>https://api.telegram.org/bot&lt;YOUR_BOT_TOKEN&gt;/getUpdates</code></li>
+<li>חפשו <code>&quot;chat&quot;: {&quot;id&quot;: &lt;YOUR_CHAT_ID&gt;}</code> או <code>&quot;from&quot;: {&quot;id&quot;: ...}</code> עבור השולח</li>
+<li>העתיקו את מספר מזהה הצ&#39;אט</li>
+</ol>
+<p><strong>בקבוצות:</strong></p>
+<ol>
+<li>הוסיפו את הבוט לקבוצת טלגרם</li>
+<li>שלחו הודעה שמזכירה את הבוט: <code>@your_bot_name שלום</code></li>
+<li>באותה שיטה מזהים את מזהה הצ&#39;אט של הקבוצה (מתחיל ב־<code>-</code>)</li>
+</ol>
+<h2>תכונות ופקודות</h2>
+<h3>פקודות זמינות</h3>
+<table>
+<thead>
+<tr>
+<th>פקודה</th>
+<th>תיאור</th>
+<th>שימוש</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/start</code></td>
+<td>אתחול הבוט והודעת פתיחה</td>
+<td>בצ&#39;אט פרטי עם הבוט</td>
+</tr>
+<tr>
+<td><code>/help</code></td>
+<td>הצגת כל הפקודות</td>
+<td>בכל צ&#39;אט</td>
+</tr>
+<tr>
+<td><code>/scrape</code></td>
+<td>בחירה והרצת סורק</td>
+<td>בחירת פרופיל מכפתורים</td>
+</tr>
+<tr>
+<td><code>/chat</code></td>
+<td>מצב שיחה עם AI</td>
+<td>שאלות על עסקאות</td>
+</tr>
+<tr>
+<td><code>/settings</code></td>
+<td>ניהול העדפות התראות</td>
+<td>תפריט אינטראקטיבי</td>
+</tr>
+<tr>
+<td><code>/subscribe</code></td>
+<td>הפעלת התראות על עסקאות</td>
+<td>התראות לסריקות חדשות</td>
+</tr>
+<tr>
+<td><code>/unsubscribe</code></td>
+<td>כיבוי התראות</td>
+<td>בלי התראות</td>
+</tr>
+<tr>
+<td><code>/status</code></td>
+<td>בדיקת סטטוס הבוט והמערכת</td>
+<td>האם הבוט פעיל</td>
+</tr>
+</tbody></table>
+<h3>שימוש בצ&#39;אט AI</h3>
+<pre class="code-block"><code>אתה: /chat
+בוט: 💬 מצב צ&#39;אט AI הופעל!
+
+אתה: מה ההוצאות הגדולות שלי?
+בוט: לפי העסקאות שלך, קטגוריות ההוצאה הגדולות ביותר הן...
+
+אתה: הצג מגמות הוצאה
+בוט: [ניתוח מפורט של דפוסי הוצאה]
+</code></pre>
+<h3>הרצת סורקים</h3>
+<pre class="code-block"><code>אתה: /scrape
+בוט: 🏦 בחר פרופיל לסריקה:
+     [בנק לאומי] [בנק הפועלים] [אחר]
+
+אתה: לחיצה על הבנק הרצוי
+בוט: ⏳ מריץ סורק, נא להמתין...
+     ✅ הסריקה הושלמה בהצלחה
+     
+     📊 תוצאות:
+     • חשבונות: 3
+     • עסקאות: 487
+     • משך: 2350ms
+</code></pre>
+<h2>הגדרת צ&#39;אטים להתראות</h2>
+<h3>הוספת צ&#39;אט להתראות</h3>
+<ol>
+<li>עברו ל־<strong>הגדרות</strong> → <strong>Telegram</strong> → <strong>צ&#39;אטים להתראות</strong></li>
+<li>הזינו את מזהה הצ&#39;אט שאמור לקבל התראות</li>
+<li>לחצו <strong>הוסף</strong></li>
+</ol>
+<h3>אירועי התראות</h3>
+<p>הבוט שולח התראות כאשר:</p>
+<ul>
+<li>סריקה הסתיימה בהצלחה ✅</li>
+<li>סריקה נכשלה ❌</li>
+<li>נותחו עסקאות עם תובנות AI</li>
+<li>צינור (pipeline) הסתיים</li>
+<li>התרעות מערכת</li>
+</ul>
+<h3>רמות פירוט התראות</h3>
+<p>ניתן להגדיר כמה מפורטות ההתראות:</p>
+<ul>
+<li><strong>מינימלי</strong>: סטטוס ומשך בלבד</li>
+<li><strong>רגיל</strong>: סטטוס, משך, שלבים, מספר עסקאות, תובנות</li>
+<li><strong>מפורט</strong>: מידע מלא כולל פרטי חשבון ויתרה</li>
+<li><strong>מפורט מאוד</strong>: JSON מלא למשתמשים מתקדמים</li>
+</ul>
+<h2>לוח הגדרות Telegram</h2>
+<p>גישה להגדרות מהממשק:</p>
+<ol>
+<li>עברו ל־<strong>הגדרות</strong> → לשונית <strong>Telegram</strong></li>
+<li>ניתן להגדיר:<ul>
+<li>טוקן בוט (מוסתר לחלקית)</li>
+<li>צ&#39;אטים להתראות (הוספה/הסרה של מזהי צ&#39;אט)</li>
+<li>בדיקת חיבור</li>
+<li>הגדרות מתקדמות</li>
+</ul>
+</li>
+</ol>
+<h3>בדיקת חיבור</h3>
+<p>לאימות ההגדרות:</p>
+<ol>
+<li>הזינו את טוקן הבוט</li>
+<li>הזינו את מזהה הצ&#39;אט</li>
+<li>לחצו <strong>בדיקה</strong></li>
+<li>אמורה להגיע הודעת אישור בטלגרם</li>
+</ol>
+<h2>נקודות קצה API (REST)</h2>
+<p>התכונה חושפת את נקודות ה־API הבאות (נתיבים כפי שמופיעים בשרת):</p>
+<h3>הגדרות</h3>
+<pre class="code-block"><code class="language-bash"># קבלת הגדרות טלגרם
+GET /api/telegram/config
+
+# עדכון הגדרות
+POST /api/telegram/config
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;adminChatIds&quot;: [&quot;123456&quot;],
+  &quot;notificationChatIds&quot;: [&quot;123456&quot;, &quot;-789012&quot;]
+}
+</code></pre>
+<h3>בקרת בוט</h3>
+<pre class="code-block"><code class="language-bash"># הפעלת הבוט
+POST /api/telegram/start
+{
+  &quot;botToken&quot;: &quot;optional_token_to_override_config&quot;
+}
+
+# עצירת הבוט
+POST /api/telegram/stop
+
+# סטטוס הבוט
+GET /api/telegram/status
+
+# בדיקת חיבור
+POST /api/telegram/test
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;chatId&quot;: &quot;...&quot;
+}
+</code></pre>
+<h3>צ&#39;אטים להתראות</h3>
+<pre class="code-block"><code class="language-bash"># רשימת כל צ&#39;אטי ההתראות
+GET /api/telegram/notification-chats
+
+# הוספת צ&#39;אט להתראות
+POST /api/telegram/notification-chat/add
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+
+# הסרת צ&#39;אט מהתראות
+POST /api/telegram/notification-chat/remove
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+</code></pre>
+<h2>תכונות מתקדמות</h2>
+<h3>ריבוי שפות</h3>
+<p>ממשק הבוט מזהה את שפת הממשק באינטרנט:</p>
+<ul>
+<li>🇺🇸 אנגלית</li>
+<li>🇮🇱 עברית</li>
+</ul>
+<h3>כפתורים מובנים (Inline)</h3>
+<p>הבוט משתמש בכפתורי טלגרם:</p>
+<ul>
+<li>בחירת פרופיל לסריקה</li>
+<li>מתגי הגדרות</li>
+<li>ניווט בתפריטים</li>
+</ul>
+<h3>הודעות ארוכות</h3>
+<p>אם תשובות AI חורגות ממגבלת 4096 תווים של טלגרם, הן מפוצלות אוטומטית.</p>
+<h3>תבניות הודעות</h3>
+<p>התראות משתמשות ב־HTML:</p>
+<ul>
+<li><strong>טקסט מודגש</strong> לכותרות</li>
+<li><code>קוד</code> למזהים</li>
+<li>אימוג&#39;י ✅/❌ לסטטוס</li>
+</ul>
+<h2>פתרון בעיות</h2>
+<h3>הבוט לא מגיב</h3>
+<ol>
+<li>ודאו שטוקן הבוט נכון</li>
+<li>ודאו שהבוט הופעל: <strong>הגדרות</strong> → <strong>Telegram</strong> → כפתור <strong>התחל</strong></li>
+<li>ודאו ששלחתם <code>/start</code> לבוט בטלגרם</li>
+<li>בדקו יומני שרת: <strong>הגדרות</strong> → <strong>תחזוקה</strong> → יומנים</li>
+</ol>
+<h3>לא מתקבלות התראות</h3>
+<ol>
+<li>ודאו שמזהה הצ&#39;אט נכון</li>
+<li>בדקו שהצ&#39;אט ברשימת ההתראות: <strong>הגדרות</strong> → <strong>Telegram</strong> → <strong>צ&#39;אטים להתראות</strong></li>
+<li>הריצו בדיקת חיבור עם מזהה הצ&#39;אט</li>
+<li>ודאו שסטטוס הבוט &quot;פעיל&quot; (אינדיקטור ירוק)</li>
+</ol>
+<h3>לא מצליחים למצוא Chat ID</h3>
+<ol>
+<li>שלחו הודעה לבוט, ואז: <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code></li>
+<li>בקבוצות: הוסיפו את הבוט וציינו אותו — <code>@botname שלום</code></li>
+<li>חפשו <code>&quot;chat&quot;: {&quot;id&quot;: &lt;מספר&gt;}</code></li>
+</ol>
+<h3>שגיאות בממשק</h3>
+<ul>
+<li><strong>&quot;Bot token not provided&quot;</strong>: הוסיפו טוקן ושמרו</li>
+<li><strong>&quot;Telegram API error&quot;</strong>: ייתכן שהטוקן שגוי — אמתו עם @BotFather</li>
+<li><strong>&quot;Failed to add chat&quot;</strong>: ייתכן שפורמט מזהה הצ&#39;אט שגוי (מספרים לפרטי, קידומת <code>-</code> לקבוצות)</li>
+</ul>
+<h2>אבטחה</h2>
+<ol>
+<li><p><strong>הגנת טוקן הבוט</strong>:</p>
+<ul>
+<li>אל תשתפו את הטוקן בפומבי</li>
+<li>בממשק הטוקן מוסתר (<code>***...10 תווים אחרונים</code>)</li>
+<li>אם דלף — צרו טוקן חדש ב־@BotFather</li>
+</ul>
+</li>
+<li><p><strong>פרטיות מזהה צ&#39;אט</strong>:</p>
+<ul>
+<li>שמרו כמו סיסמאות</li>
+<li>הוסיפו רק צ&#39;אטים מהימנים</li>
+<li>הסירו מזהים ישנים</li>
+</ul>
+</li>
+<li><p><strong>צ&#39;אטי מנהל</strong>:</p>
+<ul>
+<li>הרשאות ברמת מנהל</li>
+<li>רק מנהלים מריצים פקודות רגישות</li>
+<li>שקלו קבוצה פרטית להתראות מנהלים</li>
+</ul>
+</li>
+</ol>
+<h2>דוגמאות</h2>
+<h3>דוגמה 1: סיכום הוצאות שבועי</h3>
+<pre class="code-block"><code>אתה: /chat
+אתה: תוכל לסכם את ההוצאות השבוע לפי קטגוריה?
+בוט: 📊 סיכום הוצאות שבועי:
+     💰 סה&quot;כ: ₪4,250
+     - מכולת: ₪800
+     - תחבורה: ₪300
+     - בילויים: ₪450
+     - חשבונות: ₪200
+     ... פירוט ...
+</code></pre>
+<h3>דוגמה 2: הרצת סורק מתוזמנת</h3>
+<pre class="code-block"><code>1. הגדרת סורק חודשי בהגדרות צינור (Pipeline)
+2. הוספת צ&#39;אט התראות בהגדרות טלגרם
+3. כשהצינור רץ:
+   - הבוט שולח: &quot;📬 הצינור התחיל&quot;
+   - אחרי סיום: &quot;✅ סריקה הושלמה - 487 עסקאות&quot;
+   - תובנות AI נכללות אוטומטית
+</code></pre>
+<h3>דוגמה 3: ניתוח פיננסי</h3>
+<pre class="code-block"><code>אתה: /chat
+אתה: האם ההוצאות שלי עלו החודש?
+בוט: 📈 כן, ההוצאה עלתה בכ־12% לעומת החודש הקודם
+     
+     גורמים עיקריים:
+     • נסיעות: +₪450
+     • מסעדות: +₪280
+     • קניות: +₪150
+     
+     בתוך תקציב:
+     ✅ מכולת
+     ✅ חשבונות
+</code></pre>
+<h2>מגבלות ונושאים ידועים</h2>
+<ol>
+<li><strong>מגבלת קצב הודעות</strong>: לטלגרם יש הגבלות (הימנעו מ־25+ הודעות/שנייה)</li>
+<li><strong>העלאת קבצים</strong>: כרגע אין תמיכה בהעלאת קבצים לבוט</li>
+<li><strong>מדיה</strong>: עסקאות מוצגות כטקסט בלבד (אין גרפים בתוך טלגרם עדיין)</li>
+<li><strong>הרשאות בקבוצות</strong>: ודאו שלבוט יש הרשאות מתאימות</li>
+</ol>
+<h2>שיפורים עתידיים</h2>
+<p>תכנון לגרסאות עתידיות:</p>
+<ul>
+<li>📊 גרפי עסקאות אינטראקטיביים</li>
+<li>📝 ייצוא נתונים לקבצים</li>
+<li>🔔 התראות חכמות (שינויים מהותיים בלבד)</li>
+<li>🌙 דוחות מתוזמנים</li>
+<li>👥 תמיכה בריבוי משתמשים עם תפקידים</li>
+<li>🔄 סנכרון Google Sheets דרך טלגרם</li>
+</ul>
+<h2>תמיכה</h2>
+<p>לבעיות או בקשות לתכונות:</p>
+<ol>
+<li>עברו על סעיף פתרון הבעיות למעלה</li>
+<li>בדקו יומני שרת ב־<strong>הגדרות</strong> → <strong>יומנים</strong></li>
+<li>השתמשו ב־<strong>בדיקת חיבור</strong></li>
+<li>דווחו עם הודעות שגיאה מפורטות</li>
+</ol>
+</div>
                         `
                     },
                     "credits": {
@@ -698,7 +1420,7 @@ GEMINI_API_KEY=(optional)
             }
         };
 
-        let currentLang = localStorage.getItem('guideLang') || 'en';
+        let currentLang = localStorage.getItem('guideLang') || 'he';
 
         function render() {
             const data = content[currentLang];
@@ -721,9 +1443,9 @@ GEMINI_API_KEY=(optional)
 
             // Render Sections (fixed order so nav and reading order stay logical)
             const sectionOrder = [
-                'getting-started', 'windows-install', 'env-setup', 'app-lock', 'api-guides', 'google-setup',
+                'getting-started', 'windows-install', 'env-setup', 'app-lock', 'api-guides', 'google-setup', 'telegram-guide',
                 'dashboard', 'scrape', 'profiles', 'results', 'logs', 'configuration',
-                'ai', 'fraud', 'automation', 'troubleshooting', 'telegram-guide', 'credits'
+                'ai', 'fraud', 'automation', 'troubleshooting', 'credits'
             ];
             let mainHtml = `<header><h1>${data.title}</h1><p>${data.subtitle}</p></header>`;
             sectionOrder.forEach(key => {

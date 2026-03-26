@@ -77,9 +77,6 @@
             max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--border);
             box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
         }
-        .screenshot .missing-img-hint { display: none; font-size: 0.9rem; color: var(--secondary); padding: 0.75rem; background: #f1f5f9; border-radius: 8px; margin-bottom: 0.5rem; }
-        .screenshot.no-img .missing-img-hint { display: block; }
-        .screenshot.no-img img { display: none; }
         html[lang="en"] .only-he { display: none !important; }
         html[lang="he"] .only-en { display: none !important; }
         [dir="rtl"] aside { border-right: none; border-left: 1px solid var(--border); right: 0; left: auto; }
@@ -109,10 +106,8 @@
 
         function imgFigure(src, caption) {
             var esc = String(caption).replace(/"/g, '&quot;');
-            var missEn = 'Screenshot not bundled yet. Add PNGs to <code>install/screenshots/</code> (same names as <code>docs/video-guide-screenshots/</code>) or run <code>npm run video-guide:capture</code> and copy files.';
-            var missHe = 'צילום מסך עדיין לא נכלל. הוסף קבצי PNG ל־<code>install/screenshots/</code> (אותם שמות כמו ב־<code>docs/video-guide-screenshots/</code>) או הרץ <code>npm run video-guide:capture</code> והעתק קבצים.';
-            return '<figure class="screenshot"><div class="missing-img-hint"><span class="only-en">' + missEn + '</span><span class="only-he">' + missHe + '</span></div>' +
-                '<img src="' + src + '" alt="' + esc + '" loading="lazy" onerror="this.closest(\'figure\').classList.add(\'no-img\')">' +
+            return '<figure class="screenshot">' +
+                '<img src="' + src + '" alt="' + esc + '" loading="lazy" onerror="this.closest(\'figure\').style.display=\'none\'">' +
                 '<figcaption>' + caption + '</figcaption></figure>';
         }
 
@@ -120,22 +115,22 @@
             en: {
                 brand: 'Financial Overview',
                 title: 'Installation & getting started',
-                subtitle: 'Windows desktop app: download, run the server, open the web UI, and complete first-time setup (app lock, Telegram, Gemini).',
+                subtitle: 'Windows desktop app: download, run the server, open the web UI, and complete first-time setup (app lock, Telegram, Gemini, optional Google Drive / Sheets).',
                 nav: [
                     { label: 'Guide', items: [
                         { id: 'overview', label: 'Overview' },
                         { id: 'windows-install', label: '1. Download & install' },
                         { id: 'run-ui', label: '2. Start server & browser' },
                         { id: 'first-setup', label: '3. First setup & security' },
-                        { id: 'gemini-key', label: '4. Gemini API key' }
+                        { id: 'gemini-key', label: '4. Gemini API key' },
+                        { id: 'google-drive', label: '5. Google Drive (optional)' }
                     ]}
                 ],
                 sections: {
                     overview: {
                         title: 'Overview',
-                        html: '<p>This guide is for the <strong>Windows installer</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) published on <a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. It walks through every step: downloading, trusting the installer, launching the app, opening the interface in your browser, setting a password, connecting Telegram and Gemini, and where screenshots help.</p>' +
-                            '<div class="callout info"><strong>Demo on GitHub Pages:</strong> The main site deployment is a <strong>static demo</strong> with mocked data. Real banking features require the server running on your PC (this installer) or Docker / Home Assistant as described in the repository README.</div>' +
-                            '<p><strong>Optional visuals:</strong> Screenshots are loaded from <code>install/screenshots/</code> (same filenames as <code>docs/video-guide-screenshots/</code> in the repo). If an image is missing, the figure is hidden automatically. You can generate them locally with <code>npm run video-guide:capture</code> and copy PNGs into the install folder.</p>'
+                        html: '<p>This guide is for the <strong>Windows installer</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) published on <a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. It walks through every step: downloading, trusting the installer, launching the app, opening the interface in your browser, setting a password, connecting Telegram and Gemini, and optionally configuring Google Drive / Sheets for backup and export.</p>' +
+                            '<div class="callout info"><strong>Demo on GitHub Pages:</strong> The main site deployment is a <strong>static demo</strong> with mocked data. Real banking features require the server running on your PC (this installer) or Docker / Home Assistant as described in the repository README.</div>'
                     },
                     'windows-install': {
                         title: 'Step 1 — Download and install',
@@ -191,28 +186,42 @@
                             '</ol>' +
                             imgFigure('screenshots/config-ai.png', 'Configuration — AI / Gemini (example)') +
                             '<div class="callout info">Optional: Restrict the key to Gemini in Google Cloud and monitor usage in Google AI Studio / Cloud console.</div>'
+                    },
+                    'google-drive': {
+                        title: 'Step 5 — Google Drive & Sheets (optional)',
+                        html: '<div class="callout info"><strong>Optional:</strong> Google OAuth is only for <strong>Google Sheets sync</strong>, <strong>Drive backups</strong>, and cloud-oriented export. It is a bit more involved than other settings—you can <strong>skip this step</strong> and use the app for scraping and analysis without Google. Add it later under <strong>Configuration</strong> when you want backup or Sheets.</div>' +
+                            '<p><strong>Getting API credentials:</strong> You create your own OAuth client in Google Cloud (the app does not ship with shared Google keys).</p>' +
+                            '<ol class="steps">' +
+                            '<li><strong>New project.</strong> In the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>, create a project (project menu → New Project).</li>' +
+                            '<li><strong>Enable APIs.</strong> <em>APIs &amp; Services</em> → <em>Library</em>: enable <strong>Google Drive API</strong> and <strong>Google Sheets API</strong>.</li>' +
+                            '<li><strong>OAuth consent screen.</strong> <em>APIs &amp; Services</em> → <em>OAuth consent screen</em> → typically <strong>External</strong>; fill app name and contact emails; you can continue through Scopes and Test users with defaults for personal use.</li>' +
+                            '<li><strong>OAuth client ID.</strong> <em>Credentials</em> → Create <strong>OAuth client ID</strong> → type <strong>Web application</strong>. Under <strong>Authorized redirect URIs</strong>, add the exact callback URL for your server. Default: <code>http://127.0.0.1:3000/api/auth/google/callback</code> — change <code>3000</code> to your <strong>PORT</strong> if different (same as in <code>financial-overview.json</code> / Environment). If you use <code>http://localhost:…</code> in the browser, add a second URI with <code>localhost</code> — Google requires a character-for-character match.</li>' +
+                            '<li><strong>Copy into the app.</strong> Paste <strong>Client ID</strong> and <strong>Client Secret</strong> into <strong>Configuration → Environment</strong> (<code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>). Set <code>GOOGLE_REDIRECT_URI</code> to the same redirect URI you registered. Restart the server if needed, then connect via <strong>Sheets</strong> / Google flows in the app.</li>' +
+                            '<li><strong>Optional folder.</strong> <code>DRIVE_FOLDER_ID</code> (folder id from the Drive URL after <code>/folders/</code>) can be set in Environment or later in the UI.</li>' +
+                            '</ol>' +
+                            '<div class="callout warning"><strong>“Google hasn’t verified this app”:</strong> Common for personal projects. Use <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> to continue.</div>'
                     }
                 }
             },
             he: {
                 brand: 'מבט כלכלי',
                 title: 'מדריך התקנה והפעלה מרוכז',
-                subtitle: 'אפליקציית Windows: הורדה, הרצת השרת, פתיחת הממשק, והגדרות ראשוניות (נעילת אפליקציה, טלגרם, Gemini).',
+                subtitle: 'אפליקציית Windows: הורדה, הרצת השרת, פתיחת הממשק, והגדרות ראשוניות (נעילת אפליקציה, טלגרם, Gemini, Google Drive / Sheets אופציונלי).',
                 nav: [
                     { label: 'מדריך', items: [
                         { id: 'overview', label: 'סקירה' },
                         { id: 'windows-install', label: '1. הורדה והתקנה' },
                         { id: 'run-ui', label: '2. שרת ודפדפן' },
                         { id: 'first-setup', label: '3. הגדרות ראשוניות' },
-                        { id: 'gemini-key', label: '4. מפתח Gemini' }
+                        { id: 'gemini-key', label: '4. מפתח Gemini' },
+                        { id: 'google-drive', label: '5. Google Drive (אופציונלי)' }
                     ]}
                 ],
                 sections: {
                     overview: {
                         title: 'סקירה',
-                        html: '<p>מדריך זה מיועד ל<strong>מתקין Windows</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) שמפורסם ב־<a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. הוא מפרט שלב אחר שלב: הורדה, אישור אבטחה של Windows, הפעלה, פתיחת הממשק בדפדפן, הגדרת סיסמה, חיבור טלגרם ו־Gemini, והיכן שימוש בצילומי מסך עוזר.</p>' +
-                            '<div class="callout info"><strong>הדגמה ב־GitHub Pages:</strong> האתר המפורסם שם הוא <strong>דמו סטטי</strong> עם נתונים מדומים. יכולות בנקאיות אמיתיות דורשות את השרת על המחשב שלך (מתקין זה) או Docker / Home Assistant כמפורט ב־README של המאגר.</div>' +
-                            '<p><strong>תמונות (אופציונלי):</strong> צילומי מסך נטענים מ־<code>install/screenshots/</code> (אותם שמות כמו ב־<code>docs/video-guide-screenshots/</code> במאגר). אם קובץ חסר, השדה מוסתר אוטומטית. אפשר ליצור מקומית עם <code>npm run video-guide:capture</code> ולהעתיק PNG לתיקיית ההתקנה.</p>'
+                        html: '<p>מדריך זה מיועד ל<strong>מתקין Windows</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) שמפורסם ב־<a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. הוא מפרט שלב אחר שלב: הורדה, אישור אבטחה של Windows, הפעלה, פתיחת הממשק בדפדפן, הגדרת סיסמה, חיבור טלגרם ו־Gemini, והגדרה אופציונלית של Google Drive / Sheets לגיבוי ולייצוא.</p>' +
+                            '<div class="callout info"><strong>הדגמה ב־GitHub Pages:</strong> האתר המפורסם שם הוא <strong>דמו סטטי</strong> עם נתונים מדומים. יכולות בנקאיות אמיתיות דורשות את השרת על המחשב שלך (מתקין זה) או Docker / Home Assistant כמפורט ב־README של המאגר.</div>'
                     },
                     'windows-install': {
                         title: 'שלב 1: הורדה והתקנה',
@@ -268,6 +277,20 @@
                             '</ol>' +
                             imgFigure('screenshots/config-ai.png', 'הגדרות — AI / Gemini (דוגמה)') +
                             '<div class="callout info">אופציונלי: הגבל את המפתח ל־Gemini ב־Google Cloud ועקוב אחר שימוש ב־AI Studio / Cloud.</div>'
+                    },
+                    'google-drive': {
+                        title: 'שלב 5: Google Drive ו-Sheets (אופציונלי)',
+                        html: '<div class="callout info"><strong>אופציונלי:</strong> OAuth של Google נדרש רק ל<strong>סנכרון Google Sheets</strong>, <strong>גיבויים ל-Drive</strong> ולייצוא לענן. ההגדרה מעט מורכבת יותר משאר ההגדרות — אפשר <strong>לדלג</strong> ולהשתמש באפליקציה לסריקה וניתוח בלי Google. אפשר להוסיף מאוחר יותר תחת <strong>הגדרות</strong> כשצריך גיבוי או Sheets.</div>' +
+                            '<p><strong>קבלת אישורי API:</strong> יוצרים לקוח OAuth ב-Google Cloud (האפליקציה לא מספקת מפתחות Google משותפים).</p>' +
+                            '<ol class="steps">' +
+                            '<li><strong>פרויקט חדש.</strong> ב־<a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> יוצרים פרויקט (תפריט פרויקט → New Project).</li>' +
+                            '<li><strong>הפעלת APIs.</strong> <em>APIs &amp; Services</em> → <em>Library</em>: מפעילים את <strong>Google Drive API</strong> ואת <strong>Google Sheets API</strong>.</li>' +
+                            '<li><strong>מסך הסכמת OAuth.</strong> <em>APIs &amp; Services</em> → <em>OAuth consent screen</em> — לרוב <strong>External</strong>; ממלאים שם אפליקציה ואימיילים; אפשר להמשיך ב-Scopes וב-Test users עם ברירות מחדל לשימוש אישי.</li>' +
+                            '<li><strong>OAuth client ID.</strong> <em>Credentials</em> → יוצרים <strong>OAuth client ID</strong> מסוג <strong>Web application</strong>. תחת <strong>Authorized redirect URIs</strong> מוסיפים את כתובת ה-callback המדויקת של השרת. ברירת מחדל: <code>http://127.0.0.1:3000/api/auth/google/callback</code> — מחליפים את <code>3000</code> ב־<strong>PORT</strong> אם שיניתם (כמו ב־<code>financial-overview.json</code> / סביבה). אם נכנסים דרך <code>http://localhost:…</code>, יש להוסיף גם URI עם <code>localhost</code> — נדרשת התאמה מלאה.</li>' +
+                            '<li><strong>הדבקה באפליקציה.</strong> מעתיקים <strong>Client ID</strong> ו־<strong>Client Secret</strong> ל־<strong>Configuration → Environment</strong> (<code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>). מגדירים <code>GOOGLE_REDIRECT_URI</code> זהה ל-URI שרשומים ב-Google. הפעלה מחדש של השרת אם נדרש, ואז התחברות דרך Sheets / Google בממשק.</li>' +
+                            '<li><strong>תיקייה (אופציונלי).</strong> <code>DRIVE_FOLDER_ID</code> (מזהה מתוך URL של Drive אחרי <code>/folders/</code>) — בהגדרות סביבה או בממשק מאוחר יותר.</li>' +
+                            '</ol>' +
+                            '<div class="callout warning"><strong>„Google hasn’t verified this app”:</strong> נפוץ בפרויקט אישי. <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> כדי להמשיך.</div>'
                     }
                 }
             }
@@ -275,7 +298,7 @@
 
         let currentLang = localStorage.getItem('installGuideLang') || 'en';
 
-        const sectionOrder = ['overview', 'windows-install', 'run-ui', 'first-setup', 'gemini-key'];
+        const sectionOrder = ['overview', 'windows-install', 'run-ui', 'first-setup', 'gemini-key', 'google-drive'];
 
         function render() {
             const data = content[currentLang];

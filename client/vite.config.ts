@@ -45,6 +45,10 @@ export default defineConfig(() => {
             'apple-touch-icon.png',
             'mask-icon.svg',
         ],
+        workbox: {
+            // Default 2 MiB fails on Linux CI when the main chunk is slightly larger than on dev machines.
+            maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        },
         manifest: {
             name: 'מבט כלכלי',
             short_name: 'מבט כלכלי',

@@ -7,6 +7,22 @@ import { normalizeAiMemoryKey } from '../utils/aiMemoryNormalize.js';
 const db = new DbService();
 
 /**
+ * Static product documentation injected into unified AI chat so the assistant can answer setup questions.
+ * (Not user-specific; complements editable "Stored facts".)
+ */
+const STATIC_APP_DOCS_FOR_AI = `
+App documentation — Google Drive & Google Sheets (OAuth):
+- Optional: used for cloud backup/export and syncing to Google Sheets. Core scraping, dashboard, and AI (Gemini) features do not require Google OAuth.
+- Setup is a bit involved; users can skip it and configure later under Configuration (Sheets tab, Maintenance/backup, Environment).
+- In Google Cloud Console: create a project; enable Google Drive API and Google Sheets API (APIs & Services → Library).
+- OAuth consent screen: External (or appropriate type), fill app name and contact emails; you can advance through Scopes and Test users with defaults for personal use.
+- Credentials: Create OAuth client ID → Web application. Under Authorized redirect URIs add the exact callback URL the app uses: default is http://127.0.0.1:<PORT>/api/auth/google/callback where PORT matches the server (often 3000). If the UI is opened via http://localhost:<PORT>, add that same path with localhost too — redirect URIs must match exactly what appears in Configuration → Environment (GOOGLE_REDIRECT_URI).
+- Copy Client ID and Client Secret into the app (Configuration → Environment or runtime-settings / google_settings). Then sign in via the in-app Google / Sheets flows.
+- If Google shows "Google hasn't verified this app", that is normal for a personal Cloud project: choose Advanced, then proceed to the app (unsafe).
+- DRIVE_FOLDER_ID is optional: ID from a Drive folder URL (after /folders/) for default upload location; can be set later.
+`.trim();
+
+/**
  * Builds the unified chat prompt including stored facts and recent insights (single shared workspace).
  */
 export function buildUnifiedChatQueryWithMemory(historyNote: string | undefined, userQuery: string): string {
@@ -26,6 +42,8 @@ export function buildUnifiedChatQueryWithMemory(historyNote: string | undefined,
 - Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.
 - Ignored transactions: should be fully excluded from calculations.
 ${historyNote ? `- Additional context: ${historyNote}` : ''}
+
+${STATIC_APP_DOCS_FOR_AI}
 
 Stored facts (editable by the user in Configuration; do not duplicate these in the JSON "facts" array unless the user changes the situation):
 ${factsBlock}

@@ -76,7 +76,7 @@ Full maintainer notes: [packaging/windows/README.md](packaging/windows/README.md
 The workflow in `.github/workflows/pages.yml` publishes:
 
 - A **static demo** (`VITE_DEMO=true`, in-browser API mocks, sample data). It does **not** connect to banks or your server. Full functionality requires the server stack above.
-- A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/israeli-bank-scraper-docker/install/](https://yohaybn.github.io/israeli-bank-scraper-docker/install/) after Pages is enabled). PNGs are merged from `docs/video-guide-screenshots/` when that folder exists in the build; you can also place files under `client/public/install/screenshots/` so they ship with the static site.
+- A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/israeli-bank-scraper-docker/install/](https://yohaybn.github.io/israeli-bank-scraper-docker/install/) after Pages is enabled). Guide screenshots live under [`client/public/install/screenshots/`](client/public/install/screenshots/) and are copied into the Pages build with the rest of `client/public/`.
 
 ## Dashboard behavior (recent logic)
 
@@ -91,7 +91,8 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | **[Installation guide (GitHub Pages)](https://yohaybn.github.io/israeli-bank-scraper-docker/install/)** | Step-by-step Windows install, first run, Telegram, and Gemini API (EN/HE); source: [`client/public/install/index.html`](client/public/install/index.html). |
 | **[client/public/GUIDE.html](client/public/GUIDE.html)** | Full user guide (EN/HE toggle) — same file the app opens from **Help**. |
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
-| **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior. |
+| **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior (English). |
+| **[client/public/guides/TELEGRAM_BOT_GUIDE.he.md](client/public/guides/TELEGRAM_BOT_GUIDE.he.md)** | Hebrew Telegram guide — embedded in **עברית** in [`client/public/GUIDE.html`](client/public/GUIDE.html); regenerate with `npm run guide:embed-telegram`. |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
 | **[packaging/windows/README.md](packaging/windows/README.md)** | Building the Windows installer and `dist/windows-package`. |
 | **[financial-overview.json.example](financial-overview.json.example)** | Optional install-local JSON (`port`, `dataDir`) read by the server (copy to `financial-overview.json`). |

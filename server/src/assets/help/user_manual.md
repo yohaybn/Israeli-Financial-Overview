@@ -138,6 +138,22 @@ Protect and repair your database files.
 *   **Reload Database:** Force the app to clear its cache and reload its datasets from disk without resetting anything completely.
 *   **Reset All Data:** The nuclear option. Erases all AI memory, transactions, custom categories, and config setups, returning the app to day-zero out-of-the-box settings.
 
+### 3.10 Google Cloud OAuth — Drive & Sheets (optional)
+
+Connecting Google is **optional**. It enables **Google Sheets sync**, **Google Drive backups**, and related exports. Scraping, the dashboard, and Gemini AI features work without it. The setup is **somewhat involved**—you can skip it and add credentials later under Configuration.
+
+**How to obtain OAuth credentials (summary):**
+
+1. **Google Cloud Console** — Create a new project (project menu → New Project).
+2. **Enable APIs** — *APIs & Services* → *Library*: enable **Google Drive API** and **Google Sheets API**.
+3. **OAuth consent screen** — *APIs & Services* → *OAuth consent screen*. Choose **External** (typical for personal use), fill app name and contact emails; you can use defaults for Scopes and Test users on first setup.
+4. **OAuth client** — *Credentials* → Create **OAuth client ID** → type **Web application**. Under **Authorized redirect URIs**, add the exact callback URL your server uses. Default pattern: `http://127.0.0.1:<PORT>/api/auth/google/callback` where `<PORT>` matches your server (often `3000`). If you browse the app as `http://localhost:...`, register that host too—Google requires an exact match. Copy **Client ID** and **Client Secret** into Environment settings (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) and set `GOOGLE_REDIRECT_URI` to the same URI you registered.
+5. **Unverified app warning** — For a personal project, Google may show *Google hasn't verified this app*. Use **Advanced** → **Go to … (unsafe)** to proceed.
+
+**Drive folder ID:** Optional `DRIVE_FOLDER_ID` is the id from a folder URL (`/folders/<id>`). You can also choose a folder in the app after signing in.
+
+See also the in-app **Help** (`GUIDE.html`) section *Google Drive & Sheets* for the full walkthrough.
+
 ---
 
 ## 4. System Logs
