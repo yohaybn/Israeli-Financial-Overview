@@ -109,21 +109,21 @@ if (Test-Path $foExample) {
     Copy-Item $foExample $foDst -Force
 }
 
-$readmeTxt = @'
-Financial Overview - Windows package
-=====================================
-
-Start: double-click launch-FinancialOverview.cmd (or use the Start menu shortcut from the installer).
-
-Edit financial-overview.json next to this folder to set port and data folder (defaults are set for a typical install).
-You can copy financial-overview.json.example and rename if needed.
-
-Open in browser: http://127.0.0.1:<port>/  (open-browser.cmd uses the same port from env or JSON)
-
-Scraping needs Google Chrome or Microsoft Edge (Chromium) on this PC.
-
-For advanced settings see DEPLOYMENT.md in the repository.
-'@
+$readmeTxt = @(
+    'Financial Overview - Windows package'
+    '====================================='
+    ''
+    'Start: double-click launch-FinancialOverview.cmd (or use the Start menu shortcut from the installer).'
+    ''
+    'Edit financial-overview.json next to this folder to set port and data folder (defaults are set for a typical install).'
+    'You can copy financial-overview.json.example and rename if needed.'
+    ''
+    'Open in browser: http://127.0.0.1:<port>/  (open-browser.cmd uses the same port from env or JSON)'
+    ''
+    'Scraping needs Google Chrome or Microsoft Edge (Chromium) on this PC.'
+    ''
+    'For advanced settings see DEPLOYMENT.md in the repository.'
+) -join [Environment]::NewLine
 Set-Content -Path (Join-Path $Stage "README_WINDOWS.txt") -Value $readmeTxt -Encoding UTF8
 
 $runtimeDir = Join-Path $Stage "runtime\node"
