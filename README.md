@@ -98,14 +98,6 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | **[financial-overview.json.example](financial-overview.json.example)** | Optional install-local JSON (`port`, `dataDir`) read by the server (copy to `financial-overview.json`). |
 | **[server/src/index.ts](server/src/index.ts)** | Mounts REST routes under `/api/*` (see `server/src/routes/`). Health: `GET /api/health`. |
 
-Re-capture guide screenshots/PDFs (requires dev server + Playwright):
-
-```bash
-npm run video-guide:capture
-```
-
-Optional: `node scripts/capture-video-guide-media.mjs --only <asset-id>` — see [docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md).
-
 ## API
 
 REST JSON under **`/api/*`** (Express). Route modules live in **`server/src/routes/`**; **`server/src/index.ts`** shows how they are mounted. **`GET /api/health`** returns `{ status, version }`.

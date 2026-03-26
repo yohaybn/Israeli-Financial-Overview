@@ -100,7 +100,7 @@ if (Test-Path $iconSrc) {
     Copy-Item $iconSrc $iconDst -Force
     Write-Host "Copied app icon -> app.ico" -ForegroundColor DarkGray
 } else {
-    Write-Warning "Missing $iconSrc — run: npm run icons:generate -w client. Shortcuts/installer will use default icons."
+    Write-Warning ('Missing ' + $iconSrc + ' - run: npm run icons:generate -w client. Shortcuts/installer will use default icons.')
 }
 
 $foExample = Join-Path $RepoRoot "financial-overview.json.example"
@@ -109,7 +109,7 @@ if (Test-Path $foExample) {
     Copy-Item $foExample $foDst -Force
 }
 
-$readmeTxt = @"
+$readmeTxt = @'
 Financial Overview - Windows package
 =====================================
 
@@ -123,7 +123,7 @@ Open in browser: http://127.0.0.1:<port>/  (open-browser.cmd uses the same port 
 Scraping needs Google Chrome or Microsoft Edge (Chromium) on this PC.
 
 For advanced settings see DEPLOYMENT.md in the repository.
-"@
+'@
 Set-Content -Path (Join-Path $Stage "README_WINDOWS.txt") -Value $readmeTxt -Encoding UTF8
 
 $runtimeDir = Join-Path $Stage "runtime\node"
@@ -150,6 +150,6 @@ if (-not $SkipNodeDownload) {
 }
 
 Write-Host "`nDone. Package ready at:" -ForegroundColor Green
-Write-Host "  $Stage" -ForegroundColor Green
+Write-Host ('  ' + $Stage) -ForegroundColor Green
 Write-Host "`nNext: compile the installer with Inno Setup:" -ForegroundColor Cyan
-Write-Host "  ISCC.exe packaging\windows\FinancialOverview.iss" -ForegroundColor White
+Write-Host '  ISCC.exe packaging\windows\FinancialOverview.iss' -ForegroundColor White
