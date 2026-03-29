@@ -7,6 +7,5 @@
   "PORT": "3001",
   "DATA_DIR": "./data",
   "TELEGRAM_BOT_TOKEN": "",
-  "FRONTEND_URL": "http://localhost:5173",
-  "ENCRYPTION_KEY": ""
+  "FRONTEND_URL": "http://localhost:5173"
 }

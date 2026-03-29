@@ -102,9 +102,7 @@ export class ProfileService {
     private encrypt(data: any): string {
         const key = this.getEncryptionKeyForWrite();
         if (!key) {
-            throw new Error(
-                'Cannot encrypt profile credentials: unlock the app with your password, or set ENCRYPTION_KEY (legacy) until migration.'
-            );
+            throw new Error('Cannot encrypt profile credentials: unlock the app with your password.');
         }
         return this.encryptWithKey(data, key);
     }
@@ -256,7 +254,7 @@ export class ProfileService {
     }
 
     /**
-     * One-time: re-encrypt all profiles from ENCRYPTION_KEY (legacy) to the password-derived key.
+     * One-time: re-encrypt profiles that were encrypted with the env-based key to the password-derived key.
      * Requires successful unlock so password key is in memory. Safe to call after every unlock.
      */
     async migrateFromEnvIfNeeded(): Promise<{ migrated: number; skipped: boolean }> {
@@ -306,16 +304,16 @@ export class ProfileService {
 
         if (failed > 0) {
             console.error(
-                `Profile encryption migration incomplete: ${failed} file(s) could not be decrypted. Fix ENCRYPTION_KEY or restore backups, then unlock again.`
+                `Profile encryption migration incomplete: ${failed} file(s) could not be decrypted. Restore from backup or fix profile encryption keys, then unlock again.`
             );
             return { migrated, skipped: false };
         }
 
         await fs.writeFile(MIGRATION_MARKER, new Date().toISOString(), 'utf8');
         if (migrated > 0) {
-            console.log(`✅ Profile encryption: migrated ${migrated} profile(s) from ENCRYPTION_KEY to app password. You can remove ENCRYPTION_KEY from runtime-settings.json.`);
+            console.log(`✅ Profile encryption: migrated ${migrated} profile(s) to app password key.`);
         } else {
-            console.log('✅ Profile encryption: migration marker written (no legacy-encrypted profiles found). You can remove ENCRYPTION_KEY from runtime-settings.json.');
+            console.log('✅ Profile encryption: migration marker written (no legacy-encrypted profiles found).');
         }
 
         return { migrated, skipped: false };

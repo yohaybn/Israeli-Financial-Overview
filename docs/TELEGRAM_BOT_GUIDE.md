@@ -277,6 +277,10 @@ Try these methods:
    - Only admins can execute sensitive commands
    - Consider using a private group for admin alerts
 
+4. **Encryption (what this is *not*)**:
+   - The **Telegram bot token** and related settings are stored like other config (JSON under your data directory). They are **not** wrapped in the same **AES-256-GCM** layer as **saved bank profile credentials** (those are encrypted with a key derived from your **app lock** password).
+   - Treat the token like a secret: restrict access to **`DATA_DIR`**, use OS-level permissions, and optional disk encryption—same as for API keys and `runtime-settings.json`.
+
 ## Examples
 
 ### Example 1: Get Weekly Spending Summary

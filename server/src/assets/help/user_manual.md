@@ -167,3 +167,19 @@ The Logs Viewer helps you debug issues, verify automation success, and see what 
 *   **AI Logs (`/?view=logs&logType=ai`):** See transparently what prompts were generated and sent to Gemini, and read precisely how it responded to categorization requests.
 *   **Scrape Logs (`/?view=logs&logType=scrape`):** A full historical console log left by the headless browsers attempting bank logins. Look here if your bank refuses to connect.
 *   **Log Filtering:** Use the settings gear to filter by severity ranges (e.g., only show Errors), choose how many lines to fetch on screen, or clear outdated logs from your database instantly.
+
+---
+
+## 5. Security & encryption (at rest)
+
+- **Saved bank profiles:** Under `data/profiles/`, the **`credentials`** field for each profile is encrypted with **AES-256-GCM**. The encryption key is derived from your **app lock password** using **scrypt** (see `data/security/app-lock.json` for salts and verification hash—the password itself is not stored).
+- **While locked:** Encrypted profile secrets are not decrypted for the UI until you unlock.
+- **Not encrypted by the app:** Gemini and OAuth secrets in `runtime-settings.json`, Telegram and other JSON config, the **SQLite** database (`app.db` with transactions and AI memory), and scrape **results** files. Protect the entire **`DATA_DIR`** with operating-system access controls and optional full-disk encryption.
+- **Backups:** Snapshots include the same on-disk layout (encrypted profile blobs remain ciphertext; other files as stored).
+
+### Threat model (who can see what)
+
+- **Best practice:** **Unlock** only when you need to **scrape** or **edit saved profiles**, then **lock again**—shortest time with the key in memory. When **locked**, the app does not return decrypted bank passwords via the API; copying `data/profiles/` still yields ciphertext (offline guessing possible). Details: **`docs/THREAT_MODEL.md`**.
+- **Bank passwords in saved profiles:** Use **app lock**. If you **never** enable it, stored credentials may be recoverable by anyone who can read `data/profiles/` (see repository **`docs/THREAT_MODEL.md`**). With app lock, guessing or stealing the **password** (or an **unlocked** session) matters; the files alone are not enough without the key material.
+- **Transactions and API keys:** **`app.db`**, **`data/results/`**, and config JSON are **not** hidden by app lock from someone with **filesystem access** to your data folder—only **disk/OS** protections help.
+- **More detail:** **`docs/THREAT_MODEL.md`** in the project repository.

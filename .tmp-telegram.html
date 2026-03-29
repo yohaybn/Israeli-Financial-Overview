@@ -1,0 +1,359 @@
+<h1>Telegram Bot Integration Guide</h1>
+<h2>Overview</h2>
+<p>Financial Overview (מבט כלכלי) includes a full-featured Telegram bot that allows you to:</p>
+<ul>
+<li>📬 <strong>Receive notifications</strong> about transaction scrapers</li>
+<li>💬 <strong>Chat with AI</strong> about your financial transactions</li>
+<li>🏦 <strong>Control scrapers</strong> directly from Telegram</li>
+<li>⚙️ <strong>Manage settings</strong> via chat commands</li>
+</ul>
+<h2>Quick Start</h2>
+<h3>1. Create a Telegram Bot</h3>
+<ol>
+<li>Open Telegram and search for <strong>@BotFather</strong></li>
+<li>Send <code>/newbot</code> command</li>
+<li>Follow the prompts to name your bot</li>
+<li>BotFather will provide your <strong>Bot Token</strong> (e.g., <code>123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>)</li>
+</ol>
+<h3>2. Configure the Bot Token</h3>
+<h4>Option A: Via Environment Variables (.env)</h4>
+<p>Add to your <code>.env</code> file:</p>
+<pre><code>TELEGRAM_BOT_TOKEN=your_bot_token_here
+</code></pre>
+<h4>Option B: Via UI</h4>
+<ol>
+<li>Go to <strong>Configuration</strong> → <strong>Telegram</strong> tab</li>
+<li>Paste your bot token in the &quot;Bot Token&quot; field</li>
+<li>Click <strong>Save</strong></li>
+<li>Click <strong>Start</strong> to activate the bot</li>
+</ol>
+<h3>3. Get Your Chat ID</h3>
+<p>To receive notifications or use the bot, you need your Telegram Chat ID:</p>
+<p><strong>For Private Chats:</strong></p>
+<ol>
+<li>Start a chat with your bot by searching it on Telegram</li>
+<li>Send any message to your bot (e.g. <code>/start</code>)</li>
+<li>In a <strong>private</strong> chat, your <strong>chat ID</strong> is the same number as your <strong>Telegram user ID</strong>.</li>
+</ol>
+<p><strong>If you are not authorized yet</strong> (server uses an <code>allowedUsers</code> list and your account is not on it): send any message to the bot anyway. You will get an “access denied” style reply that still includes <strong>Your User ID</strong> as a copyable number—share that with the admin so they can add you to <code>allowedUsers</code> and to notification chats if needed.</p>
+<p><strong>Alternative — getUpdates API:</strong></p>
+<ol>
+<li>After messaging the bot, open: <code>https://api.telegram.org/bot&lt;YOUR_BOT_TOKEN&gt;/getUpdates</code></li>
+<li>Look for <code>&quot;chat&quot;: {&quot;id&quot;: &lt;YOUR_CHAT_ID&gt;}</code> or <code>&quot;from&quot;: {&quot;id&quot;: ...}</code> for the sender</li>
+<li>Copy the chat ID number</li>
+</ol>
+<p><strong>For Group Chats:</strong></p>
+<ol>
+<li>Add your bot to a Telegram group</li>
+<li>Send a message mentioning the bot: <code>@your_bot_name hello</code></li>
+<li>Use the same method above to find the group&#39;s chat ID (will start with <code>-</code>)</li>
+</ol>
+<h2>Features &amp; Commands</h2>
+<h3>Available Commands</h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/start</code></td>
+<td>Initialize bot and show welcome message</td>
+<td>Send in private chat with bot</td>
+</tr>
+<tr>
+<td><code>/help</code></td>
+<td>Show all available commands</td>
+<td>Send in any chat</td>
+</tr>
+<tr>
+<td><code>/scrape</code></td>
+<td>Choose and run a scraper</td>
+<td>Select profile from inline buttons</td>
+</tr>
+<tr>
+<td><code>/chat</code></td>
+<td>Enter AI conversation mode</td>
+<td>Ask questions about transactions</td>
+</tr>
+<tr>
+<td><code>/settings</code></td>
+<td>Manage notification preferences</td>
+<td>Configure via interactive menu</td>
+</tr>
+<tr>
+<td><code>/subscribe</code></td>
+<td>Enable transaction notifications</td>
+<td>Get alerts for new scrapes</td>
+</tr>
+<tr>
+<td><code>/unsubscribe</code></td>
+<td>Disable notifications</td>
+<td>No more alerts</td>
+</tr>
+<tr>
+<td><code>/status</code></td>
+<td>Check bot and system status</td>
+<td>See if bot is active</td>
+</tr>
+</tbody></table>
+<h3>Using AI Chat</h3>
+<pre><code>You: /chat
+Bot: 💬 AI Chat Mode activated!
+
+You: What are my largest expenses?
+Bot: Based on your transactions, your largest expense categories are...
+
+You: Show me spending trends
+Bot: [Detailed analysis of spending patterns]
+</code></pre>
+<h3>Running Scrapers</h3>
+<pre><code>You: /scrape
+Bot: 🏦 Select the profile to scrape:
+     [Leumi Bank] [Bank Hapoalim] [Other Bank]
+
+You: Click on desired bank
+Bot: ⏳ Executing scraper, please wait...
+     ✅ Scrape Completed Successfully
+     
+     📊 Results:
+     • Accounts: 3
+     • Transactions: 487
+     • Duration: 2350ms
+</code></pre>
+<h2>Notification Chats Setup</h2>
+<h3>Add Chat to Notifications</h3>
+<ol>
+<li>Go to <strong>Configuration</strong> → <strong>Telegram</strong> → <strong>Notification Chats</strong></li>
+<li>Enter the chat ID of the chat that should receive notifications</li>
+<li>Click <strong>Add</strong></li>
+</ol>
+<h3>Notification Events</h3>
+<p>The bot will send notifications when:</p>
+<ul>
+<li>Scraper completes successfully ✅</li>
+<li>Scraper encounters an error ❌</li>
+<li>Transactions are analyzed with AI insights</li>
+<li>Pipeline executions complete</li>
+<li>System alerts occur</li>
+</ul>
+<h3>Notification Detail Levels</h3>
+<p>Configure how detailed notifications should be:</p>
+<ul>
+<li><strong>Minimal</strong>: Just status and duration</li>
+<li><strong>Normal</strong>: Status, duration, stages, transaction count, insights</li>
+<li><strong>Detailed</strong>: Full information including account details and balance</li>
+<li><strong>Verbose</strong>: Complete JSON dump for advanced users</li>
+</ul>
+<h2>Configuration Panel</h2>
+<p>Access the Telegram settings from the web UI:</p>
+<ol>
+<li>Navigate to <strong>Configuration</strong> → <strong>Telegram</strong> tab</li>
+<li>Configure:<ul>
+<li>Bot Token (with masked display for security)</li>
+<li>Notification Chats (add/remove chat IDs)</li>
+<li>Test connection</li>
+<li>View advanced settings</li>
+</ul>
+</li>
+</ol>
+<h3>Test Connection</h3>
+<p>To verify your configuration:</p>
+<ol>
+<li>Enter your bot token</li>
+<li>Enter your chat ID  </li>
+<li>Click <strong>Test</strong></li>
+<li>You should receive a confirmation message in Telegram</li>
+</ol>
+<h2>API Endpoints</h2>
+<p>The Telegram feature exposes the following API endpoints:</p>
+<h3>Configuration</h3>
+<pre><code class="language-bash"># Get Telegram config
+GET /api/telegram/config
+
+# Update configuration
+POST /api/telegram/config
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;adminChatIds&quot;: [&quot;123456&quot;],
+  &quot;notificationChatIds&quot;: [&quot;123456&quot;, &quot;-789012&quot;]
+}
+</code></pre>
+<h3>Bot Control</h3>
+<pre><code class="language-bash"># Start the bot
+POST /api/telegram/start
+{
+  &quot;botToken&quot;: &quot;optional_token_to_override_config&quot;
+}
+
+# Stop the bot
+POST /api/telegram/stop
+
+# Get bot status
+GET /api/telegram/status
+
+# Test connection
+POST /api/telegram/test
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;chatId&quot;: &quot;...&quot;
+}
+</code></pre>
+<h3>Notification Chats</h3>
+<pre><code class="language-bash"># Get all notification chats
+GET /api/telegram/notification-chats
+
+# Add chat to notifications
+POST /api/telegram/notification-chat/add
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+
+# Remove chat from notifications
+POST /api/telegram/notification-chat/remove
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+</code></pre>
+<h2>Advanced Features</h2>
+<h3>Multi-Language Support</h3>
+<p>The Telegram UI automatically detects your language preference from the web interface:</p>
+<ul>
+<li>🇺🇸 English</li>
+<li>🇮🇱 Hebrew</li>
+</ul>
+<h3>Inline Buttons</h3>
+<p>The bot uses Telegram&#39;s inline buttons for easy interaction:</p>
+<ul>
+<li>Profile selection for scrapers</li>
+<li>Settings toggles</li>
+<li>Navigation between menu options</li>
+</ul>
+<h3>Long Message Handling</h3>
+<p>If AI responses exceed Telegram&#39;s 4096 character limit, they&#39;re automatically split into multiple messages.</p>
+<h3>Message Templating</h3>
+<p>Notifications use HTML formatting for better readability:</p>
+<ul>
+<li><strong>Bold text</strong> for titles</li>
+<li><code>code formatting</code> for IDs</li>
+<li>✅/❌ emojis for status</li>
+</ul>
+<h2>Troubleshooting</h2>
+<h3>Bot Not Responding</h3>
+<ol>
+<li>Check bot token is correct</li>
+<li>Verify bot was started: <strong>Configuration</strong> → <strong>Telegram</strong> → <strong>Start</strong> button</li>
+<li>Ensure you&#39;ve added the bot to Telegram by typing <code>/start</code></li>
+<li>Check server logs for errors: <strong>Configuration</strong> → <strong>Maintenance</strong> → View logs</li>
+</ol>
+<h3>Not Receiving Notifications</h3>
+<ol>
+<li>Verify chat ID is correct</li>
+<li>Check chat is added to notification list: <strong>Configuration</strong> → <strong>Telegram</strong> → <strong>Notification Chats</strong></li>
+<li>Test connection: Click <strong>Test</strong> button with your chat ID</li>
+<li>Ensure bot status is &quot;Active&quot; (green indicator)</li>
+</ol>
+<h3>Can&#39;t Get Chat ID</h3>
+<p>Try these methods:</p>
+<ol>
+<li>Send a message to the bot, then check: <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code></li>
+<li>For groups, add bot and mention it: <code>@botname hello</code></li>
+<li>Look for <code>&quot;chat&quot;: {&quot;id&quot;: &lt;number&gt;}</code></li>
+</ol>
+<h3>Errors in Web UI</h3>
+<ul>
+<li><strong>&quot;Bot token not provided&quot;</strong>: Add token to config and save</li>
+<li><strong>&quot;Telegram API error&quot;</strong>: Token might be invalid - verify with @BotFather</li>
+<li><strong>&quot;Failed to add chat&quot;</strong>: Chat ID format might be wrong (should be all numbers for private, <code>-</code> prefix for groups)</li>
+</ul>
+<h2>Security Considerations</h2>
+<ol>
+<li><p><strong>Bot Token Protection</strong>: </p>
+<ul>
+<li>Never share your bot token publicly</li>
+<li>Token is masked in UI display (shows <code>***...last10chars</code>)</li>
+<li>Regenerate token via @BotFather if compromised</li>
+</ul>
+</li>
+<li><p><strong>Chat ID Privacy</strong>:</p>
+<ul>
+<li>Store securely, like passwords</li>
+<li>Only add trusted chats for notifications</li>
+<li>Remove old/unused chat IDs</li>
+</ul>
+</li>
+<li><p><strong>Admin Chats</strong>:</p>
+<ul>
+<li>Configure specific admin-level permissions</li>
+<li>Only admins can execute sensitive commands</li>
+<li>Consider using a private group for admin alerts</li>
+</ul>
+</li>
+<li><p><strong>Encryption (what this is <em>not</em>)</strong>:</p>
+<ul>
+<li>The <strong>Telegram bot token</strong> and related settings are stored like other config (JSON under your data directory). They are <strong>not</strong> wrapped in the same <strong>AES-256-GCM</strong> layer as <strong>saved bank profile credentials</strong> (those are encrypted with a key derived from your <strong>app lock</strong> password).</li>
+<li>Treat the token like a secret: restrict access to <strong><code>DATA_DIR</code></strong>, use OS-level permissions, and optional disk encryption—same as for API keys and <code>runtime-settings.json</code>.</li>
+</ul>
+</li>
+</ol>
+<h2>Examples</h2>
+<h3>Example 1: Get Weekly Spending Summary</h3>
+<pre><code>You: /chat
+You: Can you summarize my spending this week by category?
+Bot: 📊 Weekly Spending Summary:
+     💰 Total: ₪4,250
+     - Groceries: ₪800
+     - Transportation: ₪300
+     - Entertainment: ₪450
+     - Utilities: ₪200
+     ... detailed breakdown ...
+</code></pre>
+<h3>Example 2: Automated Scraper Execution</h3>
+<pre><code>1. Setup monthly scraper in Pipeline Configuration
+2. Add notification chat in Telegram settings
+3. When pipeline runs:
+   - Bot sends: &quot;📬 Pipeline started&quot;
+   - After completion: &quot;✅ Scrape completed - 487 transactions&quot;
+   - AI insights included automatically
+</code></pre>
+<h3>Example 3: Financial Analysis</h3>
+<pre><code>You: /chat
+You: Have my expenses increased this month?
+Bot: 📈 Yes, your spending increased by 12% compared to last month
+     
+     Main drivers:
+     • Travel: +₪450
+     • Dining: +₪280
+     • Shopping: +₪150
+     
+     Areas within budget:
+     ✅ Groceries
+     ✅ Utilities
+</code></pre>
+<h2>Limitations &amp; Known Issues</h2>
+<ol>
+<li><strong>Message Rate Limiting</strong>: Telegram has rate limits (avoid sending 25+ messages/second)</li>
+<li><strong>File Uploads</strong>: Currently doesn&#39;t support file uploads to bot</li>
+<li><strong>Media Messages</strong>: Transactions shown as text only (no visual charts yet)</li>
+<li><strong>Group Permissions</strong>: Ensure bot has required permissions in groups</li>
+</ol>
+<h2>Future Enhancements</h2>
+<p>Planned features for future releases:</p>
+<ul>
+<li>📊 Interactive transaction charts</li>
+<li>📝 Export data to files</li>
+<li>🔔 Smart notifications (only major changes)</li>
+<li>🌙 Scheduled reports</li>
+<li>👥 Multi-user support with roles</li>
+<li>🔄 Sync with Google Sheets via Telegram</li>
+</ul>
+<h2>Support</h2>
+<p>For issues or feature requests:</p>
+<ol>
+<li>Check the troubleshooting section above</li>
+<li>Review server logs in <strong>Configuration</strong> → <strong>Logs</strong> tab</li>
+<li>Test with the <strong>Test Connection</strong> feature</li>
+<li>Report issues with detailed error messages</li>
+</ol>

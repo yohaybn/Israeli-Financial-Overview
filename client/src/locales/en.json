@@ -1253,7 +1253,7 @@
     "env": {
         "title": "Environment Variables",
         "subtitle": "Configure system-level settings stored in data/config/runtime-settings.json (next to your database; persists with the data folder / Docker volume)",
-        "profile_encryption_note": "Saved bank credentials are encrypted with your app password (set via the strip under the header). If you still have ENCRYPTION_KEY in runtime-settings.json from an older setup, unlock once after upgrade — profiles are re-encrypted automatically and you can remove that variable.",
+        "profile_encryption_note": "Saved bank credentials are encrypted with your app password (set via the strip under the header).",
         "enter_value": "Enter {{key}}...",
         "generate_random_key": "Generate random key",
         "restart_required_hint": "Changes to these variables require a server restart to take effect.",
@@ -1295,10 +1295,6 @@
                 "label": "Drive Folder ID",
                 "help": "The ID from the URL of your Google Drive folder where results will be saved."
             },
-            "encryption_key": {
-                "label": "Encryption Key (64 hex)",
-                "help": "Generate using: openssl rand -hex 32"
-            },
             "port": {
                 "label": "Server Port",
                 "help": "Default is 3000."
@@ -1307,9 +1303,6 @@
                 "label": "Data Directory",
                 "help": "Path where profiles and results are stored. Default is ./data"
             }
-        },
-        "validation": {
-            "encryption_key_hex_64": "Encryption key must be a 64-character hex string"
         }
     },
     "transactions": {

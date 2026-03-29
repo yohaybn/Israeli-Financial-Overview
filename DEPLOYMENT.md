@@ -13,13 +13,36 @@ The application is configured using Environment Variables. These take precedence
 | `OAUTH_CLIENT_SECRET` | Google OAuth Client Secret | - |
 | `OAUTH_REDIRECT_URI` | OAuth Redirect URI | `http://localhost:3000/oauth2callback` |
 | `DRIVE_FOLDER_ID` | Google Drive folder ID for uploads | - |
-| `APP_SECRET` | Secret key for encrypting sensitive data | `bank-scraper-secret...` |
+| `APP_SECRET` | Reserved for Home Assistant add-on wiring; **not used by the current server for encryption** | - |
 
 ### Application Structure
 
 The project is structured into two main components:
 - `/app`: The standalone Node.js application.
 - `/ha-addon`: Home Assistant Add-on configuration and startup scripts.
+
+## Security & encryption (at rest)
+
+**Encrypted by the app**
+
+- **Bank profile credentials** — JSON files under `<DATA_DIR>/profiles/`. Only the **`credentials`** payload is encrypted (**AES-256-GCM**: IV, authentication tag, and ciphertext stored as hex, colon-separated). Encryption uses a **32-byte key** derived from the **app lock password** via **scrypt** (parameters and salts live in `<DATA_DIR>/security/app-lock.json`). The plaintext password is **never** written to disk.
+- **Unlock session** — The derived key exists **in memory** while the app is unlocked; restarting the server clears it until you unlock again.
+
+**Not encrypted at the application layer**
+
+- **API keys** (e.g. Gemini), **OAuth** client id/secret, **Telegram bot token**, scheduler and other JSON under `<DATA_DIR>/config/` (including `runtime-settings.json`).
+- **SQLite** database (`app.db`) — transactions, categories cache, fraud findings, AI memory tables, etc.
+- **Scrape results** and related folders under `<DATA_DIR>/`.
+
+Protect **`DATA_DIR`** with filesystem permissions and, if needed, **volume/disk encryption**. For remote access, terminate **TLS** at a reverse proxy; the Node server typically listens on **plain HTTP** on `PORT`.
+
+### Threat model (credentials vs. local access)
+
+See **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)** for the full narrative. Short summary:
+
+- **Saved bank credentials:** Without **app lock**, the server may encrypt profiles with a **fixed fallback key** from source—**not** secret. With **app lock**, ciphertext needs your **password** or an **unlocked** / **compromised** runtime.
+- **Transactions, results, API keys:** **SQLite**, scrape folders, and JSON config under `<DATA_DIR>` are **plaintext at the app layer**. Anyone who can read that directory sees **financial history** and **secrets** regardless of app lock. Use **OS permissions**, **full-disk encryption**, and **TLS** when exposing the service beyond localhost.
+- **Hardening credentials:** Prefer **unlock → scrape or edit profiles → lock again** so the derived key stays in memory only briefly. When **locked**, the server does not expose decrypted credentials via the API, but **disk copies** of `profiles/` are still ciphertext subject to offline guessing—see **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)**.
 
 ## Windows desktop (installer / portable folder)
 

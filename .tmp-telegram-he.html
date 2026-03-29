@@ -1,0 +1,358 @@
+<h1>מדריך אינטגרציה של בוט טלגרם</h1>
+<h2>סקירה</h2>
+<p><strong>מבט כלכלי</strong> כולל בוט טלגרם מלא שמאפשר:</p>
+<ul>
+<li>📬 <strong>קבלת התראות</strong> על סורקי עסקאות</li>
+<li>💬 <strong>שיחה עם AI</strong> על עסקאות פיננסיות</li>
+<li>🏦 <strong>הפעלת סורקים</strong> ישירות מטלגרם</li>
+<li>⚙️ <strong>ניהול הגדרות</strong> דרך פקודות בצ&#39;אט</li>
+</ul>
+<h2>התחלה מהירה</h2>
+<h3>1. יצירת בוט בטלגרם</h3>
+<ol>
+<li>פתחו את טלגרם וחפשו <strong>@BotFather</strong></li>
+<li>שלחו את הפקודה <code>/newbot</code></li>
+<li>עקבו אחר ההנחיות לתת שם לבוט</li>
+<li>BotFather יספק את <strong>טוקן הבוט</strong> (למשל <code>123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>)</li>
+</ol>
+<h3>2. הגדרת טוקן הבוט</h3>
+<h4>אפשרות א׳: משתני סביבה (.env)</h4>
+<p>הוסיפו לקובץ <code>.env</code>:</p>
+<pre><code>TELEGRAM_BOT_TOKEN=your_bot_token_here
+</code></pre>
+<h4>אפשרות ב׳: דרך הממשק</h4>
+<ol>
+<li>עברו ל־<strong>הגדרות</strong> → לשונית <strong>Telegram</strong></li>
+<li>הדביקו את טוקן הבוט בשדה &quot;Bot Token&quot;</li>
+<li>לחצו <strong>שמור</strong></li>
+<li>לחצו <strong>התחל</strong> כדי להפעיל את הבוט</li>
+</ol>
+<h3>3. קבלת מזהה צ&#39;אט (Chat ID)</h3>
+<p>כדי לקבל התראות או להשתמש בבוט, נדרש <strong>מזהה הצ&#39;אט</strong> בטלגרם:</p>
+<p><strong>בצ&#39;אט פרטי:</strong></p>
+<ol>
+<li>התחילו צ&#39;אט עם הבוט (חיפוש בשם הבוט)</li>
+<li>שלחו כל הודעה לבוט (למשל <code>/start</code>)</li>
+<li>בצ&#39;אט <strong>פרטי</strong>, <strong>מזהה הצ&#39;אט</strong> הוא אותו מספר כמו <strong>מזהה המשתמש בטלגרם</strong>.</li>
+</ol>
+<p><strong>אם עדיין אין הרשאה</strong> (השרת משתמש ברשימת <code>allowedUsers</code> והחשבון שלכם לא ברשימה): שלחו בכל זאת הודעה לבוט. תקבלו תשובה בסגנון &quot;גישה נדחית&quot; שעדיין כוללת את <strong>מזהה המשתמש שלכם</strong> כמספר להעתקה — שלחו אותו למנהל כדי שיוסיף אתכם ל־<code>allowedUsers</code> ולצ&#39;אטי התראות לפי הצורך.</p>
+<p><strong>חלופה — API getUpdates:</strong></p>
+<ol>
+<li>אחרי שליחת הודעה לבוט, פתחו: <code>https://api.telegram.org/bot&lt;YOUR_BOT_TOKEN&gt;/getUpdates</code></li>
+<li>חפשו <code>&quot;chat&quot;: {&quot;id&quot;: &lt;YOUR_CHAT_ID&gt;}</code> או <code>&quot;from&quot;: {&quot;id&quot;: ...}</code> עבור השולח</li>
+<li>העתיקו את מספר מזהה הצ&#39;אט</li>
+</ol>
+<p><strong>בקבוצות:</strong></p>
+<ol>
+<li>הוסיפו את הבוט לקבוצת טלגרם</li>
+<li>שלחו הודעה שמזכירה את הבוט: <code>@your_bot_name שלום</code></li>
+<li>באותה שיטה מזהים את מזהה הצ&#39;אט של הקבוצה (מתחיל ב־<code>-</code>)</li>
+</ol>
+<h2>תכונות ופקודות</h2>
+<h3>פקודות זמינות</h3>
+<table>
+<thead>
+<tr>
+<th>פקודה</th>
+<th>תיאור</th>
+<th>שימוש</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/start</code></td>
+<td>אתחול הבוט והודעת פתיחה</td>
+<td>בצ&#39;אט פרטי עם הבוט</td>
+</tr>
+<tr>
+<td><code>/help</code></td>
+<td>הצגת כל הפקודות</td>
+<td>בכל צ&#39;אט</td>
+</tr>
+<tr>
+<td><code>/scrape</code></td>
+<td>בחירה והרצת סורק</td>
+<td>בחירת פרופיל מכפתורים</td>
+</tr>
+<tr>
+<td><code>/chat</code></td>
+<td>מצב שיחה עם AI</td>
+<td>שאלות על עסקאות</td>
+</tr>
+<tr>
+<td><code>/settings</code></td>
+<td>ניהול העדפות התראות</td>
+<td>תפריט אינטראקטיבי</td>
+</tr>
+<tr>
+<td><code>/subscribe</code></td>
+<td>הפעלת התראות על עסקאות</td>
+<td>התראות לסריקות חדשות</td>
+</tr>
+<tr>
+<td><code>/unsubscribe</code></td>
+<td>כיבוי התראות</td>
+<td>בלי התראות</td>
+</tr>
+<tr>
+<td><code>/status</code></td>
+<td>בדיקת סטטוס הבוט והמערכת</td>
+<td>האם הבוט פעיל</td>
+</tr>
+</tbody></table>
+<h3>שימוש בצ&#39;אט AI</h3>
+<pre><code>אתה: /chat
+בוט: 💬 מצב צ&#39;אט AI הופעל!
+
+אתה: מה ההוצאות הגדולות שלי?
+בוט: לפי העסקאות שלך, קטגוריות ההוצאה הגדולות ביותר הן...
+
+אתה: הצג מגמות הוצאה
+בוט: [ניתוח מפורט של דפוסי הוצאה]
+</code></pre>
+<h3>הרצת סורקים</h3>
+<pre><code>אתה: /scrape
+בוט: 🏦 בחר פרופיל לסריקה:
+     [בנק לאומי] [בנק הפועלים] [אחר]
+
+אתה: לחיצה על הבנק הרצוי
+בוט: ⏳ מריץ סורק, נא להמתין...
+     ✅ הסריקה הושלמה בהצלחה
+     
+     📊 תוצאות:
+     • חשבונות: 3
+     • עסקאות: 487
+     • משך: 2350ms
+</code></pre>
+<h2>הגדרת צ&#39;אטים להתראות</h2>
+<h3>הוספת צ&#39;אט להתראות</h3>
+<ol>
+<li>עברו ל־<strong>הגדרות</strong> → <strong>Telegram</strong> → <strong>צ&#39;אטים להתראות</strong></li>
+<li>הזינו את מזהה הצ&#39;אט שאמור לקבל התראות</li>
+<li>לחצו <strong>הוסף</strong></li>
+</ol>
+<h3>אירועי התראות</h3>
+<p>הבוט שולח התראות כאשר:</p>
+<ul>
+<li>סריקה הסתיימה בהצלחה ✅</li>
+<li>סריקה נכשלה ❌</li>
+<li>נותחו עסקאות עם תובנות AI</li>
+<li>צינור (pipeline) הסתיים</li>
+<li>התרעות מערכת</li>
+</ul>
+<h3>רמות פירוט התראות</h3>
+<p>ניתן להגדיר כמה מפורטות ההתראות:</p>
+<ul>
+<li><strong>מינימלי</strong>: סטטוס ומשך בלבד</li>
+<li><strong>רגיל</strong>: סטטוס, משך, שלבים, מספר עסקאות, תובנות</li>
+<li><strong>מפורט</strong>: מידע מלא כולל פרטי חשבון ויתרה</li>
+<li><strong>מפורט מאוד</strong>: JSON מלא למשתמשים מתקדמים</li>
+</ul>
+<h2>לוח הגדרות Telegram</h2>
+<p>גישה להגדרות מהממשק:</p>
+<ol>
+<li>עברו ל־<strong>הגדרות</strong> → לשונית <strong>Telegram</strong></li>
+<li>ניתן להגדיר:<ul>
+<li>טוקן בוט (מוסתר לחלקית)</li>
+<li>צ&#39;אטים להתראות (הוספה/הסרה של מזהי צ&#39;אט)</li>
+<li>בדיקת חיבור</li>
+<li>הגדרות מתקדמות</li>
+</ul>
+</li>
+</ol>
+<h3>בדיקת חיבור</h3>
+<p>לאימות ההגדרות:</p>
+<ol>
+<li>הזינו את טוקן הבוט</li>
+<li>הזינו את מזהה הצ&#39;אט</li>
+<li>לחצו <strong>בדיקה</strong></li>
+<li>אמורה להגיע הודעת אישור בטלגרם</li>
+</ol>
+<h2>נקודות קצה API (REST)</h2>
+<p>התכונה חושפת את נקודות ה־API הבאות (נתיבים כפי שמופיעים בשרת):</p>
+<h3>הגדרות</h3>
+<pre><code class="language-bash"># קבלת הגדרות טלגרם
+GET /api/telegram/config
+
+# עדכון הגדרות
+POST /api/telegram/config
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;adminChatIds&quot;: [&quot;123456&quot;],
+  &quot;notificationChatIds&quot;: [&quot;123456&quot;, &quot;-789012&quot;]
+}
+</code></pre>
+<h3>בקרת בוט</h3>
+<pre><code class="language-bash"># הפעלת הבוט
+POST /api/telegram/start
+{
+  &quot;botToken&quot;: &quot;optional_token_to_override_config&quot;
+}
+
+# עצירת הבוט
+POST /api/telegram/stop
+
+# סטטוס הבוט
+GET /api/telegram/status
+
+# בדיקת חיבור
+POST /api/telegram/test
+{
+  &quot;botToken&quot;: &quot;...&quot;,
+  &quot;chatId&quot;: &quot;...&quot;
+}
+</code></pre>
+<h3>צ&#39;אטים להתראות</h3>
+<pre><code class="language-bash"># רשימת כל צ&#39;אטי ההתראות
+GET /api/telegram/notification-chats
+
+# הוספת צ&#39;אט להתראות
+POST /api/telegram/notification-chat/add
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+
+# הסרת צ&#39;אט מהתראות
+POST /api/telegram/notification-chat/remove
+{
+  &quot;chatId&quot;: &quot;123456&quot;
+}
+</code></pre>
+<h2>תכונות מתקדמות</h2>
+<h3>ריבוי שפות</h3>
+<p>ממשק הבוט מזהה את שפת הממשק באינטרנט:</p>
+<ul>
+<li>🇺🇸 אנגלית</li>
+<li>🇮🇱 עברית</li>
+</ul>
+<h3>כפתורים מובנים (Inline)</h3>
+<p>הבוט משתמש בכפתורי טלגרם:</p>
+<ul>
+<li>בחירת פרופיל לסריקה</li>
+<li>מתגי הגדרות</li>
+<li>ניווט בתפריטים</li>
+</ul>
+<h3>הודעות ארוכות</h3>
+<p>אם תשובות AI חורגות ממגבלת 4096 תווים של טלגרם, הן מפוצלות אוטומטית.</p>
+<h3>תבניות הודעות</h3>
+<p>התראות משתמשות ב־HTML:</p>
+<ul>
+<li><strong>טקסט מודגש</strong> לכותרות</li>
+<li><code>קוד</code> למזהים</li>
+<li>אימוג&#39;י ✅/❌ לסטטוס</li>
+</ul>
+<h2>פתרון בעיות</h2>
+<h3>הבוט לא מגיב</h3>
+<ol>
+<li>ודאו שטוקן הבוט נכון</li>
+<li>ודאו שהבוט הופעל: <strong>הגדרות</strong> → <strong>Telegram</strong> → כפתור <strong>התחל</strong></li>
+<li>ודאו ששלחתם <code>/start</code> לבוט בטלגרם</li>
+<li>בדקו יומני שרת: <strong>הגדרות</strong> → <strong>תחזוקה</strong> → יומנים</li>
+</ol>
+<h3>לא מתקבלות התראות</h3>
+<ol>
+<li>ודאו שמזהה הצ&#39;אט נכון</li>
+<li>בדקו שהצ&#39;אט ברשימת ההתראות: <strong>הגדרות</strong> → <strong>Telegram</strong> → <strong>צ&#39;אטים להתראות</strong></li>
+<li>הריצו בדיקת חיבור עם מזהה הצ&#39;אט</li>
+<li>ודאו שסטטוס הבוט &quot;פעיל&quot; (אינדיקטור ירוק)</li>
+</ol>
+<h3>לא מצליחים למצוא Chat ID</h3>
+<ol>
+<li>שלחו הודעה לבוט, ואז: <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code></li>
+<li>בקבוצות: הוסיפו את הבוט וציינו אותו — <code>@botname שלום</code></li>
+<li>חפשו <code>&quot;chat&quot;: {&quot;id&quot;: &lt;מספר&gt;}</code></li>
+</ol>
+<h3>שגיאות בממשק</h3>
+<ul>
+<li><strong>&quot;Bot token not provided&quot;</strong>: הוסיפו טוקן ושמרו</li>
+<li><strong>&quot;Telegram API error&quot;</strong>: ייתכן שהטוקן שגוי — אמתו עם @BotFather</li>
+<li><strong>&quot;Failed to add chat&quot;</strong>: ייתכן שפורמט מזהה הצ&#39;אט שגוי (מספרים לפרטי, קידומת <code>-</code> לקבוצות)</li>
+</ul>
+<h2>אבטחה</h2>
+<ol>
+<li><p><strong>הגנת טוקן הבוט</strong>:</p>
+<ul>
+<li>אל תשתפו את הטוקן בפומבי</li>
+<li>בממשק הטוקן מוסתר (<code>***...10 תווים אחרונים</code>)</li>
+<li>אם דלף — צרו טוקן חדש ב־@BotFather</li>
+</ul>
+</li>
+<li><p><strong>פרטיות מזהה צ&#39;אט</strong>:</p>
+<ul>
+<li>שמרו כמו סיסמאות</li>
+<li>הוסיפו רק צ&#39;אטים מהימנים</li>
+<li>הסירו מזהים ישנים</li>
+</ul>
+</li>
+<li><p><strong>צ&#39;אטי מנהל</strong>:</p>
+<ul>
+<li>הרשאות ברמת מנהל</li>
+<li>רק מנהלים מריצים פקודות רגישות</li>
+<li>שקלו קבוצה פרטית להתראות מנהלים</li>
+</ul>
+</li>
+<li><p><strong>הצפנה (מה זה <em>לא</em>)</strong>:</p>
+<ul>
+<li><strong>טוקן הבוט</strong> והגדרות Telegram נשמרים כמו שאר הקונפיגורציה (JSON תחת תיקיית הנתונים). הם <strong>לא</strong> עטופים באותה שכבת <strong>AES-256-GCM</strong> כמו <strong>פרטי התחברות לבנק בפרופילים שמורים</strong> (אלה מוצפנים במפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong>).</li>
+<li>התייחסו לטוקן כסוד: הגבילו גישה ל-<strong><code>DATA_DIR</code></strong>, הרשאות מערכת הפעלה והצפנת דיסק לפי הצורך — כמו למפתחות API ול-<code>runtime-settings.json</code>.</li>
+</ul>
+</li>
+</ol>
+<h2>דוגמאות</h2>
+<h3>דוגמה 1: סיכום הוצאות שבועי</h3>
+<pre><code>אתה: /chat
+אתה: תוכל לסכם את ההוצאות השבוע לפי קטגוריה?
+בוט: 📊 סיכום הוצאות שבועי:
+     💰 סה&quot;כ: ₪4,250
+     - מכולת: ₪800
+     - תחבורה: ₪300
+     - בילויים: ₪450
+     - חשבונות: ₪200
+     ... פירוט ...
+</code></pre>
+<h3>דוגמה 2: הרצת סורק מתוזמנת</h3>
+<pre><code>1. הגדרת סורק חודשי בהגדרות צינור (Pipeline)
+2. הוספת צ&#39;אט התראות בהגדרות טלגרם
+3. כשהצינור רץ:
+   - הבוט שולח: &quot;📬 הצינור התחיל&quot;
+   - אחרי סיום: &quot;✅ סריקה הושלמה - 487 עסקאות&quot;
+   - תובנות AI נכללות אוטומטית
+</code></pre>
+<h3>דוגמה 3: ניתוח פיננסי</h3>
+<pre><code>אתה: /chat
+אתה: האם ההוצאות שלי עלו החודש?
+בוט: 📈 כן, ההוצאה עלתה בכ־12% לעומת החודש הקודם
+     
+     גורמים עיקריים:
+     • נסיעות: +₪450
+     • מסעדות: +₪280
+     • קניות: +₪150
+     
+     בתוך תקציב:
+     ✅ מכולת
+     ✅ חשבונות
+</code></pre>
+<h2>מגבלות ונושאים ידועים</h2>
+<ol>
+<li><strong>מגבלת קצב הודעות</strong>: לטלגרם יש הגבלות (הימנעו מ־25+ הודעות/שנייה)</li>
+<li><strong>העלאת קבצים</strong>: כרגע אין תמיכה בהעלאת קבצים לבוט</li>
+<li><strong>מדיה</strong>: עסקאות מוצגות כטקסט בלבד (אין גרפים בתוך טלגרם עדיין)</li>
+<li><strong>הרשאות בקבוצות</strong>: ודאו שלבוט יש הרשאות מתאימות</li>
+</ol>
+<h2>שיפורים עתידיים</h2>
+<p>תכנון לגרסאות עתידיות:</p>
+<ul>
+<li>📊 גרפי עסקאות אינטראקטיביים</li>
+<li>📝 ייצוא נתונים לקבצים</li>
+<li>🔔 התראות חכמות (שינויים מהותיים בלבד)</li>
+<li>🌙 דוחות מתוזמנים</li>
+<li>👥 תמיכה בריבוי משתמשים עם תפקידים</li>
+<li>🔄 סנכרון Google Sheets דרך טלגרם</li>
+</ul>
+<h2>תמיכה</h2>
+<p>לבעיות או בקשות לתכונות:</p>
+<ol>
+<li>עברו על סעיף פתרון הבעיות למעלה</li>
+<li>בדקו יומני שרת ב־<strong>הגדרות</strong> → <strong>יומנים</strong></li>
+<li>השתמשו ב־<strong>בדיקת חיבור</strong></li>
+<li>דווחו עם הודעות שגיאה מפורטות</li>
+</ol>

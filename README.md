@@ -89,7 +89,7 @@ Full maintainer notes: [packaging/windows/README.md](packaging/windows/README.md
 The workflow in `.github/workflows/pages.yml` publishes:
 
 - A **static demo** (`VITE_DEMO=true`, in-browser API mocks, sample data). It does **not** connect to banks or your server. Full functionality requires the server stack above.
-- A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/israeli-bank-scraper-docker/install/](https://yohaybn.github.io/israeli-bank-scraper-docker/install/) after Pages is enabled). Guide screenshots live under [`client/public/install/screenshots/`](client/public/install/screenshots/) and are copied into the Pages build with the rest of `client/public/`.
+- A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/Israeli-Financial-Overview/install/](https://yohaybn.github.io/Israeli-Financial-Overview/install/) after Pages is enabled). Guide screenshots live under [`client/public/install/screenshots/`](client/public/install/screenshots/) and are copied into the Pages build with the rest of `client/public/`.
 
 ## Dashboard behavior (recent logic)
 
@@ -101,12 +101,13 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 
 | Doc | Purpose |
 |-----|---------|
-| **[Installation guide (GitHub Pages)](https://yohaybn.github.io/israeli-bank-scraper-docker/install/)** | Step-by-step Windows install, first run, Telegram, and Gemini API (EN/HE); source: [`client/public/install/index.html`](client/public/install/index.html). |
+| **[Installation guide (GitHub Pages)](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** | Step-by-step Windows install, first run, Telegram, and Gemini API (EN/HE); source: [`client/public/install/index.html`](client/public/install/index.html). |
 | **[client/public/GUIDE.html](client/public/GUIDE.html)** | Full user guide (EN/HE toggle) — same file the app opens from **Help**. Covers **AI memory** (stored facts vs. chat-merged facts), **AI persona** (structured profile and optional analyst prompt injection), and onboarding extraction. |
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior (English). |
 | **[client/public/guides/TELEGRAM_BOT_GUIDE.he.md](client/public/guides/TELEGRAM_BOT_GUIDE.he.md)** | Hebrew Telegram guide — embedded in **עברית** in [`client/public/GUIDE.html`](client/public/GUIDE.html); regenerate with `npm run guide:embed-telegram`. |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
+| **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)** | Who can obtain bank credentials vs. transaction data; shared PC and remote attacker paths. |
 | **[packaging/windows/README.md](packaging/windows/README.md)** | Building the Windows installer and `dist/windows-package`. |
 | **[financial-overview.json.example](financial-overview.json.example)** | Optional install-local JSON (`port`, `dataDir`) read by the server (copy to `financial-overview.json`). |
 | **[server/src/index.ts](server/src/index.ts)** | Mounts REST routes under `/api/*` (see `server/src/routes/`). Health: `GET /api/health`. |
@@ -114,6 +115,24 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 ## API
 
 REST JSON under **`/api/*`** (Express). Route modules live in **`server/src/routes/`**; **`server/src/index.ts`** shows how they are mounted. **`GET /api/health`** returns `{ status, version }`.
+
+## Security & encryption (at rest)
+
+| What | How |
+|------|-----|
+| **Saved bank profile credentials** | **AES-256-GCM** on disk under `data/profiles/` (each profile’s `credentials` field). The key is derived from your **app lock password** with **scrypt** (salt stored in `data/security/app-lock.json`). The password itself is **not** stored—only a **scrypt hash** for verification. |
+| **In memory** | While the app is **unlocked**, the derived AES key exists only in server memory; it is **not** written to disk. |
+| **Not encrypted by the application** | **Gemini / OAuth / Telegram** secrets in `runtime-settings.json` and config JSON; **SQLite** (`app.db`) for transactions and AI memory; scrape **results** and other files under **`DATA_DIR`**. Treat the whole data directory as sensitive and use **OS permissions** and optional **full-disk encryption**. |
+| **Backups** | Local/Drive snapshots copy the same on-disk representation (encrypted profile blobs stay encrypted; plaintext config stays plaintext). |
+
+Default deployment uses **HTTP** to localhost; use a **reverse proxy with TLS** if you expose the UI beyond trusted networks.
+
+### Threat model (credentials vs. local access)
+
+- **Best practice:** **Unlock** only to **run a scrape** or **add/edit a saved profile**, then **lock again**—this keeps the derived encryption key in memory for the **shortest** time. See **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)** for when locking **does** and **does not** stop credential access.
+- **Bank logins (saved profiles):** Meaningful protection requires **app lock** with a **strong password**. If you **never** enable app lock, the app may use a **fixed fallback key** published in source—**anyone who can read `data/profiles/` can recover credentials.** With app lock, an attacker needs your **password**, an **unlocked** session, or **offline cracking** of the lock file (e.g. after **stolen disk**), not just a folder copy alone.
+- **Transaction history & scrape data:** Stored in **SQLite** (`app.db`) and **`data/results/`**—**not** app-encrypted. Anyone with read access to **`DATA_DIR`** can read **transactions** and **config secrets** (Gemini, Telegram, OAuth) even **without** the app lock password. **App lock does not hide the database from someone who can open files.**
+- **Remote “hackers”** need a path to your machine (**malware**, **exposed port**, **stolen backup**, etc.)—they do not magically read localhost. Full detail: **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)**.
 
 ## Credits
 

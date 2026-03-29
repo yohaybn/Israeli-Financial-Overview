@@ -1,3 +1,4 @@
+import './utils/pdfNodePolyfill.js';
 import './runtimeEnv.js';
 import './utils/geminiRateLimitCapture.js';
 import express from 'express';

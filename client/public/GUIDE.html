@@ -139,7 +139,7 @@ DRIVE_FOLDER_ID=(optional)<br>
 GEMINI_API_KEY=(optional)
                             </div>
                             <div class="callout info">
-                                <strong>Profile encryption:</strong> Saved bank credentials are encrypted with a key derived from your <strong>app lock password</strong> (set in the app). Do not use a separate <code>ENCRYPTION_KEY</code> for normal setups.
+                                <strong>Profile encryption:</strong> Saved bank credentials are encrypted with a key derived from your <strong>app lock password</strong> (set in the app).
                             </div>
                         `
                     },
@@ -259,9 +259,22 @@ GEMINI_API_KEY=(optional)
                             <p>Your <strong>app lock password</strong> (minimum <strong>8 characters</strong>) is used to derive the AES key that <strong>encrypts saved bank profile credentials</strong> on disk. It also controls session unlock when app lock is enabled.</p>
                             <p>You can use much of the app—dashboard, logs, configuration, browsing results—<strong>without</strong> unlocking the session. <strong>Running scrapes</strong> and <strong>creating or editing saved profiles</strong> require the app to be <strong>unlocked</strong> when app lock is configured.</p>
                             <p>Unlock is <strong>session-based</strong>. If enabled, Telegram <code>/unlock</code> may be available where supported.</p>
+                            <div class="callout info">
+                                <strong>Best practice:</strong> Unlock only when you need to <strong>run a scrape</strong> or <strong>add/edit a saved profile</strong>, then <strong>lock again</strong> right away. That keeps the derived encryption key in server memory for the <strong>shortest</strong> time.
+                            </div>
                             <div class="callout warning">
                                 There is no cloud “forgot password” and <strong>encrypted profiles cannot be decrypted</strong> without the correct password. If you forget it, you must <strong>delete the saved profiles</strong> (remove files under <code>data/profiles</code> or delete them in the UI), reset or recreate app lock via <code>data/security</code> as described in your deployment docs, set a <strong>new</strong> password, then <strong>create profiles again</strong> and re-enter your bank credentials.
                             </div>
+                            <h3>What we encrypt at rest</h3>
+                            <ul>
+                                <li><strong>Bank profile credentials</strong> — In each file under <code>data/profiles/</code>, the <code>credentials</code> object is encrypted with <strong>AES-256-GCM</strong> (IV, auth tag, and ciphertext stored as hex). The key comes from your app lock password via <strong>scrypt</strong>; salts live in <code>data/security/app-lock.json</code>. The password is <strong>not</strong> stored—only a scrypt <strong>hash</strong> for verification.</li>
+                                <li><strong>Unlock session</strong> — The derived key exists only in <strong>server memory</strong> while unlocked.</li>
+                                <li><strong>Not encrypted by the app</strong> — API keys, Telegram token, OAuth secrets, the SQLite DB (<code>app.db</code>), transaction/scrape data, and other JSON under <code>DATA_DIR</code>. Use OS permissions and optional disk encryption on the whole data folder.</li>
+                            </ul>
+                            <h3>Threat model</h3>
+                            <p><strong>When locked:</strong> The server <strong>clears</strong> the derived key from memory and <strong>does not</strong> decrypt profile credentials for the API—so another user or script using <strong>only the app</strong> should <strong>not</strong> get plaintext bank passwords. This is <strong>not</strong> absolute: encrypted files remain on disk (offline password guessing), and malware that ran while you were <strong>unlocked</strong> may already have captured secrets.</p>
+                            <p><strong>Bank logins:</strong> Strong protection requires <strong>app lock</strong>. If you never enable it, profile files may use a <strong>fixed key from the published source</strong>—treat stored credentials as exposed to anyone who can read <code>data/profiles/</code>. With app lock, an attacker needs your <strong>password</strong> or access while the app is <strong>unlocked</strong> (malware, shoulder surfing).</p>
+                            <p><strong>Transactions &amp; secrets:</strong> The SQLite DB (<code>app.db</code>), scrape <code>results</code>, and config JSON are <strong>not</strong> encrypted by the app. Anyone with read access to <code>DATA_DIR</code> can see <strong>transaction history</strong> and API/Telegram/OAuth secrets—<strong>app lock does not hide those files</strong>. Use OS permissions, full-disk encryption, and lock the app when you leave the desk. Full write-up: <code>docs/THREAT_MODEL.md</code> in the repository.</p>
                         `
                     },
                     "dashboard": {
@@ -703,6 +716,12 @@ POST /api/telegram/notification-chat/remove
 <li>Consider using a private group for admin alerts</li>
 </ul>
 </li>
+<li><p><strong>Encryption (what this is <em>not</em>)</strong>:</p>
+<ul>
+<li>The <strong>Telegram bot token</strong> and related settings are stored like other config (JSON under your data directory). They are <strong>not</strong> wrapped in the same <strong>AES-256-GCM</strong> layer as <strong>saved bank profile credentials</strong> (those are encrypted with a key derived from your <strong>app lock</strong> password).</li>
+<li>Treat the token like a secret: restrict access to <strong><code>DATA_DIR</code></strong>, use OS-level permissions, and optional disk encryption—same as for API keys and <code>runtime-settings.json</code>.</li>
+</ul>
+</li>
 </ol>
 <h2>Examples</h2>
 <h3>Example 1: Get Weekly Spending Summary</h3>
@@ -799,7 +818,7 @@ DRIVE_FOLDER_ID=(optional)<br>
 GEMINI_API_KEY=(optional)
                             </div>
                             <div class="callout info">
-                                <strong>הצפנת פרופילים:</strong> פרטי בנק שמורים מוצפנים עם מפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong> (מוגדרת בממשק). אין להשתמש ב-<code>ENCRYPTION_KEY</code> בהתקנה רגילה.
+                                <strong>הצפנת פרופילים:</strong> פרטי בנק שמורים מוצפנים עם מפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong> (מוגדרת בממשק).
                             </div>
                         `
                     },
@@ -919,9 +938,20 @@ GEMINI_API_KEY=(optional)
                             <p><strong>סיסמת נעילת האפליקציה</strong> (מינימום <strong>8 תווים</strong>) משמשת לגזירת מפתח AES ש<strong>מצפין פרטי פרופילי בנק</strong> שמורים על הדיסק. היא גם שולטת בשחרור סשן כשנעילת האפליקציה מופעלת.</p>
                             <p>ניתן להשתמש ברוב הממשק — דשבורד, יומנים, הגדרות, צפייה בתוצאות — <strong>בלי</strong> לשחרר סשן. <strong>הרצת סריקות</strong> ו<strong>יצירה או עריכה של פרופילים שמורים</strong> דורשות שהאפליקציה תהיה <strong>במצב שחרור</strong> כשנעילת האפליקציה מוגדרת.</p>
                             <p>השחרור מבוסס <strong>סשן</strong>. אם הוגדר, ניתן לעיתים לשחרר דרך Telegram עם <code>/unlock</code>.</p>
+                            <div class="callout info">
+                                <strong>המלצה:</strong> שחררו רק כשצריך <strong>להריץ סריקה</strong> או <strong>להוסיף/לערוך פרופיל שמור</strong>, ואז <strong>נעלו שוב</strong> מיד — כך מקוצר הזמן שבו מפתח ההצפנה נמצא בזיכרון השרת.
+                            </div>
                             <div class="callout warning">
                                 אין "שכחתי סיסמה" בענן, ו<strong>לא ניתן לפענח פרופילים מוצפנים</strong> בלי הסיסמה הנכונה. אם שכחת — חובה <strong>למחוק את הפרופילים השמורים</strong> (קבצים תחת <code>data/profiles</code> או מחיקה בממשק), לאפס/ליצור מחדש נעילה דרך <code>data/security</code> לפי תיעוד ההתקנה, להגדיר <strong>סיסמה חדשה</strong>, ואז <strong>ליצור פרופילים מחדש</strong> ולהזין שוב את פרטי הבנק.
                             </div>
+                            <h3>מה מוצפן במנוחה (at rest)</h3>
+                            <p>פרטי התחברות בפרופילי בנק — בכל קובץ תחת <code>data/profiles/</code>, אובייקט ה-<code>credentials</code> מוצפן ב-<strong>AES-256-GCM</strong> (IV, תג אימות וטקסט מוצפן ב-hex). המפתח מופק מסיסמת הנעילה באמצעות <strong>scrypt</strong>; המלחים ב-<code>data/security/app-lock.json</code>. הסיסמה לא נשמרת — רק גיבוב scrypt לאימות.</p>
+                            <p>שחרור סשן — המפתח המופק קיים רק בזיכרון השרת כל עוד האפליקציה בשחרור.</p>
+                            <p>לא מוצפן במנוחה על ידי האפליקציה — מפתחות API, טוקן טלגרם, סודות OAuth, מסד SQLite (<code>app.db</code>), נתוני עסקאות/סריקה ושאר JSON תחת <code>DATA_DIR</code>. השתמשו בהרשאות מערכת והצפנת דיסק על כל תיקיית הנתונים.</p>
+                            <h3>מודל איומים</h3>
+                            <p><strong>במצב נעול:</strong> השרת <strong>מאפס</strong> את המפתח מזיכרון ו<strong>לא</strong> מפענח פרטי התחברות לפרופילים עבור ה־API — לכן משתמש או סקריפט שמשתמשים <strong>רק בממשק</strong> לא אמורים לקבל סיסמאות בנק בטקסט גלוי. זו <strong>לא</strong> ערובה מוחלטת: קבצים מוצפנים נשארים על הדיסק (ניסיון פיצוח סיסמה לא מקוון), וזדונית שרצה בזמן <strong>שחרור</strong> עלולה כבר לרכוש נתונים.</p>
+                            <p><strong>סיסמאות בנק:</strong> הגנה משמעותית דורשת נעילת אפליקציה. אם מעולם לא הפעלתם, ייתכן שקבצי פרופיל משתמשים במפתח קבוע מהקוד המפורסם — יש להתייחס לפרטים כחשופים לכל מי שיכול לקרוא את <code>data/profiles/</code>. עם נעילה, תוקף זקוק לסיסמה או לגישה כשהאפליקציה בשחרור (זדוניות וכו').</p>
+                            <p><strong>עסקאות וסודות:</strong> מסד SQLite (<code>app.db</code>), תוצאות סריקה ו-JSON הגדרות לא מוצפנים בשכבת האפליקציה. כל מי שיכול לקרוא את <code>DATA_DIR</code> רואה היסטוריית עסקאות וסודות API/Telegram/OAuth — נעילת האפליקציה לא מסתירה את הקבצים האלה. השתמשו בהרשאות מערכת, הצפנת דיסק ונעילה כשעוזבים את המחשב. פירוט מלא: <code>docs/THREAT_MODEL.md</code> במאגר.</p>
                         `
                     },
                     "dashboard": {
@@ -1359,6 +1389,12 @@ POST /api/telegram/notification-chat/remove
 <li>הרשאות ברמת מנהל</li>
 <li>רק מנהלים מריצים פקודות רגישות</li>
 <li>שקלו קבוצה פרטית להתראות מנהלים</li>
+</ul>
+</li>
+<li><p><strong>הצפנה (מה זה <em>לא</em>)</strong>:</p>
+<ul>
+<li><strong>טוקן הבוט</strong> והגדרות Telegram נשמרים כמו שאר הקונפיגורציה (JSON תחת תיקיית הנתונים). הם <strong>לא</strong> עטופים באותה שכבת <strong>AES-256-GCM</strong> כמו <strong>פרטי התחברות לבנק בפרופילים שמורים</strong> (אלה מוצפנים במפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong>).</li>
+<li>התייחסו לטוקן כסוד: הגבילו גישה ל-<strong><code>DATA_DIR</code></strong>, הרשאות מערכת הפעלה והצפנת דיסק לפי הצורך — כמו למפתחות API ול-<code>runtime-settings.json</code>.</li>
 </ul>
 </li>
 </ol>
