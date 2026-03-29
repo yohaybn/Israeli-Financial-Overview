@@ -58,6 +58,8 @@ export interface TransactionReviewItem {
     date: string;
     amount: number;
     category: string;
+    /** Bank / card account number (for notifications and UI). */
+    accountNumber?: string;
     reason: 'transfers' | 'uncategorized';
 }
 
@@ -160,6 +162,8 @@ export interface Transaction {
     /** Present on CC installment rows (e.g. Isracard) */
     installments?: { number: number; total: number };
     category?: string; // AI assigned category
+    /** True when the user chose this category (web/Telegram); bulk AI skips overwriting. */
+    categoryUserSet?: boolean;
     provider: string; // e.g., 'hapoalim', 'isracard'
     accountNumber: string;
     txnType?: 'expense' | 'income' | 'internal_transfer' | 'normal'; // Classification for anti-double-counting
@@ -476,3 +480,61 @@ export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
     selectedProfiles: [],
     backupSchedule: { ...DEFAULT_BACKUP_SCHEDULE }
 };
+
+/** Structured AI persona / alignment (onboarding survey + editable under Configuration → AI). */
+
+/** One card row (e.g. per parent or per product). */
+export interface UserPersonaCardEntry {
+    id: string;
+    /** e.g. “Mom — debit”, “Dad — Amex” */
+    label?: string;
+    cardType: 'debit' | 'charge_card' | 'both' | 'none';
+    /** Day of month charge is debited (1–31) when cardType is charge_card or both. */
+    chargePaymentDay?: number;
+}
+
+/** One income stream (salary, allowance, pension, etc.). */
+export interface UserPersonaIncomeEntry {
+    id: string;
+    /** e.g. “Parent A salary”, “Child allowance” */
+    label?: string;
+    paymentDays?: number[];
+    notes?: string;
+}
+
+export interface UserPersonaProfile {
+    /** Free-text situation (onboarding or AI settings); optional injection into analyst context. */
+    narrativeNotes?: string;
+    householdStatus?: string;
+    residenceType?: string;
+    technicalSkill?: string;
+    /** @deprecated Prefer `cards`. Kept for older saved settings. */
+    creditCardType?: string;
+    /** @deprecated Prefer `cards`. */
+    chargeCardPaymentDay?: number;
+    cards?: UserPersonaCardEntry[];
+}
+
+export interface UserPersonaFinancialGoals {
+    primaryObjective?: string;
+    topPriorities?: string[];
+    monthlySavingsTarget?: number;
+    /** @deprecated Prefer `incomes`. */
+    incomePaymentDays?: number[];
+    /** @deprecated Prefer `incomes`. */
+    incomeDatesNotes?: string;
+    incomes?: UserPersonaIncomeEntry[];
+}
+
+export interface UserPersonaAiPreferences {
+    communicationStyle?: string;
+    reportingDepth?: string;
+}
+
+export interface UserPersonaContext {
+    profile?: UserPersonaProfile;
+    financialGoals?: UserPersonaFinancialGoals;
+    aiPreferences?: UserPersonaAiPreferences;
+}
+
+export const EMPTY_USER_PERSONA_CONTEXT: UserPersonaContext = {};

@@ -133,7 +133,7 @@
                     "env-setup": {
                         title: "⚙️ Environment setup (runtime-settings.json)",
                         html: `
-                            <p>Optional file in the project root or the in-app <strong>Environment</strong> settings for integrations and API keys. Example:</p>
+                            <p>Optional file in the project root or the in-app <strong>AI</strong> / <strong>Google</strong> / <strong>Maintenance</strong> panels (same keys as <code>runtime-settings.json</code>). Example:</p>
                             <div class="code-block">
 DRIVE_FOLDER_ID=(optional)<br>
 GEMINI_API_KEY=(optional)
@@ -151,14 +151,14 @@ GEMINI_API_KEY=(optional)
                             <ol>
                                 <li>Go to <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
                                 <li>Sign in and click <strong>"Get API Key"</strong>.</li>
-                                <li>Paste the key into <code>GEMINI_API_KEY</code> in <code>runtime-settings.json</code> (or Environment settings).</li>
+                                <li>Paste the key into <code>GEMINI_API_KEY</code> in <code>runtime-settings.json</code> (or Configuration → AI).</li>
                             </ol>
                             <h3>Google Drive folder ID (optional)</h3>
                             <p>Used as a default folder for backups and exports when Google is connected. Not the same as OAuth credentials—see <a href="#google-setup">Google Drive &amp; Sheets (OAuth)</a> for the full Cloud Console setup.</p>
                             <ol>
                                 <li>Create a folder in Google Drive (or pick an existing one).</li>
                                 <li>Copy the folder ID from the URL—the long id after <code>/folders/</code>.</li>
-                                <li>Paste into <code>DRIVE_FOLDER_ID</code> in Environment settings (optional; you can also pick a folder in the app after signing in).</li>
+                                <li>Paste into <code>DRIVE_FOLDER_ID</code> under Configuration → Google (optional; you can also pick a folder in the app after signing in).</li>
                             </ol>
                         `
                     },
@@ -195,13 +195,13 @@ GEMINI_API_KEY=(optional)
                                 <li>Application type: <strong>Web application</strong>.</li>
                                 <li>Under <strong>Authorized redirect URIs</strong>, add <strong>exactly</strong> the callback URL your app uses. Default for a local install is:
                                     <div class="code-block">http://127.0.0.1:3000/api/auth/google/callback</div>
-                                    Replace <code>3000</code> with your server <strong>PORT</strong> if you changed it (same value as in Configuration → Environment / <code>financial-overview.json</code>). If you open the UI as <code>http://localhost:…</code>, add a second URI with <code>localhost</code> and the same path—Google requires an exact match.
+                                    Replace <code>3000</code> with your server <strong>PORT</strong> if you changed it (same value as in Configuration → Maintenance or <code>financial-overview.json</code>). If you open the UI as <code>http://localhost:…</code>, add a second URI with <code>localhost</code> and the same path—Google requires an exact match.
                                 </li>
                                 <li>Create and note the <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
                             </ol>
                             <h3>5. Paste into the app</h3>
                             <ol>
-                                <li>Open <strong>Configuration</strong> → <strong>Environment</strong> (or edit runtime settings on disk).</li>
+                                <li>Open <strong>Configuration</strong> → <strong>Google</strong> for OAuth fields (or edit runtime settings on disk).</li>
                                 <li>Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>.</li>
                                 <li>Set <code>GOOGLE_REDIRECT_URI</code> to the same redirect URI you registered (must match character-for-character).</li>
                                 <li>Restart the server if required, then use <strong>Google Sheets</strong> / Google connection flows in the app to sign in.</li>
@@ -335,7 +335,7 @@ GEMINI_API_KEY=(optional)
                     "configuration": {
                         title: "⚙️ Configuration",
                         html: `
-                            <p>Open <strong>Configuration</strong> from the main navigation. Sub-tabs include <strong>AI</strong> and AI memory, <strong>Scheduler</strong> (and scheduled backups), global <strong>Scraper</strong> defaults, <strong>Fraud</strong> rules, <strong>Google</strong> OAuth and Sheets, <strong>Telegram</strong>, <strong>Environment</strong> variables, and <strong>Maintenance</strong> / database tools.</p>
+                            <p>Open <strong>Configuration</strong> from the main navigation. Sub-tabs include <strong>AI</strong> (and memory), <strong>Categories</strong>, <strong>Scheduler</strong> (and scheduled backups), <strong>Scrape</strong> (including fraud &amp; alerts), <strong>Google</strong> (OAuth, Sheets, Drive), <strong>Telegram</strong>, and <strong>Maintenance</strong> (backups, port, data folder).</p>
                             <p class="callout info">Deep links use <code>?view=configuration&amp;tab=&lt;id&gt;</code> (for example <code>tab=sheets</code> for Google).</p>
                         `
                     },
@@ -346,13 +346,21 @@ GEMINI_API_KEY=(optional)
                             <div class="callout info">
                                 <strong>Profiles and bank logins:</strong> AI does <strong>not</strong> have access to your encrypted <strong>profile credentials</strong> or bank login secrets. Scraping itself is separate (see <strong>Scrape</strong>) and does not use AI. Gemini only sees the <strong>transaction text and context</strong> you send it for categorization, chat, or optional AI fraud analysis—not your stored passwords.
                             </div>
-                            <h3>AI memory — facts, insights, and alerts</h3>
-                            <p>Under <strong>Configuration → AI</strong> (and the <strong>AI memory</strong> sub-tab), the app stores three kinds of structured items the model can reuse:</p>
+                            <h3>AI memory — stored facts, insights, and alerts</h3>
+                            <p>Under <strong>Configuration → AI</strong> (and the <strong>AI memory</strong> sub-tab), the app stores three kinds of structured items the unified analyst can reuse on every chat turn:</p>
                             <ul>
-                                <li><strong>Facts:</strong> Long-term context you want remembered—goals, household situation, preferences. The assistant may suggest new facts; you can edit or delete them anytime.</li>
+                                <li><strong>Stored facts (AI memory facts):</strong> Persistent lines kept in the database—stable context the model should treat as true until you change it (e.g. “Salary arrives on the 1st and 15th”, “We treat Wolt as dining”). You can add, edit, or delete them manually. When the structured analyst reply includes new fact lines, the app <strong>merges</strong> non-duplicate facts into this same list (the prompt asks the model not to echo facts you already have unless your situation changed).</li>
                                 <li><strong>Insights:</strong> Analytical observations from past replies so the assistant does not repeat the same takeaway unnecessarily. Remove an insight if you want that topic to be re-analyzed later.</li>
                                 <li><strong>Alerts:</strong> Urgent or time-sensitive items the assistant records with a <strong>score (1–100)</strong>. Dismissing removes the row and blocks the same text from being saved again. Retention (days) can prune old insights and alerts automatically.</li>
                             </ul>
+                            <p class="callout info"><strong>Not the same as “persona extraction” bullets:</strong> During onboarding (or when you describe your situation in natural language), Gemini may return short <strong>summary bullets</strong> together with structured persona fields. Those bullets are a <strong>readout of what was inferred</strong>; they are not automatically copied into stored AI memory facts unless you add them there yourself.</p>
+                            <h3>AI persona (user alignment)</h3>
+                            <p>In <strong>Configuration → AI</strong>, open the <strong>Persona / alignment</strong> card. This is your <strong>structured profile</strong> for the analyst: household status, housing, technical comfort, cards and payment days, income schedules, financial goals, savings targets, and how you want answers styled (e.g. supportive vs. brief bullets, reporting depth).</p>
+                            <ul>
+                                <li><strong>Include in prompts:</strong> You can choose whether this JSON profile is sent to Gemini with dashboard analyst chat. Turning it off keeps transactions-only prompts (persona is still saved for next time).</li>
+                                <li><strong>Filling it in:</strong> Edit fields directly, or use onboarding / “extract from narrative” so the model proposes persona fields plus optional summary bullets from your free-text description.</li>
+                            </ul>
+                            <p>Persona steers <strong>tone and priorities</strong>; stored memory facts steers <strong>long-lived statements</strong> the model should remember. Both can appear in the same analyst prompt when enabled.</p>
                             <h3>Dashboard — Top AI Insights</h3>
                             <p>On the <strong>Dashboard</strong>, the <strong>Top AI Insights</strong> card surfaces the highest-scored recent insights from memory so you see important takeaways at a glance. You can dismiss individual cards.</p>
                             <h3>Analyst chat</h3>
@@ -785,7 +793,7 @@ Bot: 📈 Yes, your spending increased by 12% compared to last month
                     "env-setup": {
                         title: "⚙️ הגדרת סביבה (runtime-settings.json)",
                         html: `
-                            <p>קובץ אופציונלי בשורש הפרויקט או בהגדרות <strong>סביבה</strong> בממשק, לאינטגרציות ומפתחות API. לדוגמה:</p>
+                            <p>קובץ אופציונלי בשורש הפרויקט או באותם שדות ב<strong>AI</strong> / <strong>גוגל</strong> / <strong>תחזוקה</strong> בממשק (כמו <code>runtime-settings.json</code>). לדוגמה:</p>
                             <div class="code-block">
 DRIVE_FOLDER_ID=(optional)<br>
 GEMINI_API_KEY=(optional)
@@ -803,14 +811,14 @@ GEMINI_API_KEY=(optional)
                             <ol>
                                 <li>עבור אל <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
                                 <li>התחבר ולחץ על <strong>"Get API Key"</strong>.</li>
-                                <li>הדבק את המפתח ב- <code>GEMINI_API_KEY</code> בקובץ <code>runtime-settings.json</code> (או בהגדרות סביבה באפליקציה).</li>
+                                <li>הדבק את המפתח ב- <code>GEMINI_API_KEY</code> בקובץ <code>runtime-settings.json</code> (או בהגדרות → AI).</li>
                             </ol>
                             <h3>מזהה תיקיית Google Drive (אופציונלי)</h3>
                             <p>תיקיית ברירת מחדל לגיבויים ולייצוא כשמחוברים ל-Google. זה לא אותו דבר כמו אישורי OAuth — ראו <a href="#google-setup">Google Drive ו-Sheets (OAuth)</a> להגדרה מלאה ב-Cloud Console.</p>
                             <ol>
                                 <li>צור תיקייה ב-Google Drive (או בחר קיימת).</li>
                                 <li>העתק את המזהה הארוך מה-URL אחרי <code>/folders/</code>.</li>
-                                <li>הדבק ל-<code>DRIVE_FOLDER_ID</code> בהגדרות סביבה (אופציונלי; אפשר גם לבחור תיקייה בממשק אחרי התחברות).</li>
+                                <li>הדבק ל-<code>DRIVE_FOLDER_ID</code> תחת הגדרות → גוגל (אופציונלי; אפשר גם לבחור תיקייה בממשק אחרי התחברות).</li>
                             </ol>
                         `
                     },
@@ -847,13 +855,13 @@ GEMINI_API_KEY=(optional)
                                 <li>סוג: <strong>Web application</strong>.</li>
                                 <li>תחת <strong>Authorized redirect URIs</strong> מוסיפים בדיוק את כתובת ה-callback שהאפליקציה משתמשת בה. ברירת מחדל להתקנה מקומית:
                                     <div class="code-block">http://127.0.0.1:3000/api/auth/google/callback</div>
-                                    מחליפים את <code>3000</code> ב-<strong>PORT</strong> של השרת אם שיניתם (כמו ב-<strong>Configuration → Environment</strong> / <code>financial-overview.json</code>). אם נכנסים דרך <code>http://localhost:…</code>, הוסיפו גם URI עם <code>localhost</code> — Google דורש התאמה מדויקת.
+                                    מחליפים את <code>3000</code> ב-<strong>PORT</strong> של השרת אם שיניתם (כמו ב-<strong>הגדרות → תחזוקה</strong> או <code>financial-overview.json</code>). אם נכנסים דרך <code>http://localhost:…</code>, הוסיפו גם URI עם <code>localhost</code> — Google דורש התאמה מדויקת.
                                 </li>
                                 <li>יוצרים ושומרים את <strong>Client ID</strong> ו-<strong>Client Secret</strong>.</li>
                             </ol>
                             <h3>5. הדבקה באפליקציה</h3>
                             <ol>
-                                <li><strong>Configuration</strong> → <strong>Environment</strong> (או קובץ runtime).</li>
+                                <li><strong>הגדרות</strong> → <strong>גוגל</strong> (או קובץ runtime).</li>
                                 <li>מגדירים <code>GOOGLE_CLIENT_ID</code> ו-<code>GOOGLE_CLIENT_SECRET</code>.</li>
                                 <li><code>GOOGLE_REDIRECT_URI</code> חייב להיות זהה ל-URI שרשומים ב-Google (תו-תו).</li>
                                 <li>הפעלה מחדש של השרת אם נדרש, ואז התחברות דרך לשוניות Google / Sheets בממשק.</li>
@@ -987,7 +995,7 @@ GEMINI_API_KEY=(optional)
                     "configuration": {
                         title: "⚙️ הגדרות",
                         html: `
-                            <p>פתחו <strong>הגדרות</strong> מהניווט הראשי. תת-לשונות כוללות <strong>AI</strong> וזיכרון AI, <strong>מתזמן</strong> (וגיבויים מתוזמנים), ברירות מחדל גלובליות ל<strong>סריקה</strong>, כללי <strong>הונאה</strong>, <strong>Google</strong> OAuth ו-Sheets, <strong>Telegram</strong>, משתני <strong>סביבה</strong>, ו<strong>תחזוקה</strong> / כלי מסד נתונים.</p>
+                            <p>פתחו <strong>הגדרות</strong> מהניווט הראשי. תת-לשונות כוללות <strong>AI</strong> (וזיכרון), <strong>קטגוריות</strong>, <strong>מתזמן</strong> (וגיבויים מתוזמנים), <strong>סריקה</strong> (כולל הונאה והתראות), <strong>גוגל</strong> (OAuth, Sheets, Drive), <strong>טלגרם</strong>, ו<strong>תחזוקה</strong> (גיבויים, פורט, תיקיית נתונים).</p>
                             <p class="callout info">קישורים עמוקים: <code>?view=configuration&amp;tab=&lt;id&gt;</code> (למשל <code>tab=sheets</code> לגוגל).</p>
                         `
                     },
@@ -998,13 +1006,21 @@ GEMINI_API_KEY=(optional)
                             <div class="callout info">
                                 <strong>פרופילים והתחברות לבנק:</strong> ל-AI <strong>אין</strong> גישה ל<strong>אישורי הפרופיל המוצפנים</strong> או לסודות התחברות לבנק. הסריקה עצמה נפרדת (ראו <strong>סריקה</strong>) ולא משתמשת ב-AI. Gemini רואה רק <strong>טקסט עסקאות והקשר</strong> שאתם שולחים לסיווג, צ'אט או הונאת AI אופציונלית — לא סיסמאות שמורות.
                             </div>
-                            <h3>זיכרון AI — עובדות, תובנות והתראות</h3>
-                            <p>תחת <strong>הגדרות → AI</strong> (ולשונית <strong>זיכרון AI</strong>) נשמרים שלושה סוגים של פריטים שהמודל יכול לעשות בהם שימוש חוזר:</p>
+                            <h3>זיכרון AI — עובדות שמורות, תובנות והתראות</h3>
+                            <p>תחת <strong>הגדרות → AI</strong> (ולשונית <strong>זיכרון AI</strong>) נשמרים שלושה סוגים של פריטים שהמנתח המאוחד יכול לעשות בהם שימוש בכל שאילתה:</p>
                             <ul>
-                                <li><strong>עובדות (Facts):</strong> הקשר ארוך טווח שתרצה לזכור — יעדים, משק בית, העדפות. העוזר עשוי להציע עובדות חדשות; ניתן לערוך או למחוק.</li>
+                                <li><strong>עובדות שמורות (AI memory facts):</strong> שורות קבועות במסד הנתונים — הקשר יציב שהמודל צריך לראות כנכון עד שתעדכנו (למשל „המשכורת ב-1 וב-15”, „Wolt נחשב אוכל בחוץ”). אפשר להוסיף, לערוך ולמחוק ידנית. כשתשובת המנתח המובנית כוללת שורות „עובדות” חדשות, האפליקציה <strong>ממזגת</strong> עובדות שאינן כפולות לאותה רשימה (הפרומפט מבקש מהמודל לא לשכפל עובדות שכבר קיימות אלא אם המצב השתנה).</li>
                                 <li><strong>תובנות (Insights):</strong> מסקנות אנליטיות מתשובות קודמות, כדי שלא יחזור על אותה נקודה. מחק תובנה אם תרצה שניתחו שוב נושא זה.</li>
                                 <li><strong>התראות (Alerts):</strong> פריטים דחופים או רגישים לזמן שהעוזר שומר עם <strong>ציון (1–100)</strong>. הסרה מוחקת את השורה ומונעת שמירה חוזרת של אותו טקסט. ניתן להגדיר מחיקה אוטומטית של תובנות/התראות ישנות לפי ימים.</li>
                             </ul>
+                            <p class="callout info"><strong>לא אותו דבר כמו „נקודות חילוץ פרסונה”:</strong> באשף ההתקנה (או כשמתארים את המצב בשפה חופשית), Gemini עשוי להחזיר <strong>נקודות תקציר קצרות</strong> יחד עם שדות פרסונה מובנים. אלה <strong>סיכום של מה שהוסק</strong>; הן לא מועתקות אוטומטית לרשימת העובדות השמורות בזיכרון — אלא אם תוסיפו אותן שם בעצמכם.</p>
+                            <h3>פרסונת AI (יישור משתמש)</h3>
+                            <p>ב<strong>הגדרות → AI</strong>, פתחו את כרטיס <strong>פרסונה / יישור</strong>. זהו <strong>פרופיל מובנה</strong> למנתח: משק בית, מגורים, נוחות טכנית, כרטיסים וימי חיוב, לוח זמנים להכנסות, יעדים פיננסיים, יעדי חיסכון, וסגנון תשובות (למשל תמיכה מול נקודות קצרות, עומק דיווח).</p>
+                            <ul>
+                                <li><strong>לכלול בפרומפטים:</strong> אפשר לבחור האם לשלוח את ה-JSON הזה ל-Gemini יחד עם צ'אט המנתח בדשבורד. כיבוי משאיר פרומפטים מבוססי עסקאות בלבד (הפרסונה נשמרת לשימוש עתידי).</li>
+                                <li><strong>מילוי:</strong> עריכה ישירה בשדות, או שימוש באשף / „חילוץ מטקסט חופשי” כדי שהמודל יציע שדות ונקודות תקציר מתיאור בשפה טבעית.</li>
+                            </ul>
+                            <p>הפרסונה מכוונת <strong>טון ועדיפויות</strong>; העובדות השמורות בזיכרון מכוונות <strong>טענות ארוכות טווח</strong> שצריך לזכור. שניהם יכולים להופיע באותו פרומפט מנתח כשמופעלים.</p>
                             <h3>דשבורד — תובנות AI מובילות</h3>
                             <p>ב<strong>דשבורד</strong>, כרטיס <strong>תובנות AI מובילות</strong> מציג את התובנות בעלות הציון הגבוה לאחרונה כדי שתראה מסקנות חשובות במבט אחד. ניתן להסיר תובנות בודדות.</p>
                             <h3>צ'אט מנתח</h3>

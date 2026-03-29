@@ -65,6 +65,8 @@
         "clear_logs_confirm": "Clear all {{type}} logs?",
         "settings": "Settings",
         "hide_section": "Hide section",
+        "expand_section": "Expand section",
+        "collapse_section": "Collapse section",
         "not_configured_suffix": "(not configured)",
         "tip": "Tip",
         "generate": "Generate",
@@ -88,6 +90,15 @@
         "profile_placeholder_aria": "Profile",
         "main_navigation_aria": "Main navigation",
         "error_occurred": "An error occurred. Please try again."
+    },
+    "config_tabs": {
+        "ai": "AI",
+        "categories": "Categories",
+        "scheduler": "Scheduler",
+        "scrape": "Scrape",
+        "sheets": "Google",
+        "telegram": "Telegram",
+        "maintenance": "Maintenance"
     },
     "scheduler": {
         "title": "Scheduler",
@@ -228,6 +239,8 @@
         "confirm_reset_all": "Are you sure you want to reset all user modifications (categories, filters, ignoring) back to defaults? This cannot be undone."
     },
     "maintenance": {
+        "server_paths_title": "Server port & data folder",
+        "server_paths_subtitle": "Same values as runtime-settings.json (PORT, DATA_DIR). Changing the data folder affects where your DB and config live.",
         "reload_title": "Reload Transactions Database",
         "reload_desc": "This will clear all transactions from the unified database and re-import them from the existing JSON files in the results folder.",
         "confirm_reload": "Are you sure you want to reload the database from files? This will overwrite any unsynced changes.",
@@ -273,6 +286,10 @@
     "transaction_review": {
         "banner_title": "New transactions need a memo or category",
         "banner_detail": "{{count}} new (Transfers or Other). Open the dashboard to add a memo or pick a category.",
+        "banner_open_table": "Click to open the full list in a table.",
+        "modal_title": "Transactions to review",
+        "modal_subtitle": "Add a memo or choose a category for each row. Changes save to your unified data.",
+        "modal_empty": "No rows to show. Try refreshing the page if data just finished loading.",
         "open_dashboard": "Open dashboard",
         "dismiss": "Dismiss"
     },
@@ -290,12 +307,34 @@
         "confirm_password": "Confirm password",
         "save_password": "Save & enable lock"
     },
+    "category_settings": {
+        "page_description": "Default category, allowed labels, meta-grouping, and bulk recategorization.",
+        "allowed_subtitle": "Used when AI assigns a category to transactions."
+    },
+    "gemini_card": {
+        "subtitle": "Required for categorization and the AI analyst. Stored in runtime-settings.json."
+    },
     "ai_settings": {
         "title": "AI Configuration",
         "loading": "Loading AI settings...",
-        "description": "Customize models and category lists",
+        "description": "API key, models, and long-term AI memory",
+        "models_heading": "Models",
+        "models_subtitle": "Categorization classifies transactions; Analyst powers the dashboard chat.",
         "categorization_model": "Categorization Model",
         "analyst_model": "Analyst Model",
+        "quota_heading": "Quota & analyst context",
+        "quota_subtitle": "Cap how many transaction rows are sent to Gemini on each analyst call (newest rows first). Lower this if you hit rate limits or want smaller prompts.",
+        "quota_max_rows_label": "Max transaction rows per analyst call",
+        "quota_max_rows_placeholder": "0 = no limit",
+        "quota_est_intro": "Rough input-token estimate for one analyst turn with your current data (CSV + fixed prompt; chat history adds more):",
+        "quota_est_rows": "{{count}} rows → ~{{tokens}} input tokens (approx.)",
+        "quota_est_note": "Figures are approximate. Gemini bills by tokens; limits depend on your project tier.",
+        "quota_rate_limits_explainer": "Google measures usage in several ways at once: requests per minute (RPM), input tokens per minute (TPM), and requests per day (RPD). Limits apply per project (not per API key). If you exceed any one of these, you get a rate-limit error—even if the others still have headroom. Daily quotas reset at midnight Pacific time. See ",
+        "quota_free_tier_note": "For normal daily use of this app (occasional categorization and analyst questions), the free tier is usually enough. If you scrape huge batches or chat heavily in a short window, you may need to wait, lower the row cap above, or upgrade billing in AI Studio.",
+        "quota_link_ai_studio": "Your rate limits in AI Studio",
+        "quota_link_how_it_works": "How rate limits work (Google)",
+        "quota_ai_logs_hint": "See measured prompt, completion, and total tokens for each call in AI Logs (totals and per-model breakdown).",
+        "quota_link_ai_logs": "Open AI Logs",
         "default_category": "Default Category",
         "allowed_categories": "Allowed Categories",
         "add_category": "Add category...",
@@ -308,13 +347,111 @@
         "recategorize_button": "Recategorize All Now",
         "recategorize_success": "Successfully updated {{count}} transactions!",
         "recategorize_ai_failed": "AI categorization failed: {{error}}. Still updated {{count}} rows from cache where possible.",
+        "recategorize_force_requires_ai": "Force recategorization needs AI: set GEMINI_API_KEY (or your configured Gemini API key) on the server. Cache is not used for this action.",
         "meta_title": "Expense meta-categories",
         "meta_description": "Drag each category into one bucket. Fixed and variable help structure analysis; optimization marks discretionary spend. Income-style categories and transfers belong in “Not in scope”.",
         "meta_fixed": "Fixed",
         "meta_variable": "Variable",
         "meta_optimization": "Optimization",
         "meta_excluded": "Not in scope",
-        "meta_drop_hint": "Drop categories here"
+        "meta_drop_hint": "Drop categories here",
+        "persona": {
+            "card_title": "Persona & goals",
+            "card_subtitle": "Optional. The financial assistant uses this to match tone, depth, and priorities.",
+            "include_in_prompts": "Send persona to the AI analyst",
+            "include_in_prompts_help": "Your answers stay saved below. Turn off the header switch to stop including them in AI prompts.",
+            "send_to_ai": "Send to AI",
+            "dont_send_persona": "Don’t send",
+            "section_profile": "Profile",
+            "narrative_notes": "Your situation in your own words",
+            "narrative_notes_placeholder": "Optional: household, jobs, kids, how you use cards…",
+            "narrative_notes_help": "Optional. Helps the AI understand context; you can refine structured fields below.",
+            "section_cards_income": "Cards & income timing",
+            "section_cards_income_help": "Add one row per card or income (e.g. each parent’s salary, a child allowance, separate debit vs credit products).",
+            "cards_heading": "Cards",
+            "cards_empty_hint": "No cards listed yet — add one per card or person.",
+            "incomes_heading": "Incomes",
+            "incomes_empty_hint": "No income streams listed yet — add one per salary, allowance, or pension.",
+            "credit_card_type": "Card type",
+            "charge_card_payment_day": "Charge card payment day",
+            "charge_card_payment_day_help": "Day of the month this card’s charge is debited (1–31).",
+            "card_label_placeholder": "Label (optional), e.g. Mom debit, Dad Amex",
+            "add_card": "Add card",
+            "remove_row": "Remove",
+            "income_payment_days": "Income payment days",
+            "income_payment_days_help": "Tap calendar days when this income usually arrives.",
+            "income_label_placeholder": "Label (optional), e.g. Salary — Parent A, Child allowance",
+            "income_row_notes": "Notes for this income (optional)",
+            "add_income": "Add income",
+            "income_dates_notes": "Income schedule notes (optional)",
+            "income_dates_notes_placeholder": "e.g. biweekly on the 5th and 20th, variable freelancer payouts…",
+            "section_goals": "Financial goals",
+            "section_ai": "AI preferences",
+            "household_status": "Household",
+            "residence_type": "Housing",
+            "technical_skill": "Technical comfort",
+            "primary_objective": "Primary objective",
+            "top_priorities": "Top priorities (multi)",
+            "monthly_savings_target": "Monthly savings target (₪)",
+            "savings_placeholder": "e.g. 2000",
+            "communication_style": "Communication style",
+            "reporting_depth": "Reporting depth",
+            "placeholder_select": "Select…",
+            "options": {
+                "household": {
+                    "single": "Single",
+                    "couple_no_children": "Couple, no children",
+                    "family_with_children": "Family with children",
+                    "other": "Other"
+                },
+                "residence": {
+                    "rent": "Renting",
+                    "owned_no_mortgage": "Owned, no mortgage",
+                    "owned_mortgage": "Owned, with mortgage",
+                    "other": "Other"
+                },
+                "technical": {
+                    "beginner": "Beginner",
+                    "intermediate": "Intermediate",
+                    "advanced": "Advanced",
+                    "expert": "Expert"
+                },
+                "credit_card": {
+                    "debit": "Debit (direct from account)",
+                    "charge_card": "Charge / credit card (monthly statement)",
+                    "both": "Both debit and charge cards",
+                    "none": "None / not applicable"
+                },
+                "objective": {
+                    "reduce_debt": "Reduce debt",
+                    "identify_wasteful_spending": "Find wasteful spending",
+                    "track_subscriptions": "Track subscriptions",
+                    "save_for_goal": "Save for a goal",
+                    "general_visibility": "General visibility",
+                    "other": "Other"
+                },
+                "priority": {
+                    "saving_for_vacation": "Vacation savings",
+                    "reducing_commissions": "Reduce fees/commissions",
+                    "building_emergency_fund": "Emergency fund",
+                    "investing": "Investing",
+                    "lowering_fixed_costs": "Lower fixed costs",
+                    "other": "Other"
+                },
+                "communication": {
+                    "supportive_coach": "Supportive coach",
+                    "neutral_analyst": "Neutral analyst",
+                    "critical_realist": "Critical realist",
+                    "brief_bullets": "Brief bullets"
+                },
+                "depth": {
+                    "low": "Low",
+                    "high_level": "High-level overview",
+                    "standard": "Standard",
+                    "detailed_analysis": "Detailed analysis"
+                }
+            }
+        }
     },
     "analytics": {
         "total_income": "Total Income",
@@ -787,7 +924,10 @@
             "title": "AI model is busy",
             "description": "This model is currently experiencing high demand. Spikes in demand are usually temporary.",
             "solution": "Please try again in a few moments."
-        }
+        },
+        "rate_limit_total_requests": "Total requests allowed",
+        "rate_limit_remaining_requests": "Requests remaining",
+        "rate_limit_remaining_tokens": "Tokens remaining"
     },
     "ai_memory": {
         "title": "AI memory",
@@ -1049,19 +1189,36 @@
         "dismiss_setup": "Dismiss setup",
         "rerun_wizard": "Setup wizard",
         "rerun_confirm": "Re-run the setup wizard from the beginning?",
+        "persona_prompt_title": "Personalize your AI analyst?",
+        "persona_prompt_body": "You added a Gemini API key. A short optional survey helps align tone, goals, and reporting with your preferences.",
+        "persona_prompt_survey": "Take survey",
+        "persona_prompt_open_ai": "Open AI settings",
+        "persona_prompt_later": "Not now",
+        "persona_narrative_label": "Describe your household and finances",
+        "persona_narrative_placeholder": "Example: Two parents and one child; two salaries around the 1st and 10th; debit card plus a charge card paid on the 2nd…",
+        "persona_narrative_hint": "Write freely in any language. You can extract structured fields with AI, then adjust them on the next step.",
+        "persona_extract_facts": "Extract facts with AI",
+        "persona_extracted_facts": "Facts we inferred",
+        "persona_extract_next_hint": "Continue to the next step to review and edit all fields before saving.",
+        "persona_continue_to_details": "Continue to structured fields",
+        "persona_extract_failed": "Could not extract facts. Check your Gemini key and try again.",
         "steps": {
             "welcome_title": "Welcome",
             "lock_title": "Protect saved bank logins",
             "telegram_title": "Telegram notifications (optional)",
             "gemini_title": "Enable AI features",
+            "persona_about_title": "Tell us about you",
+            "persona_title": "Refine your AI profile",
             "google_title": "Connect Google (Sheets & Drive)",
             "drive_title": "Default Drive folder for optional backup",
             "done_title": "You are ready",
             "welcome_tip": "Tip: use the EN / HE button in the header to switch language anytime.",
-            "step_0_body": "This app runs on your computer. Your bank data stays local unless you choose to sync with Google.\n\nWe will walk you through optional settings: securing saved profiles, optional Telegram notifications, AI (Gemini), Google sign-in, and an optional Drive folder for backup. You can skip anything and finish later.",
+            "step_0_body": "This app runs on your computer. Your bank data stays local unless you choose to sync with Google.\n\nWe will walk you through optional settings: securing saved profiles, optional Telegram notifications, AI (Gemini), optional persona notes for the assistant, Google sign-in, and an optional Drive folder for backup. You can skip anything and finish later.",
             "step_1_body": "If you save bank profiles in the app, they are encrypted with a password you choose. This password is not sent to the cloud — it only unlocks your saved credentials on this machine.\n\nMinimum 8 characters. You can skip and enable the lock later from the banner.",
             "step_2_body": "Optional Telegram bot notifications. Paste a bot token from @BotFather, or add it later under Configuration → Telegram along with allowed user IDs.\n\nSkip this step if you do not use Telegram.",
             "step_3_body": "Gemini powers automatic categorization of transactions and the financial assistant chat. Without a key, those features stay off; scraping and viewing data still work.\n\nGet a free API key from Google AI Studio and paste it below.",
+            "step_persona_about_body": "In your own words, describe your household, cards, incomes, and anything that helps the assistant understand you. You can use “Extract facts with AI” to fill structured fields, then review everything on the next step.",
+            "step_persona_body": "Optional: review dropdowns, cards, incomes, and goals. This shapes tone and focus in the dashboard AI chat. You can change it anytime under Configuration → AI.",
             "step_4_body": "To connect Google Sheets and Google Drive for optional backup and exports, the app needs OAuth credentials from Google Cloud: a Client ID and Client Secret. You must also add the redirect URI below to your OAuth client in Google Cloud — it must match exactly.\n\nGoogle Drive is used only for optional backup when you configure it. You can skip this and add Google later under Configuration.",
             "step_5_body": "Optional backup: if you use a specific Google Drive folder for backups or exports, paste its folder ID here (the long part of the URL after /folders/). Leave empty to skip — you can pick a folder in the app later.",
             "step_6_body": "That is it for the guided setup. If you saved API keys or OAuth settings, you may need to restart the server once for them to apply."
@@ -1091,7 +1248,7 @@
         "step_4_title": "Logs",
         "step_4_body": "The Logs tab shows server, client, AI, and scrape activity. Use it to troubleshoot failed scrapes, API issues, or automation.\n\nSwitch log types with the tabs at the top and inspect entries when something goes wrong.",
         "step_5_title": "Configuration",
-        "step_5_body": "Configuration holds AI settings, memory, scheduler, scraper defaults, Google Sheets, Telegram, environment variables, and maintenance tools.\n\nWe open the Scraper section first — tune defaults here; other tabs cover integrations and automation."
+        "step_5_body": "Configuration holds AI, memory, scheduler, scraper (and fraud), Google (OAuth & Sheets), Telegram, and maintenance (backups, port, data folder).\n\nWe open the Scraper section first — tune defaults here; other tabs cover integrations and automation."
     },
     "env": {
         "title": "Environment Variables",
@@ -1107,6 +1264,7 @@
         "save_settings": "Save Settings",
         "save_failed": "Failed to save settings: {{error}}",
         "restart_failed": "Restart failed: {{error}}",
+        "save_actions_heading": "Save & restart",
         "groups": {
             "ai_external": "AI & External APIs",
             "google_integration": "Google Integration",
@@ -1163,5 +1321,24 @@
         "thinking": "Thinking...",
         "input_placeholder": "Ask a question...",
         "open_button": "App Assistant"
+    },
+    "feedback": {
+        "open_button": "Feedback",
+        "open_aria": "Open feedback form (issues, features, general feedback)",
+        "chat_link": "Report an issue or send feedback",
+        "modal_title": "Send feedback",
+        "modal_intro": "We will open the feedback form in a new tab. Installation and version are shown here for reference; paste them into the form if you like. Optional logs are only loaded if you opt in below (copy and paste into the form).",
+        "installation_label": "Installation",
+        "version_label": "App version",
+        "logs_section_title": "Include logs (optional)",
+        "consent_server": "I agree to attach the latest server log excerpt to this report (last lines only).",
+        "consent_client": "I agree to attach the latest client log excerpt to this report (last lines only).",
+        "demo_no_logs": "Demo mode has no real server or client logs to attach.",
+        "open_form": "Open Google Form",
+        "opening": "Preparing…",
+        "form_not_configured": "The feedback form URL is missing. Edit client/src/config/feedbackGoogleForm.ts.",
+        "log_fetch_failed": "Could not load logs. You can still open the form without logs.",
+        "copy_hint": "If you included logs, copy the excerpt below and paste it into the form (e.g. the issue report field).",
+        "copy_logs": "Copy full log excerpt"
     }
 }

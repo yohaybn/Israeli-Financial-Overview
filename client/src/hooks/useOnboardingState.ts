@@ -3,47 +3,100 @@ import { isDemoMode } from '../demo/isDemo';
 
 const STORAGE_KEY = 'bank-scraper-onboarding-v1';
 
-/** Max step index (0-based); wizard has welcome, lock, telegram, gemini, google, drive?, done */
-export const ONBOARDING_STEP_COUNT = 7;
+/** Semantic wizard steps (persona and drive are optional in the computed flow). */
+export type OnboardingStepId =
+    | 'welcome'
+    | 'lock'
+    | 'telegram'
+    | 'gemini'
+    | 'persona_about'
+    | 'persona'
+    | 'google'
+    | 'drive'
+    | 'done';
 
-const WIZARD_LAYOUT_VERSION = 2;
+const WIZARD_LAYOUT_VERSION = 4;
+
+/** Order for resume banner “step N” (1-based). */
+const RESUME_STEP_ORDER: OnboardingStepId[] = [
+    'welcome',
+    'lock',
+    'telegram',
+    'gemini',
+    'persona_about',
+    'persona',
+    'google',
+    'drive',
+    'done'
+];
 
 type OnboardingSnapshot = {
     v: 1;
     completed: boolean;
-    step: number;
+    stepId: OnboardingStepId;
     minimized: boolean;
-    /** Bumps when step indices change so saved progress maps to the new flow */
     wizardLayoutVersion?: number;
+    /** @deprecated v1/v2 numeric step */
+    step?: number;
 };
 
 const defaultSnapshot = (): OnboardingSnapshot => ({
     v: 1,
     completed: false,
-    step: 0,
+    stepId: 'welcome',
     minimized: false
 });
+
+function isValidStepId(s: string): s is OnboardingStepId {
+    return (
+        s === 'welcome' ||
+        s === 'lock' ||
+        s === 'telegram' ||
+        s === 'gemini' ||
+        s === 'persona_about' ||
+        s === 'persona' ||
+        s === 'google' ||
+        s === 'drive' ||
+        s === 'done'
+    );
+}
+
+/** v2: welcome, lock, telegram, gemini, google, drive, done — no persona step. */
+function legacyNumericToStepId(n: number): OnboardingStepId {
+    const map: OnboardingStepId[] = ['welcome', 'lock', 'telegram', 'gemini', 'google', 'drive', 'done'];
+    if (n < 0) return 'welcome';
+    if (n >= map.length) return 'done';
+    return map[n];
+}
 
 function readSnapshot(): OnboardingSnapshot {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return defaultSnapshot();
-        const parsed = JSON.parse(raw) as Partial<OnboardingSnapshot>;
-        let step = parsed.step ?? 0;
-        const layout = parsed.wizardLayoutVersion ?? 1;
-        let migrated = false;
-        if (layout < WIZARD_LAYOUT_VERSION && step >= 2) {
-            step = Math.min(step + 1, ONBOARDING_STEP_COUNT - 1);
-            migrated = true;
+        const parsed = JSON.parse(raw) as Partial<OnboardingSnapshot> & { step?: number };
+        let stepId: OnboardingStepId = 'welcome';
+        if (parsed.stepId && isValidStepId(parsed.stepId)) {
+            stepId = parsed.stepId;
+        } else if (typeof parsed.step === 'number') {
+            let n = parsed.step;
+            const layout = parsed.wizardLayoutVersion ?? 1;
+            if (layout < 2 && n >= 2) {
+                n = Math.min(n + 1, 6);
+            }
+            stepId = legacyNumericToStepId(n);
+        }
+        let migratedStepId = stepId;
+        if ((parsed.wizardLayoutVersion ?? 1) < 4 && stepId === 'persona') {
+            migratedStepId = 'persona_about';
         }
         const result: OnboardingSnapshot = {
             ...defaultSnapshot(),
             ...parsed,
             v: 1,
-            wizardLayoutVersion: WIZARD_LAYOUT_VERSION,
-            step
+            stepId: migratedStepId,
+            wizardLayoutVersion: WIZARD_LAYOUT_VERSION
         };
-        if (migrated || (parsed.wizardLayoutVersion ?? 1) < WIZARD_LAYOUT_VERSION) {
+        if ((parsed.wizardLayoutVersion ?? 1) < WIZARD_LAYOUT_VERSION) {
             writeSnapshot(result);
         }
         return result;
@@ -72,40 +125,12 @@ export function useOnboardingState() {
         });
     }, []);
 
-    const setStep = useCallback(
-        (step: number) => {
-            persist({ step: Math.max(0, Math.min(step, ONBOARDING_STEP_COUNT - 1)) });
+    const setStepId = useCallback(
+        (stepId: OnboardingStepId) => {
+            persist({ stepId });
         },
         [persist]
     );
-
-    const nextStep = useCallback(() => {
-        setSnapshot((prev) => {
-            const nextStep = Math.min(prev.step + 1, ONBOARDING_STEP_COUNT - 1);
-            const next: OnboardingSnapshot = {
-                ...prev,
-                step: nextStep,
-                v: 1,
-                wizardLayoutVersion: WIZARD_LAYOUT_VERSION
-            };
-            writeSnapshot(next);
-            return next;
-        });
-    }, []);
-
-    const prevStep = useCallback(() => {
-        setSnapshot((prev) => {
-            const nextStep = Math.max(prev.step - 1, 0);
-            const next: OnboardingSnapshot = {
-                ...prev,
-                step: nextStep,
-                v: 1,
-                wizardLayoutVersion: WIZARD_LAYOUT_VERSION
-            };
-            writeSnapshot(next);
-            return next;
-        });
-    }, []);
 
     const complete = useCallback(() => {
         persist({ completed: true, minimized: false });
@@ -120,7 +145,7 @@ export function useOnboardingState() {
     }, [persist]);
 
     const restartWizard = useCallback(() => {
-        persist({ completed: false, step: 0, minimized: false });
+        persist({ completed: false, stepId: 'welcome', minimized: false });
     }, [persist]);
 
     const showModal = useMemo(
@@ -133,15 +158,19 @@ export function useOnboardingState() {
         [snapshot.completed, snapshot.minimized]
     );
 
+    const resumeStepNumber = useMemo(
+        () => Math.max(1, RESUME_STEP_ORDER.indexOf(snapshot.stepId) + 1),
+        [snapshot.stepId]
+    );
+
     return {
-        step: snapshot.step,
+        stepId: snapshot.stepId,
+        setStepId,
         completed: snapshot.completed,
         minimized: snapshot.minimized,
         showModal,
         showResumeBanner,
-        setStep,
-        nextStep,
-        prevStep,
+        resumeStepNumber,
         complete,
         continueLater,
         resume,

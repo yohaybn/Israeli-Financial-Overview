@@ -392,7 +392,7 @@ export class StorageService {
         }
 
         // Fallback to single update if description not found (shouldn't happen)
-        this.dbService.updateTransactionCategory(transactionId, category);
+        this.dbService.updateTransactionCategory(transactionId, category, true);
         return true;
     }
 
@@ -408,14 +408,14 @@ export class StorageService {
 
         if (!txn || !txn.description) {
             // Fallback to single update if no description (unlikely)
-            this.dbService.updateTransactionCategory(transactionId, category);
+            this.dbService.updateTransactionCategory(transactionId, category, true);
             return true;
         }
 
         const description = txn.description;
 
-        // 1. Update DB for ALL transactions with this description
-        this.dbService.updateCategoryByDescription(description, category);
+        // 1. Update DB for ALL transactions with this description (user-chosen category)
+        this.dbService.updateCategoryByDescription(description, category, true);
 
         // 2. Update AI cache
         await this.aiService.updateCategoryInCache(description, category);
@@ -442,6 +442,7 @@ export class StorageService {
                             account.txns.forEach((t: any) => {
                                 if (t.description === description) {
                                     t.category = category;
+                                    t.categoryUserSet = true;
                                     updated = true;
                                 }
                             });
@@ -453,6 +454,7 @@ export class StorageService {
                         result.transactions.forEach(t => {
                             if (t.description === description) {
                                 t.category = category;
+                                (t as any).categoryUserSet = true;
                                 updated = true;
                             }
                         });
@@ -737,10 +739,12 @@ export class StorageService {
         let updateCount = 0;
         for (const txn of transactions) {
             if (!txn.id || !txn.category) continue;
-            const changed = this.dbService.updateTransactionCategory(txn.id, txn.category);
+            if (this.dbService.transactionCategoryIsUserSet(txn.id)) continue;
+            const changed = this.dbService.updateTransactionCategory(txn.id, txn.category, false);
             if (changed) {
                 await this.syncTransactionUpdateToFiles(txn.id, (t) => {
                     t.category = txn.category;
+                    t.categoryUserSet = false;
                 });
                 updateCount++;
             }
@@ -754,15 +758,17 @@ export class StorageService {
 
         serverLogger.info(`Starting bulk AI categorization for ${transactions.length} transactions (force: ${force})`);
 
-        // Group by description to minimize AI calls
-        const uniqueDescriptions = Array.from(new Set(transactions.map(t => t.description)));
-        
+        // Group by description to minimize AI calls (skip descriptions the user locked in the UI)
+        const uniqueDescriptions = Array.from(new Set(transactions.map((t) => t.description)));
+        const notUserLocked = (desc: string) => !this.dbService.descriptionHasUserSetCategory(desc);
+
         let toCategorize: string[] = [];
         if (force) {
-            toCategorize = uniqueDescriptions;
+            toCategorize = uniqueDescriptions.filter(notUserLocked);
         } else {
-            // Only categorize those not in cache
-            toCategorize = uniqueDescriptions.filter(desc => !this.dbService.getCategory(desc));
+            toCategorize = uniqueDescriptions.filter(
+                (desc) => notUserLocked(desc) && !this.dbService.getCategory(desc)
+            );
         }
 
         if (toCategorize.length === 0) {
@@ -789,20 +795,42 @@ export class StorageService {
             accountNumber: 'dummy'
         }));
 
-        const { aiError } = await this.aiService.categorizeTransactions(dummyTransactions);
+        const { aiError, descriptionCategories } = await this.aiService.categorizeTransactions(dummyTransactions, {
+            skipCache: force,
+        });
 
-        // Now that the AI service has updated the cache (or failed), apply cache to all transactions in DB
+        if (force && aiError) {
+            serverLogger.warn('Force recategorization aborted (AI required; cache not applied)', { error: aiError });
+            return { success: false, count: 0, error: aiError };
+        }
+
+        const { defaultCategory } = await this.aiService.getSettings();
+
+        // Apply model/cache results to DB rows (never overwrite user-chosen categories)
         let updateCount = 0;
         for (const txn of transactions) {
-            const newCategory = this.dbService.getCategory(txn.description);
-            if (newCategory && newCategory !== txn.category) {
-                await this.dbService.updateTransactionCategory(txn.id, newCategory);
-                
-                // Sync to files
+            if (txn.categoryUserSet) continue;
+
+            const raw =
+                force && descriptionCategories
+                    ? descriptionCategories[txn.description]
+                    : this.dbService.getCategory(txn.description);
+            const newCategory = typeof raw === 'string' ? raw.trim() : raw != null ? String(raw).trim() : '';
+            if (!newCategory) continue;
+
+            if (force) {
+                // Only overwrite when the model picked a specific category (not the default bucket)
+                if (newCategory === defaultCategory) continue;
+            }
+
+            if (newCategory !== txn.category) {
+                await this.dbService.updateTransactionCategory(txn.id, newCategory, false);
+
                 await this.syncTransactionUpdateToFiles(txn.id, (t) => {
                     t.category = newCategory;
+                    t.categoryUserSet = false;
                 });
-                
+
                 updateCount++;
             }
         }

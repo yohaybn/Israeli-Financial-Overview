@@ -11,6 +11,8 @@ import {
     useRestoreLocalBackup,
     useRestoreUploadedBackup
 } from '../hooks/useScraper';
+import { CollapsibleCard } from './CollapsibleCard';
+import { MaintenanceServerPathsCard } from './MaintenanceServerPathsCard';
 
 export function MaintenancePanel() {
     const { t } = useTranslation();
@@ -164,14 +166,15 @@ export function MaintenancePanel() {
 
     return (
         <div className="space-y-6">
-            <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2">{t('common.maintenance')}</h3>
-                <p className="text-gray-500 text-sm mb-6">{t('common.maintenance_desc')}</p>
+                <p className="text-gray-500 text-sm mb-2">{t('common.maintenance_desc')}</p>
+            </div>
 
-                <div className="space-y-4">
-                    <div className="p-5 bg-blue-50 rounded-2xl border border-blue-100">
-                        <h4 className="font-bold text-blue-900 mb-1">{t('maintenance.backup_title')}</h4>
-                        <p className="text-blue-800 text-xs mb-4">{t('maintenance.backup_desc')}</p>
+            <MaintenanceServerPathsCard />
+
+            <CollapsibleCard title={t('maintenance.backup_title')} subtitle={t('maintenance.backup_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
+                <div className="p-5 bg-blue-50 rounded-2xl border border-blue-100 space-y-4">
                         <div className="flex flex-wrap gap-3 mb-4">
                             <button
                                 type="button"
@@ -261,35 +264,34 @@ export function MaintenancePanel() {
                                 className="block w-full text-sm text-blue-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
                             />
                         </div>
-                    </div>
-
-                    <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
-                        <h4 className="font-bold text-amber-900 mb-1">{t('maintenance.reload_title')}</h4>
-                        <p className="text-amber-800 text-xs mb-4">{t('maintenance.reload_desc')}</p>
-                        <button
-                            type="button"
-                            onClick={handleReload}
-                            disabled={isPending}
-                            className="px-6 py-2.5 bg-white text-amber-700 border border-amber-300 rounded-2xl text-sm font-bold hover:bg-amber-100 transition-all disabled:opacity-50"
-                        >
-                            {isPending ? t('common.loading') : t('maintenance.reload_button')}
-                        </button>
-                    </div>
-
-                    <div className="p-5 bg-red-50 rounded-2xl border border-red-100">
-                        <h4 className="font-bold text-red-900 mb-1">{t('table.reset_all')}</h4>
-                        <p className="text-red-800 text-xs mb-4">{t('table.reset_all_desc')}</p>
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            disabled={isResetting}
-                            className="px-6 py-2.5 bg-white text-red-700 border border-red-300 rounded-2xl text-sm font-bold hover:bg-red-100 transition-all disabled:opacity-50"
-                        >
-                            {isResetting ? t('common.loading') : t('common.reset_to_defaults')}
-                        </button>
-                    </div>
                 </div>
-            </section>
+            </CollapsibleCard>
+
+            <CollapsibleCard title={t('maintenance.reload_title')} subtitle={t('maintenance.reload_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
+                <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
+                    <button
+                        type="button"
+                        onClick={handleReload}
+                        disabled={isPending}
+                        className="px-6 py-2.5 bg-white text-amber-700 border border-amber-300 rounded-2xl text-sm font-bold hover:bg-amber-100 transition-all disabled:opacity-50"
+                    >
+                        {isPending ? t('common.loading') : t('maintenance.reload_button')}
+                    </button>
+                </div>
+            </CollapsibleCard>
+
+            <CollapsibleCard title={t('table.reset_all')} subtitle={t('table.reset_all_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
+                <div className="p-5 bg-red-50 rounded-2xl border border-red-100">
+                    <button
+                        type="button"
+                        onClick={handleReset}
+                        disabled={isResetting}
+                        className="px-6 py-2.5 bg-white text-red-700 border border-red-300 rounded-2xl text-sm font-bold hover:bg-red-100 transition-all disabled:opacity-50"
+                    >
+                        {isResetting ? t('common.loading') : t('common.reset_to_defaults')}
+                    </button>
+                </div>
+            </CollapsibleCard>
         </div>
     );
 }

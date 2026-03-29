@@ -24,6 +24,10 @@ RUN npm install
 
 # Build workspaces in order
 RUN npm run build -w shared
+ARG VITE_APP_BUILD_VERSION=
+ARG VITE_INSTALL_KIND=docker
+ENV VITE_APP_BUILD_VERSION=$VITE_APP_BUILD_VERSION
+ENV VITE_INSTALL_KIND=$VITE_INSTALL_KIND
 RUN npm run build -w client
 RUN npm run build -w server
 

@@ -5,10 +5,9 @@ import { MaintenancePanel } from './MaintenancePanel';
 import { SchedulerSettings } from './SchedulerSettings';
 import { GoogleSettings } from './GoogleSettings';
 import { GoogleSheetsSync } from './GoogleSheetsSync';
-import { EnvironmentSettings } from './EnvironmentSettings';
 import { FraudSettings } from './FraudSettings';
 import { TelegramSettings } from './TelegramSettings';
-import { AIMemorySettings } from './AIMemorySettings';
+import { CategorySettings } from './CategorySettings';
 import type { ConfigTabId } from '../utils/appUrlState';
 
 export interface ConfigurationPanelProps {
@@ -27,57 +26,43 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
                         onClick={() => onTabChange('ai')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        {t('ai_settings.title')}
+                        {t('config_tabs.ai')}
                     </button>
                     <button
-                        onClick={() => onTabChange('memory')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'memory' ? 'bg-violet-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                        onClick={() => onTabChange('categories')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'categories' ? 'bg-fuchsia-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        {t('ai_memory.title')}
+                        {t('config_tabs.categories')}
                     </button>
                     <button
                         onClick={() => onTabChange('scheduler')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scheduler' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        {t('scheduler.title')}
+                        {t('config_tabs.scheduler')}
                     </button>
                     <button
                         onClick={() => onTabChange('scrape')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'scrape' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        {t('scraper.config_title')}
-                    </button>
-                    <button
-                        onClick={() => onTabChange('fraud')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-                            activeTab === 'fraud' ? 'bg-rose-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'
-                        }`}
-                    >
-                        {t('fraud_settings.title')}
+                        {t('config_tabs.scrape')}
                     </button>
                     <button
                         onClick={() => onTabChange('sheets')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sheets' ? 'bg-green-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        {t('google_settings.title')}
+                        {t('config_tabs.sheets')}
                     </button>
                     <button
                         onClick={() => onTabChange('telegram')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'telegram' ? 'bg-cyan-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        {t('telegram.settings_title')}
-                    </button>
-                    <button
-                        onClick={() => onTabChange('environment')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'environment' ? 'bg-slate-700 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
-                    >
-                        {t('common.environment')}
+                        {t('config_tabs.telegram')}
                     </button>
                     <button
                         onClick={() => onTabChange('maintenance')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'maintenance' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        {t('common.maintenance')}
+                        {t('config_tabs.maintenance')}
                     </button>
                 </nav>
             </header>
@@ -85,10 +70,16 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
             <main className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-4xl mx-auto">
                     {activeTab === 'ai' && <AISettings isInline={true} />}
-                    {activeTab === 'memory' && <AIMemorySettings isInline={true} />}
+                    {activeTab === 'categories' && <CategorySettings />}
                     {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
-                    {activeTab === 'scrape' && <ScrapeSettings isInline={true} />}
-                    {activeTab === 'fraud' && <FraudSettings isInline={true} />}
+                    {activeTab === 'scrape' && (
+                        <div className="space-y-10">
+                            <ScrapeSettings isInline={true} />
+                            <div id="fraud-alerts-section">
+                                <FraudSettings isInline={true} />
+                            </div>
+                        </div>
+                    )}
                     {activeTab === 'sheets' && (
                         <div className="space-y-6">
                             <GoogleSheetsSync isInline={true} />
@@ -96,7 +87,6 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
                         </div>
                     )}
                     {activeTab === 'telegram' && <TelegramSettings isInline={true} />}
-                    {activeTab === 'environment' && <EnvironmentSettings />}
                     {activeTab === 'maintenance' && <MaintenancePanel />}
                 </div>
             </main>

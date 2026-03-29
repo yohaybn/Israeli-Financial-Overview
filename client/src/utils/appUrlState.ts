@@ -2,14 +2,12 @@ export type AppView = 'dashboard' | 'scrape' | 'logs' | 'configuration';
 
 export const CONFIG_TAB_IDS = [
     'ai',
-    'memory',
+    'categories',
     'scheduler',
     'scrape',
-    'fraud',
     'sheets',
     'telegram',
     'maintenance',
-    'environment',
 ] as const;
 export type ConfigTabId = (typeof CONFIG_TAB_IDS)[number];
 
@@ -49,7 +47,13 @@ export function parseAppUrlState(search: string, sessionConfigTabOverride: strin
 
     let configTab: ConfigTabId = 'ai';
     const tabParam = p.get('tab');
-    if (tabParam && isConfigTab(tabParam)) configTab = tabParam;
+    // Legacy: memory tab merged into AI; fraud merged into Scrape
+    if (tabParam === 'memory') configTab = 'ai';
+    else if (tabParam === 'fraud') configTab = 'scrape';
+    else if (tabParam === 'environment') configTab = 'maintenance';
+    else if (tabParam && isConfigTab(tabParam)) configTab = tabParam;
+    else if (sessionConfigTabOverride === 'fraud') configTab = 'scrape';
+    else if (sessionConfigTabOverride === 'environment') configTab = 'maintenance';
     else if (sessionConfigTabOverride && isConfigTab(sessionConfigTabOverride)) configTab = sessionConfigTabOverride;
 
     const entryRaw = p.get('entry')?.trim() || null;

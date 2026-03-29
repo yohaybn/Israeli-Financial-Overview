@@ -229,6 +229,40 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                                                 )}
                                             </div>
                                         )}
+                                        {msg.errorDetails?.rateLimit &&
+                                            (msg.errorDetails.rateLimit.limitRequests ||
+                                                msg.errorDetails.rateLimit.remainingRequests ||
+                                                msg.errorDetails.rateLimit.remainingTokens) && (
+                                                <ul className="mt-2 p-2 bg-white/60 rounded-lg border border-red-100 text-xs font-mono text-red-900 space-y-1">
+                                                    {msg.errorDetails.rateLimit.limitRequests != null &&
+                                                        msg.errorDetails.rateLimit.limitRequests !== '' && (
+                                                            <li>
+                                                                <span className="font-sans font-semibold">
+                                                                    {t('ai_errors.rate_limit_total_requests')}:
+                                                                </span>{' '}
+                                                                {msg.errorDetails.rateLimit.limitRequests}
+                                                            </li>
+                                                        )}
+                                                    {msg.errorDetails.rateLimit.remainingRequests != null &&
+                                                        msg.errorDetails.rateLimit.remainingRequests !== '' && (
+                                                            <li>
+                                                                <span className="font-sans font-semibold">
+                                                                    {t('ai_errors.rate_limit_remaining_requests')}:
+                                                                </span>{' '}
+                                                                {msg.errorDetails.rateLimit.remainingRequests}
+                                                            </li>
+                                                        )}
+                                                    {msg.errorDetails.rateLimit.remainingTokens != null &&
+                                                        msg.errorDetails.rateLimit.remainingTokens !== '' && (
+                                                            <li>
+                                                                <span className="font-sans font-semibold">
+                                                                    {t('ai_errors.rate_limit_remaining_tokens')}:
+                                                                </span>{' '}
+                                                                {msg.errorDetails.rateLimit.remainingTokens}
+                                                            </li>
+                                                        )}
+                                                </ul>
+                                            )}
                                         {msg.userQuery && (
                                             <button
                                                 onClick={() => handleSend(msg.userQuery!, true)}

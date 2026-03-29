@@ -1,6 +1,17 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GoogleAIFileManager, FileState } from '@google/generative-ai/server';
-import { Transaction, Account, mergeCategoryMeta, type ExpenseMetaCategory } from '@app/shared';
+import {
+    Transaction,
+    Account,
+    mergeCategoryMeta,
+    type ExpenseMetaCategory,
+    type UserPersonaContext,
+    isUserPersonaEmpty,
+    mergeUserPersonaContext,
+    normalizePersonaExtractFromAi,
+    type PersonaExtractFromNarrativeResult
+} from '@app/shared';
+import { attachGeminiRateLimitToError } from '../utils/geminiRateLimitCapture.js';
 import fs from 'fs-extra';
 import path from 'path';
 import axios from 'axios';
@@ -25,6 +36,17 @@ export interface AiSettings {
     memoryInsightRetentionDays?: number;
     /** 0 = disabled. Alerts older than this many days are removed periodically and after saving settings. */
     memoryAlertRetentionDays?: number;
+    /** Onboarding / AI tab: persona alignment injected into unified analyst prompts. */
+    userContext?: UserPersonaContext;
+    /**
+     * When false, saved persona data is kept but not sent to the AI (default: true).
+     */
+    personaInjectionEnabled?: boolean;
+    /**
+     * Max transaction rows sent to the AI analyst (unified chat, legacy /chat, Telegram).
+     * 0 = no limit (all rows). Newest-first lists should pass the first N rows after sort.
+     */
+    analystMaxTransactionRows?: number;
 }
 
 /** One turn in a conversation for multi-turn AI analysis */
@@ -63,8 +85,22 @@ export const AI_CATEGORIZATION_NO_API_KEY = 'GEMINI_API_KEY not configured';
 
 export interface CategorizeTransactionsResult {
     transactions: Transaction[];
-    /** Set when the model was not used successfully; cached categories are still applied where available. */
+    /** Set when the model was not used successfully; cached categories are still applied where available (unless {@link CategorizeTransactionsOptions.skipCache}). */
     aiError?: string;
+    /**
+     * When {@link CategorizeTransactionsOptions.skipCache} was used and the model succeeded: exact description → category from the model response.
+     * Use this to apply force recategorization (cache may omit default-bucket answers on purpose).
+     */
+    descriptionCategories?: Record<string, string>;
+}
+
+/** Options for {@link AiService.categorizeTransactions}. */
+export interface CategorizeTransactionsOptions {
+    /**
+     * When true: send every description to the model (ignore DB cache for the request), and do not fall back
+     * to cache-only mapping if there is no API key or the model call fails.
+     */
+    skipCache?: boolean;
 }
 
 /** Item with importance 1–100 (100 = most important). */
@@ -114,7 +150,10 @@ const DEFAULT_SETTINGS: AiSettings = {
     categories: ['מזון', 'תחבורה', 'קניות', 'מנויים', 'בריאות', 'מגורים', 'בילויים', 'משכורת', 'העברות', 'חשבונות', 'ביגוד', 'חינוך', 'אחר', 'משכנתא והלוואות'],
     defaultCategory: 'אחר',
     memoryInsightRetentionDays: 0,
-    memoryAlertRetentionDays: 0
+    memoryAlertRetentionDays: 0,
+    userContext: {},
+    personaInjectionEnabled: true,
+    analystMaxTransactionRows: 0
 };
 
 export class AiService {
@@ -183,6 +222,8 @@ export class AiService {
                 0,
                 Math.min(3650, Math.floor(Number(raw.memoryAlertRetentionDays ?? DEFAULT_SETTINGS.memoryAlertRetentionDays) || 0))
             );
+            const maxRows = Math.floor(Number(raw.analystMaxTransactionRows ?? DEFAULT_SETTINGS.analystMaxTransactionRows) || 0);
+            raw.analystMaxTransactionRows = Math.max(0, Math.min(500_000, maxRows));
             this.settings = raw;
         }
         this.settings = {
@@ -197,12 +238,19 @@ export class AiService {
     }
 
     async updateSettings(newSettings: Partial<AiSettings>): Promise<AiSettings> {
-        const next = { ...this.settings, ...newSettings };
+        const { userContext: incomingPersona, ...rest } = newSettings;
+        const next = { ...this.settings, ...rest };
+        if (incomingPersona !== undefined) {
+            next.userContext = mergeUserPersonaContext(this.settings.userContext, incomingPersona);
+        }
         if (next.memoryInsightRetentionDays !== undefined) {
             next.memoryInsightRetentionDays = Math.max(0, Math.min(3650, Math.floor(Number(next.memoryInsightRetentionDays) || 0)));
         }
         if (next.memoryAlertRetentionDays !== undefined) {
             next.memoryAlertRetentionDays = Math.max(0, Math.min(3650, Math.floor(Number(next.memoryAlertRetentionDays) || 0)));
+        }
+        if (next.analystMaxTransactionRows !== undefined) {
+            next.analystMaxTransactionRows = Math.max(0, Math.min(500_000, Math.floor(Number(next.analystMaxTransactionRows) || 0)));
         }
         next.categoryMeta = mergeCategoryMeta(next.categories, next.categoryMeta);
         this.settings = next;
@@ -250,10 +298,21 @@ export class AiService {
         }));
     }
 
-    async categorizeTransactions(transactions: Transaction[]): Promise<CategorizeTransactionsResult> {
+    async categorizeTransactions(
+        transactions: Transaction[],
+        options?: CategorizeTransactionsOptions
+    ): Promise<CategorizeTransactionsResult> {
         await this.loadSettings();
+        const skipCache = options?.skipCache === true;
 
         if (!this.genAI) {
+            if (skipCache) {
+                serverLogger.info('Categorization: no GEMINI_API_KEY; skipCache requires AI (no cache fallback)');
+                return {
+                    transactions: transactions.map((t) => ({ ...t })),
+                    aiError: AI_CATEGORIZATION_NO_API_KEY,
+                };
+            }
             serverLogger.info('Categorization: no GEMINI_API_KEY; applying category cache only');
             return {
                 transactions: this.mapTransactionsWithCategoryCache(transactions),
@@ -265,21 +324,31 @@ export class AiService {
 
         const model = this.genAI.getGenerativeModel({ model: this.settings.categorizationModel });
 
-        // Filter out transactions that already have a cached category
-        // Use DB cache now
-        const uncategorized = transactions.filter(t => !this.dbService.getCategory(t.description));
-        serverLogger.info(`${transactions.length - uncategorized.length} already in cache, ${uncategorized.length} to categorize`);
+        // Skip descriptions the user locked in the UI; unless skipCache: only uncached descriptions
+        const uncategorized = skipCache
+            ? transactions.filter((t) => !this.dbService.descriptionHasUserSetCategory(t.description))
+            : transactions.filter(
+                  (t) =>
+                      !this.dbService.getCategory(t.description) &&
+                      !this.dbService.descriptionHasUserSetCategory(t.description)
+              );
+        if (skipCache) {
+            serverLogger.info(`skipCache: sending all ${uncategorized.length} rows to model (cache ignored for this request)`);
+        } else {
+            serverLogger.info(`${transactions.length - uncategorized.length} already in cache, ${uncategorized.length} to categorize`);
+        }
 
         if (uncategorized.length === 0) {
             return { transactions: this.mapTransactionsWithCategoryCache(transactions) };
         }
 
         // Prepare prompt
-        const descriptions = Array.from(new Set(uncategorized.map(t => t.description)));
+        const descriptions = Array.from(new Set(uncategorized.map((t) => t.description)));
         const prompt = `
             Analyze the Objective: You are a professional financial assistant specializing in Israeli banking. 
             Your core task is to categorize the following transaction descriptions into the most appropriate category.
 
+            ${skipCache ? 'Re-evaluate every description below from scratch; do not rely on any prior categorization.\n\n' : ''}
             ---
             ${descriptions.join('\n')}
             ---
@@ -362,15 +431,21 @@ export class AiService {
                 }
             });
 
-            // Save to DB
+            // Save to DB (when forcing re-categorization, do not store the default bucket — keeps prior cache when the model is unsure)
             for (const [desc, cat] of Object.entries(categoriesMap)) {
-                this.dbService.setCategory(desc, cat as string);
+                const c = String(cat);
+                if (this.dbService.descriptionHasUserSetCategory(desc)) continue;
+                if (skipCache && c === this.settings.defaultCategory) continue;
+                this.dbService.setCategory(desc, c);
             }
             // Object.assign(this.cache, categoriesMap);
             // await this.saveCache();
             // serverLogger.info(`Cache saved to ${CACHE_FILE}`);
 
-            return { transactions: this.mapTransactionsWithCategoryCache(transactions) };
+            return {
+                transactions: this.mapTransactionsWithCategoryCache(transactions),
+                ...(skipCache ? { descriptionCategories: categoriesMap } : {}),
+            };
         } catch (error: any) {
             const latencyMs = Date.now() - (startTime || Date.now());
 
@@ -388,7 +463,9 @@ export class AiService {
 
             serverLogger.error(`Categorization failed: ${error.message}`);
             return {
-                transactions: this.mapTransactionsWithCategoryCache(transactions),
+                transactions: skipCache
+                    ? transactions.map((t) => ({ ...t }))
+                    : this.mapTransactionsWithCategoryCache(transactions),
                 aiError: error.message || String(error),
             };
         }
@@ -777,6 +854,7 @@ export class AiService {
                 systemPrompt: systemInstruction
             });
 
+            attachGeminiRateLimitToError(error);
             throw error;
         } finally {
             for (const name of uploadedResourceNames) {
@@ -825,9 +903,16 @@ export class AiService {
 
         await this.loadSettings();
         const temperature = options?.temperature ?? 0.7;
+        const personaHint =
+            this.settings.personaInjectionEnabled !== false &&
+            this.settings.userContext &&
+            !isUserPersonaEmpty(this.settings.userContext)
+                ? ' Adapt tone, depth, and priorities to the User persona alignment JSON in the user message when present; if it conflicts with stored facts, prefer stored facts.'
+                : '';
         const systemInstruction =
             'You are a professional financial analyst. Reply with a single JSON object exactly as specified in the user message. ' +
-            'Do not wrap JSON in markdown fences. Do not repeat prior insights verbatim; facts are long-term memory, insights are one-time analytical notes.';
+            'Do not wrap JSON in markdown fences. Do not repeat prior insights verbatim; facts are long-term memory, insights are one-time analytical notes.' +
+            personaHint;
 
         const model = this.genAI.getGenerativeModel({
             model: this.settings.chatModel,
@@ -989,6 +1074,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                 latencyMs,
                 systemPrompt: systemInstruction
             });
+            attachGeminiRateLimitToError(error);
             throw error;
         } finally {
             for (const name of uploadedResourceNames) {
@@ -1113,6 +1199,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             };
         } catch (error: any) {
             serverLogger.error(`AI Document parsing failed: ${error.message}`);
+            attachGeminiRateLimitToError(error);
             throw error;
         }
     }
@@ -1232,5 +1319,132 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             );
         }
         return [headers.join(','), ...rows].join('\n');
+    }
+
+    /**
+     * Turn free-text household / finance notes into structured persona fields + short fact bullets (onboarding / AI settings).
+     */
+    async extractPersonaFromNarrative(narrative: string): Promise<PersonaExtractFromNarrativeResult> {
+        await this.loadSettings();
+        if (!this.genAI) {
+            throw new Error('GEMINI_API_KEY not configured');
+        }
+        const trimmed = narrative?.trim() ?? '';
+        if (!trimmed) {
+            return { persona: {}, facts: [] };
+        }
+
+        const systemInstruction =
+            'You are a careful assistant for a personal finance app. Extract only what the user clearly implied. ' +
+            'Use the allowed enum values exactly when filling structured fields. If unsure, omit the field. ' +
+            'Output must be a single JSON object matching the schema in the user message.';
+
+        const userPrompt = `The user described their situation in natural language (may be Hebrew or English).
+
+Return JSON with this exact shape:
+{
+  "facts": string[],
+  "persona": {
+    "profile": {
+      "householdStatus": string | null,
+      "residenceType": string | null,
+      "technicalSkill": string | null,
+      "cards": [ { "label": string | null, "cardType": string | null, "chargePaymentDay": number | null } ]
+    },
+    "financialGoals": {
+      "primaryObjective": string | null,
+      "topPriorities": string[],
+      "monthlySavingsTarget": number | null,
+      "incomes": [ { "label": string | null, "paymentDays": number[], "notes": string | null } ]
+    },
+    "aiPreferences": {
+      "communicationStyle": string | null,
+      "reportingDepth": string | null
+    }
+  }
+}
+
+Allowed values (use these strings only, or null):
+- profile.householdStatus: single | couple_no_children | family_with_children | other
+- profile.residenceType: rent | owned_no_mortgage | owned_mortgage | other
+- profile.technicalSkill: beginner | intermediate | advanced | expert
+- cards[].cardType: debit | charge_card | both | none
+- financialGoals.primaryObjective: reduce_debt | identify_wasteful_spending | track_subscriptions | save_for_goal | general_visibility | other
+- topPriorities items: saving_for_vacation | reducing_commissions | building_emergency_fund | investing | lowering_fixed_costs | other
+- aiPreferences.communicationStyle: supportive_coach | neutral_analyst | critical_realist | brief_bullets
+- aiPreferences.reportingDepth: low | high_level | standard | detailed_analysis
+
+Rules:
+- "facts": 3–8 short bullet strings in the user's language summarizing what you inferred (no JSON inside bullets).
+- Add one cards[] row per distinct card product; add incomes[] rows for each salary, allowance, pension, or child benefit mentioned.
+- paymentDays: calendar days 1–31 when mentioned (e.g. salary on the 1st and 15th → [1, 15]).
+- chargePaymentDay: day of month for charge/credit card statement if mentioned.
+- monthlySavingsTarget: number in local currency only if a clear monthly savings amount is stated.
+- Omit persona.profile / persona.financialGoals / persona.aiPreferences keys entirely if nothing applies (or use empty objects where required by your JSON).
+- Reply with JSON only, no markdown fences.
+
+User text:
+---
+${trimmed}
+---`;
+
+        const model = this.genAI.getGenerativeModel({
+            model: this.settings.chatModel,
+            systemInstruction
+        });
+
+        const startTime = Date.now();
+        try {
+            const genResult = await runWithAILoadTracking(() =>
+                model.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        maxOutputTokens: 4096,
+                        responseMimeType: 'application/json'
+                    }
+                } as Parameters<typeof model.generateContent>[0])
+            );
+            const response = await genResult.response;
+            const text = response.text();
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(text);
+            } catch {
+                const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+                parsed = JSON.parse(fence ? fence[1].trim() : text.trim());
+            }
+            const normalized = normalizePersonaExtractFromAi(parsed);
+            const usageMetadata = response.usageMetadata;
+            await logAICall({
+                model: this.settings.chatModel,
+                provider: 'gemini',
+                requestInfo: {
+                    systemPrompt: systemInstruction,
+                    userInput: `[persona extract] ${trimmed.length} chars`,
+                    inputLength: trimmed.length
+                },
+                responseInfo: {
+                    rawOutput: JSON.stringify(normalized),
+                    finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                    success: true
+                },
+                metadata: {
+                    promptTokens: usageMetadata?.promptTokenCount,
+                    completionTokens: usageMetadata?.candidatesTokenCount,
+                    totalTokens: usageMetadata?.totalTokenCount,
+                    latencyMs: Date.now() - startTime
+                }
+            });
+            return normalized;
+        } catch (error: unknown) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            await logAIError(this.settings.chatModel, 'gemini', '[persona extract]', err, {
+                latencyMs: Date.now() - startTime,
+                systemPrompt: systemInstruction
+            });
+            attachGeminiRateLimitToError(err);
+            throw err;
+        }
     }
 }

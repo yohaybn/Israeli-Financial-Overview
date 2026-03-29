@@ -133,6 +133,7 @@ export class PostScrapeService {
           date: typeof t.date === 'string' ? t.date.slice(0, 10) : String(t.date),
           amount: t.amount ?? t.chargedAmount ?? 0,
           category: expenseCategoryKey(t.category),
+          accountNumber: t.accountNumber || '',
           reason,
         });
       }
@@ -173,7 +174,9 @@ export class PostScrapeService {
               ? 'אחר'
               : 'Other';
         const desc = (it.description || '').slice(0, 80);
-        return `• ${desc} (${tag}, ₪${it.amount})`;
+        const acct = (it.accountNumber || '').trim();
+        const acctBit = acct ? (botLanguage === 'he' ? ` · חשבון ${acct}` : ` · acct ${acct}`) : '';
+        return `• ${desc} (${tag}, ₪${it.amount}${acctBit})`;
       });
 
       const payload: NotificationPayload = {

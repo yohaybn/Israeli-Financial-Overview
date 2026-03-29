@@ -36,6 +36,8 @@ try {
     }
 
     Write-Host "`n[2/5] Build workspaces ..." -ForegroundColor Yellow
+    if (-not $env:VITE_INSTALL_KIND) { $env:VITE_INSTALL_KIND = "windows" }
+    if (-not $env:VITE_APP_BUILD_VERSION) { $env:VITE_APP_BUILD_VERSION = "local" }
     npm run build -w shared
     if ($LASTEXITCODE -ne 0) { throw "shared build failed" }
     npm run build -w client

@@ -5,12 +5,20 @@ import { api } from '../lib/api';
 import { useAISettings, useUpdateAISettings } from '../hooks/useScraper';
 
 import { AI_TOP_INSIGHTS_QUERY_KEY } from './dashboard/TopInsightsCard';
+import { CollapsibleCard } from './CollapsibleCard';
 
 type AiFact = { id: string; text: string; createdAt: string; updatedAt: string };
 type AiInsight = { id: string; text: string; score: number; createdAt: string };
 type AiAlert = { id: string; text: string; score: number; createdAt: string };
 
-export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
+export function AIMemorySettings({
+    isInline = false,
+    embeddedInAiTab = false,
+}: {
+    isInline?: boolean;
+    /** Hide page title when shown inside Configuration → AI */
+    embeddedInAiTab?: boolean;
+}) {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
     const { data: aiSettings } = useAISettings();
@@ -161,18 +169,31 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
 
     const wrap = isInline ? 'space-y-6' : 'max-w-3xl mx-auto space-y-6 p-6';
 
+    const titleBlock = !embeddedInAiTab && (
+        <div>
+            <h2 className={`font-black text-gray-900 ${isInline ? 'text-xl' : 'text-2xl'}`}>{t('ai_memory.title')}</h2>
+            <p className="text-gray-500 text-sm mt-1">{t('ai_memory.description')}</p>
+        </div>
+    );
+
+    const embeddedHeading = embeddedInAiTab && (
+        <div className="mb-1">
+            <h3 className="text-lg font-bold text-gray-900">{t('ai_memory.title')}</h3>
+            <p className="text-gray-500 text-sm mt-0.5">{t('ai_memory.description')}</p>
+        </div>
+    );
+
     return (
         <div className={wrap}>
-            <div>
-                <h2 className={`font-black text-gray-900 ${isInline ? 'text-xl' : 'text-2xl'}`}>
-                    {t('ai_memory.title')}
-                </h2>
-                <p className="text-gray-500 text-sm mt-1">{t('ai_memory.description')}</p>
-            </div>
+            {titleBlock}
+            {embeddedHeading}
 
-            <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                <h3 className="font-bold text-gray-800 mb-2">{t('ai_memory.retention_heading')}</h3>
-                <p className="text-xs text-gray-500 mb-4">{t('ai_memory.retention_help')}</p>
+            <CollapsibleCard
+                title={t('ai_memory.retention_heading')}
+                subtitle={t('ai_memory.retention_help')}
+                defaultOpen
+                bodyClassName="px-6 pb-6 pt-0"
+            >
                 <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block text-sm">
                         <span className="text-gray-700 font-medium">{t('ai_memory.retention_insights_days')}</span>
@@ -201,11 +222,15 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
                         />
                     </label>
                 </div>
-            </section>
+            </CollapsibleCard>
 
-            <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                    <h3 className="font-bold text-gray-800">{t('ai_memory.facts_heading')}</h3>
+            <CollapsibleCard
+                title={t('ai_memory.facts_heading')}
+                subtitle={t('ai_memory.facts_help')}
+                defaultOpen
+                bodyClassName="px-6 pb-6 pt-0"
+            >
+                <div className="flex justify-end mb-3">
                     <button
                         type="button"
                         disabled={loadingFacts || !facts?.length || clearFacts.isPending}
@@ -219,7 +244,6 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
                         {t('ai_memory.clear_all')}
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mb-4">{t('ai_memory.facts_help')}</p>
 
                 <div className="flex gap-2 mb-4">
                     <input
@@ -310,11 +334,15 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
                 {!loadingFacts && (!facts || facts.length === 0) && (
                     <p className="text-sm text-gray-400 italic">{t('ai_memory.no_facts')}</p>
                 )}
-            </section>
+            </CollapsibleCard>
 
-            <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                    <h3 className="font-bold text-gray-800">{t('ai_memory.insights_heading')}</h3>
+            <CollapsibleCard
+                title={t('ai_memory.insights_heading')}
+                subtitle={t('ai_memory.insights_help')}
+                defaultOpen
+                bodyClassName="px-6 pb-6 pt-0"
+            >
+                <div className="flex justify-end mb-3">
                     <button
                         type="button"
                         disabled={loadingInsights || !insights?.length || clearInsights.isPending}
@@ -328,7 +356,6 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
                         {t('ai_memory.clear_all')}
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mb-4">{t('ai_memory.insights_help')}</p>
 
                 {loadingInsights ? (
                     <p className="text-sm text-gray-400">{t('common.loading')}</p>
@@ -360,16 +387,22 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
                 {!loadingInsights && (!insights || insights.length === 0) && (
                     <p className="text-sm text-gray-400 italic">{t('ai_memory.no_insights')}</p>
                 )}
-            </section>
+            </CollapsibleCard>
 
-            <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-bold text-gray-800">{t('ai_memory.alerts_heading')}</h3>
+            <CollapsibleCard
+                title={
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                        <span>{t('ai_memory.alerts_heading')}</span>
                         <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-800">
                             {t('ai_memory.alerts_ai_badge')}
                         </span>
-                    </div>
+                    </span>
+                }
+                subtitle={t('ai_memory.alerts_help')}
+                defaultOpen
+                bodyClassName="px-6 pb-6 pt-0"
+            >
+                <div className="flex justify-end mb-3">
                     <button
                         type="button"
                         disabled={loadingAlerts || !alerts?.length || clearAlerts.isPending}
@@ -383,7 +416,6 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
                         {t('ai_memory.clear_all')}
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mb-4">{t('ai_memory.alerts_help')}</p>
 
                 {loadingAlerts ? (
                     <p className="text-sm text-gray-400">{t('common.loading')}</p>
@@ -420,7 +452,7 @@ export function AIMemorySettings({ isInline = false }: { isInline?: boolean }) {
                 {!loadingAlerts && (!alerts || alerts.length === 0) && (
                     <p className="text-sm text-gray-400 italic">{t('ai_memory.no_alerts_memory')}</p>
                 )}
-            </section>
+            </CollapsibleCard>
         </div>
     );
 }

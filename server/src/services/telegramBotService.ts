@@ -17,6 +17,7 @@ import { StorageService } from './storageService.js';
 import { Profile, ScrapeRequest, ScrapeResult, type Transaction, type TransactionReviewItem } from '@app/shared';
 import { transactionsToCsv, transactionsToJson } from '@app/shared';
 import { postScrapeService } from './postScrapeService.js';
+import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
 
@@ -116,6 +117,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
       '📝 <b>Set transaction memo</b>\n\nCopy a transaction <b>ID</b> from the web dashboard (transaction table / details).\n\n<b>Reply to review notification:</b> reply to the per-transaction message with your memo text.\n\n<b>One line:</b>\n<code>/memo TRANSACTION_ID Your note here</code>\n\n<b>Two steps:</b>\n<code>/memo TRANSACTION_ID</code>\n→ then send the note as your next message.\n\n/cancel to abort.',
     memoSendNext: '📝 Send the memo text as your next message, or /cancel to abort.',
     memoSuccess: '✅ Memo saved for transaction <code>{{id}}</code>.\nPreview: {{preview}}',
+    categorySuccess: '✅ Category set to <b>{{category}}</b> for transaction <code>{{id}}</code>.',
     memoNotFound: '❌ No transaction with that ID. Copy the ID from the web app (unified transaction list).',
     memoCancelled: 'Memo entry cancelled.',
     memoReplySendPlainText: 'Send your memo as plain text (not a command).',
@@ -208,6 +210,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
       '📝 <b>הוספת הערה לעסקה</b>\n\nהעתק את <b>מזהה העסקה</b> מלוח הבקרה (טבלת עסקאות / פרטים).\n\n<b>תשובה להתראה:</b> השב להודעה שמציגה עסקה אחת והקלד את ההערה.\n\n<b>בשורה אחת:</b>\n<code>/memo מזהה_עסקה הטקסט שלך</code>\n\n<b>בשתי שליחות:</b>\n<code>/memo מזהה_עסקה</code>\n→ ואז שלח את ההערה בהודעה הבאה.\n\n/cancel לביטול.',
     memoSendNext: '📝 שלח את טקסט ההערה בהודעה הבאה, או /cancel לביטול.',
     memoSuccess: '✅ ההערה נשמרה לעסקה <code>{{id}}</code>.\nתצוגה: {{preview}}',
+    categorySuccess: '✅ הקטגוריה הוגדרה ל-<b>{{category}}</b> לעסקה <code>{{id}}</code>.',
     memoNotFound: '❌ לא נמצאה עסקה עם המזהה הזה. העתק את המזהה מהאפליקציה (רשימת עסקאות מאוחדת).',
     memoCancelled: 'הזנת ההערה בוטלה.',
     memoReplySendPlainText: 'שלח את ההערה כטקסט רגיל (לא פקודה).',
@@ -1282,7 +1285,14 @@ export class TelegramBotService {
 
       const transactions = await this.loadUnifiedTransactionsForAiChat();
 
-      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message);
+      const aiSettings = await this.getAiService().getSettings();
+      const personaForPrompt =
+          aiSettings.personaInjectionEnabled !== false &&
+          aiSettings.userContext &&
+          !isUserPersonaEmpty(aiSettings.userContext)
+              ? aiSettings.userContext
+              : undefined;
+      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message, personaForPrompt);
 
       const state = this.chatStates.get(chatIdNum.toString());
       const chatHistory = state?.chatHistory ?? [];
@@ -1346,8 +1356,17 @@ export class TelegramBotService {
   private async getAIResponse(message: string, _chatId: string): Promise<string> {
     try {
       const aiService = this.getAiService();
-      const transactions = await this.loadUnifiedTransactionsForAiChat();
-      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message);
+      let transactions = await this.loadUnifiedTransactionsForAiChat();
+      const aiSettings = await aiService.getSettings();
+      const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
+      transactions = sliceTransactionsForAnalyst(transactions, maxRows);
+      const personaForPrompt =
+          aiSettings.personaInjectionEnabled !== false &&
+          aiSettings.userContext &&
+          !isUserPersonaEmpty(aiSettings.userContext)
+              ? aiSettings.userContext
+              : undefined;
+      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message, personaForPrompt);
 
       // Same unified context as /chat mode; on failure return code + details (no financial-tip fallback).
       try {
@@ -1741,7 +1760,19 @@ export class TelegramBotService {
     const codeEsc = this.escapeTgHtml(code);
     const expEsc = this.escapeTgHtml(explanation);
 
-    return `${this.t('aiChatErrorTitle')}\n\n${this.t('aiChatErrorCodeLabel')} <code>${codeEsc}</code>\n\n${this.t('aiChatErrorExplanationLabel')}\n${expEsc}`;
+    const rl = (e as { geminiRateLimit?: { limitRequests?: string | null; remainingRequests?: string | null; remainingTokens?: string | null } })
+        .geminiRateLimit;
+    let extra = '';
+    if (rl && (rl.limitRequests != null || rl.remainingRequests != null || rl.remainingTokens != null)) {
+      const lines = [
+        rl.limitRequests != null && rl.limitRequests !== '' ? `Total requests allowed: ${rl.limitRequests}` : '',
+        rl.remainingRequests != null && rl.remainingRequests !== '' ? `Requests remaining: ${rl.remainingRequests}` : '',
+        rl.remainingTokens != null && rl.remainingTokens !== '' ? `Tokens remaining: ${rl.remainingTokens}` : ''
+      ].filter(Boolean);
+      if (lines.length) extra = `\n\n${lines.map((l) => this.escapeTgHtml(l)).join('\n')}`;
+    }
+
+    return `${this.t('aiChatErrorTitle')}\n\n${this.t('aiChatErrorCodeLabel')} <code>${codeEsc}</code>\n\n${this.t('aiChatErrorExplanationLabel')}\n${expEsc}${extra}`;
   }
 
   private clearPendingMemoState(chatId: string | undefined): void {
@@ -1762,6 +1793,28 @@ export class TelegramBotService {
     const trimmed = (memo || '').trim();
     if (!trimmed) {
       await ctx.reply(this.t('memoSendNext'), { parse_mode: 'HTML' });
+      return;
+    }
+    const ai = this.getAiService();
+    const settings = await ai.getSettings();
+    const matchedCategory = settings.categories.find((c) => c === trimmed);
+    if (matchedCategory) {
+      const storage = this.getStorageService();
+      const ok = await storage.updateTransactionCategoryUnified(txnId, matchedCategory);
+      if (!ok) {
+        await ctx.reply(this.t('memoNotFound'));
+        this.clearPendingMemoState(ctx.chat?.id?.toString());
+        return;
+      }
+      const msg = this.t('categorySuccess')
+        .replace(/\{\{id\}\}/g, this.escapeTgHtml(txnId))
+        .replace(/\{\{category\}\}/g, this.escapeTgHtml(matchedCategory));
+      await ctx.reply(msg, { parse_mode: 'HTML' });
+      this.clearPendingMemoState(ctx.chat?.id?.toString());
+      const chatId = ctx.chat?.id?.toString();
+      if (opts?.replyPromptMessageId != null && chatId) {
+        this.removeMemoReplyTarget(chatId, opts.replyPromptMessageId);
+      }
       return;
     }
     const storage = this.getStorageService();
@@ -1952,13 +2005,15 @@ export class TelegramBotService {
     const idEsc = this.escapeTgHtml(it.id);
     const dateEsc = this.escapeTgHtml(it.date);
     const amt = typeof it.amount === 'number' ? it.amount.toFixed(2) : String(it.amount);
+    const acctRaw = (it.accountNumber || '').trim();
+    const acctEsc = this.escapeTgHtml(acctRaw || (lang === 'he' ? '—' : '—'));
     if (lang === 'he') {
       return (
-        `📝 <b>תנועה לסיווג / הערה</b> (${tag})\n${desc}\n<b>סכום:</b> ₪${amt} · <b>תאריך:</b> ${dateEsc}\n\n<code>${idEsc}</code>\n\n↩️ <b>השב להודעה זו</b> עם ההערה שלך.`
+        `📝 <b>תנועה לסיווג / הערה</b> (${tag})\n${desc}\n<b>סכום:</b> ₪${amt} · <b>תאריך:</b> ${dateEsc}\n<b>חשבון:</b> ${acctEsc}\n\n<code>${idEsc}</code>\n\n↩️ <b>השב להודעה זו</b> — הערה חופשית, או שם קטגוריה מדויק כמו בלוח הבקרה (הגדרות AI).`
       );
     }
     return (
-      `📝 <b>Transaction — add memo</b> (${tag})\n${desc}\n<b>Amount:</b> ₪${amt} · <b>Date:</b> ${dateEsc}\n\n<code>${idEsc}</code>\n\n↩️ <b>Reply to this message</b> with your memo.`
+      `📝 <b>Transaction — memo or category</b> (${tag})\n${desc}\n<b>Amount:</b> ₪${amt} · <b>Date:</b> ${dateEsc}\n<b>Account:</b> ${acctEsc}\n\n<code>${idEsc}</code>\n\n↩️ <b>Reply to this message</b> with a memo, or with the exact category label from your dashboard (AI settings).`
     );
   }
 

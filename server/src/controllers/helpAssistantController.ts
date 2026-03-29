@@ -14,7 +14,9 @@ export const handleHelpChat = async (req: Request, res: Response) => {
         const modelName = 'gemini-2.5-flash';
 
         if (!apiKey) {
-            return res.status(400).json({ error: 'Gemini API Key is missing. Please configure it in the Environment Settings.' });
+            return res.status(400).json({
+                error: 'Gemini API Key is missing. Add it under Configuration → AI.',
+            });
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);

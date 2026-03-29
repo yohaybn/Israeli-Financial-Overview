@@ -82,7 +82,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'configuration',
                     title: 'Configuration',
                     icon: '⚙️',
-                    content: 'AI and memory, Scheduler (and scheduled backups), scraper defaults, fraud rules, Google OAuth/Sheets, Telegram, environment variables, and maintenance tools. Use deep links ?view=configuration&tab=<id> when needed.'
+                    content: 'AI and memory, Scheduler (and scheduled backups), Scrape (including fraud & alerts), Google (OAuth, Sheets, Drive), Telegram, and Maintenance (backups, port, data folder). Use deep links ?view=configuration&tab=<id> when needed.'
                 },
                 {
                     id: 'telegram',
@@ -193,7 +193,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'configuration',
                     title: 'הגדרות',
                     icon: '⚙️',
-                    content: 'AI וזיכרון, מתזמן (וגיבויים מתוזמנים), ברירות מחדל לסריקה, הונאה, Google OAuth/Sheets, Telegram, משתני סביבה ותחזוקה. קישורים עמוקים: ?view=configuration&tab=<id>.'
+                    content: 'AI וזיכרון, מתזמן (וגיבויים מתוזמנים), סריקה (כולל הונאה והתראות), גוגל (OAuth, Sheets, Drive), טלגרם, תחזוקה (גיבויים, פורט, תיקיית נתונים). קישורים עמוקים: ?view=configuration&tab=<id>.'
                 },
                 {
                     id: 'telegram',

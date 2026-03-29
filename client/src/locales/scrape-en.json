@@ -1,6 +1,6 @@
 {
     "scraper": {
-        "config_title": "Scrape Configuration",
+        "config_title": "Scrape",
         "global_options": "Global Scraper Options",
         "smart_start_date": "Smart Start Date",
         "smart_start_date_desc": "Automatically start from the last successful scrape date",
@@ -44,7 +44,7 @@
             "save_failed": "Failed to save settings",
             "unavailable": "Unable to load configuration"
         },
-        "config_desc": "Configure global scraper behavior and defaults"
+        "config_desc": "Global scraper behavior and defaults"
     },
     "scrape_logs": {
         "title": "Scrape logs",

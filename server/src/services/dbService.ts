@@ -10,6 +10,46 @@ const DB_PATH = path.join(DATA_DIR, 'app.db');
 
 let sharedDb: Database.Database | null = null;
 
+/** One-time seed marker so default AI facts are not re-inserted after the user deletes them. */
+const SEED_DEFAULT_AI_FACTS_KEY = 'seed_default_ai_facts_v1';
+
+const DEFAULT_AI_MEMORY_FACTS: { id: string; text: string }[] = [
+    {
+        id: '00000000-0000-4000-8000-000000000001',
+        text: 'In the Israeli market, a single transaction can be split into multiple interest-free or "credit" installments at the point of sale.',
+    },
+    {
+        id: '00000000-0000-4000-8000-000000000002',
+        text: 'Spending patterns in Israel are highly seasonal, dictated by the Hebrew calendar. Significant spikes in grocery, gifts, and hospitality spending occur during the months of Tishrei (Sept/Oct) and Nissan (March/April).',
+    },
+    {
+        id: '00000000-0000-4000-8000-000000000003',
+        text: 'Israeli financial institutions charge specific recurring micro-fees such as "Channel Fees", "Card Fees", and "Management Fees"; flag these as "Potentially Avoidable Expenses."',
+    },
+];
+
+function seedDefaultAiMemoryFactsIfNeeded(db: Database.Database) {
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS db_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    `);
+    const already = db.prepare(`SELECT 1 FROM db_meta WHERE key = ?`).get(SEED_DEFAULT_AI_FACTS_KEY);
+    if (already) return;
+
+    const insertFact = db.prepare(
+        `INSERT OR IGNORE INTO ai_memory_facts (id, text, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+    );
+    const insertMeta = db.prepare(`INSERT INTO db_meta (key, value) VALUES (?, ?)`);
+    db.transaction(() => {
+        for (const { id, text } of DEFAULT_AI_MEMORY_FACTS) {
+            insertFact.run(id, text);
+        }
+        insertMeta.run(SEED_DEFAULT_AI_FACTS_KEY, '1');
+    })();
+}
+
 function initialize(db: Database.Database) {
     // Enable WAL mode for better concurrency
     db.pragma('journal_mode = WAL');
@@ -50,6 +90,12 @@ function initialize(db: Database.Database) {
     try {
         db.exec('ALTER TABLE transactions ADD COLUMN excludeFromSubscriptions INTEGER DEFAULT 0');
     } catch (e) {}
+
+    try {
+        db.exec('ALTER TABLE transactions ADD COLUMN category_user_set INTEGER DEFAULT 0');
+    } catch (e) {
+        /* column exists */
+    }
 
     // Create categories cache table
     db.exec(`
@@ -113,6 +159,8 @@ function initialize(db: Database.Database) {
     db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_alerts_score ON ai_memory_alerts(score DESC)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_ai_memory_alerts_created ON ai_memory_alerts(created_at)');
 
+    seedDefaultAiMemoryFactsIfNeeded(db);
+
     db.exec(`
         CREATE TABLE IF NOT EXISTS ai_memory_dismissed_alert_keys (
             normalized_key TEXT PRIMARY KEY,
@@ -157,9 +205,9 @@ export class DbService {
     addTransaction(transaction: Transaction): boolean {
         const stmt = this.db.prepare(`
             INSERT OR IGNORE INTO transactions (
-                id, accountNumber, date, description, amount, category, provider, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions, raw_data
+                id, accountNumber, date, description, amount, category, category_user_set, provider, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions, raw_data
             ) VALUES (
-                @id, @accountNumber, @date, @description, @amount, @category, @provider, @isInternalTransfer, @isSubscription, @subscriptionInterval, @excludeFromSubscriptions, @raw_data
+                @id, @accountNumber, @date, @description, @amount, @category, @category_user_set, @provider, @isInternalTransfer, @isSubscription, @subscriptionInterval, @excludeFromSubscriptions, @raw_data
             )
         `);
 
@@ -181,6 +229,7 @@ export class DbService {
             description: transaction.description,
             amount: transaction.amount,
             category: transaction.category,
+            category_user_set: transaction.categoryUserSet ? 1 : 0,
             provider: transaction.provider || 'unknown',
             isInternalTransfer: isInternalValue,
             isSubscription: transaction.isSubscription ? 1 : 0,
@@ -197,7 +246,8 @@ export class DbService {
     }
 
     getAllTransactions(includeIgnored = false): Transaction[] {
-        let query = 'SELECT raw_data, category, isIgnored, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions FROM transactions';
+        let query =
+            'SELECT raw_data, category, category_user_set, isIgnored, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions FROM transactions';
         if (!includeIgnored) {
             query += ' WHERE isIgnored = 0';
         }
@@ -210,6 +260,7 @@ export class DbService {
             const txn = JSON.parse(row.raw_data);
             // Override with DB values if they differ (e.g. category update)
             txn.category = row.category;
+            txn.categoryUserSet = Boolean(row.category_user_set);
             txn.isIgnored = Boolean(row.isIgnored);
             // Same derivation as addTransaction — raw txnType/type must win over a stale isInternalTransfer column
             // (otherwise explicit false blocks isInternalTransfer() from ever seeing txnType).
@@ -272,16 +323,50 @@ export class DbService {
         return count;
     }
 
-    updateTransactionCategory(id: string, category: string): boolean {
-        const stmt = this.db.prepare('UPDATE transactions SET category = ? WHERE id = ?');
-        const info = stmt.run(category, id);
+    /**
+     * @param categoryUserSet When set, updates the flag: true = user-chosen category, false = AI/system.
+     *                        When undefined, only the category column is updated (legacy callers).
+     */
+    updateTransactionCategory(id: string, category: string, categoryUserSet?: boolean): boolean {
+        if (categoryUserSet === undefined) {
+            const stmt = this.db.prepare('UPDATE transactions SET category = ? WHERE id = ?');
+            const info = stmt.run(category, id);
+            return info.changes > 0;
+        }
+        const stmt = this.db.prepare('UPDATE transactions SET category = ?, category_user_set = ? WHERE id = ?');
+        const info = stmt.run(category, categoryUserSet ? 1 : 0, id);
         return info.changes > 0;
     }
 
-    updateCategoryByDescription(description: string, category: string): number {
-        const stmt = this.db.prepare('UPDATE transactions SET category = ? WHERE description = ?');
-        const info = stmt.run(category, description);
+    /**
+     * @param categoryUserSet When true, marks rows as user-set for this description (skips AI overwrite).
+     */
+    updateCategoryByDescription(description: string, category: string, categoryUserSet?: boolean): number {
+        if (categoryUserSet === undefined) {
+            const stmt = this.db.prepare('UPDATE transactions SET category = ? WHERE description = ?');
+            const info = stmt.run(category, description);
+            return info.changes;
+        }
+        const stmt = this.db.prepare(
+            'UPDATE transactions SET category = ?, category_user_set = ? WHERE description = ?'
+        );
+        const info = stmt.run(category, categoryUserSet ? 1 : 0, description);
         return info.changes;
+    }
+
+    /** True if any row with this description has a user-chosen category (do not bulk-reclassify). */
+    descriptionHasUserSetCategory(description: string): boolean {
+        const stmt = this.db.prepare(
+            'SELECT 1 FROM transactions WHERE description = ? AND category_user_set = 1 LIMIT 1'
+        );
+        return !!stmt.get(description);
+    }
+
+    /** True if this row was categorized by the user (AI / imports must not overwrite). */
+    transactionCategoryIsUserSet(id: string): boolean {
+        const stmt = this.db.prepare('SELECT category_user_set FROM transactions WHERE id = ?');
+        const row = stmt.get(id) as { category_user_set?: number } | undefined;
+        return Boolean(row?.category_user_set);
     }
 
     updateTransactionType(id: string, txnType: string): boolean {

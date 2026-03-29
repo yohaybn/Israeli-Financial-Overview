@@ -31,7 +31,8 @@ export {
 export type { ExpenseMetaCategory } from './categoryMeta.js';
 export {
     TRANSFERS_CATEGORY_LABEL,
-    transactionNeedsReview
+    transactionNeedsReview,
+    transactionsForReviewItems
 } from './txnReview.js';
 export type { TransactionReviewReason } from './txnReview.js';
 export { detectRecurring } from './financial/recurring.js';
@@ -52,3 +53,13 @@ export {
 } from './financial/anomalyI18n.js';
 export type { DigestLocale } from './financial/anomalyI18n.js';
 export const version = "1.0.0";
+export * from './userPersona.js';
+export {
+    AI_ANALYST_EST_CHARS_PER_TXN_ROW,
+    AI_ANALYST_EST_CHARS_CSV_HEADER,
+    AI_ANALYST_EST_PROMPT_OVERHEAD_TOKENS,
+    estimateTokensFromChars,
+    estimateAnalystTransactionCsvTokens,
+    estimateTypicalAnalystCallInputTokens,
+    sliceTransactionsForAnalyst
+} from './aiAnalystQuota.js';

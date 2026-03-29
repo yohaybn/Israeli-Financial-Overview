@@ -17,10 +17,14 @@
         "guide:embed-telegram": "npx marked -o .tmp-telegram.html -i docs/TELEGRAM_BOT_GUIDE.md --gfm && npx marked -o .tmp-telegram-he.html -i client/public/guides/TELEGRAM_BOT_GUIDE.he.md --gfm && node scripts/inline-telegram-guide-into-guide.mjs",
         "windows:package": "powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1"
     },
+    "engines": {
+        "node": ">=20"
+    },
     "devDependencies": {
         "concurrently": "^8.2.2"
     },
     "overrides": {
-        "@rollup/plugin-terser": "1.0.0"
+        "@rollup/plugin-terser": "1.0.0",
+        "serialize-javascript": "7.0.5"
     }
 }

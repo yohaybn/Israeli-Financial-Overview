@@ -1,6 +1,6 @@
 {
     "scraper": {
-        "config_title": "הגדרות סריקה",
+        "config_title": "סריקה",
         "global_options": "הגדרות סריקה גלובליות",
         "smart_start_date": "תאריך התחלה חכם",
         "smart_start_date_desc": "התחל אוטומטית מתאריך הסריקה המוצלחת האחרון",
@@ -44,7 +44,7 @@
             "save_failed": "נכשלה שמירת ההגדרות",
             "unavailable": "לא ניתן לטעון תצורה"
         },
-        "config_desc": "הגדרת התנהגות ברירת מחדל של הסורק"
+        "config_desc": "התנהגות ברירת מחדל של הסורק"
     },
     "scrape_logs": {
         "title": "יומן סריקות",

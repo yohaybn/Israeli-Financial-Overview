@@ -94,14 +94,6 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
     load();
   }, []);
 
-  useEffect(() => {
-    const handler = () => {
-      if (!isInline && onClose) return;
-    };
-    window.addEventListener('open-fraud-settings', handler);
-    return () => window.removeEventListener('open-fraud-settings', handler);
-  }, [isInline, onClose]);
-
   const updateFraud = (patch: any) => {
     if (!config) return;
     setConfig({

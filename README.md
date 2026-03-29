@@ -8,7 +8,7 @@ Self-hosted tool to pull transactions from Israeli banks and credit cards, explo
 
 | Area | Highlights |
 |------|------------|
-| **Web UI** | Dashboard (monthly income/expenses, subscriptions, analytics, AI chat), Scrape with live progress, Results explorer (multi-file, filters, AI categorization), structured **Logs** (server/client/AI/scrape), **Configuration** (AI, scheduler, Google, Telegram, environment, maintenance). |
+| **Web UI** | Dashboard (monthly income/expenses, subscriptions, analytics, AI chat), Scrape with live progress, Results explorer (multi-file, filters, AI categorization), structured **Logs** (server/client/AI/scrape), **Configuration** (AI with **persona** alignment and **AI memory**—stored facts, insights, alerts; scheduler, scrape/fraud, Google, Telegram, maintenance). |
 | **Languages** | English and Hebrew with LTR/RTL. |
 | **App lock & profiles** | **App lock** (min. 8 characters) protects the session and **encrypts stored profile credentials**. You can use most of the app (dashboard, logs, configuration, exploring results) **without** unlocking; **running scrapes** and **creating/editing saved bank profiles** require the app to be **unlocked** when app lock is enabled. **Forgot password:** encrypted profiles cannot be recovered—you must **delete those profiles** and **re-enter** bank credentials after resetting lock (see **[GUIDE.html](client/public/GUIDE.html)**). |
 | **Integrations** | Google OAuth → Drive/Sheets; **Gemini** for categorization and analyst chat; **Telegram** bot — see **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** (commands, notifications, optional `/unlock` when the UI is locked). |
@@ -40,6 +40,19 @@ docker-compose up --build
 ```
 
 Then open the Web UI at **`http://localhost:3000`** (or the port mapped in your compose file).
+
+**Feedback form:** The Google Form link is set in [`client/src/config/feedbackGoogleForm.ts`](client/src/config/feedbackGoogleForm.ts). The in-app dialog opens that URL (no URL prefill); it shows installation and version for reference and can fetch optional **server/client log** excerpts for copy-paste with explicit consent.
+
+At **image build** time you can bake identity strings into the static client (see `ARG` / `ENV` before `npm run build -w client` in the root [`Dockerfile`](Dockerfile)):
+
+```bash
+docker build \
+  --build-arg VITE_APP_BUILD_VERSION="$(git rev-parse HEAD)" \
+  --build-arg VITE_INSTALL_KIND=docker \
+  -t financial-overview .
+```
+
+CI workflows set `VITE_APP_BUILD_VERSION` and `VITE_INSTALL_KIND` automatically where applicable.
 
 ## Home Assistant add-on
 
@@ -89,7 +102,7 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | Doc | Purpose |
 |-----|---------|
 | **[Installation guide (GitHub Pages)](https://yohaybn.github.io/israeli-bank-scraper-docker/install/)** | Step-by-step Windows install, first run, Telegram, and Gemini API (EN/HE); source: [`client/public/install/index.html`](client/public/install/index.html). |
-| **[client/public/GUIDE.html](client/public/GUIDE.html)** | Full user guide (EN/HE toggle) — same file the app opens from **Help**. |
+| **[client/public/GUIDE.html](client/public/GUIDE.html)** | Full user guide (EN/HE toggle) — same file the app opens from **Help**. Covers **AI memory** (stored facts vs. chat-merged facts), **AI persona** (structured profile and optional analyst prompt injection), and onboarding extraction. |
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior (English). |
 | **[client/public/guides/TELEGRAM_BOT_GUIDE.he.md](client/public/guides/TELEGRAM_BOT_GUIDE.he.md)** | Hebrew Telegram guide — embedded in **עברית** in [`client/public/GUIDE.html`](client/public/GUIDE.html); regenerate with `npm run guide:embed-telegram`. |

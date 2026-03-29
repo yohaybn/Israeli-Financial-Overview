@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { ImportModal } from './components/ImportModal';
 import { FinancialCommandCenter } from './components/dashboard/FinancialCommandCenter';
-import { useScrapeResults, useUpdateTransactionCategory, useRecategorizeAll } from './hooks/useScraper';
+import { useScrapeResults, useUpdateTransactionCategory, useRecategorizeAll, useAISettings } from './hooks/useScraper';
 import { useSocket } from './hooks/useSocket';
 import { useUnifiedData } from './hooks/useUnifiedData';
 import { ScrapeWorkspace } from './components/scrape/ScrapeWorkspace';
@@ -18,9 +18,13 @@ import { GettingStartedResumeBanner } from './components/onboarding/GettingStart
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { isDemoMode } from './demo/isDemo';
-import { Map, Bot, Sparkles } from 'lucide-react';
+import { Map, Bot, Sparkles, MessageSquare } from 'lucide-react';
 import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
 import { HelpAssistantChat } from './components/help/HelpAssistantChat';
+import { FeedbackModal } from './components/FeedbackModal';
+import { TransactionReviewModal } from './components/TransactionReviewModal';
+import { PersonaPromptModal, isPersonaPromptDismissed } from './components/persona/PersonaPromptModal';
+import { transactionsForReviewItems } from '@app/shared';
 
 function consumeSessionConfigTab(): string | null {
     try {
@@ -59,6 +63,10 @@ function App() {
 
     const { data: scrapeResults, isLoading: isLoadingScrape } = useScrapeResults();
     const { data: unifiedTransactions, isLoading: isLoadingUnified } = useUnifiedData();
+    const { data: aiSettings } = useAISettings();
+    const [transactionReviewModalOpen, setTransactionReviewModalOpen] = useState(false);
+    const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+    const [personaPromptOpen, setPersonaPromptOpen] = useState(false);
     const [hasCheckedData, setHasCheckedData] = useState(false);
 
     useEffect(() => {
@@ -69,6 +77,17 @@ function App() {
         const onPop = () => setNav(parseAppUrlState(window.location.search, null));
         window.addEventListener('popstate', onPop);
         return () => window.removeEventListener('popstate', onPop);
+    }, []);
+
+    useEffect(() => {
+        const onOpenFraud = () => {
+            setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'scrape' }));
+            window.setTimeout(() => {
+                document.getElementById('fraud-alerts-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+        };
+        window.addEventListener('open-fraud-settings', onOpenFraud);
+        return () => window.removeEventListener('open-fraud-settings', onOpenFraud);
     }, []);
 
     // Default to scrape view if no data exists (unless URL already specified a view)
@@ -85,6 +104,32 @@ function App() {
     useEffect(() => {
         document.title = t('common.title');
     }, [t, i18n.language]);
+
+    useEffect(() => {
+        const onOpenFeedback = () => setFeedbackModalOpen(true);
+        window.addEventListener('open-feedback-modal', onOpenFeedback);
+        return () => window.removeEventListener('open-feedback-modal', onOpenFeedback);
+    }, []);
+
+    useEffect(() => {
+        const onOpenAiLogs = () => {
+            setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: null }));
+        };
+        window.addEventListener('open-ai-logs', onOpenAiLogs);
+        return () => window.removeEventListener('open-ai-logs', onOpenAiLogs);
+    }, []);
+
+    useEffect(() => {
+        const onGeminiFirst = () => {
+            if (isDemoMode()) return;
+            if (onboarding.showModal) return;
+            if (!onboarding.completed) return;
+            if (isPersonaPromptDismissed()) return;
+            setPersonaPromptOpen(true);
+        };
+        window.addEventListener('gemini-api-key-first-configured', onGeminiFirst);
+        return () => window.removeEventListener('gemini-api-key-first-configured', onGeminiFirst);
+    }, [onboarding.showModal, onboarding.completed]);
 
     const setView = (next: AppUrlState['view']) => {
         setNav((prev) => ({
@@ -111,6 +156,11 @@ function App() {
     const handleNavigateToAILogs = () => {
         setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: null }));
     };
+
+    const reviewModalTransactions = useMemo(() => {
+        if (!transactionReviewAlert?.items?.length) return [];
+        return transactionsForReviewItems(transactionReviewAlert.items, unifiedTransactions ?? []);
+    }, [transactionReviewAlert, unifiedTransactions]);
 
     const openAiSettingsTab = () => {
         setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
@@ -193,6 +243,15 @@ function App() {
                                                 d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                             />
                                         </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFeedbackModalOpen(true)}
+                                        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-amber-800 hover:bg-amber-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                                        title={t('feedback.open_button')}
+                                        aria-label={t('feedback.open_aria')}
+                                    >
+                                        <MessageSquare className="w-5 h-5" strokeWidth={1.75} aria-hidden />
                                     </button>
                                     {onboarding.completed && !isDemoMode() ? (
                                         <>
@@ -307,12 +366,17 @@ function App() {
                         className="shrink-0 bg-sky-50 border-b border-sky-200 px-4 py-3 text-sky-950 flex flex-wrap items-center gap-3 justify-between"
                         role="alert"
                     >
-                        <div className="min-w-0 flex-1">
+                        <button
+                            type="button"
+                            onClick={() => setTransactionReviewModalOpen(true)}
+                            className="min-w-0 flex-1 text-start rounded-lg -m-1 p-1 hover:bg-sky-100/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sky-50 transition-colors"
+                        >
                             <p className="font-semibold text-sm">{t('transaction_review.banner_title')}</p>
                             <p className="text-sm text-sky-900/90 break-words">
                                 {t('transaction_review.banner_detail', { count: transactionReviewAlert.count })}
                             </p>
-                        </div>
+                            <p className="text-xs text-sky-800/80 mt-1">{t('transaction_review.banner_open_table')}</p>
+                        </button>
                         <div className="flex flex-wrap items-center gap-2 shrink-0">
                             <button
                                 type="button"
@@ -420,9 +484,28 @@ function App() {
 
             {onboarding.showModal && <OnboardingWizard />}
 
+            <PersonaPromptModal
+                isOpen={personaPromptOpen}
+                onClose={() => setPersonaPromptOpen(false)}
+                onOpenAiSettings={() => {
+                    setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
+                    setPersonaPromptOpen(false);
+                }}
+            />
+
             {showGettingStartedWizard && <GettingStartedWizard onNavigate={navigateGettingStarted} />}
 
+            <FeedbackModal isOpen={feedbackModalOpen} onClose={() => setFeedbackModalOpen(false)} />
+
             <HelpAssistantChat />
+
+            <TransactionReviewModal
+                isOpen={transactionReviewModalOpen}
+                onClose={() => setTransactionReviewModalOpen(false)}
+                transactions={reviewModalTransactions}
+                categories={aiSettings?.categories}
+                onUpdateCategory={handleUpdateCategory}
+            />
         </>
     );
 }

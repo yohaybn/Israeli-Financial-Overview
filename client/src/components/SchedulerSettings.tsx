@@ -5,6 +5,7 @@ import { useProfiles } from '../hooks/useProfiles';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { ScheduleEditor, type ScheduleEditorValue } from './ScheduleEditor';
 import { ProviderIcon } from './ProfileManager';
+import { CollapsibleCard } from './CollapsibleCard';
 
 const SCHED_LABEL = 'block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2';
 const SCHED_ACCENT = '#006d3c';
@@ -172,22 +173,40 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
 
     if (isLoading) return <div className="p-4 text-sm text-gray-500">{t('scheduler.loading')}</div>;
 
+    const schedTitle = (
+        <span className="flex items-center gap-2.5 text-[#1a2b3c]">
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
+                <path
+                    stroke={SCHED_ACCENT}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+            </svg>
+            {t('scheduler.title')}
+        </span>
+    );
+
+    const backupTitle = (
+        <span className="flex items-center gap-2.5 text-[#1a2b3c]">
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
+                <path
+                    stroke={SCHED_ACCENT}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                />
+            </svg>
+            {t('scheduler.backup_title')}
+        </span>
+    );
+
     return (
         <div className={`space-y-8 ${isInline ? '' : 'max-w-4xl mx-auto'}`}>
-            <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100/80">
-                <div className="flex items-center justify-between gap-4 mb-8">
-                    <h3 className="text-lg font-bold text-[#1a2b3c] flex items-center gap-2.5">
-                        <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
-                            <path
-                                stroke={SCHED_ACCENT}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                        </svg>
-                        {t('scheduler.title')}
-                    </h3>
+            <CollapsibleCard title={schedTitle} defaultOpen bodyClassName="px-6 pb-6 pt-0 space-y-6 sm:space-y-8">
+                <div className="flex items-center justify-end gap-4">
                     <div className="flex items-center gap-3 shrink-0">
                         <button
                             type="button"
@@ -248,22 +267,10 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                         </div>
                     </div>
                 </div>
-            </section>
+            </CollapsibleCard>
 
-            <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100/80">
-                <div className="flex items-center justify-between gap-4 mb-6">
-                    <h3 className="text-lg font-bold text-[#1a2b3c] flex items-center gap-2.5">
-                        <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
-                            <path
-                                stroke={SCHED_ACCENT}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                            />
-                        </svg>
-                        {t('scheduler.backup_title')}
-                    </h3>
+            <CollapsibleCard title={backupTitle} defaultOpen bodyClassName="px-6 pb-6 pt-0 space-y-6">
+                <div className="flex items-center justify-end gap-4">
                     <div className="flex items-center gap-3 shrink-0">
                         <button
                             type="button"
@@ -316,14 +323,13 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                         </div>
                     </div>
                 </div>
-            </section>
+            </CollapsibleCard>
 
-            <section className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100/80">
+            <CollapsibleCard title={t('scheduler.aboutTitle')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
                 <div className="bg-[#f0f2f5]/80 rounded-xl p-4 border border-gray-100">
-                    <p className="text-[#1a2b3c] font-bold mb-1">{t('scheduler.aboutTitle')}</p>
                     <p className="text-gray-600 text-sm leading-relaxed">{t('scheduler.aboutDescription')}</p>
                 </div>
-            </section>
+            </CollapsibleCard>
 
             <div className={`flex items-center gap-3 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm py-4 border-t border-gray-200 -mx-6 px-6 z-10' : ''}`}>
                 <div className="mr-auto flex items-center gap-3">

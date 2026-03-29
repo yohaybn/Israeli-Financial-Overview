@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
@@ -7,6 +7,17 @@ import path from 'path'
 function normalizeBase(raw: string): string {
     if (!raw || raw === '/') return '/'
     return raw.endsWith('/') ? raw : `${raw}/`
+}
+
+function readClientPackageVersion(): string {
+    try {
+        const p = path.resolve(__dirname, 'package.json')
+        const raw = fs.readFileSync(p, 'utf8')
+        const j = JSON.parse(raw) as { version?: string }
+        return j.version?.trim() || '0.0.0'
+    } catch {
+        return '0.0.0'
+    }
 }
 
 function readBackendPort(): string {
@@ -27,11 +38,19 @@ function readBackendPort(): string {
     return '3001'
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, __dirname, '')
     const targetPort = readBackendPort()
-    const isDemo = process.env.VITE_DEMO === 'true'
-    const baseFromEnv = process.env.VITE_BASE || process.env.GITHUB_PAGES_BASE
+    const isDemo = env.VITE_DEMO === 'true' || process.env.VITE_DEMO === 'true'
+    const baseFromEnv = env.VITE_BASE || env.GITHUB_PAGES_BASE || process.env.VITE_BASE || process.env.GITHUB_PAGES_BASE
     const base = baseFromEnv ? normalizeBase(baseFromEnv) : '/'
+
+    const clientVersion = readClientPackageVersion()
+    const appBuildVersion =
+        env.VITE_APP_BUILD_VERSION?.trim() ||
+        process.env.VITE_APP_BUILD_VERSION?.trim() ||
+        `${clientVersion}-dev`
+    const installKind = env.VITE_INSTALL_KIND?.trim() || process.env.VITE_INSTALL_KIND?.trim() || ''
 
     const pwaPlugin = VitePWA({
         registerType: 'autoUpdate',
@@ -81,6 +100,10 @@ export default defineConfig(() => {
 
     return {
         base,
+        define: {
+            'import.meta.env.VITE_APP_BUILD_VERSION': JSON.stringify(appBuildVersion),
+            'import.meta.env.VITE_INSTALL_KIND': JSON.stringify(installKind),
+        },
         plugins: [react(), ...(isDemo ? [] : [pwaPlugin])],
         resolve: {
             alias: {

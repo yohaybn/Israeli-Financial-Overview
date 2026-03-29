@@ -38,6 +38,8 @@ jobs:
       - name: Build client (demo, GitHub Pages base)
         env:
           VITE_DEMO: 'true'
+          VITE_INSTALL_KIND: github-pages
+          VITE_APP_BUILD_VERSION: ${{ github.ref_name }}@${{ github.sha }}
         run: npm run build -w client -- --base /${{ github.event.repository.name }}/
 
       - name: Upload artifact

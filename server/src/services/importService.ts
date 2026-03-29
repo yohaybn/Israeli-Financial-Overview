@@ -1,4 +1,4 @@
-import * as xlsx from 'xlsx';
+import * as xlsx from '@e965/xlsx';
 import { PDFParse } from 'pdf-parse';
 import { Transaction, ScrapeResult, Account } from '@app/shared';
 import fs from 'fs-extra';

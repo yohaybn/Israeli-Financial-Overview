@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GlobalScrapeConfig, ScraperOptions } from '@app/shared';
 import { api } from '../lib/api';
+import { CollapsibleCard } from './CollapsibleCard';
 
 interface ScrapeSettingsProps {
     isOpen?: boolean;
@@ -110,13 +111,18 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
 
             <div className={`space-y-8 ${isInline ? '' : 'p-6 overflow-y-auto'}`}>
                 {/* Global Scraper Options */}
-                <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'}`}>
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        {t('scraper.global_options')}
-                    </h3>
+                <CollapsibleCard
+                    title={
+                        <span className="flex items-center gap-2">
+                            <svg className="w-5 h-5 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            {t('scraper.global_options')}
+                        </span>
+                    }
+                    defaultOpen
+                    bodyClassName="px-6 pb-6 pt-0 space-y-6"
+                >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
                             <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-50">
@@ -271,16 +277,21 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                             </div>
                         </div>
                     </div>
-                </section>
+                </CollapsibleCard>
 
                 {/* Post-Scrape Actions */}
-                <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'}`}>
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        {t('post_scrape.title')}
-                    </h3>
+                <CollapsibleCard
+                    title={
+                        <span className="flex items-center gap-2">
+                            <svg className="w-5 h-5 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            {t('post_scrape.title')}
+                        </span>
+                    }
+                    defaultOpen
+                    bodyClassName="px-6 pb-6 pt-0 space-y-6"
+                >
                     <div className="space-y-6">
                         <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-50">
                             <input
@@ -387,8 +398,9 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        // fire a custom event; navigation will handle opening FraudSettings
-                                        window.dispatchEvent(new CustomEvent('open-fraud-settings'));
+                                        const el = document.getElementById('fraud-alerts-section');
+                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        else window.dispatchEvent(new CustomEvent('open-fraud-settings'));
                                     }}
                                     className="mt-2 text-[11px] font-semibold text-purple-600 hover:text-purple-800 underline-offset-2 hover:underline"
                                 >
@@ -577,7 +589,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                             </div>
                         </div>
                     </div>
-                </section>
+                </CollapsibleCard>
             </div>
 
             <div className={`flex justify-end gap-3 shrink-0 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm py-4 border-t border-gray-200 -mx-6 px-6 z-10' : 'p-6 bg-gray-50 border-t border-gray-100'}`}>

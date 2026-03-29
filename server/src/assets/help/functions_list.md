@@ -28,10 +28,10 @@ Here is a comprehensive list of all functionalities available to the user in the
 *   **AI Memory Settings (`/?view=configuration&configTab=memory`):** Teach the AI specific rules or context for categorization by reviewing failed/successful past transactions.
 *   **Scheduler Settings (`/?view=configuration&configTab=scheduler`):** Configure the app to run scraping tasks fully automatically on a recurring schedule.
 *   **Scraper Global Options (`/?view=configuration&configTab=scrape`):** General configurations related to how browser automation connects to banking websites.
-*   **Fraud Detection Settings (`/?view=configuration&configTab=fraud`):** Configure threshold alerts for potential duplicate charges or fraudulent activity warnings.
+*   **Fraud & alerts (under Scrape, `/?view=configuration&tab=scrape`):** Threshold alerts for potential duplicate charges or fraudulent activity warnings.
 *   **Google Sheets Sync (`/?view=configuration&configTab=sheets`):** Link the app to Google Sheets to automatically export matched and categorized transactions to the cloud.
 *   **Telegram Settings (`/?view=configuration&configTab=telegram`):** Set up chatbot integration so the app can send you daily summaries or scraping results via Telegram.
-*   **Environment Variables (`/?view=configuration&configTab=environment`):** Manage raw system environment keys if necessary for back-end configuration.
+*   **Runtime settings** are edited in-app under **AI** (Gemini), **Google** (OAuth / Drive folder id), and **Maintenance** (port, data directory); values persist in `runtime-settings.json` under your data folder.
 *   **System Maintenance (`/?view=configuration&configTab=maintenance`):** Tools for re-running global transaction recategorizations or wiping local databases.
 
 ## 4. System Logs

@@ -1,3 +1,10 @@
+/** From Gemini HTTP 429 response headers (when available). */
+export interface GeminiRateLimitDetails {
+    limitRequests?: string | null;
+    remainingRequests?: string | null;
+    remainingTokens?: string | null;
+}
+
 export interface AIErrorDetails {
     title: string;
     description: string;
@@ -5,6 +12,8 @@ export interface AIErrorDetails {
     code?: string;
     /** When set, UI should use `ai_errors.<key>.*` translations for title/description/solution */
     i18nKey?: 'model_high_demand';
+    /** Populated on 429 when the server captured Gemini rate-limit headers */
+    rateLimit?: GeminiRateLimitDetails | null;
 }
 
 function isModelHighDemandMessage(message: string): boolean {
@@ -14,12 +23,24 @@ function isModelHighDemandMessage(message: string): boolean {
     );
 }
 
+function normalizeRateLimit(raw: unknown): GeminiRateLimitDetails | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const r = raw as Record<string, unknown>;
+    const limitRequests = r.limitRequests != null ? String(r.limitRequests) : null;
+    const remainingRequests = r.remainingRequests != null ? String(r.remainingRequests) : null;
+    const remainingTokens = r.remainingTokens != null ? String(r.remainingTokens) : null;
+    if (!limitRequests && !remainingRequests && !remainingTokens) return null;
+    return { limitRequests, remainingRequests, remainingTokens };
+}
+
 export const mapAIError = (error: any): AIErrorDetails => {
     const apiBodyError = typeof error?.error === 'string' ? error.error : '';
     const message =
         (typeof error?.message === 'string' ? error.message : '') ||
         apiBodyError ||
         '';
+
+    const rateLimitFromApi = normalizeRateLimit(error?.rateLimit);
 
     if (error?.errorKey === 'AI_MODEL_HIGH_DEMAND' || isModelHighDemandMessage(message)) {
         return {
@@ -28,11 +49,13 @@ export const mapAIError = (error: any): AIErrorDetails => {
                 'This model is currently experiencing high demand. Spikes in demand are usually temporary.',
             solution: 'Please try again in a few moments.',
             code: '503_MODEL_HIGH_DEMAND',
-            i18nKey: 'model_high_demand'
+            i18nKey: 'model_high_demand',
+            rateLimit: rateLimitFromApi
         };
     }
 
     const errorCode = error.code || error.status || (message.match(/status code (\d+)/)?.[1]);
+    const statusNum = typeof error.status === 'number' ? error.status : NaN;
 
     // Standard Gemini API Error Codes
     // https://ai.google.dev/gemini-api/docs/troubleshooting
@@ -72,12 +95,18 @@ export const mapAIError = (error: any): AIErrorDetails => {
         };
     }
 
-    if (errorCode === '429' || message.includes('RESOURCE_EXHAUSTED')) {
+    if (
+        errorCode === '429' ||
+        errorCode === 429 ||
+        statusNum === 429 ||
+        message.includes('RESOURCE_EXHAUSTED')
+    ) {
         return {
             title: 'Rate Limit Exceeded',
             description: 'You have sent too many requests in a short period or exceeded your quota.',
             solution: 'Wait a moment before trying again, or check your quota limits in Google AI Studio.',
-            code: '429'
+            code: '429',
+            rateLimit: rateLimitFromApi
         };
     }
 

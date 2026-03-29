@@ -7,6 +7,7 @@ import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from '../ser
 import { telegramBotService } from '../services/telegramBotService.js';
 import { runAiMemoryRetentionPrune } from '../services/aiMemoryRetention.js';
 import { AI_MODEL_HIGH_DEMAND_ERROR_KEY, isAiModelHighDemandMessage } from '../utils/aiModelHighDemand.js';
+import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
 
 const router = Router();
 const aiService = new AiService();
@@ -63,18 +64,24 @@ router.post('/chat', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Data context not found' });
         }
 
-        const answer = await aiService.analyzeData(query, result.transactions);
+        const aiSettings = await aiService.getSettings();
+        const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
+        const txns = sliceTransactionsForAnalyst(result.transactions, maxRows);
+
+        const answer = await aiService.analyzeData(query, txns);
         res.json({ success: true, data: answer });
     } catch (error: any) {
         const status = error.status || error.response?.status || 500;
         const code = error.code || error.response?.data?.error?.code || 'INTERNAL_ERROR';
         const msg = typeof error?.message === 'string' ? error.message : String(error);
+        const rateLimit = (error as { geminiRateLimit?: unknown }).geminiRateLimit;
         res.status(status).json({
             success: false,
             error: msg,
             ...(isAiModelHighDemandMessage(msg) ? { errorKey: AI_MODEL_HIGH_DEMAND_ERROR_KEY } : {}),
             code,
-            status
+            status,
+            ...(rateLimit ? { rateLimit } : {})
         });
     }
 });
@@ -101,7 +108,16 @@ router.post('/chat/unified', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Transactions data or source (scope/filename) required' });
         }
 
-        const contextQuery = buildUnifiedChatQueryWithMemory(historyNote, query);
+        const aiSettings = await aiService.getSettings();
+        const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
+        transactions = sliceTransactionsForAnalyst(transactions, maxRows);
+        const personaForPrompt =
+            aiSettings.personaInjectionEnabled !== false &&
+            aiSettings.userContext &&
+            !isUserPersonaEmpty(aiSettings.userContext)
+                ? aiSettings.userContext
+                : undefined;
+        const contextQuery = buildUnifiedChatQueryWithMemory(historyNote, query, personaForPrompt);
 
         const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
             conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : undefined,
@@ -123,12 +139,14 @@ router.post('/chat/unified', async (req, res) => {
         const status = error.status || error.response?.status || 500;
         const code = error.code || error.response?.data?.error?.code || 'INTERNAL_ERROR';
         const msg = typeof error?.message === 'string' ? error.message : String(error);
+        const rateLimit = (error as { geminiRateLimit?: unknown }).geminiRateLimit;
         res.status(status).json({
             success: false,
             error: msg,
             ...(isAiModelHighDemandMessage(msg) ? { errorKey: AI_MODEL_HIGH_DEMAND_ERROR_KEY } : {}),
             code,
-            status
+            status,
+            ...(rateLimit ? { rateLimit } : {})
         });
     }
 });
@@ -299,6 +317,26 @@ router.delete('/memory/insights/:id', (req, res) => {
         res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/** Free-text → structured persona + fact bullets (Gemini). */
+router.post('/persona/extract', async (req, res) => {
+    try {
+        const { narrative } = req.body;
+        if (typeof narrative !== 'string') {
+            return res.status(400).json({ success: false, error: 'narrative must be a string' });
+        }
+        const data = await aiService.extractPersonaFromNarrative(narrative);
+        res.json({ success: true, data });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        const rateLimit = (error as { geminiRateLimit?: unknown }).geminiRateLimit;
+        res.status(500).json({
+            success: false,
+            error: msg,
+            ...(rateLimit ? { rateLimit } : {})
+        });
     }
 });
 

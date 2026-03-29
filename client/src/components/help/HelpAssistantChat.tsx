@@ -77,6 +77,15 @@ export function HelpAssistantChat() {
                             <div className="text-center text-gray-400 mt-10">
                                 <HelpCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                 <p className="text-sm">{t('help.empty_state', 'Ask me anything about how to use the app!')}</p>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        window.dispatchEvent(new CustomEvent('open-feedback-modal'))
+                                    }
+                                    className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800 underline"
+                                >
+                                    {t('feedback.chat_link')}
+                                </button>
                             </div>
                         )}
                         {messages.map((m, i) => (
@@ -128,7 +137,23 @@ export function HelpAssistantChat() {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-100 flex gap-2 shrink-0">
+                    {messages.length > 0 ? (
+                        <div className="px-3 py-2 border-t border-gray-100 bg-gray-50/90 shrink-0 text-center">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    window.dispatchEvent(new CustomEvent('open-feedback-modal'))
+                                }
+                                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                                {t('feedback.chat_link')}
+                            </button>
+                        </div>
+                    ) : null}
+                    <form
+                        onSubmit={handleSend}
+                        className={`p-3 bg-white flex gap-2 shrink-0 ${messages.length > 0 ? '' : 'border-t border-gray-100'}`}
+                    >
                         <input
                             type="text"
                             value={input}

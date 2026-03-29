@@ -44,23 +44,26 @@ The Scrape workspace is where you connect to your banks and pull new financial d
 This is the control center of the app. It holds all automations, rules, AI prompts, and integrations.
 
 ### 3.1 AI Settings
-**Location:** `/?view=configuration&configTab=ai`
+**Location:** `/?view=configuration&tab=ai`
 
 *   **Model Selection:** Choose whether the AI should use a local, faster model for basic auto-categorization or a slower, deeper "Analyst" model for chat and insights.
 *   **Language Selection:** Set the primary language for AI interaction (e.g., English or Hebrew).
 *   **Categories Management:** Add, delete, or rename the custom budget categories you want the AI to use.
 *   **Bulk Recategorization:** A powerful tool with a single button to force the AI to re-evaluate all past transactions and apply your newest custom categories retroactively.
+*   **AI persona (user alignment):** A structured profile—household, housing, technical comfort, cards and charge days, income schedules, goals, savings targets, and how you want analyst answers styled (communication style, reporting depth). You can fill it manually or use onboarding / “extract from narrative” so Gemini proposes fields from free text. Use **Include persona in analyst prompts** to send this profile with dashboard analyst chat, or turn it off to keep transaction-only prompts while still saving your persona for later.
 
 ### 3.2 AI Memory Settings
-**Location:** `/?view=configuration&configTab=memory`
+**Location:** `/?view=configuration&tab=ai` (open the **AI memory** section inside **Configuration → AI**; legacy link `tab=memory` opens the same tab)
 
-The AI has a memory system to learn your specific budget habits over time.
-*   **Retention Days:** Set how many days the app should keep dynamic Facts, Insights, and Alerts in its memory before deleting them.
-*   **Facts Management:** View, edit, or delete the explicit rules the system has learned (e.g., "Wolt is always a 'Dining' expense").
-*   **Insights & Alerts Management:** Review financial insights and fraud alerts the system has flagged. You can delete them here to clear your feed.
+The AI keeps a **server-side memory** the unified analyst loads on each chat turn.
+
+*   **Stored AI facts (memory facts):** Persistent lines in the database—long-lived context the model should assume is true until you edit them (budget rules, dates, preferences). You manage them in the Facts list. The analyst’s structured replies can **append** new fact lines when they are not duplicates of existing ones. These are **not** the same as the short **summary bullets** Gemini may show after **persona extraction** from a narrative; those bullets are a readout of what was inferred and are **not** automatically copied into stored memory facts unless you add them yourself.
+*   **Retention Days:** Set how many days the app should keep Insights and Alerts before pruning them (facts are edited or cleared explicitly).
+*   **Insights:** Analytical takeaways from past analyst replies (with scores). Delete an insight if you want that topic reconsidered from scratch.
+*   **Alerts:** Time-sensitive or high-priority items with scores; dismissing an alert blocks the same text from being stored again.
 
 ### 3.3 Scheduler Settings
-**Location:** `/?view=configuration&configTab=scheduler`
+**Location:** `/?view=configuration&tab=scheduler`
 
 Automate your scrapes so you don't have to launch them manually.
 *   **Enable/Disable Automation:** Toggle the entire scheduler system on or off.
@@ -69,7 +72,7 @@ Automate your scrapes so you don't have to launch them manually.
 *   **Backup Destination:** Decide if the automated scheduler should save a backup of your database locally or straight to Google Drive after scraping.
 
 ### 3.4 Scraper Settings
-**Location:** `/?view=configuration&configTab=scrape`
+**Location:** `/?view=configuration&tab=scrape`
 
 Adjust the low-level behavior of the scraping engine and what happens immediately after a scrape finishes.
 *   **Global Options:**
@@ -90,7 +93,7 @@ Adjust the low-level behavior of the scraping engine and what happens immediatel
     *   **Notification Channels:** Select where post-scrape updates are sent (e.g., Telegram).
 
 ### 3.5 Fraud Settings
-**Location:** `/?view=configuration&configTab=fraud`
+**Location:** `/?view=configuration&tab=scrape` (Fraud & Alerts section below Scrape options)
 
 Detailed settings for the local Fraud Detection engine.
 *   **Fraud Mode:** Choose between 'Local' rules, 'AI' rules, or 'Both'.
@@ -100,7 +103,7 @@ Detailed settings for the local Fraud Detection engine.
 *   **Recent Findings:** A chronological list of recent fraud flags for your review.
 
 ### 3.6 Google Sheets Sync
-**Location:** `/?view=configuration&configTab=sheets`
+**Location:** `/?view=configuration&tab=sheets`
 
 Export categorized data seamlessly to the cloud.
 *   **Connect/Disconnect Google Account:** OAuth login to tie the app directly to your Google identity.
@@ -109,7 +112,7 @@ Export categorized data seamlessly to the cloud.
 *   **Manual Sync Button:** Force a sync push to send your records instantly.
 
 ### 3.7 Telegram Settings
-**Location:** `/?view=configuration&configTab=telegram`
+**Location:** `/?view=configuration&tab=telegram`
 
 Link a Telegram chatbot to your app to receive daily digests or control it remotely.
 *   **Bot Status Panel:** See if the bot daemon is currently running. Start or stop the bot with action buttons.
@@ -118,19 +121,17 @@ Link a Telegram chatbot to your app to receive daily digests or control it remot
 *   **Users Management:** The bot is strictly private. Add your specific Telegram User ID to the "Allowed Users" whitelist here to grant access. Toggle checkboxes per user to allow chat interactions and/or receive automated notification broadcasts.
 *   **Download User Manifest:** Export the whitelist setup for backup purposes.
 
-### 3.8 Environment Settings
-**Location:** `/?view=configuration&configTab=environment`
-
-Manage sensitive system variables required for integrations.
-*   **AI Integration:** Holds your Gemini API Key.
-*   **Google Integration:** Complete fields for Google Client ID, Client Secret, and OAuth Redirect URIs if setting up Drive sync from scratch. Set the target Drive Folder ID.
-*   **System Info:** Displays technical read-only parameters like the backend Port and local Database path.
-*   **Save & Restart:** Applying changes here requires restarting the backend server via the provided button.
+### 3.8 Runtime settings (`runtime-settings.json`)
+Values persist under your data folder (`data/config/runtime-settings.json`). The UI is split by topic:
+*   **Configuration → AI:** Gemini API key.
+*   **Configuration → Google:** OAuth Client ID, Client Secret, redirect URI, optional default Drive folder ID (`DRIVE_FOLDER_ID`).
+*   **Configuration → Maintenance:** Server **port** and **data directory** (`PORT`, `DATA_DIR`).
+*   **Save & restart:** Many changes require a backend restart to take effect.
 
 ### 3.9 System Maintenance
-**Location:** `/?view=configuration&configTab=maintenance`
+**Location:** `/?view=configuration&tab=maintenance`
 
-Protect and repair your database files.
+Protect and repair your database files. **Port** and **data folder** for the server are edited here (same file as above).
 *   **Create Local or Drive Backup:** Perform an immediate snapshot dump of your total transaction and config database, saved locally within the app folder or uploaded to your Google Drive.
 *   **Restore Local/Drive Backup:** Pick from a dropdown list of safe historical backups and instantly overwrite your corrupted database.
 *   **Download Local Backup:** Extract your local database to your computer as a portable file.
@@ -147,7 +148,7 @@ Connecting Google is **optional**. It enables **Google Sheets sync**, **Google D
 1. **Google Cloud Console** — Create a new project (project menu → New Project).
 2. **Enable APIs** — *APIs & Services* → *Library*: enable **Google Drive API** and **Google Sheets API**.
 3. **OAuth consent screen** — *APIs & Services* → *OAuth consent screen*. Choose **External** (typical for personal use), fill app name and contact emails; you can use defaults for Scopes and Test users on first setup.
-4. **OAuth client** — *Credentials* → Create **OAuth client ID** → type **Web application**. Under **Authorized redirect URIs**, add the exact callback URL your server uses. Default pattern: `http://127.0.0.1:<PORT>/api/auth/google/callback` where `<PORT>` matches your server (often `3000`). If you browse the app as `http://localhost:...`, register that host too—Google requires an exact match. Copy **Client ID** and **Client Secret** into Environment settings (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) and set `GOOGLE_REDIRECT_URI` to the same URI you registered.
+4. **OAuth client** — *Credentials* → Create **OAuth client ID** → type **Web application**. Under **Authorized redirect URIs**, add the exact callback URL your server uses. Default pattern: `http://127.0.0.1:<PORT>/api/auth/google/callback` where `<PORT>` matches your server (often `3000`). If you browse the app as `http://localhost:...`, register that host too—Google requires an exact match. Copy **Client ID** and **Client Secret** into **Configuration → Google** (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) and set `GOOGLE_REDIRECT_URI` to the same URI you registered.
 5. **Unverified app warning** — For a personal project, Google may show *Google hasn't verified this app*. Use **Advanced** → **Go to … (unsafe)** to proceed.
 
 **Drive folder ID:** Optional `DRIVE_FOLDER_ID` is the id from a folder URL (`/folders/<id>`). You can also choose a folder in the app after signing in.
