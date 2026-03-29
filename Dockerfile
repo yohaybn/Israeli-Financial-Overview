@@ -24,6 +24,11 @@ COPY client ./client
 # Install all dependencies (including devDependencies for build).
 # Root postinstall (scripts/ensure-rollup-native.mjs) installs the matching @rollup/rollup-* NAPI
 # for this image's OS/arch (amd64, arm64, armv7, etc.). Do not hardcode @rollup/rollup-linux-x64-gnu here.
+# Multi-arch / QEMU builds often hit slow or flaky registry I/O; bump retries and timeouts.
+ENV npm_config_fetch_retries=10 \
+    npm_config_fetch_retry_mintimeout=20000 \
+    npm_config_fetch_retry_maxtimeout=120000 \
+    npm_config_fetch_timeout=600000
 RUN npm ci
 
 # Build workspaces in order

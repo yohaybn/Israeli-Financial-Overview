@@ -19,6 +19,12 @@ COPY server ./server
 COPY client ./client
 COPY ha-addon ./ha-addon
 
+# Multi-arch / QEMU builds often hit slow or flaky registry I/O; bump retries and timeouts.
+ENV npm_config_fetch_retries=10 \
+    npm_config_fetch_retry_mintimeout=20000 \
+    npm_config_fetch_retry_maxtimeout=120000 \
+    npm_config_fetch_timeout=600000
+
 # Install all dependencies (including devDependencies)
 RUN npm install
 
