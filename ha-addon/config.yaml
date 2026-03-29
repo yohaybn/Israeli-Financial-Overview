@@ -1,8 +1,14 @@
 name: "Financial Overview"
-version: "1.0.0"
+version: &addon_version "1.0.0"
 slug: "bank_scraper"
 description: "Financial Overview (מבט כלכלי) — scrape Israeli banks and upload to Google Drive"
 url: "https://github.com/yohaybn/Israeli-Financial-Overview"
+# Dockerfile COPY paths assume the repository root; HA defaults to this folder as context.
+build:
+  context: ".."
+  dockerfile: "Dockerfile"
+  args:
+    VITE_APP_BUILD_VERSION: *addon_version
 startup: application
 arch:
   - aarch64
