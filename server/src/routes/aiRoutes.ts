@@ -8,6 +8,11 @@ import { telegramBotService } from '../services/telegramBotService.js';
 import { runAiMemoryRetentionPrune } from '../services/aiMemoryRetention.js';
 import { AI_MODEL_HIGH_DEMAND_ERROR_KEY, isAiModelHighDemandMessage } from '../utils/aiModelHighDemand.js';
 import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
+import { refreshInsightRuleFires, mergeTopInsights } from '../services/insightRulesService.js';
+
+function parseInsightTopLocale(raw: unknown): 'en' | 'he' {
+    return raw === 'en' ? 'en' : 'he';
+}
 
 const router = Router();
 const aiService = new AiService();
@@ -255,12 +260,15 @@ router.get('/memory/insights', (_req, res) => {
     }
 });
 
-/** Top insights by score (dashboard widget) */
-router.get('/memory/insights/top', (req, res) => {
+/** Top insights by score (dashboard widget) — AI memory + insight rules, merged by score */
+router.get('/memory/insights/top', async (req, res) => {
     try {
         const raw = req.query.limit;
         const limit = Math.min(20, Math.max(1, parseInt(typeof raw === 'string' ? raw : '3', 10) || 3));
-        const data = dbService.topAiMemoryInsights(limit);
+        const locale = parseInsightTopLocale(req.query.locale);
+        const txns = await storageService.getAllTransactions(true);
+        refreshInsightRuleFires(txns, dbService);
+        const data = mergeTopInsights(dbService, limit, locale);
         res.json({ success: true, data });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });

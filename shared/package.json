@@ -5,9 +5,11 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "build": "tsc"
+        "build": "tsc",
+        "test": "node --import tsx --test src/insightRules.test.ts"
     },
     "devDependencies": {
+        "tsx": "^4.21.0",
         "typescript": "^5.7.3"
     }
 }

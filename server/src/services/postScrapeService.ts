@@ -22,6 +22,7 @@ import { serviceLogger as logger } from '../utils/logger.js';
 import { StorageService } from './storageService.js';
 import { fraudDetectionService } from './fraudDetectionService.js';
 import { DbService } from './dbService.js';
+import { refreshInsightRuleFires } from './insightRulesService.js';
 import type { Server } from 'socket.io';
 import {
   type ScrapeRunActionRecord,
@@ -983,6 +984,15 @@ export class PostScrapeService {
       await this.sendPostScrapeErrorNotification('post-scrape-summary', summaryMsg, request);
     } else {
       logger.info('Post-scrape finished successfully', { pipelineId });
+    }
+
+    try {
+      const allTx = await this.storageService.getAllTransactions(true);
+      refreshInsightRuleFires(allTx, this.dbService);
+      actions.push({ key: 'insight-rules-refresh', status: 'ok' });
+    } catch (e) {
+      logger.warn('Post-scrape: insight rules refresh failed', { error: (e as Error).message });
+      actions.push({ key: 'insight-rules-refresh', status: 'failed', detail: (e as Error).message });
     }
 
     return actions;

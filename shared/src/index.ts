@@ -55,6 +55,31 @@ export type { DigestLocale } from './financial/anomalyI18n.js';
 export const version = "1.0.0";
 export * from './userPersona.js';
 export {
+    INSIGHT_RULES_EXPORT_FORMAT,
+    INSIGHT_RULE_DEFINITION_VERSION,
+    applyMessageTemplates,
+    computeRulePeriodKey,
+    evaluateInsightRuleCondition,
+    evaluateInsightRuleDefinition,
+    evaluateTxnCondition,
+    filterTransactionsForRuleScope,
+    parseInsightRuleDefinition,
+    parseInsightRulesExportDocument,
+    renderInsightRuleMessage,
+} from './insightRules.js';
+export type {
+    EvaluateInsightRuleResult,
+    InsightRuleCondition,
+    InsightRuleDefinition,
+    InsightRuleDefinitionV1,
+    InsightRuleExportRow,
+    InsightRuleOutputV1,
+    InsightRuleScope,
+    InsightRuleSource,
+    InsightRulesExportDocument,
+    TxnCondition,
+} from './insightRules.js';
+export {
     AI_ANALYST_EST_CHARS_PER_TXN_ROW,
     AI_ANALYST_EST_CHARS_CSV_HEADER,
     AI_ANALYST_EST_PROMPT_OVERHEAD_TOKENS,

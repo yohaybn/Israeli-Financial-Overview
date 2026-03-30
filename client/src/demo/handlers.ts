@@ -187,6 +187,25 @@ export const demoHandlers = [
         HttpResponse.json({ success: true, data: demoTopInsights })
     ),
 
+    http.get(apiPath('/insight-rules'), () => HttpResponse.json({ success: true, data: [] })),
+
+    http.post(apiPath('/insight-rules/refresh'), () => emptyOk()),
+
+    http.post(apiPath('/insight-rules/import'), () => emptyOk()),
+
+    http.post(apiPath('/insight-rules/ai-draft'), () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                name: 'Demo rule',
+                source: 'ai',
+                definition: JSON.parse(
+                    '{"version":1,"scope":"current_month","condition":{"op":"txnCountGte","min":1},"output":{"kind":"insight","score":50,"message":{"en":"Demo","he":"דמו"}}}'
+                ),
+            },
+        })
+    ),
+
     http.get(apiPath('/config'), () =>
         HttpResponse.json({ success: true, data: demoGlobalScrapeConfig })
     ),

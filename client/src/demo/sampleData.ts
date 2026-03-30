@@ -273,19 +273,22 @@ export const demoTopInsights = [
     {
         id: 'insight-1',
         text: 'הוצאות המזון יציבות ביחס לחודש הקודם — אין קפיצה חריגה.',
-        score: 0.82,
+        score: 82,
         createdAt: new Date().toISOString(),
+        source: 'ai' as const,
     },
     {
         id: 'insight-2',
         text: 'לא זוהו חיובים חריגים או חשודים בתקופה הנבחרת.',
-        score: 0.71,
+        score: 71,
         createdAt: new Date().toISOString(),
+        source: 'ai' as const,
     },
     {
         id: 'insight-3',
         text: 'רוב ההוצאות הקבועות מכוסות מתוך השכר החודשי — שימוש תקין ביתרה.',
-        score: 0.68,
+        score: 68,
         createdAt: new Date().toISOString(),
+        source: 'ai' as const,
     },
 ];

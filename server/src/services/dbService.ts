@@ -1,7 +1,14 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs-extra';
-import { Transaction, FraudDetectorType, FraudFinding, FraudSeverity } from '@app/shared';
+import {
+    Transaction,
+    FraudDetectorType,
+    FraudFinding,
+    FraudSeverity,
+    type InsightRuleDefinitionV1,
+    type InsightRuleSource,
+} from '@app/shared';
 import { serverLogger } from '../utils/logger.js';
 import { normalizeAiMemoryKey } from '../utils/aiMemoryNormalize.js';
 
@@ -167,6 +174,36 @@ function initialize(db: Database.Database) {
             dismissed_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS insight_rules (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            priority INTEGER NOT NULL DEFAULT 0,
+            source TEXT NOT NULL DEFAULT 'user',
+            definition_json TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_insight_rules_enabled ON insight_rules(enabled)`);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS insight_rule_fires (
+            id TEXT PRIMARY KEY,
+            rule_id TEXT NOT NULL,
+            period_key TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            score INTEGER NOT NULL,
+            message_en TEXT NOT NULL,
+            message_he TEXT NOT NULL,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (rule_id) REFERENCES insight_rules(id) ON DELETE CASCADE,
+            UNIQUE(rule_id, period_key)
+        )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_insight_rule_fires_score ON insight_rule_fires(score DESC)`);
 
     serverLogger.info('Database initialized');
 }
@@ -731,5 +768,208 @@ export class DbService {
             `DELETE FROM ai_memory_alerts WHERE datetime(created_at) < datetime('now', ?)`
         );
         return stmt.run(mod).changes;
+    }
+
+    // --- Insight rules (rules engine) ---
+
+    listInsightRules(): {
+        id: string;
+        name: string;
+        enabled: boolean;
+        priority: number;
+        source: InsightRuleSource;
+        definition: InsightRuleDefinitionV1;
+        createdAt: string;
+        updatedAt: string;
+    }[] {
+        const rows = this.db
+            .prepare(
+                `SELECT id, name, enabled, priority, source, definition_json, created_at, updated_at FROM insight_rules ORDER BY priority DESC, name ASC`
+            )
+            .all() as {
+            id: string;
+            name: string;
+            enabled: number;
+            priority: number;
+            source: string;
+            definition_json: string;
+            created_at: string;
+            updated_at: string;
+        }[];
+        return rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            enabled: r.enabled !== 0,
+            priority: r.priority,
+            source: (r.source === 'ai' ? 'ai' : 'user') as InsightRuleSource,
+            definition: JSON.parse(r.definition_json) as InsightRuleDefinitionV1,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        }));
+    }
+
+    getInsightRule(id: string):
+        | {
+              id: string;
+              name: string;
+              enabled: boolean;
+              priority: number;
+              source: InsightRuleSource;
+              definition: InsightRuleDefinitionV1;
+              createdAt: string;
+              updatedAt: string;
+          }
+        | undefined {
+        const r = this.db
+            .prepare(
+                `SELECT id, name, enabled, priority, source, definition_json, created_at, updated_at FROM insight_rules WHERE id = ?`
+            )
+            .get(id) as
+            | {
+                  id: string;
+                  name: string;
+                  enabled: number;
+                  priority: number;
+                  source: string;
+                  definition_json: string;
+                  created_at: string;
+                  updated_at: string;
+              }
+            | undefined;
+        if (!r) return undefined;
+        return {
+            id: r.id,
+            name: r.name,
+            enabled: r.enabled !== 0,
+            priority: r.priority,
+            source: (r.source === 'ai' ? 'ai' : 'user') as InsightRuleSource,
+            definition: JSON.parse(r.definition_json) as InsightRuleDefinitionV1,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        };
+    }
+
+    insertInsightRule(
+        id: string,
+        name: string,
+        enabled: boolean,
+        priority: number,
+        source: InsightRuleSource,
+        definition: InsightRuleDefinitionV1
+    ): void {
+        this.db
+            .prepare(
+                `INSERT INTO insight_rules (id, name, enabled, priority, source, definition_json, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+            )
+            .run(id, name, enabled ? 1 : 0, priority, source, JSON.stringify(definition));
+    }
+
+    updateInsightRule(
+        id: string,
+        updates: {
+            name?: string;
+            enabled?: boolean;
+            priority?: number;
+            source?: InsightRuleSource;
+            definition?: InsightRuleDefinitionV1;
+        }
+    ): boolean {
+        const row = this.getInsightRule(id);
+        if (!row) return false;
+        const name = updates.name ?? row.name;
+        const enabled = updates.enabled ?? row.enabled;
+        const priority = updates.priority ?? row.priority;
+        const source = updates.source ?? row.source;
+        const definition = updates.definition ?? row.definition;
+        const info = this.db
+            .prepare(
+                `UPDATE insight_rules SET name = ?, enabled = ?, priority = ?, source = ?, definition_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+            )
+            .run(name, enabled ? 1 : 0, priority, source, JSON.stringify(definition), id);
+        return info.changes > 0;
+    }
+
+    deleteInsightRule(id: string): boolean {
+        const stmt = this.db.prepare(`DELETE FROM insight_rules WHERE id = ?`);
+        return stmt.run(id).changes > 0;
+    }
+
+    clearAllInsightRules(): number {
+        return this.db.prepare(`DELETE FROM insight_rules`).run().changes;
+    }
+
+    upsertInsightRuleFire(
+        id: string,
+        ruleId: string,
+        periodKey: string,
+        kind: 'insight' | 'alert',
+        score: number,
+        messageEn: string,
+        messageHe: string
+    ): void {
+        const s = Math.max(1, Math.min(100, Math.round(score)));
+        this.db
+            .prepare(
+                `INSERT INTO insight_rule_fires (id, rule_id, period_key, kind, score, message_en, message_he, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(rule_id, period_key) DO UPDATE SET
+                   id = excluded.id,
+                   kind = excluded.kind,
+                   score = excluded.score,
+                   message_en = excluded.message_en,
+                   message_he = excluded.message_he,
+                   updated_at = CURRENT_TIMESTAMP`
+            )
+            .run(id, ruleId, periodKey, kind, s, messageEn, messageHe);
+    }
+
+    listInsightRuleFires(limit: number = 200): {
+        id: string;
+        ruleId: string;
+        periodKey: string;
+        kind: 'insight' | 'alert';
+        score: number;
+        messageEn: string;
+        messageHe: string;
+        updatedAt: string;
+    }[] {
+        const rows = this.db
+            .prepare(
+                `SELECT id, rule_id, period_key, kind, score, message_en, message_he, updated_at
+                 FROM insight_rule_fires ORDER BY score DESC, updated_at DESC LIMIT ?`
+            )
+            .all(limit) as {
+            id: string;
+            rule_id: string;
+            period_key: string;
+            kind: string;
+            score: number;
+            message_en: string;
+            message_he: string;
+            updated_at: string;
+        }[];
+        return rows.map((r) => ({
+            id: r.id,
+            ruleId: r.rule_id,
+            periodKey: r.period_key,
+            kind: r.kind === 'alert' ? 'alert' : 'insight',
+            score: Number(r.score),
+            messageEn: r.message_en,
+            messageHe: r.message_he,
+            updatedAt: r.updated_at,
+        }));
+    }
+
+    deleteInsightRuleFire(id: string): boolean {
+        return this.db.prepare(`DELETE FROM insight_rule_fires WHERE id = ?`).run(id).changes > 0;
+    }
+
+    deleteInsightRuleFiresByRuleId(ruleId: string): number {
+        return this.db.prepare(`DELETE FROM insight_rule_fires WHERE rule_id = ?`).run(ruleId).changes;
+    }
+
+    deleteInsightRuleFireByRuleAndPeriod(ruleId: string, periodKey: string): boolean {
+        return this.db.prepare(`DELETE FROM insight_rule_fires WHERE rule_id = ? AND period_key = ?`).run(ruleId, periodKey).changes > 0;
     }
 }

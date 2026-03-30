@@ -4,6 +4,7 @@ import { estimateTypicalAnalystCallInputTokens, sliceTransactionsForAnalyst } fr
 import { CollapsibleCard } from './CollapsibleCard';
 import { GeminiApiKeyCard } from './GeminiApiKeyCard';
 import { AIMemorySettings } from './AIMemorySettings';
+import { InsightRulesSettings } from './InsightRulesSettings';
 import { CategorySettings } from './CategorySettings';
 import { PersonaAlignmentSettings } from './persona/PersonaAlignmentSettings';
 import { useAISettings, useUpdateAISettings, useAIModels } from '../hooks/useScraper';
@@ -229,6 +230,8 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
             {!isInline && <GeminiApiKeyCard />}
 
             <AIMemorySettings isInline={true} embeddedInAiTab />
+
+            <InsightRulesSettings isInline />
 
             {showCategoriesInModal && <CategorySettings />}
         </div>

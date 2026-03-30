@@ -5,7 +5,13 @@ import { api } from '../../lib/api';
 
 export const AI_TOP_INSIGHTS_QUERY_KEY = ['ai-memory-top-insights'] as const;
 
-type TopInsight = { id: string; text: string; score: number; createdAt: string };
+type TopInsight = {
+    id: string;
+    text: string;
+    score: number;
+    createdAt: string;
+    source?: 'ai' | 'rule';
+};
 
 function splitInsightText(text: string): { title: string; description: string } {
     const trimmed = text.trim();
@@ -64,21 +70,28 @@ const CARD_ICONS = [
 ] as const;
 
 export function TopInsightsCard() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const queryClient = useQueryClient();
     const [expanded, setExpanded] = useState(true);
+    const locale = i18n.language?.startsWith('he') ? 'he' : 'en';
 
     const { data: insights, isLoading } = useQuery({
-        queryKey: [...AI_TOP_INSIGHTS_QUERY_KEY, 3],
+        queryKey: [...AI_TOP_INSIGHTS_QUERY_KEY, 3, locale],
         queryFn: async () => {
-            const { data } = await api.get<{ success: boolean; data: TopInsight[] }>('/ai/memory/insights/top?limit=3');
+            const { data } = await api.get<{ success: boolean; data: TopInsight[] }>(
+                `/ai/memory/insights/top?limit=3&locale=${encodeURIComponent(locale)}`
+            );
             return data.data;
         },
     });
 
     const dismissInsight = useMutation({
-        mutationFn: async (id: string) => {
-            await api.delete(`/ai/memory/insights/${encodeURIComponent(id)}`);
+        mutationFn: async ({ id, source }: { id: string; source?: 'ai' | 'rule' }) => {
+            if (source === 'rule') {
+                await api.delete(`/insight-rules/fires/${encodeURIComponent(id)}`);
+            } else {
+                await api.delete(`/ai/memory/insights/${encodeURIComponent(id)}`);
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: AI_TOP_INSIGHTS_QUERY_KEY });
@@ -158,7 +171,7 @@ export function TopInsightsCard() {
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => dismissInsight.mutate(item.id)}
+                                        onClick={() => dismissInsight.mutate({ id: item.id, source: item.source })}
                                         disabled={dismissInsight.isPending}
                                         className="absolute top-2 end-2 p-1.5 rounded-lg text-gray-400 hover:text-emerald-800 hover:bg-emerald-50/80 transition-colors disabled:opacity-50"
                                         title={t('dashboard.dismiss_insight')}
@@ -175,6 +188,18 @@ export function TopInsightsCard() {
                                             {palette.icon}
                                         </div>
                                         <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                                                {item.source === 'rule' && (
+                                                    <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-900">
+                                                        {t('dashboard.top_insights_rule_badge')}
+                                                    </span>
+                                                )}
+                                                {item.source === 'ai' && (
+                                                    <span className="inline-flex rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-indigo-900">
+                                                        {t('dashboard.top_insights_ai_badge')}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {showTitle && (
                                                 <p className="text-sm font-bold text-gray-900 leading-snug">{title}</p>
                                             )}

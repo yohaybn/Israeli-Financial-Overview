@@ -9,7 +9,9 @@ import {
     isUserPersonaEmpty,
     mergeUserPersonaContext,
     normalizePersonaExtractFromAi,
-    type PersonaExtractFromNarrativeResult
+    type PersonaExtractFromNarrativeResult,
+    parseInsightRuleDefinition,
+    type InsightRuleDefinitionV1
 } from '@app/shared';
 import { attachGeminiRateLimitToError } from '../utils/geminiRateLimitCapture.js';
 import fs from 'fs-extra';
@@ -1462,6 +1464,126 @@ ${trimmed}
             await logAIError(this.settings.chatModel, 'gemini', '[persona extract]', err, {
                 latencyMs: Date.now() - startTime,
                 systemPrompt: systemInstruction
+            });
+            attachGeminiRateLimitToError(err);
+            throw err;
+        }
+    }
+
+    /**
+     * Turn a natural-language description into a v1 insight rule definition (Gemini JSON).
+     */
+    async suggestInsightRuleDraft(userDescription: string): Promise<{ name: string; definition: InsightRuleDefinitionV1 }> {
+        if (!this.genAI) {
+            throw new Error(AI_CATEGORIZATION_NO_API_KEY);
+        }
+        const trimmed = userDescription.trim();
+        if (!trimmed) {
+            throw new Error('Description required');
+        }
+        const systemInstruction = `You output JSON only for an "insight rule" used by a personal finance app (Israeli bank data).
+Schema of the JSON you return:
+{
+  "name": string,
+  "definition": {
+    "version": 1,
+    "scope": "current_month" | "all" | "last_n_days",
+    "lastNDays": number | omitted (required only when scope is last_n_days, 1-366),
+    "condition": InsightRuleCondition,
+    "output": {
+      "kind": "insight" | "alert",
+      "score": number (1-100),
+      "message": { "en": string, "he": string }
+    }
+  }
+}
+
+InsightRuleCondition (recursive):
+- { "op": "and", "items": [ InsightRuleCondition, ... ] }
+- { "op": "or", "items": [ ... ] }
+- { "op": "not", "item": InsightRuleCondition }
+- { "op": "existsTxn", "where": TxnCondition }
+- { "op": "sumExpensesGte", "amount": number, "category": optional string (Hebrew category label e.g. מזון) }
+- { "op": "sumExpensesLte", "amount": number, "category": optional }
+- { "op": "txnCountGte", "min": number, "category": optional }
+
+TxnCondition:
+- { "op": "and", "items": [ TxnCondition, ... ] } | { "op": "or", "items": [...] } | { "op": "not", "item": TxnCondition }
+- { "op": "categoryEquals", "value": string }
+- { "op": "categoryIn", "values": string[] }
+- { "op": "memoOrDescriptionContains", "value": string }
+- { "op": "accountEquals", "value": string }
+- { "op": "ignored", "value": boolean }
+- { "op": "amountAbsGte", "value": number }
+- { "op": "amountAbsLte", "value": number }
+- { "op": "isExpense" }
+
+Message strings may use placeholders {{sum}}, {{count}}, {{category}}.
+Prefer bilingual message.en and message.he.`;
+
+        const userPrompt = `User request:\n---\n${trimmed}\n---`;
+
+        const model = this.genAI.getGenerativeModel({
+            model: this.settings.chatModel,
+            systemInstruction,
+        });
+
+        const startTime = Date.now();
+        try {
+            const genResult = await runWithAILoadTracking(() =>
+                model.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        maxOutputTokens: 2048,
+                        responseMimeType: 'application/json',
+                    },
+                } as Parameters<typeof model.generateContent>[0])
+            );
+            const response = await genResult.response;
+            const text = response.text();
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(text);
+            } catch {
+                const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+                parsed = JSON.parse(fence ? fence[1].trim() : text.trim());
+            }
+            const obj = parsed as { name?: string; definition?: unknown };
+            if (typeof obj.name !== 'string' || !obj.name.trim()) {
+                throw new Error('Model did not return a valid name');
+            }
+            const defParsed = parseInsightRuleDefinition(obj.definition);
+            if (!defParsed.ok) {
+                throw new Error(defParsed.error);
+            }
+            const usageMetadata = response.usageMetadata;
+            await logAICall({
+                model: this.settings.chatModel,
+                provider: 'gemini',
+                requestInfo: {
+                    systemPrompt: systemInstruction,
+                    userInput: `[insight rule draft] ${trimmed.length} chars`,
+                    inputLength: trimmed.length,
+                },
+                responseInfo: {
+                    rawOutput: JSON.stringify({ name: obj.name, definition: defParsed.value }),
+                    finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                    success: true,
+                },
+                metadata: {
+                    promptTokens: usageMetadata?.promptTokenCount,
+                    completionTokens: usageMetadata?.candidatesTokenCount,
+                    totalTokens: usageMetadata?.totalTokenCount,
+                    latencyMs: Date.now() - startTime,
+                },
+            });
+            return { name: obj.name.trim(), definition: defParsed.value };
+        } catch (error: unknown) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            await logAIError(this.settings.chatModel, 'gemini', '[insight rule draft]', err, {
+                latencyMs: Date.now() - startTime,
+                systemPrompt: systemInstruction,
             });
             attachGeminiRateLimitToError(err);
             throw err;
