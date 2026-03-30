@@ -27,13 +27,21 @@ COPY client ./client
 # Multi-arch / QEMU: slow reads can hit ETIMEDOUT on large tarballs (e.g. typescript).
 # Retry/timeouts + single socket help; plain `npm ci` (no BuildKit cache mount) so HA Supervisor
 # and other non-BuildKit builders succeed.
+# Outer retries: npm may not restart the whole install after a mid-stream read timeout.
 ENV npm_config_cache=/root/.npm \
     npm_config_fetch_retries=20 \
     npm_config_fetch_retry_mintimeout=20000 \
     npm_config_fetch_retry_maxtimeout=120000 \
     npm_config_fetch_timeout=600000 \
     npm_config_maxsockets=1
-RUN npm ci
+RUN i=0; \
+    while [ "$$i" -lt 5 ]; do \
+      i=$$((i + 1)); \
+      npm ci && exit 0; \
+      echo "npm ci failed (attempt $$i/5), retrying in $$((i * 20))s..."; \
+      sleep $$((i * 20)); \
+    done; \
+    exit 1
 
 # Build workspaces in order
 RUN npm run build -w shared
