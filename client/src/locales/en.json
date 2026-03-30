@@ -1048,6 +1048,8 @@
         "col_username": "Username",
         "col_allowed_chat": "Allowed chat",
         "col_notification": "Notification",
+        "col_accounts": "Memo accounts",
+        "accounts_routing_help": "Comma-separated account numbers for per-transaction memo prompts in Telegram. Use * for all accounts. Accounts not listed on any row still notify every notification chat.",
         "col_actions": "Actions",
         "token_security_title": "Bot token security",
         "token_security_line1": "Bot token is hidden while the bot is running.",

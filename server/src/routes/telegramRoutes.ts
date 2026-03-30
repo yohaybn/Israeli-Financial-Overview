@@ -42,9 +42,25 @@ router.get('/config', async (req: Request, res: Response) => {
  */
 router.post('/config', async (req: Request, res: Response) => {
   try {
-    const { botToken, enabled, adminChatIds, notificationChatIds, allowedUsers, language } = req.body;
+    const {
+      botToken,
+      enabled,
+      adminChatIds,
+      notificationChatIds,
+      notificationAccountsByChatId,
+      allowedUsers,
+      language,
+    } = req.body;
 
-    if (!botToken && enabled === undefined && !adminChatIds && !notificationChatIds && allowedUsers === undefined && !language) {
+    if (
+      !botToken &&
+      enabled === undefined &&
+      !adminChatIds &&
+      !notificationChatIds &&
+      notificationAccountsByChatId === undefined &&
+      allowedUsers === undefined &&
+      !language
+    ) {
       return res.status(400).json({ success: false, error: 'At least one field is required' });
     }
 
@@ -53,6 +69,9 @@ router.post('/config', async (req: Request, res: Response) => {
     if (enabled !== undefined) config.enabled = enabled;
     if (adminChatIds) config.adminChatIds = adminChatIds;
     if (notificationChatIds) config.notificationChatIds = notificationChatIds;
+    if (notificationAccountsByChatId !== undefined) {
+      config.notificationAccountsByChatId = notificationAccountsByChatId;
+    }
     if (allowedUsers !== undefined) config.allowedUsers = allowedUsers;
     if (language) config.language = language;
 

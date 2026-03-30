@@ -80,6 +80,14 @@ export interface AnalyzeDataOptions {
 /** Rows above this count are sent as an uploaded file instead of inline CSV. */
 export const AI_TXN_INLINE_MAX_ROWS = 100;
 
+/**
+ * Injected into analyst prompts so the model does not misread CSV columns.
+ * `originalAmount` often differs from `amount` for installment totals vs posted slice, or foreign-currency charges.
+ */
+const ANALYZE_TXN_CSV_COLUMN_HINT =
+    'Transaction CSV semantics: `amount` is the posted amount in the account currency (usually ILS). ' +
+    '`originalAmount` is the source figure when it differs from that posting: either the total for installment / multi-payment purchases (or the plan total as recorded by the bank), or the charge amount in the original foreign currency; use `originalCurrency` together with these columns.';
+
 /** Returned when categorization cannot call the model; cache-only mapping is still applied. */
 export const AI_CATEGORIZATION_NO_API_KEY = 'GEMINI_API_KEY not configured';
 
@@ -590,6 +598,8 @@ export class AiService {
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
 
             ${layout}
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
+
             Question: ${q}
 
             Constraints & Output Format:
@@ -644,6 +654,8 @@ export class AiService {
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
 
             ${layout}
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
+
             Question: ${query}
             ${newBlock}
             Constraints & Output Format:
@@ -754,6 +766,7 @@ export class AiService {
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
 
             The attached CSV file contains all ${transactions.length} transactions (${transactions.length} rows). Use it for the question below.
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
 
             Question: ${query}
 
@@ -766,6 +779,8 @@ export class AiService {
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
 
             [Note: CSV is inline because upload to the AI file service failed (e.g. network/DNS/firewall/proxy).]\n\n
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
+
             Question: ${query}
 
             ---
@@ -781,6 +796,8 @@ export class AiService {
             } else {
                 currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
+
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
             
             Question: ${query}
 
@@ -961,6 +978,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
             ${this.categoryMetaContextForPrompt()}
             The attached CSV file contains all ${transactions.length} transactions (${transactions.length} rows). Use it for the question below.
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
 
             Question and instructions:
             ${fullQuery}
@@ -971,6 +989,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
             ${this.categoryMetaContextForPrompt()}
             [Note: CSV is inline because upload to the AI file service failed (e.g. network/DNS/firewall/proxy).]
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
 
             Question and instructions:
             ${fullQuery}
@@ -986,6 +1005,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             currentPrompt = `
             Analyze the Objective: You are a professional financial analyst. Your core task is to provide concise, data-driven answers based on provided transaction history.
             ${this.categoryMetaContextForPrompt()}
+            ${ANALYZE_TXN_CSV_COLUMN_HINT}
             Question and instructions:
             ${fullQuery}
 

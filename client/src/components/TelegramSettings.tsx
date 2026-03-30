@@ -27,6 +27,17 @@ function avatarLetter(label: string): string {
     return (s[0] || '?').toUpperCase();
 }
 
+function parseAccountsMapFromInput(input: Record<string, string>, ids: string[]): Record<string, string[]> {
+    const out: Record<string, string[]> = {};
+    for (const id of ids) {
+        const raw = (input[id] || '').trim();
+        if (!raw) continue;
+        const arr = raw.split(',').map((x) => x.trim()).filter(Boolean);
+        if (arr.length) out[id] = arr;
+    }
+    return out;
+}
+
 export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettingsProps) {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
@@ -37,6 +48,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [newUserId, setNewUserId] = useState('');
     const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
+    const [accountsByChatInput, setAccountsByChatInput] = useState<Record<string, string>>({});
     const [botLanguage, setBotLanguage] = useState<'en' | 'he'>('en');
     const [sendingTestChatId, setSendingTestChatId] = useState<string | null>(null);
     const [tokenFieldFocused, setTokenFieldFocused] = useState(false);
@@ -67,6 +79,15 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             }
             if (config.language) {
                 setBotLanguage(config.language);
+            }
+            if (config.notificationAccountsByChatId && typeof config.notificationAccountsByChatId === 'object') {
+                const next: Record<string, string> = {};
+                for (const [k, v] of Object.entries(config.notificationAccountsByChatId as Record<string, string[]>)) {
+                    next[k] = Array.isArray(v) ? v.join(', ') : '';
+                }
+                setAccountsByChatInput(next);
+            } else {
+                setAccountsByChatInput({});
             }
             lastTokenSaveSnapRef.current = `${config.botToken || ''}|${config.language || 'en'}`;
         }
@@ -178,7 +199,12 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                 setBotToken('');
                 setTokenFieldFocused(false);
             }
-            showNotification('success', t('telegram.config_saved'));
+            const keys = Object.keys(variables || {});
+            const onlyAccounts =
+                keys.length === 1 && keys[0] === 'notificationAccountsByChatId';
+            if (!onlyAccounts) {
+                showNotification('success', t('telegram.config_saved'));
+            }
         },
         onError: (err: any) => {
             showNotification('error', err.message || t('telegram.errors.save_config_failed'));
@@ -296,20 +322,26 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         mutationFn: async (id: string) => {
             const nextAllowed = (allowedUsers || []).filter((u) => u !== id);
             const nextNotif = ((notificationChats as string[]) || []).filter((c) => c !== id);
+            const nextAccInput = { ...accountsByChatInput };
+            delete nextAccInput[id];
+            const nextRows = userRows.filter((u) => u !== id);
+            const notificationAccountsByChatId = parseAccountsMapFromInput(nextAccInput, nextRows);
             const res = await fetch(`${getApiRoot()}/telegram/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     allowedUsers: nextAllowed,
                     notificationChatIds: nextNotif,
+                    notificationAccountsByChatId,
                 }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || t('telegram.errors.remove_user_failed'));
-            return { id, nextAllowed, nextNotif };
+            return { id, nextAllowed, nextNotif, nextAccInput };
         },
-        onSuccess: ({ nextAllowed }) => {
+        onSuccess: ({ nextAllowed, nextAccInput }) => {
             setAllowedUsers(nextAllowed);
+            setAccountsByChatInput(nextAccInput);
             queryClient.invalidateQueries({ queryKey: ['telegramConfig'] });
             queryClient.invalidateQueries({ queryKey: ['telegramNotificationChats'] });
             queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
@@ -559,6 +591,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                         <div>
                             <h3 className="text-base font-bold text-gray-900">{t('telegram.users_management')}</h3>
                             <p className="text-sm text-gray-500 mt-1">{t('telegram.users_management_help')}</p>
+                            <p className="text-xs text-gray-600 mt-2 max-w-3xl">{t('telegram.accounts_routing_help')}</p>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -592,6 +625,9 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                         <th className="text-center px-3 py-3 font-bold text-gray-700 text-xs uppercase tracking-wide w-28">
                                             {t('telegram.col_notification')}
                                         </th>
+                                        <th className="text-left px-3 py-3 font-bold text-gray-700 text-xs uppercase tracking-wide min-w-[10rem]">
+                                            {t('telegram.col_accounts')}
+                                        </th>
                                         <th className="text-right px-4 py-3 font-bold text-gray-700 text-xs uppercase tracking-wide w-28">
                                             {t('telegram.col_actions')}
                                         </th>
@@ -600,7 +636,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 <tbody>
                                     {userRows.length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="px-4 py-10 text-center text-gray-500">
+                                            <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
                                                 {t('telegram.no_users')}
                                             </td>
                                         </tr>
@@ -640,6 +676,29 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                                         checked={isNotify}
                                                         onChange={(e) => setNotificationChat({ id, enabled: e.target.checked })}
                                                         className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-3">
+                                                    <input
+                                                        type="text"
+                                                        value={accountsByChatInput[id] ?? ''}
+                                                        onChange={(e) =>
+                                                            setAccountsByChatInput((prev) => ({
+                                                                ...prev,
+                                                                [id]: e.target.value,
+                                                            }))
+                                                        }
+                                                        onBlur={(e) => {
+                                                            const next = { ...accountsByChatInput, [id]: e.target.value };
+                                                            setAccountsByChatInput(next);
+                                                            updateConfig({
+                                                                notificationAccountsByChatId:
+                                                                    parseAccountsMapFromInput(next, userRows),
+                                                            });
+                                                        }}
+                                                        placeholder="131, 5326, *"
+                                                        disabled={isUpdating}
+                                                        className="w-full min-w-[8rem] max-w-[14rem] px-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                                                     />
                                                 </td>
                                                 <td className="px-4 py-3 text-right">

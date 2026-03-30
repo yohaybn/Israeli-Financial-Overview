@@ -34,8 +34,78 @@ export interface TelegramConfig {
   enabled: boolean;
   adminChatIds: string[];
   notificationChatIds: string[];
+  /** Per chat: account numbers (or *) for memo/review Telegram prompts; see resolveMemoPromptChatIds */
+  notificationAccountsByChatId?: Record<string, string[]>;
   allowedUsers?: string[]; // Empty = allow all
   language?: 'en' | 'he'; // Bot UI language
+}
+
+function normalizeAccountKey(s: string): string {
+  return String(s ?? '')
+    .trim()
+    .replace(/\D/g, '');
+}
+
+function accountMatchesEntry(txnNorm: string, entryRaw: string): boolean {
+  const e = String(entryRaw).trim();
+  if (!e || e === '*') return false;
+  const entryNorm = normalizeAccountKey(e);
+  if (entryNorm.length === 0) return false;
+  return txnNorm === entryNorm || txnNorm.endsWith(entryNorm) || entryNorm.endsWith(txnNorm);
+}
+
+function hasMemoAccountRouting(cfg: TelegramConfig): boolean {
+  const m = cfg.notificationAccountsByChatId;
+  if (!m || Object.keys(m).length === 0) return false;
+  return Object.values(m).some(
+    (arr) => Array.isArray(arr) && arr.some((x) => String(x).trim() !== '')
+  );
+}
+
+/** Memo prompts: specific account → those chats + * chats; unmapped account → all notification chats (+ * chats redundant). */
+export function resolveMemoPromptChatIds(
+  cfg: TelegramConfig,
+  accountNumber: string,
+  notificationChatIds: string[],
+  requestTgChat?: string
+): string[] {
+  const base = [...new Set(notificationChatIds.map(String).filter(Boolean))];
+  if (!hasMemoAccountRouting(cfg)) {
+    const s = new Set(base);
+    if (requestTgChat) s.add(String(requestTgChat));
+    return [...s];
+  }
+
+  const map = cfg.notificationAccountsByChatId || {};
+  const txnNorm = normalizeAccountKey(accountNumber);
+
+  const specificMatches: string[] = [];
+  const starMatches: string[] = [];
+
+  for (const cid of base) {
+    const list = map[cid] || [];
+    if (list.some((x) => String(x).trim() === '*')) {
+      starMatches.push(cid);
+    }
+    for (const entry of list) {
+      if (accountMatchesEntry(txnNorm, entry)) {
+        specificMatches.push(cid);
+        break;
+      }
+    }
+  }
+
+  let targets: string[];
+  if (specificMatches.length > 0) {
+    targets = [...new Set([...specificMatches, ...starMatches])];
+  } else {
+    targets = [...base];
+  }
+
+  if (requestTgChat) {
+    targets = [...new Set([...targets, String(requestTgChat)])];
+  }
+  return targets;
 }
 
 // Translation strings for the bot
@@ -442,6 +512,7 @@ export class TelegramBotService {
       enabled: false,
       adminChatIds: [],
       notificationChatIds: [],
+      notificationAccountsByChatId: {},
       allowedUsers: [],
       language: 'en',
     };
@@ -2084,25 +2155,24 @@ export class TelegramBotService {
       return;
     }
     const cfg = this.getConfig();
-    const chatIds = new Set<string>();
-    for (const id of cfg.notificationChatIds || []) {
-      if (id) chatIds.add(String(id));
-    }
+    const baseIds = (cfg.notificationChatIds || []).map(String).filter(Boolean);
     const reqAny = request as any;
     const tgChat = reqAny?.options?.postScrape?.telegramChatId || reqAny?.options?.telegramChatId;
-    if (tgChat) chatIds.add(String(tgChat));
-    if (chatIds.size === 0) {
+    if (baseIds.length === 0 && !tgChat) {
       serverLogger.debug('telegramBot: memo reply prompts skipped (no notification chat IDs)');
       return;
     }
     const lang = botLanguage === 'he' ? 'he' : 'en';
     const capped = items.slice(0, 12);
-    for (const chatId of chatIds) {
-      for (const it of capped) {
+    let sendCount = 0;
+    for (const it of capped) {
+      const targets = resolveMemoPromptChatIds(cfg, it.accountNumber || '', baseIds, tgChat);
+      for (const chatId of targets) {
         const text = this.formatMemoReplyPrompt(it, lang);
         try {
           const sent = await this.bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML' });
           this.registerMemoReplyTarget(chatId, sent.message_id, it.id);
+          sendCount++;
         } catch (e) {
           serverLogger.warn('telegramBot: memo reply prompt send failed', {
             chatId,
@@ -2111,7 +2181,7 @@ export class TelegramBotService {
         }
       }
     }
-    serverLogger.info('telegramBot: memo reply prompts sent', { chats: chatIds.size, items: capped.length });
+    serverLogger.info('telegramBot: memo reply prompts sent', { sends: sendCount, items: capped.length });
   }
 
   /**
