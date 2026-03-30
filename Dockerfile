@@ -34,12 +34,11 @@ ENV npm_config_cache=/root/.npm \
     npm_config_fetch_retry_maxtimeout=120000 \
     npm_config_fetch_timeout=600000 \
     npm_config_maxsockets=1
-RUN i=0; \
-    while [ "$$i" -lt 5 ]; do \
-      i=$$((i + 1)); \
+# No $((...)): Docker RUN `$$` escaping can break arithmetic and confuse /bin/sh (dash).
+RUN for n in 1 2 3 4 5; do \
       npm ci && exit 0; \
-      echo "npm ci failed (attempt $$i/5), retrying in $$((i * 20))s..."; \
-      sleep $$((i * 20)); \
+      echo "npm ci failed (attempt $$n/5), retrying in 30s..."; \
+      [ "$$n" -eq 5 ] || sleep 30; \
     done; \
     exit 1
 
