@@ -179,7 +179,7 @@ export class PostScrapeService {
         return `• ${desc} (${tag}, ₪${it.amount}${acctBit})`;
       });
 
-      const payload: NotificationPayload = {
+      const fullPayload: NotificationPayload = {
         pipelineId: request ? (request.profileName || request.companyId || 'post-scrape') : 'post-scrape',
         status: 'warning' as any,
         timestamp: new Date(),
@@ -194,9 +194,31 @@ export class PostScrapeService {
         },
       };
 
-      await this.notifyWithTelegramAggregation(channelsNoTelegram, payload, request);
+      if (channelsNoTelegram.length > 0) {
+        await notificationService.notify(channelsNoTelegram, fullPayload);
+      }
 
       if (sendTelegram) {
+        const countOnlyLine =
+          botLanguage === 'he'
+            ? `${items.length} תנועות חדשות דורשות סיווג או הערה.`
+            : `${items.length} new transaction(s) need a category or memo.`;
+        const telegramReviewPayload: NotificationPayload = {
+          pipelineId: request ? (request.profileName || request.companyId || 'post-scrape') : 'post-scrape',
+          status: 'warning' as any,
+          timestamp: new Date(),
+          detailLevel: 'normal',
+          runSource: this.getRunSource(request),
+          telegramSegment: 'review-count',
+          summary: {
+            durationMs: 0,
+            stagesRun: ['scrape', 'post-scrape'],
+            successfulStages: ['scrape', 'post-scrape'],
+            transactionCount: items.length,
+            insights: [countOnlyLine],
+          },
+        };
+        await this.notifyWithTelegramAggregation(['telegram'], telegramReviewPayload, request);
         try {
           await telegramBotService.sendMemoReplyPromptsForReview(items, request, botLanguage);
         } catch (e) {
@@ -266,6 +288,29 @@ export class PostScrapeService {
     return 'manual';
   }
 
+  private async sendTelegramPayloadForRequest(request: ScrapeRequest | undefined, payload: NotificationPayload): Promise<void> {
+    const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
+    if (tgChatId) {
+      const tgNotifier = notificationService.getNotifier('telegram') as any;
+      if (tgNotifier && typeof tgNotifier.addChatId === 'function') {
+        try {
+          tgNotifier.addChatId(String(tgChatId));
+          await tgNotifier.send(payload);
+        } finally {
+          try {
+            tgNotifier.removeChatId(String(tgChatId));
+          } catch (e) {
+            /* ignore */
+          }
+        }
+      } else {
+        await notificationService.notify(['telegram'], payload);
+      }
+    } else {
+      await notificationService.notify(['telegram'], payload);
+    }
+  }
+
   private async notifyWithTelegramAggregation(
     channels: string[],
     payload: NotificationPayload,
@@ -283,7 +328,8 @@ export class PostScrapeService {
     }
 
     const tgNotifier = notificationService.getNotifier('telegram');
-    const shouldCollectTelegram = channels.includes('telegram') || Boolean(tgNotifier && tgNotifier.isEnabled());
+    const shouldCollectTelegram =
+      channels.includes('telegram') && Boolean(tgNotifier && tgNotifier.isEnabled());
     if (shouldCollectTelegram) {
       buffer.push(payload);
     }
@@ -293,66 +339,79 @@ export class PostScrapeService {
     const buffer = this.getTelegramAggregationBuffer(request);
     if (!buffer || buffer.length === 0) return;
 
+    const mainBuffer = buffer.filter((p) => !p.telegramSegment);
+    const reviewPayload = buffer.find((p) => p.telegramSegment === 'review-count');
+    const fraudPayloads = buffer.filter((p) => p.telegramSegment === 'fraud');
+    const customPayload = buffer.find((p) => p.telegramSegment === 'custom-ai');
+
     const bySeverity = { success: 1, warning: 2, failure: 3 } as const;
     const finalStatus = buffer.reduce<'success' | 'warning' | 'failure'>((current, p) => {
       return bySeverity[p.status] > bySeverity[current] ? p.status : current;
     }, 'success');
 
-    const digestInsights = buffer
-      .filter((p) => p.pipelineId === 'Spending digest')
-      .flatMap((p) => p.summary?.insights || [])
-      .filter((s) => !!s);
-    const otherInsights = buffer
-      .filter((p) => p.pipelineId !== 'Spending digest')
-      .flatMap((p) => p.summary?.insights || [])
-      .filter((s) => !!s);
-    const insights = [...digestInsights, ...otherInsights].slice(0, 24);
+    if (mainBuffer.length > 0) {
+      const digestInsights = mainBuffer
+        .filter((p) => p.pipelineId === 'Spending digest')
+        .flatMap((p) => p.summary?.insights || [])
+        .filter((s) => !!s);
+      const otherInsights = mainBuffer
+        .filter((p) => p.pipelineId !== 'Spending digest')
+        .flatMap((p) => p.summary?.insights || [])
+        .filter((s) => !!s);
+      const insights = [...digestInsights, ...otherInsights].slice(0, 24);
 
-    const scrapePayload =
-      [...buffer].reverse().find((p) => p.summary?.transactionCount != null || p.summary?.accounts != null) ||
-      buffer[buffer.length - 1];
+      const scrapePayload =
+        [...mainBuffer].reverse().find((p) => p.summary?.transactionCount != null || p.summary?.accounts != null) ||
+        mainBuffer[mainBuffer.length - 1];
 
-    const combinedPayload: NotificationPayload = {
-      pipelineId: request?.profileName || request?.companyId || scrapePayload.pipelineId || 'scrape',
-      status: finalStatus,
-      timestamp: new Date(),
-      detailLevel: 'normal',
-      runSource: this.getRunSource(request),
-      summary: {
-        durationMs: Math.max(...buffer.map((p) => p.summary?.durationMs || 0)),
-        stagesRun: ['scrape', 'post-scrape'],
-        successfulStages: finalStatus === 'failure' ? ['scrape'] : ['scrape', 'post-scrape'],
-        failedStage: finalStatus === 'failure' ? 'post-scrape' : undefined,
-        transactionCount: scrapePayload.summary?.transactionCount,
-        accounts: scrapePayload.summary?.accounts,
-        balance: scrapePayload.summary?.balance,
-        insights,
-      },
-      errorDetails: finalStatus === 'failure'
-        ? {
-          stage: 'post-scrape',
-          message: buffer
-            .map((p) => p.errorDetails?.message)
-            .find((m) => !!m) || 'Post-scrape failed',
-        }
-        : undefined,
-    };
+      const combinedPayload: NotificationPayload = {
+        pipelineId: request?.profileName || request?.companyId || scrapePayload.pipelineId || 'scrape',
+        status: finalStatus,
+        timestamp: new Date(),
+        detailLevel: 'normal',
+        runSource: this.getRunSource(request),
+        summary: {
+          durationMs: Math.max(...mainBuffer.map((p) => p.summary?.durationMs || 0)),
+          stagesRun: ['scrape', 'post-scrape'],
+          successfulStages: finalStatus === 'failure' ? ['scrape'] : ['scrape', 'post-scrape'],
+          failedStage: finalStatus === 'failure' ? 'post-scrape' : undefined,
+          transactionCount: scrapePayload.summary?.transactionCount,
+          accounts: scrapePayload.summary?.accounts,
+          balance: scrapePayload.summary?.balance,
+          insights,
+        },
+        errorDetails: finalStatus === 'failure'
+          ? {
+            stage: 'post-scrape',
+            message: buffer
+              .map((p) => p.errorDetails?.message)
+              .find((m) => !!m) || 'Post-scrape failed',
+          }
+          : undefined,
+      };
 
-    const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
-    if (tgChatId) {
-      const tgNotifier = notificationService.getNotifier('telegram') as any;
-      if (tgNotifier && typeof tgNotifier.addChatId === 'function') {
-        try {
-          tgNotifier.addChatId(String(tgChatId));
-          await tgNotifier.send(combinedPayload);
-        } finally {
-          try { tgNotifier.removeChatId(String(tgChatId)); } catch (e) { }
-        }
-      } else {
-        await notificationService.notify(['telegram'], combinedPayload);
-      }
-    } else {
-      await notificationService.notify(['telegram'], combinedPayload);
+      await this.sendTelegramPayloadForRequest(request, combinedPayload);
+    }
+
+    if (reviewPayload) {
+      await this.sendTelegramPayloadForRequest(request, reviewPayload);
+    }
+
+    if (fraudPayloads.length > 0) {
+      const base = fraudPayloads[0];
+      const mergedFraud: NotificationPayload = {
+        ...base,
+        summary: {
+          ...base.summary,
+          insights: fraudPayloads.flatMap((p) => p.summary?.insights || []).filter((s) => !!s),
+        },
+        telegramSegment: 'fraud',
+      };
+      await this.sendTelegramPayloadForRequest(request, mergedFraud);
+    }
+
+    if (customPayload) {
+      await this.sendTelegramPayloadForRequest(request, customPayload);
     }
 
     (request as any).__telegramAggregationPayloads = [];
@@ -689,6 +748,7 @@ export class PostScrapeService {
                       timestamp: new Date(),
                       detailLevel: 'normal',
                       runSource: this.getRunSource(request),
+                      telegramSegment: 'fraud',
                       summary: {
                         durationMs: result.executionTimeMs || 0,
                         stagesRun: ['scrape'],
@@ -736,8 +796,8 @@ export class PostScrapeService {
                     : '\n\n';
                   const baseQuery =
                     botLanguage === 'he'
-                      ? `נתח את העסקאות הבאות וזהה הונאות פוטנציאליות, חיובים לא מורשים, חריגות או מחלוקות. החזר סיכום תמציתי וכל בעיה שתתגלה בעברית.`
-                      : `Analyze these transactions and identify any potential fraud, unauthorized charges, anomalies, or disputes. Return a concise summary and any detected issues in English.`;
+                      ? `נתח את העסקאות הבאות וזהה הונאות פוטנציאליות, חיובים לא מורשים, חריגות או מחלוקות. החזר רק עובדות וממצאים בעברית — ללא מבוא, ללא ברכות וללא סיכום שיחה.`
+                      : `Analyze these transactions and identify any potential fraud, unauthorized charges, anomalies, or disputes. Reply with only the factual findings in English — no introduction, greeting, or closing.`;
                   const fraudQuery = runContext + previousInstruction + baseQuery;
 
                   const useFraudSplit = scope === 'all' && history.length > 0;
@@ -771,21 +831,19 @@ export class PostScrapeService {
                     timestamp: new Date(),
                     detailLevel: 'normal',
                     runSource: this.getRunSource(request),
+                    telegramSegment: 'fraud',
                     summary: {
                       durationMs: result.executionTimeMs || 0,
                       stagesRun: ['scrape'],
                       successfulStages: ['scrape'],
                       transactionCount: transactions.length,
-                      insights: [ 'Fraud detection (AI) flagged potential issues' ],
+                      insights: [fraudResult || ''],
                       accounts: result.accounts?.length || 0,
                       balance: result.accounts?.reduce?.((sum: number, acc: any) => sum + (acc.balance || 0), 0) || 0,
                     },
                   };
 
-                  await this.notifyWithTelegramAggregation(channels, {
-                    ...payload,
-                    summary: { ...payload.summary, insights: [ fraudResult.substring(0, 1000) ] },
-                  } as any, request);
+                  await this.notifyWithTelegramAggregation(channels, payload, request);
 
                   logger.info('Post-scrape: AI fraud notification sent');
                 }
@@ -836,7 +894,10 @@ export class PostScrapeService {
                     ? `סיכום הריצה הקודמת (להתייחסות בלבד):\n${lastSummary}\n\n`
                     : `Previous run's summary (for reference only):\n${lastSummary}\n\n`)
                 : '';
-              const langSuffix = botLanguage === 'he' ? '\nאנא השב בעברית.' : '\nPlease respond in English.';
+              const langSuffix =
+                botLanguage === 'he'
+                  ? '\nאנא השב בעברית. הוצא רק את המידע המבוקש — ללא מבוא, ללא ברכות וללא סיום שיחה.'
+                  : '\nPlease respond in English. Output only what was asked — no introduction, greeting, or closing.';
               const customQuery = runContext + previousInstruction + cfg.customAI.query + langSuffix;
 
               const useCustomSplit = cfg.customAI.scope === 'all' && customHistory.length > 0;
@@ -868,21 +929,19 @@ export class PostScrapeService {
                   timestamp: new Date(),
                   detailLevel: 'normal',
                   runSource: this.getRunSource(request),
+                  telegramSegment: 'custom-ai',
                   summary: {
                     durationMs: result.executionTimeMs || 0,
                     stagesRun: ['scrape'],
                     successfulStages: ['scrape'],
                     transactionCount: transactions.length,
-                    insights: [ 'Custom AI query result attached' ],
+                    insights: [aiResult || ''],
                     accounts: result.accounts?.length || 0,
                     balance: result.accounts?.reduce?.((sum: number, acc: any) => sum + (acc.balance || 0), 0) || 0,
                   },
                 };
 
-                await this.notifyWithTelegramAggregation(channels, {
-                  ...payload,
-                  summary: { ...payload.summary, insights: [ aiResult.substring(0, 1000) ] },
-                } as any, request);
+                await this.notifyWithTelegramAggregation(channels, payload, request);
 
                 logger.info('Post-scrape: custom AI notification sent');
               }

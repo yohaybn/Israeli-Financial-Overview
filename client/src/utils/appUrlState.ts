@@ -11,7 +11,7 @@ export const CONFIG_TAB_IDS = [
 ] as const;
 export type ConfigTabId = (typeof CONFIG_TAB_IDS)[number];
 
-export const LOG_TAB_IDS = ['server', 'client', 'ai', 'scrape'] as const;
+export const LOG_TAB_IDS = ['server', 'error_log', 'ai', 'scrape'] as const;
 export type LogTabId = (typeof LOG_TAB_IDS)[number];
 
 export interface AppUrlState {
@@ -60,7 +60,9 @@ export function parseAppUrlState(search: string, sessionConfigTabOverride: strin
 
     let logType: LogTabId = 'server';
     const logParam = p.get('log');
-    if (logParam && isLogTab(logParam)) logType = logParam;
+    // Legacy: ?log=client / client_errors → error log tab
+    if (logParam === 'client' || logParam === 'client_errors') logType = 'error_log';
+    else if (logParam && isLogTab(logParam)) logType = logParam;
     else if (view === 'logs' && entryRaw) logType = inferLogTypeForEntry(entryRaw);
 
     let logEntryId = entryRaw;

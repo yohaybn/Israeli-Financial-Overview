@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '@app/shared';
@@ -104,9 +105,14 @@ export class ConfigService {
             return;
         }
 
+        // In Docker, PID 1 is node — exiting stops the container unless a restart policy
+        // is set. docker-entrypoint.sh loops on exit 42 so we restart in-container.
+        // Outside Docker, exit 1 keeps on-failure / PM2-style supervisors working.
+        const inDockerImage =
+            process.env.RUN_IN_DOCKER === '1' || existsSync('/.dockerenv');
+        const exitCode = inDockerImage ? 42 : 1;
         setTimeout(() => {
-            // Exit non-zero so supervisors configured with on-failure also restart us.
-            process.exit(1);
+            process.exit(exitCode);
         }, 500);
     }
 

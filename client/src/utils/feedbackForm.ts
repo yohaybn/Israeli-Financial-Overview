@@ -9,14 +9,15 @@ export function getFeedbackFormBaseUrl(): string {
     return FEEDBACK_FORM_VIEW_URL.trim();
 }
 
-export async function fetchLogsForFeedback(types: Array<'server' | 'client'>): Promise<string> {
+export async function fetchLogsForFeedback(types: Array<'server' | 'error_log'>): Promise<string> {
     const parts: string[] = [];
     const lines = 200;
     for (const type of types) {
         const { data } = await api.get<{ type: string; lines: string; totalLines: number }>(
             `/logs?type=${type}&lines=${lines}`
         );
-        parts.push(`=== ${type} log (last ${lines} lines) ===\n${data.lines}`);
+        const header = type === 'error_log' ? 'error log' : `${type} log`;
+        parts.push(`=== ${header} (last ${lines} lines) ===\n${data.lines}`);
     }
     return parts.join('\n\n');
 }

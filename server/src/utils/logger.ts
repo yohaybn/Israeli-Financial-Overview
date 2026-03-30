@@ -81,13 +81,13 @@ export const serverLogger = winston.createLogger({
 
 export const serviceLogger = serverLogger;
 
-// Logger for client-side events
-export const clientLogger = winston.createLogger({
-    level: currentLogLevel,
+/** Client-originated errors only (POST /api/logs with level error). */
+export const clientErrorLogger = winston.createLogger({
+    level: 'error',
     format: logFormat,
     transports: [
         new winston.transports.File({
-            filename: path.join(LOGS_DIR, 'client.log'),
+            filename: path.join(LOGS_DIR, 'error.log'),
             maxsize: 5242880, // 5MB
             maxFiles: 5
         })
@@ -105,7 +105,6 @@ export function setLogLevel(level: string) {
 
     currentLogLevel = level;
     serverLogger.level = level;
-    clientLogger.level = level;
 
     // Persist to file
     try {

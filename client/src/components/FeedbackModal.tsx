@@ -52,9 +52,9 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         if (wantLogs) {
             setLoading(true);
             try {
-                const types: Array<'server' | 'client'> = [];
+                const types: Array<'server' | 'error_log'> = [];
                 if (consentServer) types.push('server');
-                if (consentClient) types.push('client');
+                if (consentClient) types.push('error_log');
                 rawLogs = await fetchLogsForFeedback(types);
             } catch (e) {
                 console.error(e);

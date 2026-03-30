@@ -41,6 +41,9 @@ const LABELS: Record<'en' | 'he', Record<string, string>> = {
     failed: 'Failed',
     timestamp: 'Timestamp',
     insights: 'Insights',
+    reviewCountTitle: 'Category / memo',
+    fraudSegmentTitle: 'Suspicious / anomaly',
+    customAiSegmentTitle: 'Custom query',
     source: 'Source',
     sourceTelegramBot: 'Telegram bot',
     sourceScheduler: 'Scheduler',
@@ -63,6 +66,9 @@ const LABELS: Record<'en' | 'he', Record<string, string>> = {
     failed: 'נכשל',
     timestamp: 'זמן',
     insights: 'תובנות',
+    reviewCountTitle: 'קטגוריה / הערה',
+    fraudSegmentTitle: 'חשוד / חריגה',
+    customAiSegmentTitle: 'שאילתת AI מותאמת',
     source: '\u05DE\u05E7\u05D5\u05E8',
     sourceTelegramBot: '\u05D1\u05D5\u05D8 \u05D8\u05DC\u05D2\u05E8\u05DD',
     sourceScheduler: '\u05DE\u05EA\u05D6\u05DE\u05DF',
@@ -174,6 +180,19 @@ export class TelegramNotifier extends BaseNotifier {
    * Format payload as Telegram MarkdownV2 message
    */
   private formatMessage(payload: NotificationPayload): string {
+    if (payload.telegramSegment === 'review-count') {
+      const line = (payload.summary.insights && payload.summary.insights[0]) || '';
+      return `*${escMDV2(this.L('reviewCountTitle'))}*\n${escMDV2(line)}`;
+    }
+    if (payload.telegramSegment === 'fraud') {
+      const body = (payload.summary.insights || []).join('\n\n');
+      return `*${escMDV2(this.L('fraudSegmentTitle'))}*\n\n${escMDV2(body)}`;
+    }
+    if (payload.telegramSegment === 'custom-ai') {
+      const body = (payload.summary.insights || []).join('\n\n');
+      return `*${escMDV2(this.L('customAiSegmentTitle'))}*\n\n${escMDV2(body)}`;
+    }
+
     const statusLine = `${this.statusText(payload.status)}`;
     const title = `*${escMDV2(this.L('scrapeNotification'))} \\- ${escMDV2(statusLine)}*`;
     const durationStr = `${(payload.summary.durationMs / 1000).toFixed(2)}${this.L('seconds')}`;

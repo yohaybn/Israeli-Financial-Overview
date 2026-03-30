@@ -16,7 +16,7 @@ import { StorageService } from './services/storageService.js';
 import { FilterService } from './services/filterService.js';
 import { AiService } from './services/aiService.js';
 import { ImportService } from './services/importService.js';
-import { serverLogger, clientLogger } from './utils/logger.js';
+import { serverLogger } from './utils/logger.js';
 import { maskSensitiveData } from './utils/masking.js';
 import { runAiMemoryRetentionPrune } from './services/aiMemoryRetention.js';
 

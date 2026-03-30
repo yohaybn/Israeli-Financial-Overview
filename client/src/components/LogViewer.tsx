@@ -34,7 +34,7 @@ function LogTypeTabs({
     return (
         <div className="flex bg-gray-200/50 p-1 rounded-lg flex-wrap gap-0.5">
             {btn('server', t('common.server'), 'text-blue-600')}
-            {btn('client', t('common.client'), 'text-blue-600')}
+            {btn('error_log', t('common.error_log'), 'text-blue-600')}
             {btn('ai', t('common.ai'), 'text-blue-600')}
             {btn('scrape', t('common.scrape'), 'text-emerald-700')}
         </div>
@@ -46,9 +46,13 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
     const [lines, setLines] = useState(100);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const { data: logsData, isLoading } = useLogs(logType === 'ai' || logType === 'scrape' ? 'server' : logType, lines, {
-        enabled: logType !== 'ai' && logType !== 'scrape',
-    });
+    const { data: logsData, isLoading } = useLogs(
+        logType === 'ai' || logType === 'scrape' ? 'server' : logType,
+        lines,
+        {
+            enabled: logType !== 'ai' && logType !== 'scrape',
+        }
+    );
 
     const { data: currentLevel } = useLogLevel();
     const { mutate: updateLevel } = useUpdateLogLevel();

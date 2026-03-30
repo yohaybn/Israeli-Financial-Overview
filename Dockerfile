@@ -25,16 +25,15 @@ COPY client ./client
 # Root postinstall (scripts/ensure-rollup-native.mjs) installs the matching @rollup/rollup-* NAPI
 # for this image's OS/arch (amd64, arm64, armv7, etc.). Do not hardcode @rollup/rollup-linux-x64-gnu here.
 # Multi-arch / QEMU: slow reads can hit ETIMEDOUT on large tarballs (e.g. typescript).
-# - Persist ~/.npm via BuildKit cache (speeds retries and later CI runs).
-# - One socket at a time avoids many parallel stalled downloads under emulation.
+# Retry/timeouts + single socket help; plain `npm ci` (no BuildKit cache mount) so HA Supervisor
+# and other non-BuildKit builders succeed.
 ENV npm_config_cache=/root/.npm \
     npm_config_fetch_retries=20 \
     npm_config_fetch_retry_mintimeout=20000 \
     npm_config_fetch_retry_maxtimeout=120000 \
     npm_config_fetch_timeout=600000 \
     npm_config_maxsockets=1
-RUN --mount=type=cache,id=npm,target=/root/.npm \
-    npm ci
+RUN npm ci
 
 # Build workspaces in order
 RUN npm run build -w shared
@@ -100,7 +99,8 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     NODE_ENV=production \
     PORT=3000 \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    RUN_IN_DOCKER=1
 
 WORKDIR /usr/src/app
 
@@ -126,7 +126,10 @@ COPY --from=builder /usr/src/app/client/dist ./client/dist/
 # Create data directory
 RUN mkdir -p /data
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 3000
 
-# Default command
-CMD ["node", "server/dist/index.js"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["server/dist/index.js"]

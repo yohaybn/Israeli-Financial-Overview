@@ -19,7 +19,7 @@ COPY server ./server
 COPY client ./client
 COPY ha-addon ./ha-addon
 
-# Multi-arch / QEMU: slow reads can hit ETIMEDOUT; cache + single-socket fetches help.
+# Multi-arch / QEMU: retry/timeouts + single socket; plain install (no BuildKit cache mount).
 ENV npm_config_cache=/root/.npm \
     npm_config_fetch_retries=20 \
     npm_config_fetch_retry_mintimeout=20000 \
@@ -28,8 +28,7 @@ ENV npm_config_cache=/root/.npm \
     npm_config_maxsockets=1
 
 # Install all dependencies (including devDependencies)
-RUN --mount=type=cache,id=npm,target=/root/.npm \
-    npm install
+RUN npm install
 
 # Build workspaces in order
 RUN npm run build -w shared

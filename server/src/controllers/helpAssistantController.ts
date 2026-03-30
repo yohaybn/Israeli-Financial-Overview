@@ -1,6 +1,13 @@
 import { Request, Response } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getHelpManualText } from '../utils/helpManualText.js';
+import { logAICall, logAIError, runWithAILoadTracking } from '../utils/aiLogger.js';
+
+/** Log label only — full manual is large and should not be duplicated into every AI log entry. */
+const HELP_ASSISTANT_LOG_SYSTEM =
+    'Help Assistant (documentation-grounded chat; user_manual, functions_list, GUIDE injected at runtime).';
+
+const HELP_ASSISTANT_MODEL = 'gemini-2.5-flash';
 
 export const handleHelpChat = async (req: Request, res: Response) => {
     try {
@@ -11,8 +18,6 @@ export const handleHelpChat = async (req: Request, res: Response) => {
         }
 
         const apiKey = process.env.GEMINI_API_KEY;
-        const modelName = 'gemini-2.5-flash';
-
         if (!apiKey) {
             return res.status(400).json({
                 error: 'Gemini API Key is missing. Add it under Configuration → AI.',
@@ -20,7 +25,7 @@ export const handleHelpChat = async (req: Request, res: Response) => {
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ model: HELP_ASSISTANT_MODEL });
 
         const manualText = getHelpManualText();
 
@@ -56,12 +61,45 @@ Rules:
             history: history
         });
 
-        const result = await chat.sendMessage(latestMessage);
-        const responseText = result.response.text();
+        const startTime = Date.now();
+        const result = await runWithAILoadTracking(() => chat.sendMessage(latestMessage));
+        const response = result.response;
+        const responseText = response.text();
+        const latencyMs = Date.now() - startTime;
+        const usageMetadata = response.usageMetadata;
+
+        await logAICall({
+            model: HELP_ASSISTANT_MODEL,
+            provider: 'gemini',
+            requestInfo: {
+                systemPrompt: HELP_ASSISTANT_LOG_SYSTEM,
+                userInput: latestMessage,
+                inputLength: latestMessage.length
+            },
+            responseInfo: {
+                rawOutput: responseText,
+                finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                success: true
+            },
+            metadata: {
+                promptTokens: usageMetadata?.promptTokenCount,
+                completionTokens: usageMetadata?.candidatesTokenCount,
+                totalTokens: usageMetadata?.totalTokenCount,
+                latencyMs
+            }
+        });
 
         return res.json({ success: true, text: responseText });
 
     } catch (error: any) {
+        const userMsg =
+            typeof req.body?.messages?.[req.body.messages.length - 1]?.content === 'string'
+                ? req.body.messages[req.body.messages.length - 1].content
+                : '(help chat)';
+        await logAIError(HELP_ASSISTANT_MODEL, 'gemini', userMsg, error instanceof Error ? error : new Error(String(error)), {
+            latencyMs: 0,
+            systemPrompt: HELP_ASSISTANT_LOG_SYSTEM
+        });
         console.error('Help Chat API Error:', error);
         return res.status(500).json({ error: error.message || 'Help Chat processing failed' });
     }

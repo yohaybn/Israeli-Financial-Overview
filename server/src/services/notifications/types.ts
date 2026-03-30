@@ -7,12 +7,16 @@ export type NotificationStatus = 'success' | 'failure' | 'warning';
 export type NotificationDetailLevel = 'minimal' | 'normal' | 'detailed' | 'verbose';
 export type NotificationRunSource = 'telegram_bot' | 'scheduler' | 'manual';
 
+export type TelegramNotificationSegment = 'review-count' | 'fraud' | 'custom-ai';
+
 export interface NotificationPayload {
   pipelineId: string;
   status: NotificationStatus;
   timestamp: Date;
   detailLevel: NotificationDetailLevel;
   runSource?: NotificationRunSource;
+  /** When set, Telegram aggregate flush sends this as its own message (not merged into the main scrape bundle). */
+  telegramSegment?: TelegramNotificationSegment;
   summary: {
     durationMs: number;
     stagesRun: string[];

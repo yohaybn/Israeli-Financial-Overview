@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import path from 'path';
 import fs from 'fs-extra';
-import { serverLogger, clientLogger, getLogLevel, setLogLevel } from '../utils/logger.js';
+import { serverLogger, clientErrorLogger, getLogLevel, setLogLevel } from '../utils/logger.js';
 
 export const logRoutes = Router();
 
 const LOGS_DIR = path.resolve(process.env.DATA_DIR || './data', 'logs');
+
+/** Query type for the client error log file (legacy: client, client_errors). */
+function isErrorLogQueryType(type: string): boolean {
+    return type === 'error_log' || type === 'client_errors' || type === 'client';
+}
 
 /**
  * @route   GET /api/logs
@@ -17,7 +22,7 @@ logRoutes.get('/', async (req, res) => {
         const type = req.query.type as string || 'server';
         const linesCount = parseInt(req.query.lines as string) || 200;
 
-        const fileName = type === 'client' ? 'client.log' : 'server.log';
+        const fileName = isErrorLogQueryType(type) ? 'error.log' : 'server.log';
         const filePath = path.join(LOGS_DIR, fileName);
 
         if (!await fs.pathExists(filePath)) {
@@ -47,13 +52,16 @@ logRoutes.get('/', async (req, res) => {
 
 /**
  * @route   POST /api/logs
- * @desc    Forward client-side logs to the server
+ * @desc    Record client-side errors only (ignored for other levels)
  * @access  Public
  */
 logRoutes.post('/', (req, res) => {
     const { level = 'info', message, timestamp, ...metadata } = req.body;
-    const logMethod = (clientLogger as any)[level] || clientLogger.info;
-    logMethod.call(clientLogger, message, { ...metadata, clientTimestamp: timestamp });
+    if (level !== 'error') {
+        res.status(204).send();
+        return;
+    }
+    clientErrorLogger.error(message, { ...metadata, clientTimestamp: timestamp });
     res.status(204).send();
 });
 
@@ -74,10 +82,10 @@ logRoutes.get('/level', (req, res) => {
 logRoutes.post('/clear', async (req, res) => {
     try {
         const type = (req.query.type as string) || 'server';
-        if (type !== 'server' && type !== 'client') {
-            return res.status(400).json({ error: 'type must be server or client' });
+        if (type !== 'server' && !isErrorLogQueryType(type)) {
+            return res.status(400).json({ error: 'type must be server or error_log (client / client_errors are legacy)' });
         }
-        const fileName = type === 'client' ? 'client.log' : 'server.log';
+        const fileName = isErrorLogQueryType(type) ? 'error.log' : 'server.log';
         const filePath = path.join(LOGS_DIR, fileName);
         await fs.ensureDir(LOGS_DIR);
         await fs.writeFile(filePath, '', 'utf-8');

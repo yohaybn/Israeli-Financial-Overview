@@ -514,7 +514,7 @@ export function useRunSchedulerNow() {
 }
 
 // Logs Hook
-export function useLogs(type: 'server' | 'client' | 'ai' = 'server', lines: number = 200, options: { enabled?: boolean } = {}) {
+export function useLogs(type: 'server' | 'error_log' | 'ai' = 'server', lines: number = 200, options: { enabled?: boolean } = {}) {
     return useQuery({
         queryKey: ['logs', type, lines],
         queryFn: async () => {
@@ -551,7 +551,7 @@ export function useUpdateLogLevel() {
 export function useClearLogs() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (type: 'server' | 'client') => {
+        mutationFn: async (type: 'server' | 'error_log') => {
             const { data } = await api.post<{ success: boolean; type: string }>(`/logs/clear?type=${type}`);
             return data;
         },

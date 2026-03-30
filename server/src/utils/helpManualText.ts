@@ -25,7 +25,9 @@ export function getHelpManualText(): string {
 
     let guideText = '';
     try {
-        const guidePath = path.join(__dirname, '..', '..', '..', 'client', 'public', 'GUIDE.html');
+        const guideBundled = path.join(assetsDir, 'GUIDE.html');
+        const guideFromClient = path.join(__dirname, '..', '..', '..', 'client', 'public', 'GUIDE.html');
+        const guidePath = fs.existsSync(guideBundled) ? guideBundled : guideFromClient;
         const guideHtml = fs.readFileSync(guidePath, 'utf-8');
         // A very basic HTML to text stripping, since Gemini can read HTML fine, but text is cheaper
         guideText = guideHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles

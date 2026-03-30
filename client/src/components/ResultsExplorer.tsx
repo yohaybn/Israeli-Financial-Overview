@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useScrapeResults, useMultipleScrapeResults, useUpdateCategory, useFilters, useAICategorize, useAISettings, useDeleteScrapeResult } from '../hooks/useScraper';
 import { TransactionTable } from './TransactionTable';
 import { AISettings } from './AISettings';
-import { logger } from '../utils/logger';
+import { logClientError } from '../utils/logger';
 
 interface ResultsExplorerProps {
     onOpenImport?: () => void;
@@ -150,10 +150,8 @@ export function ResultsExplorer({ onOpenImport, externalSelectedFiles, onExterna
             return;
         }
         const targetFile = selectedFiles[0]; // Categorize the primary selected file for now
-        logger.info(`Starting AI categorization for: ${targetFile}`);
         aiCategorize(targetFile, {
             onSuccess: (data) => {
-                logger.info(`Categorization finished for: ${targetFile}`, data);
                 if (data.categorizationError) {
                     showNotification('warning', t('explorer.ai_categorize_partial', { error: data.categorizationError }));
                 } else {
@@ -162,7 +160,7 @@ export function ResultsExplorer({ onOpenImport, externalSelectedFiles, onExterna
             },
             onError: (err: any) => {
                 const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
-                logger.error(`AI Categorization failed for ${targetFile}: ${errorMsg}`);
+                void logClientError(`AI Categorization failed for ${targetFile}: ${errorMsg}`);
                 showNotification('error', t('explorer.ai_categorize_failed', { error: errorMsg }));
             }
         });

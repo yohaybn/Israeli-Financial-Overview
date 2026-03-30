@@ -29,5 +29,15 @@ fi
 
 # Start the application
 # DATA_DIR is /data by default in Dockerfile, which is the HA persistent partition
+# Exit 42 = graceful restart (see ConfigService.restart); loop so the add-on does not exit.
 cd /usr/src/app
-node server/dist/index.js
+set +e
+while true; do
+    node server/dist/index.js
+    ec=$?
+    if [ "$ec" -eq 42 ]; then
+        echo "Restart requested, restarting..."
+        continue
+    fi
+    exit "$ec"
+done
