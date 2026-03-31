@@ -1,8 +1,34 @@
-# Israeli Bank Scraper - Complete User Manual
+# Financial Overview — Complete User Manual
 
-Welcome to the Israeli Bank Scraper! This app acts as your personal financial command center, automatically gathering all your banking and credit card data into one place, running AI-based categorization, and helping you budget and forecast your expenses.
+Welcome to **Financial Overview** (מבט כלכלי). This app is your personal financial command center: it gathers banking and credit card data, runs AI-assisted categorization, and helps you budget and forecast.
 
-This manual provides detailed "how-to" descriptions of every feature and setting available in the application.
+This manual describes how to use each major area of the application.
+
+### System requirements (summary)
+
+*   **Architecture:** Recent **64-bit** OS; the **web UI** uses a **local Node.js server** (bundled in the Windows installer, Docker image, and Home Assistant add-on—no separate Node install for those packages).
+*   **Client:** A **modern browser** with **JavaScript** enabled, **or** on Windows the **Electron** desktop app (`FinancialOverview.exe`) with the same UI embedded.
+*   **Network:** Internet for **bank scrapes**; optional **Gemini**, **Telegram**, and **Google** when you enable them.
+*   **Disk:** Space for `DATA_DIR` (grows with transactions and scrape history).
+*   **Windows bank automation:** **Google Chrome** or **Microsoft Edge** (Chromium) for the scraper; not bundled by default in the Windows package.
+*   **Windows packages:** **`FinancialOverview-Windows-Setup.exe`** — installer with **Electron**, tray, and close-to-tray (recommended). **`windows-package.zip`** — portable folder, run `launch-FinancialOverview.cmd`, **no Electron** / **no tray**; keep the console open.
+
+---
+
+## 0. Main interface (header & guided flows)
+**Location:** all views
+
+*   **Main tabs:** **Dashboard**, **Scrape**, **Logs**, **Configuration** — scroll horizontally on small screens.
+*   **Server status:** If the API health check fails, a **server unreachable** indicator appears; ensure the Node server is running and the URL port matches **Configuration → Maintenance** (or `PORT` / `financial-overview.json`).
+*   **Activity chips:** Optional **Scrape** / **AI** indicators while work is running.
+*   **On Dashboard:** An **alerts** control lists items for the **selected month**; the **AI analyst** button opens analyst chat.
+*   **Language:** Toggle English / Hebrew (RTL for Hebrew).
+*   **App Assistant:** Shown when Gemini is configured — contextual help chat.
+*   **Help docs / Feedback:** Open the static guide (`GUIDE.html`) or the feedback dialog (optional log excerpts with consent).
+*   **Rerun setup wizard / Getting Started tour:** After onboarding, you can restart the full onboarding flow or the short UI tour (each asks for confirmation).
+*   **Guided flows:** (1) **Setup wizard (onboarding)** — Telegram, Gemini, Google, app lock; (2) **Getting Started tour** — short orientation; (3) **Persona wizard** — optional AI persona setup.
+*   **Banners:** **Transaction review** (assign categories from a table); **Categorization error** (retry bulk AI categorization or open AI settings).
+*   **Default view:** With no scrape results and no unified transactions, and no `view` in the URL, the app opens **Scrape** first.
 
 ---
 
@@ -21,7 +47,8 @@ The Dashboard is your main home screen, providing analytics and summaries based 
 *   **View & Edit Transactions:** Browse all transactions for the selected month in a detailed list. You can click on transactions to manually override the AI's selected category.
 *   **View Detailed Analytics:** Analyze the Category Pie chart for distribution mapping, Monthly Trends to compare against previous months, and Top Merchants to see where your money goes.
 *   **Use the AI Financial Chat:** Talk with an integrated Copilot chatter box. You can ask ad-hoc questions scoped specifically to your transactions (e.g., "How much did I spend on groceries this month?").
-*   **Top insights:** When present, a row of high-importance cards combines **AI analyst** insights (from chat) and **insight rules** you define in Configuration. Cards are labeled **AI** or **Rule**; dismissing removes that row (rules use a separate rule-fire record from AI memory).
+*   **Top insights:** Combines **AI memory** insights and **Insight rules** (**Configuration → Insight rules**). Cards are labeled **AI** or **Rule**; dismissing removes items (rules use **insight_rule_fires**, separate from chat insights).
+*   **Header alerts:** The Dashboard alerts menu lists insight/alert items for the selected month.
 
 ---
 
@@ -43,6 +70,8 @@ The Scrape workspace is where you connect to your banks and pull new financial d
 **Location:** `/?view=configuration`
 
 This is the control center of the app. It holds all automations, rules, AI prompts, and integrations.
+
+**Tabs** include **AI** (and memory), **Categories**, **Insight rules**, **Scheduler**, **Scrape** (fraud & alerts), **Google**, **Telegram**, and **Maintenance**. Deep links: `?view=configuration&tab=<id>` (e.g. `tab=insight-rules`, `tab=sheets`).
 
 ### 3.1 AI Settings
 **Location:** `/?view=configuration&tab=ai`
@@ -149,13 +178,18 @@ Values persist under your data folder (`data/config/runtime-settings.json`). The
 ### 3.9 System Maintenance
 **Location:** `/?view=configuration&tab=maintenance`
 
-Protect and repair your database files. **Port** and **data folder** for the server are edited here (same file as above).
-*   **Create Local or Drive Backup:** Perform an immediate snapshot dump of your total transaction and config database, saved locally within the app folder or uploaded to your Google Drive.
-*   **Restore Local/Drive Backup:** Pick from a dropdown list of safe historical backups and instantly overwrite your corrupted database.
-*   **Download Local Backup:** Extract your local database to your computer as a portable file.
-*   **Upload Backup File:** Select a previously downloaded JSON backup file from your personal computer to inject back into the app.
-*   **Reload Database:** Force the app to clear its cache and reload its datasets from disk without resetting anything completely.
-*   **Reset All Data:** The nuclear option. Erases all AI memory, transactions, custom categories, and config setups, returning the app to day-zero out-of-the-box settings.
+**Port** and **data directory** (`PORT`, `DATA_DIR`) are edited here (same persistence as `runtime-settings.json`; environment variables override when set).
+
+*   **Backup scopes:** When creating a backup, you can limit which **scopes** (data areas) are included. When restoring from **local**, **Drive**, or an **uploaded** snapshot file, you can align **restore scope** with what the snapshot contains; review the **summary** before confirming.
+*   **Create Local or Drive Backup:** Snapshot to your chosen scopes (full snapshot if you select everything).
+*   **Restore Local/Drive/Upload:** Pick a backup, review scope summary, then restore.
+*   **Download Local Backup:** Download a portable backup file.
+*   **Upload Backup File:** Parse and restore from a snapshot file on disk.
+*   **Reload Database:** Reload datasets from disk without a full reset.
+*   **Reset All Data:** Erases AI memory, transactions, categories, and config as implemented by the reset action.
+*   **Windows desktop app (Electron only):** On **Configuration → Maintenance**, a **Windows desktop app** card appears only when the UI runs inside the desktop shell (`FinancialOverview.exe`). It is **not shown** for browser-only sessions or the portable `launch-FinancialOverview.cmd` flow. The card offers **Close to tray**: keep the **Node server** running when you close the main window so **scheduled scrapes** and **Telegram** continue; use **Quit (stop server)** from the tray to exit fully. The same setting exists in the first-run dialog and tray menu.
+*   **GitHub release check:** If the client was built with a GitHub repository id, the app can compare the current build to the **latest GitHub release** and link to the release page.
+*   **Clear browser site data:** Clears site storage for this origin (client cache/session storage) if you need a clean client state.
 
 ### 3.10 Google Cloud OAuth — Drive & Sheets (optional)
 
@@ -171,7 +205,7 @@ Connecting Google is **optional**. It enables **Google Sheets sync**, **Google D
 
 **Drive folder ID:** Optional `DRIVE_FOLDER_ID` is the id from a folder URL (`/folders/<id>`). You can also choose a folder in the app after signing in.
 
-See also the in-app **Help** (`GUIDE.html`) section *Google Drive & Sheets* for the full walkthrough.
+The in-app **Help** (`GUIDE.html`) includes a full *Google Drive & Sheets* walkthrough.
 
 ---
 
@@ -197,7 +231,15 @@ The Logs Viewer helps you debug issues, verify automation success, and see what 
 
 ### Threat model (who can see what)
 
-- **Best practice:** **Unlock** only when you need to **scrape** or **edit saved profiles**, then **lock again**—shortest time with the key in memory. When **locked**, the app does not return decrypted bank passwords via the API; copying `data/profiles/` still yields ciphertext (offline guessing possible). Details: **`docs/THREAT_MODEL.md`**.
-- **Bank passwords in saved profiles:** Use **app lock**. If you **never** enable it, stored credentials may be recoverable by anyone who can read `data/profiles/` (see repository **`docs/THREAT_MODEL.md`**). With app lock, guessing or stealing the **password** (or an **unlocked** session) matters; the files alone are not enough without the key material.
+- **Best practice:** **Unlock** only when you need to **scrape** or **edit saved profiles**, then **lock again**—shortest time with the key in memory. When **locked**, the app does not return decrypted bank passwords via the API; copying `data/profiles/` still yields ciphertext (offline guessing possible).
+- **Without app lock:** Profile files may use a **fixed fallback key** from source—anyone who can read `data/profiles/` may recover credentials. **With app lock:** an attacker needs your **password**, an **unlocked** session, or offline cracking of stolen ciphertext.
+- **Remote access:** Prefer **TLS** (reverse proxy) when the UI is reachable beyond `127.0.0.1`; avoid exposing the service unnecessarily.
 - **Transactions and API keys:** **`app.db`**, **`data/results/`**, and config JSON are **not** hidden by app lock from someone with **filesystem access** to your data folder—only **disk/OS** protections help.
-- **More detail:** **`docs/THREAT_MODEL.md`** in the project repository.
+
+---
+
+## 6. Quick troubleshooting
+
+*   **“Server unreachable” / blank data:** Confirm the server process is running; open `GET /api/health` on the same host and port as the UI. After changing `PORT` or `DATA_DIR`, restart the server.
+*   **Scrape or bank errors:** See **Logs → Scrape** and increase **timeout** in **Configuration → Scrape** if pages are slow.
+*   **Google OAuth / Sheets:** Re-authorize under **Configuration → Google** if the session expired.

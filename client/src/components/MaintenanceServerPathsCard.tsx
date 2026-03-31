@@ -63,9 +63,6 @@ export function MaintenanceServerPathsCard() {
             defaultOpen
             bodyClassName="px-6 pb-6 pt-0 space-y-4"
         >
-            <p className="text-sm text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 leading-relaxed">
-                {t('env.profile_encryption_note')}
-            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div className="space-y-1">
                     <label className="text-sm font-bold text-gray-700 block">{t('env.fields.port.label')}</label>

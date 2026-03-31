@@ -105,6 +105,14 @@ export class ConfigService {
             return;
         }
 
+        // Electron desktop shell: parent process respawns the Node child on this exit code.
+        if (process.env.ELECTRON_MANAGED_SERVER === '1') {
+            setTimeout(() => {
+                process.exit(88);
+            }, 500);
+            return;
+        }
+
         // In Docker, PID 1 is node — exiting stops the container unless a restart policy
         // is set. docker-entrypoint.sh loops on exit 42 so we restart in-container.
         // Outside Docker, exit 1 keeps on-failure / PM2-style supervisors working.

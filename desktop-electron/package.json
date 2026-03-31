@@ -1,0 +1,67 @@
+{
+    "name": "financial-overview-desktop",
+    "version": "1.0.0",
+    "description": "Financial Overview desktop shell (Electron)",
+    "author": "Financial Overview",
+    "private": true,
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "predist": "node scripts/clean-electron-dist.cjs",
+        "dist": "electron-builder --win"
+    },
+    "dependencies": {
+        "electron-store": "^8.2.0"
+    },
+    "devDependencies": {
+        "electron": "33.2.1",
+        "electron-builder": "^25.1.8"
+    },
+    "build": {
+        "electronVersion": "33.2.1",
+        "appId": "com.financialoverview.desktop",
+        "productName": "Financial Overview",
+        "executableName": "FinancialOverview",
+        "directories": {
+            "output": "../dist/electron-win"
+        },
+        "files": [
+            "main.js",
+            "preload.js"
+        ],
+        "extraResources": [
+            {
+                "from": "../dist/windows-package",
+                "to": ".",
+                "filter": [
+                    "**/*"
+                ]
+            }
+        ],
+        "win": {
+            "sign": null,
+            "signAndEditExecutable": false,
+            "target": [
+                {
+                    "target": "dir",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "../client/public/favicon.ico"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "shortcutName": "Financial Overview"
+        }
+    }
+}

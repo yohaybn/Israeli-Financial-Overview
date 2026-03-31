@@ -46,7 +46,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'requirements',
                     title: 'System Requirements',
                     icon: '⚙️',
-                    content: 'Modern web browser (Chrome, Firefox, Safari, Edge), Internet connection, and JavaScript enabled. App lock (your encryption password) is required for scraping and saved profiles once configured—not for browsing the rest of the UI.'
+                    content: 'The UI talks to a local Node server. Use a modern browser with JavaScript (Chrome, Firefox, Safari, Edge), or on Windows the Electron desktop app embeds the same UI. You need internet for bank scrapes and for optional Gemini, Telegram, or Google. Our Windows installer, Docker image, and Home Assistant add-on bundle Node—you do not install it separately. On Windows, Chrome or Edge is required for bank automation (Chromium). App lock applies to scraping and saved profiles when enabled, not to viewing most of the UI.'
                 },
                 {
                     id: 'runScrape',
@@ -88,7 +88,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'telegram',
                     title: 'Telegram bot',
                     icon: '✈️',
-                    content: 'Optional bot for notifications and commands (e.g. /unlock). Full instructions: docs/TELEGRAM_BOT_GUIDE.md in the repo. Configure under Configuration → Telegram or via the setup wizard.'
+                    content: 'Optional bot for notifications and commands (e.g. /unlock). Configure under Configuration → Telegram or the setup wizard. Full command reference: Help (GUIDE.html), Telegram bot section.'
                 },
                 {
                     id: 'appLock',
@@ -157,7 +157,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'requirements',
                     title: 'דרישות מערכת',
                     icon: '⚙️',
-                    content: 'דפדפן מודרני, חיבור אינטרנט ו-JavaScript. נעילת אפליקציה (סיסמת ההצפנה) נדרשת לסריקה ולפרופילים שמורים כשהיא מוגדרת — לא לצפייה בשאר הממשק.'
+                    content: 'הממשק מתחבר לשרת Node מקומי. דפדפן מודרני עם JavaScript, או ב-Windows יישום Electron עם אותו ממשק. נדרש אינטרנט לסריקות בנק ול-Gemini/טלגרם/גוגל אופציונלי. במתקין Windows, Docker או Home Assistant — Node מגיע בחבילה. ב-Windows לסריקה: Chrome או Edge. נעילת אפליקציה לסריקה ופרופילים שמורים כשמופעלת — לא לרוב הצפייה בממשק.'
                 },
                 {
                     id: 'runScrape',

@@ -16,15 +16,25 @@
    powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1 -SkipNodeDownload
    ```
 
-3. **Installer:** Install [Inno Setup 6](https://jrsoftware.org/isinfo.php), then compile:
+3. **Desktop app (Electron):** From the repo root, after step 1:
+
+   ```powershell
+   npm run electron:dist
+   ```
+
+   This produces `dist/electron-win/win-unpacked/` (and an NSIS installer under `dist/electron-win/`). The bundled server and Node runtime are copied from `dist/windows-package` into Electron’s `resources/` folder.
+
+   **One-shot (package + Electron):** `npm run windows:electron`
+
+4. **Installer (Inno Setup):** Install [Inno Setup 6](https://jrsoftware.org/isinfo.php), then compile **after** step 3 so `dist/electron-win/win-unpacked` exists:
 
    ```text
    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\FinancialOverview.iss
    ```
 
-   Output: `dist/FinancialOverview-Windows-Setup.exe`
+   Output: `dist/FinancialOverview-Windows-Setup.exe` (installs `FinancialOverview.exe` as the main shortcut; optional Start menu entries for browser console launchers live under `resources\`).
 
-4. **Test:** Run `dist\windows-package\launch-FinancialOverview.cmd` and open `http://127.0.0.1:3000`.
+5. **Test:** Run `dist\electron-win\win-unpacked\FinancialOverview.exe`, or `dist\windows-package\launch-FinancialOverview.cmd` and open `http://127.0.0.1:3000` (browser-only layout).
 
 Native modules (`better-sqlite3`) must be built for Windows — run the packaging script on Windows (or use a Windows CI runner).
 
@@ -50,6 +60,6 @@ If **`financial-overview.json`** is missing and **`PORT`** is unset, the server 
 When you **publish a GitHub Release** (not draft), the workflow [`.github/workflows/windows-package.yml`](../../.github/workflows/windows-package.yml) uploads:
 
 - **`windows-package.zip`** — portable folder (`dist/windows-package`)
-- **`FinancialOverview-Windows-Setup.exe`** — Inno Setup installer
+- **`FinancialOverview-Windows-Setup.exe`** — Inno Setup installer (includes **`FinancialOverview.exe`** and the same server bundle under `resources\`)
 
-The workflow checks out the **release tag**, then builds. Create the release from an existing tag, or create tag + release together; publishing triggers the upload.
+The workflow builds the Windows package folder, then runs **`npm run electron:dist`**, then compiles Inno Setup. **Version:** the job derives **`APP_VERSION`** from **`github.ref_name`**: release tags like **`v1.2.3`** become **`1.2.3`** for Electron metadata and the Inno installer’s `AppVersion`; non-semver refs get a **`0.0.0-…`** prerelease-style value. **`VITE_APP_BUILD_VERSION`** is **`<APP_VERSION>@<full sha>`**. Create the release from an existing tag, or create tag + release together; publishing triggers the upload.

@@ -69,16 +69,17 @@ For a **one-file** distribution on Windows, build an installer that bundles the 
 **Maintainers — create the package and installer**
 
 1. On **Windows x64**, from the repo root: `npm run windows:package` (or run [`packaging/windows/package.ps1`](packaging/windows/package.ps1)). This produces `dist/windows-package/`.
-2. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) and compile [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) to get **`dist/FinancialOverview-Windows-Setup.exe`**.
-3. **GitHub Releases:** publish a **release** (e.g. tag `v1.0.0`). The [Windows package workflow](.github/workflows/windows-package.yml) runs on **`release: published`**, builds the zip and installer, and **uploads `windows-package.zip` and `FinancialOverview-Windows-Setup.exe`** to that release. You can also run the workflow manually from the **Actions** tab (`workflow_dispatch`).
+2. Build the desktop shell: `npm run electron:dist` (or **`npm run windows:electron`** to run steps 1 and 2 together).
+3. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) and compile [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) to get **`dist/FinancialOverview-Windows-Setup.exe`** (installs **`FinancialOverview.exe`** + server under `resources/`).
+4. **GitHub Releases:** publish a **release** (e.g. tag `v1.0.0`). The [Windows package workflow](.github/workflows/windows-package.yml) runs on **`release: published`**, builds the zip and installer, and **uploads `windows-package.zip` and `FinancialOverview-Windows-Setup.exe`**. You can also run the workflow manually from the **Actions** tab (`workflow_dispatch`).
 
 **End users**
 
-Step-by-step (download, SmartScreen, shortcuts, browser, app lock, Telegram, Gemini): **[Installation guide on GitHub Pages](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** (English / Hebrew).
+Step-by-step (download, SmartScreen, **desktop app + tray**, background operation for scheduler/Telegram, app lock, Gemini): **[Installation guide on GitHub Pages](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** (English / Hebrew).
 
 1. Run **`FinancialOverview-Windows-Setup.exe`** and complete the wizard (default install folder: `%LocalAppData%\FinancialOverview`).
-2. Start the app from the Start menu shortcut **`Financial Overview`**, or run `launch-FinancialOverview.cmd` in the install folder. A console window stays open while the server runs; close it to stop.
-3. Open **`http://127.0.0.1:3000`** in your browser (default **port** is `3000`). Use the second shortcut **Open Financial Overview in browser** after the server has started, or wait a few seconds on first launch.
+2. Start **`Financial Overview`** from the Start menu (runs **`FinancialOverview.exe`**). The UI opens in an app window; a **tray icon** appears. **Close to tray** keeps the server running when you close the window (for scheduled scrapes and Telegram); use **Quit (stop server)** from the tray to exit fully. Optional: **Open in browser (localhost)** or **`launch-FinancialOverview.cmd`** (console stays open; no tray).
+3. Default URL is **`http://127.0.0.1:3000`** (default **port** `3000`). With the desktop app you usually do not need a separate browser tab.
 4. **Port and data folder:** edit **`financial-overview.json`** in the install folder (a default file is included; see [`financial-overview.json.example`](financial-overview.json.example)). Set **`port`** and optional **`dataDir`** (Windows paths can use `%APPDATA%`, etc.). **Environment variables** (`PORT`, `DATA_DIR`) override the file if set. See [DEPLOYMENT.md](DEPLOYMENT.md).
 5. **Bank scraping** uses a Chromium-based browser. The Windows build skips downloading Puppeteer’s browser during packaging; install **Google Chrome** or **Microsoft Edge** on the PC (or run `npm install` in the repo without `PUPPETEER_SKIP_DOWNLOAD` before packaging if you need a bundled Chromium).
 
@@ -89,7 +90,7 @@ Full maintainer notes: [packaging/windows/README.md](packaging/windows/README.md
 The workflow in `.github/workflows/pages.yml` publishes:
 
 - A **static demo** (`VITE_DEMO=true`, in-browser API mocks, sample data). It does **not** connect to banks or your server. Full functionality requires the server stack above.
-- A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/Israeli-Financial-Overview/install/](https://yohaybn.github.io/Israeli-Financial-Overview/install/) after Pages is enabled). Guide screenshots live under [`client/public/install/screenshots/`](client/public/install/screenshots/) and are copied into the Pages build with the rest of `client/public/`.
+- A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/Israeli-Financial-Overview/install/](https://yohaybn.github.io/Israeli-Financial-Overview/install/) after Pages is enabled). It covers the **Electron desktop app**, **system tray**, **close-to-tray / background** (scheduler & Telegram), and the legacy console workflow. Screenshots live under [`client/public/install/screenshots/`](client/public/install/screenshots/) and are copied into the Pages build with the rest of `client/public/`.
 
 ## Dashboard behavior (recent logic)
 
@@ -101,7 +102,7 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 
 | Doc | Purpose |
 |-----|---------|
-| **[Installation guide (GitHub Pages)](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** | Step-by-step Windows install, first run, Telegram, and Gemini API (EN/HE); source: [`client/public/install/index.html`](client/public/install/index.html). |
+| **[Installation guide (GitHub Pages)](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** | Windows install, **desktop app + tray**, background operation, first run, Telegram, Gemini (EN/HE); source: [`client/public/install/index.html`](client/public/install/index.html). |
 | **[client/public/GUIDE.html](client/public/GUIDE.html)** | Full user guide (EN/HE toggle) — same file the app opens from **Help**. Covers **AI memory** (stored facts vs. chat-merged facts), **AI persona** (structured profile and optional analyst prompt injection), and onboarding extraction. |
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior (English). |

@@ -18,6 +18,7 @@ import { GettingStartedWizard } from './components/onboarding/GettingStartedWiza
 import { GettingStartedResumeBanner } from './components/onboarding/GettingStartedResumeBanner';
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
+import { TopBarServerStatus } from './components/TopBarServerStatus';
 import { isDemoMode } from './demo/isDemo';
 import { Map, Bot, Sparkles, MessageSquare } from 'lucide-react';
 import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
@@ -178,6 +179,7 @@ function App() {
                                 <span className="truncate">{t('common.title')}</span>
                             </h1>
                             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0 lg:order-3">
+                                <TopBarServerStatus />
                                 <TopBarActivityIndicators />
                                 {view === 'dashboard' && <DashboardAlertsDropdown selectedMonth={selectedMonth} />}
 

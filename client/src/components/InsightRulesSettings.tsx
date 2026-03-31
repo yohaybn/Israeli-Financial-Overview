@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -67,6 +67,8 @@ export function InsightRulesSettings({
     const [jsonError, setJsonError] = useState<string | null>(null);
     const [aiPrompt, setAiPrompt] = useState('');
     const [pendingSource, setPendingSource] = useState<'user' | 'ai'>('user');
+    /** After auto-opening create on empty list, do not reopen if the user cancelled (until they have rules again). */
+    const skipAutoOpenEmptyRef = useRef(false);
 
     const { data: rules, isLoading } = useQuery({
         queryKey: INSIGHT_RULES_QUERY_KEY,
@@ -86,6 +88,33 @@ export function InsightRulesSettings({
         if (definitionTextDirty) return;
         setDefinitionText(stringifyDef(builderStateToDefinition(builderState)));
     }, [builderState, builderCompatible, definitionTextDirty]);
+
+    const openCreate = useCallback(() => {
+        setCreating(true);
+        setEditing(null);
+        setName('');
+        setEnabled(true);
+        setPriority(0);
+        setPendingSource('user');
+        setBuilderCompatible(true);
+        setBuilderState(defaultBuilderState());
+        setDefinitionText(stringifyDef(builderStateToDefinition(defaultBuilderState())));
+        setDefinitionTextDirty(false);
+        setJsonError(null);
+    }, []);
+
+    /** Show the If/Then builder immediately when there are no rules (first visit or after deleting all). */
+    useEffect(() => {
+        if (isLoading || rules === undefined) return;
+        if (rules.length > 0) {
+            skipAutoOpenEmptyRef.current = false;
+            return;
+        }
+        if (editing || creating) return;
+        if (skipAutoOpenEmptyRef.current) return;
+        skipAutoOpenEmptyRef.current = true;
+        openCreate();
+    }, [isLoading, rules, editing, creating, openCreate]);
 
     const resolveDefinition = (): { ok: true; value: InsightRuleDefinitionV1 } | { ok: false; error: string } => {
         if (!builderCompatible) {
@@ -285,20 +314,6 @@ export function InsightRulesSettings({
         applyParsedDefinition(parsed.value);
     };
 
-    const openCreate = () => {
-        setCreating(true);
-        setEditing(null);
-        setName('');
-        setEnabled(true);
-        setPriority(0);
-        setPendingSource('user');
-        setBuilderCompatible(true);
-        setBuilderState(defaultBuilderState());
-        setDefinitionText(stringifyDef(builderStateToDefinition(defaultBuilderState())));
-        setDefinitionTextDirty(false);
-        setJsonError(null);
-    };
-
     const saveDisabled =
         !name.trim() ||
         (builderCompatible && !definitionTextDirty && !isBuilderStateSavable(builderState));
@@ -445,6 +460,11 @@ export function InsightRulesSettings({
     const inner = (
         <>
             <p className="text-sm text-gray-600">{t('insight_rules.help')}</p>
+            {rules && rules.length > 0 && !creating && !editing && (
+                <p className="text-sm text-indigo-800 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                    {t('insight_rules.open_builder_hint')}
+                </p>
+            )}
 
             <p className="text-xs text-gray-500">{t('insight_rules.ai_draft_hint')}</p>
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">

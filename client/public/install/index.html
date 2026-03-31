@@ -115,50 +115,73 @@
             en: {
                 brand: 'Financial Overview',
                 title: 'Installation & getting started',
-                subtitle: 'Windows desktop app: download, run the server, open the web UI, and complete first-time setup (app lock, Telegram, Gemini, optional Google Drive / Sheets).',
+                subtitle: 'Windows installer: the **Financial Overview** desktop app (embedded browser), tray icon, optional background operation for scheduler & Telegram, and first-time setup (app lock, Telegram, Gemini, optional Google Drive / Sheets).',
                 nav: [
                     { label: 'Guide', items: [
                         { id: 'overview', label: 'Overview' },
                         { id: 'windows-install', label: '1. Download & install' },
-                        { id: 'run-ui', label: '2. Start server & browser' },
-                        { id: 'first-setup', label: '3. First setup & security' },
-                        { id: 'gemini-key', label: '4. Gemini API key' },
-                        { id: 'google-drive', label: '5. Google Drive (optional)' }
+                        { id: 'run-ui', label: '2. Open the app' },
+                        { id: 'desktop-tray', label: '3. Tray & background' },
+                        { id: 'first-setup', label: '4. First setup & security' },
+                        { id: 'gemini-key', label: '5. Gemini API key' },
+                        { id: 'google-drive', label: '6. Google Drive (optional)' }
                     ]}
                 ],
                 sections: {
                     overview: {
                         title: 'Overview',
-                        html: '<p>This guide is for the <strong>Windows installer</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) published on <a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. It walks through every step: downloading, trusting the installer, launching the app, opening the interface in your browser, setting a password, connecting Telegram and Gemini, and optionally configuring Google Drive / Sheets for backup and export.</p>' +
-                            '<div class="callout info"><strong>Demo on GitHub Pages:</strong> The main site deployment is a <strong>static demo</strong> with mocked data. Real banking features require the server running on your PC (this installer) or Docker / Home Assistant as described in the repository README.</div>'
+                        html: '<p>This guide is for the <strong>Windows installer</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) on <a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. The installer deploys the <strong>Financial Overview</strong> desktop application (<code>FinancialOverview.exe</code>, Electron) that starts the local server and shows the UI in a window—plus optional shortcuts for opening in an external browser or running the legacy console launcher.</p>' +
+                            '<p>Releases may also include <code>windows-package.zip</code> (portable folder, browser + console workflow, no desktop shell). For scheduler, Telegram, and AI features you need the <strong>Node server</strong> running—easiest via the desktop app with background mode below.</p>' +
+                            '<div class="callout info"><strong>Demo on GitHub Pages:</strong> The main Pages deployment is a <strong>static demo</strong> with mocked data. Real banking features require the server on your PC (this installer), Docker, or Home Assistant—see the repository README.</div>'
                     },
                     'windows-install': {
                         title: 'Step 1 — Download and install',
-                        html: '<ol class="steps">' +
-                            '<li><strong>Find the release.</strong> Open the repository’s <a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases</a> page and download <code>FinancialOverview-Windows-Setup.exe</code> for the version you want.</li>' +
-                            '<li><strong>Run the file.</strong> Double-click the downloaded <code>.exe</code>. If Windows shows a blue <strong>Windows protected your PC</strong> SmartScreen prompt, click <strong>More info</strong>, then <strong>Run anyway</strong>. This is normal for many open-source apps until they are broadly signed.</li>' +
-                            '<li><strong>Installer wizard.</strong> Click <strong>Next</strong> through the welcome and license screens. Choose the install folder if offered (default is under your user profile, e.g. <code>%LocalAppData%\\FinancialOverview</code>).</li>' +
-                            '<li><strong>Desktop shortcut.</strong> When asked, enable <strong>Create a desktop shortcut</strong> so you can start the app easily later.</li>' +
-                            '<li><strong>Finish.</strong> Click <strong>Install</strong>, wait for completion, then <strong>Finish</strong>. You should see shortcuts such as <strong>Financial Overview</strong> and optionally <strong>Open Financial Overview in browser</strong> in the Start menu.</li>' +
+                        html: '<p><strong>Two Windows artifacts on Releases:</strong></p><ul>' +
+                            '<li><strong><code>FinancialOverview-Windows-Setup.exe</code> (recommended)</strong> — full installer with the <strong>Electron</strong> desktop shell (<code>FinancialOverview.exe</code>), bundled Node, tray icon, and optional close-to-tray. Use this for everyday use and background scheduler/Telegram.</li>' +
+                            '<li><strong><code>windows-package.zip</code> (portable)</strong> — extract and run <code>launch-FinancialOverview.cmd</code>; <strong>no Electron</strong>, <strong>no tray</strong>; keep the console window open. Same server and UI, for advanced or portable setups.</li></ul>' +
+                            '<p><strong>Installing the .exe (Electron path)</strong></p><ol class="steps">' +
+                            '<li><strong>Find the release.</strong> Open <a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases</a> and download <code>FinancialOverview-Windows-Setup.exe</code>.</li>' +
+                            '<li><strong>Run the file.</strong> Double-click the <code>.exe</code>. If SmartScreen appears, <strong>More info</strong> → <strong>Run anyway</strong> (common for community builds).</li>' +
+                            '<li><strong>Wizard.</strong> Continue through welcome/license; choose the install folder if offered (default often <code>%LocalAppData%\\FinancialOverview</code>).</li>' +
+                            '<li><strong>Shortcuts.</strong> Optionally create a desktop shortcut for quick launch.</li>' +
+                            '<li><strong>Finish.</strong> The Start menu lists <strong>Financial Overview</strong> (Electron app), and may list <strong>Open in browser (localhost)</strong> and <strong>Launch server (console)</strong> for browser-only or console workflows without Electron.</li>' +
                             '</ol>' +
-                            '<div class="callout warning"><strong>Note:</strong> The app bundles a portable Node.js runtime and dependencies—you do <strong>not</strong> need to install Node.js separately.</div>'
+                            '<div class="callout warning"><strong>Note:</strong> The installer bundles Node.js—you do <strong>not</strong> install Node separately.</div>' +
+                            '<div class="callout info"><strong>Portable zip:</strong> Extract anywhere, run <code>launch-FinancialOverview.cmd</code>, open <code>http://127.0.0.1:3000</code> in a browser, and leave the console open. See also the tray section for differences vs the installer.</div>'
                     },
                     'run-ui': {
-                        title: 'Step 2 — Start the server and open the UI',
-                        html: '<ol class="steps">' +
-                            '<li><strong>Launch.</strong> Double-click the <strong>Financial Overview</strong> desktop or Start menu shortcut. A <strong>console (black) window</strong> opens and stays open while the server runs—this is expected.</li>' +
-                            '<li><strong>Wait for startup.</strong> On first launch, dependency checks may take a few seconds. Wait until the console shows that the server is listening (messages mentioning the port, usually <code>3000</code>).</li>' +
-                            '<li><strong>Open the web UI.</strong> By default the app is at <code>http://127.0.0.1:3000</code>. You can:' +
-                            '<ul><li>Use the second shortcut <strong>Open Financial Overview in browser</strong> after the server has started, or</li>' +
-                            '<li>Paste <code>http://127.0.0.1:3000</code> into the address bar, or</li>' +
-                            '<li>If the console prints a clickable link, <strong>hold Ctrl</strong> and click the link to open it in your default browser (some terminals require Ctrl+click for http links).</li></ul></li>' +
-                            '<li><strong>Port and data folder.</strong> To change port or data directory, edit <code>financial-overview.json</code> in the install folder (see <code>financial-overview.json.example</code> in the repo). Environment variables <code>PORT</code> and <code>DATA_DIR</code> override the file when set.</li>' +
+                        title: 'Step 2 — Open the app (recommended path)',
+                        html: '<p><strong>Use the desktop app.</strong> From the Start menu or desktop, open <strong>Financial Overview</strong>. This runs <code>FinancialOverview.exe</code>: it starts the local server and opens the web UI inside an app window. A <strong>tray icon</strong> appears in the notification area so you can see the app is running.</p>' +
+                            '<ol class="steps">' +
+                            '<li><strong>First launch.</strong> A short dialog may explain <strong>close to tray</strong> (keeping the server running when you close the window). You can change this later under <strong>Configuration → Maintenance</strong> or from the tray menu.</li>' +
+                            '<li><strong>Address.</strong> The UI loads at <code>http://127.0.0.1:&lt;port&gt;/</code> (default port <code>3000</code>) inside the window—you do not need to open a separate browser unless you prefer to.</li>' +
+                            '<li><strong>Optional shortcuts.</strong> <strong>Open in browser (localhost)</strong> opens the same URL in your default browser (useful if the desktop window is closed but the server is still running). <strong>Launch server (console)</strong> runs the older flow with a visible <strong>black console</strong> window—mostly for troubleshooting.</li>' +
+                            '<li><strong>Port and data folder.</strong> Edit <code>financial-overview.json</code> next to the installed files (under <code>resources</code> in the app layout) or use <code>financial-overview.json.example</code> from the repo. Environment variables <code>PORT</code> and <code>DATA_DIR</code> override the file when set. In-app <strong>Maintenance</strong> can adjust port/data (restart may be required).</li>' +
                             '</ol>' +
                             imgFigure('screenshots/dashboard-expanded.png', 'Web UI — Dashboard (example)') +
-                            '<div class="callout success"><strong>Scraping in Windows:</strong> Scraping uses a Chromium-based browser. Install <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on the PC if the scraper cannot find a browser.</div>'
+                            '<div class="callout success"><strong>Scraping in Windows:</strong> Install <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> if the scraper cannot find a Chromium-based browser.</div>'
+                    },
+                    'desktop-tray': {
+                        title: 'Step 3 — Tray icon & background operation',
+                        html: '<p>The <strong>scheduler</strong> (automatic scrapes) and <strong>Telegram bot</strong> run inside the <strong>Node server</strong>, not inside the browser tab. So the server must keep running for those features to work.</p>' +
+                            '<h3>Close to tray</h3>' +
+                            '<ul>' +
+                            '<li>When <strong>Close to tray</strong> is on (default in the first-run dialog), closing the app <strong>window</strong> hides it but <strong>keeps the server running</strong>. Scheduled jobs and Telegram keep working.</li>' +
+                            '<li>Use the <strong>tray icon</strong> (notification area near the clock) to <strong>Open</strong> the window again, toggle close-to-tray, or <strong>Quit (stop server)</strong> to exit completely and stop the server.</li>' +
+                            '<li>On Windows 11, extra icons may start under <strong>^</strong> (hidden icons)—click there and drag <strong>Financial Overview</strong> onto the taskbar if you want it always visible.</li>' +
+                            '</ul>' +
+                            '<h3>Windows desktop app (Maintenance tab)</h3>' +
+                            '<p>When you use <strong>Electron</strong> (<code>FinancialOverview.exe</code>), open <strong>Configuration</strong> → <strong>Maintenance</strong>. A <strong>Windows desktop app</strong> card appears (it is <strong>not shown</strong> in a plain browser session or when using the portable console launcher).</p>' +
+                            '<ul>' +
+                            '<li><strong>Close to tray:</strong> Same behavior as the first-run dialog and tray menu—keep the server running when you close the window so scheduler and Telegram stay active. Use <strong>Quit (stop server)</strong> from the tray to exit fully.</li>' +
+                            '<li>Port, data folder, backups, and GitHub release check on the same tab apply to every run mode.</li>' +
+                            '</ul>' +
+                            '<h3>Restart after path changes</h3>' +
+                            '<ul><li><strong>Restart server</strong> after changing port or data directory: in the desktop app the shell can restart the server process for you.</li></ul>' +
+                            '<div class="callout info"><strong>Browser-only workflow:</strong> If you start the server with <code>launch-FinancialOverview.cmd</code> or the portable zip, you must <strong>leave that console window open</strong>—there is no tray. Use the desktop installer for tray and background behavior.</div>'
                     },
                     'first-setup': {
-                        title: 'Step 3 — First-time setup and security',
+                        title: 'Step 4 — First-time setup and security',
                         html: '<h3>App lock (password)</h3>' +
                             '<ol class="steps">' +
                             '<li>When the onboarding or <strong>App lock</strong> screen appears, set a <strong>strong password</strong> (minimum length as shown in the UI). This protects your session and is used to derive encryption for <strong>saved bank profiles</strong> on this machine.</li>' +
@@ -175,7 +198,7 @@
                             '<p>Full command list and notification behavior: see the Telegram guide linked above.</p>'
                     },
                     'gemini-key': {
-                        title: 'Step 4 — Gemini API key (Google AI Studio)',
+                        title: 'Step 5 — Gemini API key (Google AI Studio)',
                         html: '<ol class="steps">' +
                             '<li><strong>Open Google AI Studio from the app.</strong> In the onboarding or Configuration area under <strong>Enable AI features</strong>, use the link <strong>Open Google AI Studio to get an API key</strong>. A new browser tab opens.</li>' +
                             '<li><strong>Welcome / consent.</strong> If you see <strong>Welcome to AI Studio</strong> or terms, accept that you are building apps with Google and continue.</li>' +
@@ -189,7 +212,7 @@
                             '<div class="callout info"><strong>AI persona &amp; memory:</strong> Under <strong>Configuration → AI</strong> you can set a structured <strong>persona</strong> (household, goals, how answers should sound) and optional <strong>stored AI facts</strong> (long-term reminders the analyst reuses). Onboarding may show short summary bullets after extraction—those are not automatically the same as stored memory facts. See <strong>Help</strong> → <code>GUIDE.html</code> for details.</div>'
                     },
                     'google-drive': {
-                        title: 'Step 5 — Google Drive & Sheets (optional)',
+                        title: 'Step 6 — Google Drive & Sheets (optional)',
                         html: '<div class="callout info"><strong>Optional:</strong> Google OAuth is only for <strong>Google Sheets sync</strong>, <strong>Drive backups</strong>, and cloud-oriented export. It is a bit more involved than other settings—you can <strong>skip this step</strong> and use the app for scraping and analysis without Google. Add it later under <strong>Configuration</strong> when you want backup or Sheets.</div>' +
                             '<p><strong>Getting API credentials:</strong> You create your own OAuth client in Google Cloud (the app does not ship with shared Google keys).</p>' +
                             '<ol class="steps">' +
@@ -206,93 +229,116 @@
             },
             he: {
                 brand: 'מבט כלכלי',
-                title: 'מדריך התקנה והפעלה מרוכז',
-                subtitle: 'אפליקציית Windows: הורדה, הרצת השרת, פתיחת הממשק, והגדרות ראשוניות (נעילת אפליקציה, טלגרם, Gemini, Google Drive / Sheets אופציונלי).',
+                title: 'מדריך התקנה וצעדים ראשונים',
+                subtitle: 'כל מה שצריך לדעת כדי להתקין את מבט כלכלי ב-Windows: אפליקציית שולחן עבודה עם חלון מובנה, עבודה ברקע (לתזמונים וטלגרם), והגדרות ראשוניות כמו נעילה, חיבור ל-AI של גוגל ועוד.',
                 nav: [
                     { label: 'מדריך', items: [
-                        { id: 'overview', label: 'סקירה' },
-                        { id: 'windows-install', label: '1. הורדה והתקנה' },
-                        { id: 'run-ui', label: '2. שרת ודפדפן' },
-                        { id: 'first-setup', label: '3. הגדרות ראשוניות' },
-                        { id: 'gemini-key', label: '4. מפתח Gemini' },
-                        { id: 'google-drive', label: '5. Google Drive (אופציונלי)' }
+                        { id: 'overview', label: 'מבט כללי' },
+                        { id: 'windows-install', label: '1. איך מורידים ומתקינים?' },
+                        { id: 'run-ui', label: '2. פותחים את האפליקציה' },
+                        { id: 'desktop-tray', label: '3. עבודה ברקע' },
+                        { id: 'first-setup', label: '4. הגדרות ואבטחה' },
+                        { id: 'gemini-key', label: '5. חיבור ל-Gemini AI' },
+                        { id: 'google-drive', label: '6. חיבור לגוגל (אופציונלי)' }
                     ]}
                 ],
                 sections: {
                     overview: {
-                        title: 'סקירה',
-                        html: '<p>מדריך זה מיועד ל<strong>מתקין Windows</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) שמפורסם ב־<a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. הוא מפרט שלב אחר שלב: הורדה, אישור אבטחה של Windows, הפעלה, פתיחת הממשק בדפדפן, הגדרת סיסמה, חיבור טלגרם ו־Gemini, והגדרה אופציונלית של Google Drive / Sheets לגיבוי ולייצוא.</p>' +
-                            '<div class="callout info"><strong>הדגמה ב־GitHub Pages:</strong> האתר המפורסם שם הוא <strong>דמו סטטי</strong> עם נתונים מדומים. יכולות בנקאיות אמיתיות דורשות את השרת על המחשב שלך (מתקין זה) או Docker / Home Assistant כמפורט ב־README של המאגר.</div>'
+                        title: 'מבט כללי',
+                        html: '<p>המדריך הזה יעזור לכם להתקין את המערכת בווינדוס באמצעות <strong>קובץ ההתקנה הרשמי</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) שאפשר למצוא בעמוד ה־<a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases שלנו ב-GitHub</a>. ההתקנה תשים לכם במחשב את <strong>מבט כלכלי</strong> כאפליקציית שולחן עבודה נוחה (מבוססת Electron) שמפעילה את השרת מאחורי הקלעים ומציגה את הממשק בחלון מסודר. יש גם אפשרויות לפתוח בדפדפן רגיל אם תעדיפו.</p>' +
+                            '<p>בעמוד ההורדות תמצאו גם קובץ בשם <code>windows-package.zip</code> (גרסה ניידת ללא התקנה). שימו לב שכדי להשתמש באוטומציות, בטלגרם וב-AI, <strong>השרת חייב לרוץ ברקע</strong> — והכי קל לעשות את זה דרך האפליקציה שמתקינים, שמאפשרת עבודה שקטה ברקע.</p>' +
+                            '<div class="callout info"><strong>ניסיתם את הדמו שלנו ב-GitHub Pages?</strong> חשוב לדעת שהדמו מציג רק נתונים מדומים לצורך הדגמה. כדי באמת למשוך את הנתונים שלכם מהבנק, חובה להתקין את השרת על המחשב שלכם (בעזרת המדריך הזה), ב-Docker או ב-Home Assistant (פרטים ב-README של הפרויקט).</div>'
                     },
                     'windows-install': {
-                        title: 'שלב 1: הורדה והתקנה',
-                        html: '<ol class="steps">' +
-                            '<li><strong>מציאת הגרסה.</strong> היכנס לעמוד <a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases</a> ב־GitHub והורד את <code>FinancialOverview-Windows-Setup.exe</code> של הגרסה הרצויה.</li>' +
-                            '<li><strong>הרצת הקובץ.</strong> לחץ פעמיים על קובץ ה־<code>.exe</code>. אם מופיע חלון כחול של Windows (<strong>Windows protected your PC</strong>), לחץ <strong>More info</strong> ואז <strong>Run anyway</strong>. זה נפוץ באפליקציות קוד פתוח לפני חתימה רחבה.</li>' +
-                            '<li><strong>אשף ההתקנה.</strong> לחץ <strong>Next</strong> במסכי הפתיחה והרישיון. אם מוצעת בחירת תיקייה, ברירת המחדל היא לרוב תחת הפרופיל שלך (למשל <code>%LocalAppData%\\FinancialOverview</code>).</li>' +
-                            '<li><strong>קיצור דרך בשולחן העבודה.</strong> סמן את האפשרות <strong>Create a desktop shortcut</strong> כדי להפעיל את התוכנה בקלות בהמשך.</li>' +
-                            '<li><strong>סיום.</strong> לחץ <strong>Install</strong>, המתן לסיום, ואז <strong>Finish</strong>. אמורים להופיע קיצורים כמו <strong>Financial Overview</strong> ואופציונלית <strong>Open Financial Overview in browser</strong> בתפריט התחל.</li>' +
+                        title: 'שלב 1: איך מורידים ומתקינים?',
+                        html: '<p><strong>יש שני סוגי קבצים להורדה:</strong></p><ul>' +
+                            '<li><strong>קובץ ההתקנה <code>FinancialOverview-Windows-Setup.exe</code> (הכי מומלץ!)</strong> — מתקין לכם אפליקציה מסודרת, מפעיל את השרת מאחורי הקלעים ונותן לכם אפשרות להשאיר את המערכת פועלת בשקט ברקע (מעולה לתזמונים ובוט טלגרם).</li>' +
+                            '<li><strong>גרסה ניידת <code>windows-package.zip</code> (למתקדמים)</strong> — פשוט מחלצים ומפעילים את <code>launch-FinancialOverview.cmd</code>. אין כאן התקנה ואין חלון אפליקציה — צריך להשאיר את החלון השחור של הקונסולה פתוח בזמן שעובדים.</li></ul>' +
+                            '<p><strong>אז איך מתקינים את הגרסה המומלצת?</strong></p><ol class="steps">' +
+                            '<li><strong>מורידים:</strong> נכנסים לעמוד ה־<a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases שלנו</a> ומורידים את הקובץ <code>FinancialOverview-Windows-Setup.exe</code>.</li>' +
+                            '<li><strong>מפעילים:</strong> לוחצים עליו פעמיים. אם ווינדוס מקפיץ אזהרה (SmartScreen), פשוט לוחצים על <strong>More info</strong> (מידע נוסף) ואז <strong>Run anyway</strong> (הפעל בכל זאת).</li>' +
+                            '<li><strong>מתקינים:</strong> ממשיכים עם המסכים של אשף ההתקנה ובוחרים איפה לשמור את המערכת (בדרך כלל זה ילך ל־<code>%LocalAppData%\\FinancialOverview</code>).</li>' +
+                            '<li><strong>קיצור דרך:</strong> מומלץ לאשר יצירת קיצור דרך בשולחן העבודה כדי שיהיה קל להיכנס בפעם הבאה.</li>' +
+                            '<li><strong>זהו, סיימנו!</strong> עכשיו תמצאו את <strong>Financial Overview</strong> בתפריט ההתחלה שלכם. תמצאו שם גם קיצורים לפתיחה בדפדפן או בקונסולה אם אי פעם תצטרכו.</li>' +
                             '</ol>' +
-                            '<div class="callout warning"><strong>שימו לב:</strong> החבילה כוללת זמן ריצה של Node.js נייד ותלויות—<strong>אין צורך</strong> להתקין Node.js בנפרד.</div>'
+                            '<div class="callout warning"><strong>שימו לב:</strong> ההתקנה כבר כוללת בתוכה את סביבת Node.js — <strong>אין שום צורך</strong> להתקין אותה בנפרד.</div>' +
+                            '<div class="callout info"><strong>בחרתם בגרסה הניידת (Zip)?</strong> פשוט חלצו אותה לאיזו תיקייה שתרצו, הפעילו את <code>launch-FinancialOverview.cmd</code>, היכנסו בדפדפן לכתובת <code>http://127.0.0.1:3000</code>, ואל תסגרו את חלון הקונסולה.</div>'
                     },
                     'run-ui': {
-                        title: 'שלב 2: הפעלת השרת והממשק',
-                        html: '<ol class="steps">' +
-                            '<li><strong>הרצה.</strong> לחץ פעמיים על קיצור הדרך <strong>Financial Overview</strong> בשולחן העבודה או בתפריט התחל. נפתח חלון <strong>שורת פקודה (שחור)</strong> שנשאר פתוח כל עוד השרת רץ—זה התנהגות תקינה.</li>' +
-                            '<li><strong>טעינה.</strong> בהפעלה ראשונה בדיקות עלולות לקחת מספר שניות. המתן עד שהחלון מציין שהשרת מאזין (לרוב פורט <code>3000</code>).</li>' +
-                            '<li><strong>כניסה לממשק.</strong> כתובת ברירת המחדל: <code>http://127.0.0.1:3000</code>. אפשר:' +
-                            '<ul><li>להשתמש בקיצור <strong>Open Financial Overview in browser</strong> אחרי שהשרת עלה, או</li>' +
-                            '<li>להדביק את <code>http://127.0.0.1:3000</code> בשורת הכתובת, או</li>' +
-                            '<li>אם מופיע קישור ירוק בקונסולה, <strong>החזק Ctrl</strong> ולחץ על הקישור כדי לפתוח בדפדפן (בחלק מהמסופים נדרש Ctrl+לחיצה על קישורי http).</li></ul></li>' +
-                            '<li><strong>פורט ותיקיית נתונים.</strong> לעריכה: קובץ <code>financial-overview.json</code> בתיקיית ההתקנה (ראו <code>financial-overview.json.example</code> במאגר). משתני סביבה <code>PORT</code> ו־<code>DATA_DIR</code> דורסים את הקובץ אם מוגדרים.</li>' +
+                        title: 'שלב 2: פותחים את האפליקציה',
+                        html: '<p><strong>הכי נוח דרך האפליקציה.</strong> חפשו את <strong>Financial Overview</strong> בתפריט ההתחלה או בשולחן העבודה ולחצו עליה. האפליקציה גם תדליק את השרת המקומי וגם תפתח לכם את הממשק בחלון נוח. תוכלו לראות <strong>סמל קטן ליד השעון</strong> (במגש המערכת) שמעיד שהכל פועל.</p>' +
+                            '<ol class="steps">' +
+                            '<li><strong>בפעם הראשונה:</strong> המערכת תשאל אתכם אם תרצו שהיא תמשיך לעבוד ברקע כשאתם סוגרים את החלון (<strong>סגירה למגש המערכת</strong>). אפשר תמיד לשנות את זה אחר כך תחת <strong>הגדרות → תחזוקה</strong>.</li>' +
+                            '<li><strong>איפה זה יושב?</strong> הממשק פועל בכתובת <code>http://127.0.0.1:&lt;port&gt;/</code> (לרוב על פורט <code>3000</code>) ממש בתוך החלון שנפתח — אין חובה לפתוח דפדפן רגיל.</li>' +
+                            '<li><strong>קיצורי דרך נוספים:</strong> אם תרצו, הקיצור <strong>Open in browser (localhost)</strong> יפתח את המערכת בדפדפן הרגיל שלכם. הקיצור <strong>Launch server (console)</strong> יפתח חלון שחור (קונסולה) שעוזר להבין מה קורה מאחורי הקלעים במקרה של תקלות.</li>' +
+                            '<li><strong>הגדרות פורט ומיקום נתונים:</strong> רוצים לשנות את הפורט או את התיקייה שבה נשמרים הנתונים? אפשר לעשות את זה בקלות דרך לשונית <strong>תחזוקה</strong> במערכת (רק תזכרו לעשות הפעלה מחדש אחר כך). אפשר גם לערוך ידנית את הקובץ <code>financial-overview.json</code>.</li>' +
                             '</ol>' +
-                            imgFigure('screenshots/dashboard-expanded.png', 'ממשק אינטרנט — לוח בקרה (דוגמה)') +
-                            '<div class="callout success"><strong>סריקה ב־Windows:</strong> הסריקה משתמשת בדפדפן מבוסס Chromium. התקן <strong>Google Chrome</strong> או <strong>Microsoft Edge</strong> במחשב אם הסורק לא מוצא דפדפן.</div>'
+                            imgFigure('screenshots/dashboard-expanded.png', 'ככה נראה לוח הבקרה (דשבורד) שלנו') +
+                            '<div class="callout success"><strong>חשוב לצורך סריקת הבנקים:</strong> ודאו שמותקן לכם במחשב <strong>Google Chrome</strong> או <strong>Microsoft Edge</strong>, כדי שהסורק יוכל להשתמש בהם.</div>'
+                    },
+                    'desktop-tray': {
+                        title: 'שלב 3: עבודה ברקע',
+                        html: '<p>דברים כמו <strong>סריקות אוטומטיות</strong> ו<strong>בוט הטלגרם</strong> צריכים שהמערכת תעבוד כל הזמן ברקע. לכן, חשוב שהשרת יישאר דלוק גם כשאתם לא מסתכלים על האפליקציה.</p>' +
+                            '<h3>לסגור בלי לכבות (סגירה למגש)</h3>' +
+                            '<ul>' +
+                            '<li>כשהאפשרות <strong>סגירה למגש</strong> פועלת, ברגע שתלחצו על האיקס לסגור את החלון — האפליקציה רק תתחבא ליד השעון ו<strong>תמשיך לעבוד בשקט ברקע</strong>. כך האוטומציות והטלגרם שלכם לא יעצרו.</li>' +
+                            '<li>רוצים לסגור לגמרי? לחצו קליק ימני על הסמל של האפליקציה במגש ליד השעון ובחרו ב-<strong>יציאה (עצירת שרת)</strong>. זה יכבה את השרת לחלוטין.</li>' +
+                            '<li>אם אתם על Windows 11 והסמל מתחבא לכם תחת החץ הקטן (<strong>^</strong>), פשוט גררו אותו החוצה לשורת המשימות כדי שתמיד תראו אותו.</li>' +
+                            '</ul>' +
+                            '<h3>אזור "אפליקציית Windows" בהגדרות</h3>' +
+                            '<p>אם אתם משתמשים באפליקציה המותקנת (<code>FinancialOverview.exe</code>), היכנסו ל-<strong>הגדרות</strong> ואז ל-<strong>תחזוקה</strong>. שם יופיע לכם כרטיס מיוחד בשם <strong>אפליקציית Windows</strong> (זה לא מופיע אם נכנסתם דרך דפדפן רגיל).</p>' +
+                            '<ul>' +
+                            '<li>כאן תוכלו לשלוט על הגדרת ה<strong>סגירה למגש</strong> שהזכרנו קודם.</li>' +
+                            '<li>שאר ההגדרות כמו גיבויים, פורט ותיקיית הנתונים חלות על המערכת תמיד, לא משנה איך הפעלתם אותה.</li>' +
+                            '</ul>' +
+                            '<h3>שיניתם הגדרות עמוקות?</h3>' +
+                            '<ul><li>אם שיניתם את הפורט או את מיקום הנתונים, תצטרכו <strong>להפעיל מחדש את השרת</strong> כדי שזה יתפוס.</li></ul>' +
+                            '<div class="callout info"><strong>למשתמשי הדפדפן/הגרסה הניידת:</strong> אם בחרתם לעבוד עם החלון השחור של הקונסולה (<code>launch-FinancialOverview.cmd</code>), <strong>אסור לכם לסגור אותו</strong>. אם תסגרו, השרת יתכבה מיד. רק האפליקציה המותקנת יודעת לעבוד "ברקע" ליד השעון.</div>'
                     },
                     'first-setup': {
-                        title: 'שלב 3: הגדרות ראשוניות ואבטחה',
-                        html: '<h3>נעילת אפליקציה (סיסמה)</h3>' +
+                        title: 'שלב 4: הגדרות ואבטחה',
+                        html: '<h3>הגנה ונעילת האפליקציה (כספת)</h3>' +
                             '<ol class="steps">' +
-                            '<li>במסך ההגדרות הראשוני (<strong>App lock</strong>), הגדר <strong>סיסמה חזקה</strong> (אורך מינימלי כפי שמוצג בממשק). הסיסמה מגינה על הסשן ומשמשת לגזירת מפתח להצפנת <strong>פרופילי בנק שמורים</strong> במחשב זה.</li>' +
-                            '<li>אשר את הסיסמה והמשך. אם שכחת סיסמה, פרופילים מוצפנים לא ניתנים לשחזור—יש למחוק פרופילים אלה ולהזין מחדש אחרי איפוס הנעילה (ראו עזרה בממשק / <code>GUIDE.html</code>).</li>' +
+                            '<li>במסך הפתיחה תתבקשו להגדיר <strong>סיסמה חזקה</strong> (לפחות 8 תווים). הסיסמה הזו חשובה מאוד: היא לא רק מגינה על המסכים שלכם, אלא ממנה המערכת יוצרת מפתח שמצפין את <strong>פרטי הבנקים השמורים</strong> שלכם על המחשב.</li>' +
+                            '<li>אשרו את הסיסמה. <strong>שימו לב:</strong> אם תשכחו את הסיסמה הזו, לא תוכלו לשחזר את פרטי הבנק השמורים! תצטרכו למחוק אותם ולהזין הכל מחדש (פרטים נוספים במדריך המלא בתוך האפליקציה).</li>' +
                             '</ol>' +
-                            '<h3>בוט טלגרם (BotFather)</h3>' +
+                            '<h3>חיבור הבוט בטלגרם (@BotFather)</h3>' +
                             '<ol class="steps">' +
-                            '<li>בטלגרם פתח את <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> ולחץ <strong>Start</strong>.</li>' +
-                            '<li>שלח <code>/newbot</code>, בחר <strong>שם תצוגה</strong> ו־<strong>שם משתמש</strong> שמסתיים ב־<code>bot</code>.</li>' +
-                            '<li>BotFather מחזיר <strong>טוקן</strong> ארוך—העתק אותו.</li>' +
-                            '<li>ב־Financial Overview: <strong>Configuration → Telegram</strong>, הדבק את הטוקן, שמור והפעל לפי הממשק. הוסף מזהה צ׳אט להתראות לפי <a href="' + REPO + '/blob/master/docs/TELEGRAM_BOT_GUIDE.md" target="_blank" rel="noopener">TELEGRAM_BOT_GUIDE.md</a>.</li>' +
+                            '<li>פתחו את אפליקציית טלגרם, חפשו את <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> ולחצו <strong>Start</strong>.</li>' +
+                            '<li>שלחו לו את ההודעה <code>/newbot</code>. הוא ישאל אתכם איך בא לכם לקרוא לבוט (בחרו שם תצוגה ושם משתמש שחייב להסתיים במילה <code>bot</code>).</li>' +
+                            '<li>ברגע שתסיימו, BotFather ייתן לכם מחרוזת ארוכה של אותיות ומספרים — זה ה-<strong>טוקן</strong> שלכם. העתיקו אותו.</li>' +
+                            '<li>במערכת שלנו, היכנסו ל-<strong>הגדרות → טלגרם</strong>, הדביקו את הטוקן, שמור ולחצו על התחל. כדי להגדיר לאן יישלחו ההתראות, תוכלו להיעזר במדריך המלא שלנו ב-GitHub: <a href="' + REPO + '/blob/master/docs/TELEGRAM_BOT_GUIDE.md" target="_blank" rel="noopener">TELEGRAM_BOT_GUIDE.md</a>.</li>' +
                             '</ol>' +
-                            imgFigure('screenshots/config-telegram.png', 'הגדרות — טלגרם (דוגמה)') +
-                            '<p>פירוט פקודות והתראות: במדריך הטלגרם במאגר.</p>'
+                            imgFigure('screenshots/config-telegram.png', 'ככה נראה מסך הגדרות הטלגרם') +
+                            '<p>במדריך המורחב (בתוך המערכת או בגיטהאב) תמצאו את כל הפקודות שהבוט יודע לעשות.</p>'
                     },
                     'gemini-key': {
-                        title: 'מדריך להוצאת מפתח API עבור Gemini',
+                        title: 'שלב 5: חיבור ל-Gemini AI',
                         html: '<ol class="steps">' +
-                            '<li><strong>פתיחת Google AI Studio.</strong> בממשק, תחת <strong>הפעל תכונות AI</strong>, לחץ על הקישור לפתיחת <strong>Google AI Studio</strong> לקבלת מפתח API. נפתח דף חדש בדפדפן.</li>' +
-                            '<li><strong>הסכמה.</strong> אם מופיע חלון ברוכים הבאים / תנאים, סמן את האישור שאתה מפתח וממשיך.</li>' +
-                            '<li><strong>יצירת מפתח.</strong> במסך הראשי של AI Studio לחץ <strong>Get API key</strong> (בתפריט הצדדי או בראש הדף). אם זה המפתח הראשון, לחץ <strong>Create API key in new project</strong> (ניסוח עשוי להשתנות מעט).</li>' +
-                            '<li><strong>העתקה.</strong> העתק את המחרוזת הסודית (<strong>Copy</strong>). אל תשתף ואל תעלה לריפו ציבורי.</li>' +
-                            '<li><strong>חיבור לתוכנה.</strong> חזור ל־<code>http://127.0.0.1:3000</code>, פתח <strong>Configuration → AI</strong> (או שלב בהגדרות ראשוניות), והדבק בשדה <strong>Gemini API key</strong>, שמור / המשך.</li>' +
-                            '<li><strong>הפעלת יכולות.</strong> לאחר השמירה, ניתן להשתמש בקטגוריזציה, צ׳אט אנליסט ותכונות AI נוספות לפי המכסה וההגדרות בגוגל.</li>' +
+                            '<li><strong>פותחים את Google AI Studio.</strong> במסך ההגדרות הראשוני או תחת <strong>הגדרות → AI</strong>, תמצאו קישור שנקרא <strong>פתח את Google AI Studio לקבלת מפתח</strong>. לחיצה עליו תפתח לכם חלון בדפדפן.</li>' +
+                            '<li><strong>מאשרים תנאים.</strong> אם קופץ חלון של ברוכים הבאים (Welcome to AI Studio), פשוט סמנו V שאתם מאשרים את התנאים.</li>' +
+                            '<li><strong>יוצרים את המפתח.</strong> במסך הראשי של AI Studio, חפשו את הכפתור <strong>Get API key</strong>. אם מעולם לא יצרתם מפתח, לחצו על <strong>Create API key in new project</strong>.</li>' +
+                            '<li><strong>מעתיקים.</strong> גוגל תציג לכם שורת קוד סודית. לחצו על <strong>Copy</strong> כדי להעתיק אותה. שמרו על המפתח הזה כמו על סיסמה! אל תשתפו אותו עם אף אחד.</li>' +
+                            '<li><strong>מחברים למערכת שלנו.</strong> חיזרו לאפליקציה שלנו, לכו ל-<strong>הגדרות → AI</strong> (או למסך ההגדרות הראשוני), הדביקו את המפתח בשדה <strong>מפתח Gemini API</strong> ולחצו שמור.</li>' +
+                            '<li><strong>זהו, ה-AI באוויר!</strong> עכשיו המערכת תוכל למיין לכם הוצאות אוטומטית, להפעיל את האנליסט החכם ולתת לכם תובנות על הכסף שלכם.</li>' +
                             '</ol>' +
-                            imgFigure('screenshots/config-ai.png', 'הגדרות — AI / Gemini (דוגמה)') +
-                            '<div class="callout info">אופציונלי: הגבל את המפתח ל־Gemini ב־Google Cloud ועקוב אחר שימוש ב־AI Studio / Cloud.</div>' +
-                            '<div class="callout info"><strong>פרסונה וזיכרון AI:</strong> תחת <strong>הגדרות → AI</strong> אפשר להגדיר <strong>פרסונה</strong> מובנית (משק בית, יעדים, סגנון תשובות) ו<strong>עובדות AI שמורות</strong> (תזכורות ארוכות טווח שהמנתח משתמש בהן). באשף עלולות להופיע נקודות תקציר אחרי חילוץ—אלה לא מועתקות אוטומטית לרשימת העובדות השמורות. פירוט ב<strong>עזרה</strong> → <code>GUIDE.html</code>.</div>'
+                            imgFigure('screenshots/config-ai.png', 'מסך הגדרות ה-AI והחיבור ל-Gemini') +
+                            '<div class="callout info">המלצה למתקדמים: תוכלו להגביל את המפתח הזה בגוגל שיעבוד רק מול השירות של Gemini כדי להוסיף עוד שכבת ביטחון.</div>' +
+                            '<div class="callout info"><strong>הפרסונה והזיכרון של ה-AI:</strong> באזור ההגדרות של ה-AI תוכלו לעזור למערכת להכיר אתכם טוב יותר (מה ההרכב המשפחתי, מה היעדים שלכם) תחת אזור <strong>הפרסונה</strong>. בנוסף, המערכת תדע לשמור לעצמה "עובדות" כדי לזכור דברים חשובים עליכם לטווח ארוך. תוכלו ללמוד על זה עוד במדריך המלא בתוך האפליקציה (<code>GUIDE.html</code>).</div>'
                     },
                     'google-drive': {
-                        title: 'שלב 5: Google Drive ו-Sheets (אופציונלי)',
-                        html: '<div class="callout info"><strong>אופציונלי:</strong> OAuth של Google נדרש רק ל<strong>סנכרון Google Sheets</strong>, <strong>גיבויים ל-Drive</strong> ולייצוא לענן. ההגדרה מעט מורכבת יותר משאר ההגדרות — אפשר <strong>לדלג</strong> ולהשתמש באפליקציה לסריקה וניתוח בלי Google. אפשר להוסיף מאוחר יותר תחת <strong>הגדרות</strong> כשצריך גיבוי או Sheets.</div>' +
-                            '<p><strong>קבלת אישורי API:</strong> יוצרים לקוח OAuth ב-Google Cloud (האפליקציה לא מספקת מפתחות Google משותפים).</p>' +
+                        title: 'שלב 6: חיבור לגוגל (אופציונלי)',
+                        html: '<div class="callout info"><strong>זה אופציונלי לגמרי:</strong> החיבור של גוגל (OAuth) נחוץ אך ורק אם אתם רוצים <strong>לסנכרן נתונים ל-Google Sheets</strong> או <strong>לגבות את המערכת ל-Google Drive</strong>. התהליך פה טיפה ארוך, אז אפשר לגמרי <strong>לדלג על זה עכשיו</strong> ולהשתמש במערכת כרגיל. תמיד תוכלו לחזור לזה מתוך ה<strong>הגדרות</strong> כשתרגישו צורך.</div>' +
+                            '<p><strong>איך משיגים את אישורי החיבור:</strong> אתם צריכים ליצור פרויקט אישי משלכם ב-Google Cloud (אנחנו לא מספקים מפתחות שיתופיים מטעמי אבטחה ופרטיות).</p>' +
                             '<ol class="steps">' +
-                            '<li><strong>פרויקט חדש.</strong> ב־<a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> יוצרים פרויקט (תפריט פרויקט → New Project).</li>' +
-                            '<li><strong>הפעלת APIs.</strong> <em>APIs &amp; Services</em> → <em>Library</em>: מפעילים את <strong>Google Drive API</strong> ואת <strong>Google Sheets API</strong>.</li>' +
-                            '<li><strong>מסך הסכמת OAuth.</strong> <em>APIs &amp; Services</em> → <em>OAuth consent screen</em> — לרוב <strong>External</strong>; ממלאים שם אפליקציה ואימיילים; אפשר להמשיך ב-Scopes וב-Test users עם ברירות מחדל לשימוש אישי.</li>' +
-                            '<li><strong>OAuth client ID.</strong> <em>Credentials</em> → יוצרים <strong>OAuth client ID</strong> מסוג <strong>Web application</strong>. תחת <strong>Authorized redirect URIs</strong> מוסיפים את כתובת ה-callback המדויקת של השרת. ברירת מחדל: <code>http://127.0.0.1:3000/api/auth/google/callback</code> — מחליפים את <code>3000</code> ב־<strong>PORT</strong> אם שיניתם (כמו ב־<code>financial-overview.json</code> / סביבה). אם נכנסים דרך <code>http://localhost:…</code>, יש להוסיף גם URI עם <code>localhost</code> — נדרשת התאמה מלאה.</li>' +
-                            '<li><strong>הדבקה באפליקציה.</strong> מעתיקים <strong>Client ID</strong> ו־<strong>Client Secret</strong> ל־<strong>הגדרות → גוגל</strong> (<code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>). מגדירים <code>GOOGLE_REDIRECT_URI</code> זהה ל-URI שרשומים ב-Google. הפעלה מחדש של השרת אם נדרש, ואז התחברות דרך Sheets / Google בממשק.</li>' +
-                            '<li><strong>תיקייה (אופציונלי).</strong> <code>DRIVE_FOLDER_ID</code> (מזהה מתוך URL של Drive אחרי <code>/folders/</code>) — בהגדרות סביבה או בממשק מאוחר יותר.</li>' +
+                            '<li><strong>פותחים פרויקט חדש.</strong> היכנסו לאתר <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> וצרו פרויקט חדש (דרך תפריט הפרויקטים למעלה → New Project).</li>' +
+                            '<li><strong>מדליקים את הגישה.</strong> בתפריט הצד לחצו על <em>APIs &amp; Services</em> ואז על <em>Library</em>. חפשו שם את <strong>Google Drive API</strong> ואת <strong>Google Sheets API</strong> והפעילו אותם.</li>' +
+                            '<li><strong>יוצרים מסך הסכמה.</strong> תחת <em>APIs &amp; Services</em> היכנסו ל-<em>OAuth consent screen</em>. לרוב תבחרו ב-<strong>External</strong>. מלאו את השם של האפליקציה וכתובות המייל, ובשאר המסכים פשוט תמשיכו הלאה (הגדרות ברירת המחדל מספיקות לשימוש אישי).</li>' +
+                            '<li><strong>מפיקים את המפתחות.</strong> היכנסו ל-<em>Credentials</em>, לחצו על יצירת אישורים ובחרו <strong>OAuth client ID</strong>. בסוג האפליקציה בחרו <strong>Web application</strong>. עכשיו החלק החשוב: תחת <strong>Authorized redirect URIs</strong> הוסיפו בדיוק את הכתובת <code>http://127.0.0.1:3000/api/auth/google/callback</code> (אם שיניתם את פורט ה-<code>3000</code> למשהו אחר, שנו גם כאן בהתאם). אם אתם רגילים לגלוש דרך <code>localhost</code>, הוסיפו את אותה כתובת שוב פעם רק עם המילה localhost. גוגל מאוד נוקשה בזה.</li>' +
+                            '<li><strong>מעתיקים למערכת.</strong> גוגל תיתן לכם <strong>Client ID</strong> ו-<strong>Client Secret</strong>. חזרו לאפליקציה שלנו, לכו ל-<strong>הגדרות → גוגל</strong> והדביקו אותם שם. ודאו גם ששדה ה-<code>GOOGLE_REDIRECT_URI</code> תואם בול למה ששמתם בגוגל. שמרו הכל, אולי תצטרכו לעשות ריסטארט קטן לשרת, וזהו! אתם מחוברים.</li>' +
+                            '<li><strong>תיקיית גיבוי (אופציונלי).</strong> אם תרצו, תוכלו להעתיק את ה-ID של התיקייה מהדרייב שלכם (מתוך הכתובת למעלה בדפדפן, אחרי <code>/folders/</code>) ולהדביק אותו בהגדרות של גוגל במערכת.</li>' +
                             '</ol>' +
-                            '<div class="callout warning"><strong>„Google hasn’t verified this app”:</strong> נפוץ בפרויקט אישי. <strong>Advanced</strong> → <strong>Go to … (unsafe)</strong> כדי להמשיך.</div>'
+                            '<div class="callout warning"><strong>גוגל אומרת שהאפליקציה לא מאומתת ("Google hasn’t verified this app")?</strong> זה תמיד קורה כשפותחים פרויקט אישי. פשוט לחצו על <strong>Advanced</strong> (מתקדם) ואז על <strong>Go to … (unsafe)</strong> כדי להמשיך בשלום.</div>'
                     }
                 }
             }
@@ -300,7 +346,7 @@
 
         let currentLang = localStorage.getItem('installGuideLang') || 'en';
 
-        const sectionOrder = ['overview', 'windows-install', 'run-ui', 'first-setup', 'gemini-key', 'google-drive'];
+        const sectionOrder = ['overview', 'windows-install', 'run-ui', 'desktop-tray', 'first-setup', 'gemini-key', 'google-drive'];
 
         function render() {
             const data = content[currentLang];

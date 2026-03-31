@@ -85,7 +85,7 @@
         th { background: #f8fafc; text-align: left; padding: 1.2rem; border-bottom: 2px solid var(--border); font-weight: 700; color: #64748b; }
         td { padding: 1.2rem; border-bottom: 1px solid var(--border); }
 
-        /* Embedded TELEGRAM_BOT_GUIDE.md (markdown → HTML) */
+        /* Telegram guide body (long-form section in GUIDE.html) */
         .telegram-guide-body { margin-top: 0.5rem; }
         .telegram-guide-body h2 { font-size: 1.35rem; margin: 2rem 0 0.75rem; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
         .telegram-guide-body h3 { font-size: 1.15rem; margin: 1.5rem 0 0.6rem; color: var(--primary-dark); font-weight: 700; }
@@ -125,7 +125,7 @@
                 subtitle: "The complete manual for setting up and using Financial Overview.",
                 nav: [
                     { label: "Setup", items: [{ id: "getting-started", label: "Getting started" }, { id: "windows-install", label: "Windows installation" }, { id: "env-setup", label: "Runtime & secrets" }, { id: "app-lock", label: "App lock" }, { id: "api-guides", label: "API keys" }, { id: "google-setup", label: "Google Drive & Sheets" }, { id: "telegram-guide", label: "Telegram bot" }] },
-                    { label: "Web app", items: [{ id: "dashboard", label: "Dashboard" }, { id: "scrape", label: "Scrape" }, { id: "profiles", label: "Profiles" }, { id: "results", label: "Results explorer" }, { id: "logs", label: "Logs" }, { id: "configuration", label: "Configuration" }] },
+                    { label: "Web app", items: [{ id: "main-interface", label: "Main interface" }, { id: "dashboard", label: "Dashboard" }, { id: "scrape", label: "Scrape" }, { id: "profiles", label: "Profiles" }, { id: "results", label: "Results explorer" }, { id: "logs", label: "Logs" }, { id: "configuration", label: "Configuration" }] },
                     { label: "Intelligence", items: [{ id: "ai", label: "AI features" }, { id: "fraud", label: "Fraud detection" }, { id: "automation", label: "Scheduler & backups" }] },
                     { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "credits", label: "Credits" }] }
                 ],
@@ -218,10 +218,13 @@ GEMINI_API_KEY=(optional)
                                 <strong>Recommended:</strong> Use the in-app <strong>setup wizard</strong> (onboarding) as your primary way to configure the app—Telegram, Gemini, Google OAuth/Drive, and <strong>app lock</strong> in one guided flow.
                             </div>
                             <h3>System Requirements</h3>
+                            <p>The app is a <strong>web UI</strong> talking to a <strong>local Node.js server</strong>. What you need depends on how you run it:</p>
                             <ul>
-                                <li><strong>Browser:</strong> Chrome, Firefox, Safari, or Edge.</li>
-                                <li><strong>Internet:</strong> Active connection for bank portal access.</li>
-                                <li><strong>JavaScript:</strong> Must be enabled in your browser.</li>
+                                <li><strong>Runtime:</strong> A recent <strong>64-bit</strong> OS supported by your deployment (Windows, Linux, or macOS for dev/Docker). You do <strong>not</strong> install Node yourself when using our Windows installer, Docker image, or Home Assistant add-on—the package supplies the runtime.</li>
+                                <li><strong>Client:</strong> A <strong>modern browser</strong> (Chrome, Firefox, Safari, or Edge) with <strong>JavaScript enabled</strong>, <em>or</em> the <strong>Windows desktop app</strong> (Electron) which embeds the same UI—use whichever you prefer on Windows.</li>
+                                <li><strong>Network:</strong> Internet access for <strong>bank portals</strong> during scrapes; and for <strong>Gemini</strong>, <strong>Telegram</strong>, or <strong>Google</strong> if you enable those integrations.</li>
+                                <li><strong>Disk:</strong> Enough space for your <strong>data directory</strong> (database, scrape results, config)—size grows with history.</li>
+                                <li><strong>Bank scraping (automation):</strong> On Windows, install <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> so the scraper can drive a Chromium-based browser (not bundled by default in the Windows package).</li>
                             </ul>
                             <h3>First Launch</h3>
                             <ol>
@@ -231,26 +234,47 @@ GEMINI_API_KEY=(optional)
                             </ol>
                             <h3>Setup wizard (onboarding)</h3>
                             <p>The guided steps cover Telegram, Gemini, Google OAuth, Drive folder selection, and creating your <strong>app lock</strong> password. Completing the wizard is the easiest way to get a consistent, working configuration.</p>
+                            <h3>After onboarding</h3>
+                            <p>You may be offered a short <strong>Getting Started</strong> tour of the UI, and later a <strong>persona</strong> wizard for AI alignment—both are optional and separate from onboarding. See <a href="#main-interface">Main interface</a> for header controls and banners.</p>
                         `
                     },
                     "windows-install": {
                         title: "🪟 Windows installation",
                         html: `
-                            <p>The <strong>Windows</strong> build is a single installer (<code>FinancialOverview-Windows-Setup.exe</code>) that installs the server, the web UI, dependencies, and a <strong>bundled Node.js</strong>—you do not install Node yourself.</p>
-                            <h3>Install</h3>
+                            <p>Windows artifacts come in <strong>two forms</strong>. Pick one:</p>
+                            <ul>
+                                <li><strong>Installer + Electron (recommended for most users):</strong> <code>FinancialOverview-Windows-Setup.exe</code> installs the server, bundled <strong>Node.js</strong>, the web UI, and the <strong>Electron</strong> desktop shell (<code>FinancialOverview.exe</code>). You get a proper app window, <strong>system tray</strong>, and <strong>close-to-tray</strong> so the server can stay up for <strong>scheduler</strong> and <strong>Telegram</strong>. You do <strong>not</strong> install Node separately.</li>
+                                <li><strong>Portable zip (advanced):</strong> <code>windows-package.zip</code> is a folder you extract: same Node server and UI, but <strong>no Electron</strong> and <strong>no tray</strong>. Start with <code>launch-FinancialOverview.cmd</code> and <strong>keep the console window open</strong> while the server runs. Useful for scripting, portable drives, or troubleshooting.</li>
+                            </ul>
+                            <h3>Installer path (Electron)</h3>
                             <ol>
-                                <li>Run the installer and finish the wizard (default folder: <code>%LocalAppData%\\FinancialOverview</code>).</li>
-                                <li>Start <strong>Financial Overview</strong> from the Start menu, or run <code>launch-FinancialOverview.cmd</code> in the install directory. A console window stays open while the app runs; close it to stop the server.</li>
-                                <li>Open <code>http://127.0.0.1:3000</code> in your browser (default port <strong>3000</strong>). Use the shortcut <strong>Open Financial Overview in browser</strong> after the server has started if the page does not load immediately.</li>
+                                <li>Download <code>FinancialOverview-Windows-Setup.exe</code> from the project’s GitHub <strong>Releases</strong>, run it, and finish the wizard (default install folder is often <code>%LocalAppData%\\FinancialOverview</code>).</li>
+                                <li>Launch <strong>Financial Overview</strong> from the Start menu. This runs <code>FinancialOverview.exe</code>: the local server starts and the UI opens in the desktop window; a <strong>tray icon</strong> appears.</li>
+                                <li><strong>Close to tray</strong> (first-run prompt or <strong>Configuration → Maintenance</strong>) keeps the server running when you close the window. Use <strong>Quit (stop server)</strong> from the tray to stop completely.</li>
+                                <li>Default URL is <code>http://127.0.0.1:3000</code> (port <strong>3000</strong>). Optional Start-menu shortcuts may open the <strong>same URL in an external browser</strong> or start the <strong>console launcher</strong> below without Electron.</li>
                             </ol>
+                            <h3>Portable zip path (no Electron)</h3>
+                            <ol>
+                                <li>Extract <code>windows-package.zip</code> anywhere you like.</li>
+                                <li>Run <code>launch-FinancialOverview.cmd</code>. A <strong>console window</strong> stays open—do not close it while you use the app.</li>
+                                <li>Open <code>http://127.0.0.1:3000</code> in your browser. There is <strong>no</strong> tray; stopping means closing the console (or ending the process).</li>
+                            </ol>
+                            <h3>Windows desktop app (Maintenance tab)</h3>
+                            <p>If you use the <strong>Electron</strong> desktop app (<code>FinancialOverview.exe</code>), open <strong>Configuration</strong> → <strong>Maintenance</strong>. A <strong>Windows desktop app</strong> section appears near the top of the tab. It is <strong>hidden</strong> when you only open the UI in a <strong>normal browser</strong> or use the portable <code>.cmd</code> flow—those runs are not inside the desktop shell, so there is nothing to configure here.</p>
+                            <ul>
+                                <li><strong>Close to tray:</strong> When enabled, closing the main <strong>window</strong> keeps the <strong>Node server</strong> running in the background so <strong>scheduled scrapes</strong> and the <strong>Telegram bot</strong> keep working. The same setting is offered in the <strong>first-run</strong> dialog and from the <strong>tray icon</strong> menu. To stop the server completely, use <strong>Quit (stop server)</strong> from the tray.</li>
+                            </ul>
+                            <p>Other controls on <strong>Maintenance</strong>—<strong>port</strong>, <strong>data directory</strong>, backups, <strong>Check GitHub release</strong>, etc.—apply regardless of browser vs desktop app.</p>
                             <h3>Where data is stored</h3>
-                            <p>By default, databases and settings go under <code>%AppData%\\FinancialOverview\\data</code> (<strong>DATA_DIR</strong>). You can change <code>PORT</code> or <code>DATA_DIR</code> via Windows environment variables before launch—see the project <strong>DEPLOYMENT.md</strong>.</p>
+                            <p>By default, databases and settings go under <code>%AppData%\\FinancialOverview\\data</code> (<strong>DATA_DIR</strong>). You can change <code>PORT</code> or <code>DATA_DIR</code> via Windows environment variables before launch, or set <code>port</code> and <code>dataDir</code> in <code>financial-overview.json</code> (environment variables override the file). The same values can be adjusted under <strong>Configuration → Maintenance</strong> in the app.</p>
                             <h3>Config file (port and data folder)</h3>
                             <p>Edit <code>financial-overview.json</code> in the install folder (a default file is included). Use <code>port</code> and optional <code>dataDir</code>. Environment variables override the file if set.</p>
                             <div class="callout info">
                                 <strong>Scraping:</strong> Install <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on this PC (the Windows package does not bundle Puppeteer’s Chromium by default).
                             </div>
                             <p>After installation, use the in-app <strong>setup wizard</strong> for Telegram, Gemini, Google, and app lock—same as other deployment methods.</p>
+                            <h3>Updates</h3>
+                            <p>Under <strong>Configuration → Maintenance</strong>, <strong>Check GitHub release</strong> compares your build to the latest release when the app was built with a GitHub repository id. Download newer installers from the project’s GitHub <strong>Releases</strong> page.</p>
                         `
                     },
                     "app-lock": {
@@ -274,7 +298,45 @@ GEMINI_API_KEY=(optional)
                             <h3>Threat model</h3>
                             <p><strong>When locked:</strong> The server <strong>clears</strong> the derived key from memory and <strong>does not</strong> decrypt profile credentials for the API—so another user or script using <strong>only the app</strong> should <strong>not</strong> get plaintext bank passwords. This is <strong>not</strong> absolute: encrypted files remain on disk (offline password guessing), and malware that ran while you were <strong>unlocked</strong> may already have captured secrets.</p>
                             <p><strong>Bank logins:</strong> Strong protection requires <strong>app lock</strong>. If you never enable it, profile files may use a <strong>fixed key from the published source</strong>—treat stored credentials as exposed to anyone who can read <code>data/profiles/</code>. With app lock, an attacker needs your <strong>password</strong> or access while the app is <strong>unlocked</strong> (malware, shoulder surfing).</p>
-                            <p><strong>Transactions &amp; secrets:</strong> The SQLite DB (<code>app.db</code>), scrape <code>results</code>, and config JSON are <strong>not</strong> encrypted by the app. Anyone with read access to <code>DATA_DIR</code> can see <strong>transaction history</strong> and API/Telegram/OAuth secrets—<strong>app lock does not hide those files</strong>. Use OS permissions, full-disk encryption, and lock the app when you leave the desk. Full write-up: <code>docs/THREAT_MODEL.md</code> in the repository.</p>
+                            <p><strong>Transactions &amp; secrets:</strong> The SQLite DB (<code>app.db</code>), scrape <code>results</code>, and config JSON are <strong>not</strong> encrypted by the app. Anyone with read access to <code>DATA_DIR</code> can see <strong>transaction history</strong> and API/Telegram/OAuth secrets—<strong>app lock does not hide those files</strong>. Use OS permissions, full-disk encryption, and lock the app when you leave the desk.</p>
+                            <h4>What an attacker needs for saved bank credentials</h4>
+                            <ul>
+                                <li><strong>No app lock:</strong> Profiles may be encrypted with a <strong>fixed development key</strong> published in source—anyone who can read the profile files can recover logins <strong>without your password</strong>.</li>
+                                <li><strong>App lock enabled:</strong> Typical paths are your <strong>password</strong> (including offline guessing against stolen files), a compromised machine while the app is <strong>unlocked</strong>, or <strong>physical disk access</strong> without full-disk encryption.</li>
+                                <li><strong>Remote attacker:</strong> No direct disk access; they need malware, an <strong>exposed server</strong>, compromised remote access, or a <strong>stolen backup</strong>. Prefer TLS (reverse proxy) when the UI is reachable beyond <code>127.0.0.1</code>.</li>
+                            </ul>
+                            <h4>Shared PC and filesystem access</h4>
+                            <p>Someone who can read <code>DATA_DIR</code> sees <strong>transactions</strong>, <strong>scrape output</strong>, and <strong>API/Telegram/OAuth secrets</strong> in plain JSON—<strong>even without the app lock password</strong>. App lock mainly protects <strong>stored bank login material</strong> and restricts scrape/profile actions; it does not encrypt the SQLite database or scrape folders. Use OS accounts, permissions on the data folder, full-disk encryption, and lock the app when you leave the machine.</p>
+                        `
+                    },
+                    "main-interface": {
+                        title: "🖥️ Main interface",
+                        html: `
+                            <h3>Header and navigation</h3>
+                            <p>The top bar shows the app title, then <strong>main tabs</strong>: <strong>Dashboard</strong>, <strong>Scrape</strong>, <strong>Logs</strong>, and <strong>Configuration</strong>. On narrow screens the tabs scroll horizontally.</p>
+                            <ul>
+                                <li><strong>Server status:</strong> If the API health check fails, a <strong>server unreachable</strong> indicator appears—ensure the server process is running and the URL port matches <strong>Configuration → Maintenance</strong> (or <code>PORT</code> / <code>financial-overview.json</code>).</li>
+                                <li><strong>Activity:</strong> While work is running, chips may show <strong>Scrape</strong> or <strong>AI</strong> activity.</li>
+                                <li><strong>On Dashboard:</strong> An <strong>alerts</strong> menu lists insight and alert items for the <strong>selected month</strong>; the <strong>AI analyst</strong> (sparkles) button opens the analyst chat.</li>
+                                <li><strong>Language:</strong> Toggle English / Hebrew (RTL applies for Hebrew).</li>
+                                <li><strong>App Assistant:</strong> Shown when a Gemini API key is configured—opens the in-app help chat.</li>
+                                <li><strong>Help docs:</strong> Opens this guide in a new tab.</li>
+                                <li><strong>Feedback:</strong> Opens the feedback dialog (optional server/client log excerpts with consent).</li>
+                                <li><strong>Rerun setup wizard / Getting Started:</strong> After onboarding (and when applicable), icons let you restart the full onboarding flow or the short UI tour—each asks for confirmation.</li>
+                            </ul>
+                            <h3>Guided flows</h3>
+                            <ul>
+                                <li><strong>Setup wizard (onboarding):</strong> One flow for Telegram, Gemini, Google, app lock; can resume if interrupted.</li>
+                                <li><strong>Getting Started tour:</strong> Short orientation after onboarding; can resume or dismiss.</li>
+                                <li><strong>Persona wizard:</strong> May appear to help complete your <strong>AI persona</strong> (alignment profile).</li>
+                            </ul>
+                            <h3>Banners</h3>
+                            <ul>
+                                <li><strong>Transaction review:</strong> When the server reports items needing review, a banner can open a table to assign categories.</li>
+                                <li><strong>Categorization error:</strong> If bulk AI categorization fails, use <strong>Retry</strong>, open <strong>AI</strong> settings, or dismiss.</li>
+                            </ul>
+                            <h3>Default view</h3>
+                            <p>If there are <strong>no</strong> scrape results and <strong>no</strong> unified transactions yet, and the URL did not specify a view, the app opens <strong>Scrape</strong> first.</p>
                         `
                     },
                     "dashboard": {
@@ -287,6 +349,8 @@ GEMINI_API_KEY=(optional)
                             <p>On viewports narrower than <strong>640px</strong> (Tailwind <code>sm</code>), main section cards <strong>start collapsed</strong>; on wider screens they start expanded.</p>
                             <h3>Export</h3>
                             <p>Use the export menu to download dashboard-oriented data (e.g. CSV/JSON) where available.</p>
+                            <h3>Alerts and top insights</h3>
+                            <p>Use the header <strong>alerts</strong> control on the Dashboard for the selected month. The <strong>Top insights</strong> area mixes <strong>AI</strong> memory insights and <strong>Rule</strong> matches from <strong>Configuration → Insight rules</strong>; labels distinguish the source.</p>
                         `
                     },
                     "scrape": {
@@ -348,8 +412,13 @@ GEMINI_API_KEY=(optional)
                     "configuration": {
                         title: "⚙️ Configuration",
                         html: `
-                            <p>Open <strong>Configuration</strong> from the main navigation. Sub-tabs include <strong>AI</strong> (and memory), <strong>Categories</strong>, <strong>Scheduler</strong> (and scheduled backups), <strong>Scrape</strong> (including fraud &amp; alerts), <strong>Google</strong> (OAuth, Sheets, Drive), <strong>Telegram</strong>, and <strong>Maintenance</strong> (backups, port, data folder).</p>
-                            <p class="callout info">Deep links use <code>?view=configuration&amp;tab=&lt;id&gt;</code> (for example <code>tab=sheets</code> for Google).</p>
+                            <p>Open <strong>Configuration</strong> from the main navigation. Sub-tabs include <strong>AI</strong> (and memory), <strong>Categories</strong>, <strong>Insight rules</strong> (deterministic dashboard rules), <strong>Scheduler</strong> (and scheduled backups), <strong>Scrape</strong> (including fraud &amp; alerts), <strong>Google</strong> (OAuth, Sheets, Drive), <strong>Telegram</strong>, and <strong>Maintenance</strong>.</p>
+                            <p class="callout info">Deep links use <code>?view=configuration&amp;tab=&lt;id&gt;</code> (for example <code>tab=sheets</code> for Google, <code>tab=insight-rules</code> for insight rules).</p>
+                            <h3>Maintenance</h3>
+                            <p><strong>Port</strong> and <strong>data directory</strong> live here (same as <code>runtime-settings.json</code> / environment overrides). <strong>Backups</strong> can target <strong>scopes</strong> (choose what to include); <strong>restore</strong> can respect scope selections when restoring from local, Drive, or an uploaded snapshot file—review the summary before confirming.</p>
+                            <p><strong>Desktop app (Windows Electron):</strong> When running inside the desktop shell, a <strong>Close to tray</strong> option appears so closing the window can keep the server running for scheduler and Telegram.</p>
+                            <p><strong>GitHub release:</strong> If the build includes a repository id, Maintenance can <strong>check for updates</strong> against the latest GitHub release.</p>
+                            <p>You can also clear <strong>browser site data</strong> for this origin if you need a clean client cache.</p>
                         `
                     },
                     "ai": {
@@ -374,8 +443,8 @@ GEMINI_API_KEY=(optional)
                                 <li><strong>Filling it in:</strong> Edit fields directly, or use onboarding / “extract from narrative” so the model proposes persona fields plus optional summary bullets from your free-text description.</li>
                             </ul>
                             <p>Persona steers <strong>tone and priorities</strong>; stored memory facts steers <strong>long-lived statements</strong> the model should remember. Both can appear in the same analyst prompt when enabled.</p>
-                            <h3>Dashboard — Top AI Insights</h3>
-                            <p>On the <strong>Dashboard</strong>, the <strong>Top AI Insights</strong> card surfaces the highest-scored recent insights from memory so you see important takeaways at a glance. You can dismiss individual cards.</p>
+                            <h3>Dashboard — Top insights</h3>
+                            <p>On the <strong>Dashboard</strong>, top insights combine <strong>AI memory</strong> items and <strong>insight rules</strong> (see <strong>Configuration → Insight rules</strong>). Cards are labeled by source; you can dismiss items.</p>
                             <h3>Analyst chat</h3>
                             <p>Ask natural-language questions about spending, trends, or anomalies. When memory is enabled, the chat may add facts, insights, or alerts (shown in the UI and AI logs). Use the explorer’s <strong>Categorize with AI</strong> for batch labeling.</p>
                         `
@@ -391,7 +460,7 @@ GEMINI_API_KEY=(optional)
                                 <li><strong>Amount outliers:</strong> Unusually high amounts vs your own history for the same normalized description (z-score), when enough past data exists.</li>
                                 <li><strong>Rapid repeats:</strong> Multiple very similar charges in the same scrape batch within a time window (possible duplicates or card abuse).</li>
                             </ul>
-                            <p>Each hit adds <strong>points</strong> toward a score (0–100) and a <strong>severity</strong> (low / medium / high). Tune thresholds and which rules are enabled under <strong>Configuration → Fraud</strong>. You can run <strong>local only</strong>, <strong>AI only</strong>, or <strong>both</strong>, and scope analysis to the current scrape or a wider history depending on settings.</p>
+                            <p>Each hit adds <strong>points</strong> toward a score (0–100) and a <strong>severity</strong> (low / medium / high). Tune thresholds and which rules are enabled under <strong>Configuration → Scrape</strong> (Fraud &amp; alerts section). You can run <strong>local only</strong>, <strong>AI only</strong>, or <strong>both</strong>, and scope analysis to the current scrape or a wider history depending on settings.</p>
                             <p class="callout info">Findings can feed notifications (e.g. Telegram) when severity meets your minimum—configured in the same area.</p>
                         `
                     },
@@ -413,6 +482,7 @@ GEMINI_API_KEY=(optional)
                         html: `
                             <h3>Common Issues</h3>
                             <ul>
+                                <li><strong>Server unreachable / blank data:</strong> Confirm the Node server is running, the port matches your URL (<code>GET /api/health</code> should succeed). If you changed <code>PORT</code> or <code>DATA_DIR</code>, restart after edits.</li>
                                 <li><strong>Credentials Rejected:</strong> Ensure you can log in directly on the bank's official website.</li>
                                 <li><strong>Timeout Error:</strong> Increase the <code>timeout</code> setting in the scrape options for slow connections.</li>
                                 <li><strong>Cannot decrypt profile / wrong password:</strong> Unlock with the same <strong>app lock password</strong> used when the profile was saved. If you <strong>forgot</strong> it, see the <strong>App lock</strong> section: delete profiles and re-enter credentials after resetting lock.</li>
@@ -423,8 +493,7 @@ GEMINI_API_KEY=(optional)
                     },
                     "telegram-guide": {
                         title: "✈️ Telegram bot",
-                        html: `<p class="callout info">Source: <code>docs/TELEGRAM_BOT_GUIDE.md</code> in the repository.</p>
-<div class="telegram-guide-body"><h2>Overview</h2>
+                        html: `<div class="telegram-guide-body"><h2>Overview</h2>
 <p>Financial Overview (מבט כלכלי) includes a full-featured Telegram bot that allows you to:</p>
 <ul>
 <li>📬 <strong>Receive notifications</strong> about transaction scrapers</li>
@@ -800,672 +869,562 @@ Bot: 📈 Yes, your spending increased by 12% compared to last month
             },
             he: {
                 brand: "מבט כלכלי",
-                title: "מדריך למשתמש",
-                subtitle: "המדריך המלא להגדרה ושימוש במבט כלכלי.",
+                title: "המדריך המלא למשתמש",
+                subtitle: "כל מה שצריך לדעת כדי להגדיר ולהפיק את המרב ממבט כלכלי.",
                 nav: [
-                    { label: "התקנה", items: [{ id: "getting-started", label: "איך מתחילים" }, { id: "windows-install", label: "התקנה ב-Windows" }, { id: "env-setup", label: "זמן ריצה וסודות" }, { id: "app-lock", label: "נעילת אפליקציה" }, { id: "api-guides", label: "מפתחות API" }, { id: "google-setup", label: "Google Drive ו-Sheets" }, { id: "telegram-guide", label: "בוט טלגרם" }] },
-                    { label: "ממשק", items: [{ id: "dashboard", label: "דשבורד" }, { id: "scrape", label: "סריקה" }, { id: "profiles", label: "פרופילים" }, { id: "results", label: "סייר תוצאות" }, { id: "logs", label: "יומנים" }, { id: "configuration", label: "הגדרות" }] },
-                    { label: "חכם", items: [{ id: "ai", label: "תכונות AI" }, { id: "fraud", label: "זיהוי הונאה" }, { id: "automation", label: "מתזמן וגיבויים" }] },
-                    { label: "תמיכה", items: [{ id: "troubleshooting", label: "פתרון בעיות" }, { id: "credits", label: "קרדיטים" }] }
+                    { label: "צעדים ראשונים", items: [{ id: "getting-started", label: "איך מתחילים?" }, { id: "windows-install", label: "התקנה בווינדוס (Windows)" }, { id: "env-setup", label: "הגדרות סביבה מתקדמות" }, { id: "app-lock", label: "נעילת האפליקציה" }, { id: "api-guides", label: "חיבור מפתחות API" }, { id: "google-setup", label: "חיבור לגוגל דרייב ושיטס" }, { id: "telegram-guide", label: "הבוט שלנו בטלגרם" }] },
+                    { label: "הממשק שלנו", items: [{ id: "main-interface", label: "מבט כללי על המערכת" }, { id: "dashboard", label: "לוח הבקרה (דשבורד)" }, { id: "scrape", label: "איך סורקים?" }, { id: "profiles", label: "ניהול פרופילים" }, { id: "results", label: "סייר הנתונים" }, { id: "logs", label: "יומני פעילות (Logs)" }, { id: "configuration", label: "מסך ההגדרות" }] },
+                    { label: "הכלים החכמים שלנו", items: [{ id: "ai", label: "העוזר החכם (AI)" }, { id: "fraud", label: "הגנה וזיהוי חריגות" }, { id: "automation", label: "אוטומציות וגיבויים" }] },
+                    { label: "תמיכה ועזרה", items: [{ id: "troubleshooting", label: "פתרון תקלות נפוצות" }, { id: "credits", label: "תודות וקרדיטים" }] }
                 ],
                 sections: {
                     "env-setup": {
-                        title: "⚙️ הגדרת סביבה (runtime-settings.json)",
+                        title: "⚙️ למתקדמים: הגדרות סביבה (runtime-settings.json)",
                         html: `
-                            <p>קובץ אופציונלי בשורש הפרויקט או באותם שדות ב<strong>AI</strong> / <strong>גוגל</strong> / <strong>תחזוקה</strong> בממשק (כמו <code>runtime-settings.json</code>). לדוגמה:</p>
+                            <p>תוכלו למצוא את זה כקובץ בשורש הפרויקט או באותם שדות תחת <strong>AI</strong> / <strong>גוגל</strong> / <strong>תחזוקה</strong> בממשק עצמו (ממש כמו <code>runtime-settings.json</code>). לדוגמה:</p>
                             <div class="code-block">
 DRIVE_FOLDER_ID=(optional)<br>
 GEMINI_API_KEY=(optional)
                             </div>
                             <div class="callout info">
-                                <strong>הצפנת פרופילים:</strong> פרטי בנק שמורים מוצפנים עם מפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong> (מוגדרת בממשק).
+                                <strong>איך אנחנו מצפינים את הפרופילים?</strong> פרטי הבנק שלכם נשמרים תחת הצפנה. המפתח להצפנה הזו נוצר מ<strong>סיסמת נעילת האפליקציה</strong> שלכם (שאותה אתם מגדירים במערכת).
                             </div>
                         `
                     },
                     "api-guides": {
-                        title: "🔑 קבלת מפתחות API",
+                        title: "🔑 חיבור מפתחות API",
                         html: `
-                            <h3>מפתח Google Gemini AI</h3>
-                            <p>מאפשר סיווג אוטומטי וצ'אט עם מנתח פיננסי.</p>
+                            <h3>מפתח ל-Google Gemini AI</h3>
+                            <p>המפתח הזה מאפשר לנו לסווג לכם הוצאות אוטומטית ונותן חיים לאנליסט הפיננסי (הצ'אט) שלכם.</p>
                             <ol>
-                                <li>עבור אל <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
-                                <li>התחבר ולחץ על <strong>"Get API Key"</strong>.</li>
-                                <li>הדבק את המפתח ב- <code>GEMINI_API_KEY</code> בקובץ <code>runtime-settings.json</code> (או בהגדרות → AI).</li>
+                                <li>היכנסו לאתר <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</li>
+                                <li>התחברו עם חשבון גוגל ולחצו על <strong>"Get API Key"</strong>.</li>
+                                <li>העתיקו את המפתח והדביקו אותו ב-<code>GEMINI_API_KEY</code> בקובץ <code>runtime-settings.json</code> (או פשוט דרך הממשק: הגדרות → AI).</li>
                             </ol>
-                            <h3>מזהה תיקיית Google Drive (אופציונלי)</h3>
-                            <p>תיקיית ברירת מחדל לגיבויים ולייצוא כשמחוברים ל-Google. זה לא אותו דבר כמו אישורי OAuth — ראו <a href="#google-setup">Google Drive ו-Sheets (OAuth)</a> להגדרה מלאה ב-Cloud Console.</p>
+                            <h3>מזהה התיקייה ב-Google Drive (אופציונלי)</h3>
+                            <p>כאן יישמרו הגיבויים והייצוא שלכם כשאתם מחוברים לגוגל. זה קצת שונה מאישורי OAuth — להגדרה המלאה, חפשו את החלק של <a href="#google-setup">Google Drive ו-Sheets (OAuth)</a>.</p>
                             <ol>
-                                <li>צור תיקייה ב-Google Drive (או בחר קיימת).</li>
-                                <li>העתק את המזהה הארוך מה-URL אחרי <code>/folders/</code>.</li>
-                                <li>הדבק ל-<code>DRIVE_FOLDER_ID</code> תחת הגדרות → גוגל (אופציונלי; אפשר גם לבחור תיקייה בממשק אחרי התחברות).</li>
+                                <li>צרו תיקייה ב-Google Drive (או תבחרו אחת שכבר קיימת).</li>
+                                <li>העתיקו את המזהה שלה מתוך שורת הכתובת למעלה — זה הרצף הארוך שמופיע אחרי <code>/folders/</code>.</li>
+                                <li>הדביקו אותו בשדה <code>DRIVE_FOLDER_ID</code> תחת הגדרות → גוגל (לא חובה; אפשר גם לבחור תיקייה מתוך המערכת אחרי שמתחברים).</li>
                             </ol>
                         `
                     },
                     "google-setup": {
-                        title: "🔗 Google Drive ו-Sheets (הגדרת OAuth)",
+                        title: "🔗 החיבור לגוגל (Drive ו-Sheets באמצעות OAuth)",
                         html: `
                             <div class="callout info">
-                                <strong>אופציונלי:</strong> חיבור ל-Google נדרש ל<strong>סנכרון Google Sheets</strong>, <strong>גיבויים ל-Google Drive</strong> ותכונות ייצוא קשורות. ההגדרה מעט מורכבת יותר מהגדרות אחרות — אפשר <strong>לדלג</strong> ולהשתמש באפליקציה במלואה לסריקה וניתוח; להוסיף Google מאוחר יותר תחת <strong>הגדרות</strong> כשצריך גיבוי בענן או Sheets.
+                                <strong>חשוב לדעת:</strong> החיבור לגוגל נדרש רק אם אתם רוצים <strong>לסנכרן נתונים ל-Google Sheets</strong> או <strong>לגבות את הכל ל-Google Drive</strong>. זה דורש קצת התעסקות, אז אפשר לגמרי <strong>לדלג על זה עכשיו</strong> ולהשתמש במערכת כרגיל לסריקה ולניתוח. מתי שתרצו, תוכלו תמיד לחזור ל<strong>הגדרות</strong> ולחבר את גוגל מאוחר יותר.
                             </div>
-                            <p>כדי לחבר את האפליקציה לחשבון Google, יוצרים אישורי OAuth ב-Google Cloud. תמצית:</p>
-                            <h3>1. יצירת פרויקט</h3>
+                            <p>כדי לחבר את המערכת לחשבון הגוגל שלכם, נצטרך ליצור אישורי OAuth ב-Google Cloud. הנה מה שצריך לעשות:</p>
+                            <h3>1. פתיחת פרויקט חדש</h3>
                             <ol>
-                                <li>פתחו את <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>.</li>
-                                <li>בוחרים פרויקט (למעלה משמאל) → <strong>New Project</strong>.</li>
-                                <li>שם הפרויקט (למשל "Financial Overview") ו-<strong>Create</strong>.</li>
+                                <li>היכנסו לאתר <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>.</li>
+                                <li>לחצו על תפריט הפרויקטים (למעלה משמאל) וביחרו ב-<strong>New Project</strong>.</li>
+                                <li>תנו לו שם קליט (למשל "Financial Overview") ולחצו <strong>Create</strong>.</li>
                             </ol>
-                            <h3>2. הפעלת APIs</h3>
+                            <h3>2. הדלקת ה-APIs שצריך</h3>
                             <ol>
-                                <li><strong>APIs &amp; Services</strong> → <strong>Library</strong>.</li>
-                                <li>חיפוש <strong>Google Drive API</strong> → <strong>Enable</strong>.</li>
-                                <li>חזרה ל-Library, חיפוש <strong>Google Sheets API</strong> → <strong>Enable</strong>.</li>
+                                <li>בתפריט הצד, היכנסו ל-<strong>APIs &amp; Services</strong> ואז <strong>Library</strong>.</li>
+                                <li>חפשו את <strong>Google Drive API</strong> ולחצו על <strong>Enable</strong>.</li>
+                                <li>חיזרו ל-Library, חפשו גם את <strong>Google Sheets API</strong> ולחצו <strong>Enable</strong>.</li>
                             </ol>
-                            <h3>3. מסך הסכמת OAuth</h3>
+                            <h3>3. יצירת מסך הסכמה (OAuth consent screen)</h3>
                             <ol>
-                                <li><strong>APIs &amp; Services</strong> → <strong>OAuth consent screen</strong>.</li>
-                                <li>בוחרים <strong>External</strong> (אלא אם ארגון Workspace עם Internal) ויוצרים.</li>
-                                <li>ממלאים שדות חובה: שם אפליקציה, אימייל לתמיכה, פרטי מפתח.</li>
-                                <li><strong>Save and Continue</strong> ב-Scopes וב-Test users — אפשר ברירות מחדל לשימוש אישי.</li>
+                                <li>היכנסו ל-<strong>APIs &amp; Services</strong> ואז ל-<strong>OAuth consent screen</strong>.</li>
+                                <li>ביחרו ב-<strong>External</strong> (אלא אם יש לכם חשבון ארגוני של Workspace ואז ביחרו Internal) ולחצו על יצירה.</li>
+                                <li>מלאו רק את שדות החובה: שם האפליקציה ומיילים ליצירת קשר/תמיכה.</li>
+                                <li>לחצו <strong>Save and Continue</strong> לאורך שלבי ה-Scopes וה-Test users — אפשר להשאיר את ברירות המחדל אם זה רק לשימוש האישי שלכם.</li>
                             </ol>
-                            <h3>4. יצירת אישורי OAuth 2.0</h3>
+                            <h3>4. הפקת אישורי ה-OAuth 2.0</h3>
                             <ol>
-                                <li><strong>APIs &amp; Services</strong> → <strong>Credentials</strong>.</li>
-                                <li><strong>Create Credentials</strong> → <strong>OAuth client ID</strong>.</li>
-                                <li>סוג: <strong>Web application</strong>.</li>
-                                <li>תחת <strong>Authorized redirect URIs</strong> מוסיפים בדיוק את כתובת ה-callback שהאפליקציה משתמשת בה. ברירת מחדל להתקנה מקומית:
+                                <li>היכנסו ל-<strong>APIs &amp; Services</strong> ואז <strong>Credentials</strong>.</li>
+                                <li>לחצו על <strong>Create Credentials</strong> וביחרו ב-<strong>OAuth client ID</strong>.</li>
+                                <li>בסוג האפליקציה (Application type), ביחרו ב-<strong>Web application</strong>.</li>
+                                <li>תחת <strong>Authorized redirect URIs</strong>, אתם חייבים להוסיף <strong>בדיוק</strong> את הכתובת שהמערכת שלנו משתמשת בה. בהתקנה מקומית זה לרוב:
                                     <div class="code-block">http://127.0.0.1:3000/api/auth/google/callback</div>
-                                    מחליפים את <code>3000</code> ב-<strong>PORT</strong> של השרת אם שיניתם (כמו ב-<strong>הגדרות → תחזוקה</strong> או <code>financial-overview.json</code>). אם נכנסים דרך <code>http://localhost:…</code>, הוסיפו גם URI עם <code>localhost</code> — Google דורש התאמה מדויקת.
+                                    אם שיניתם את הפורט של השרת מ-<code>3000</code> למשהו אחר (אפשר לראות את זה ב<strong>הגדרות → תחזוקה</strong>), אל תשכחו לעדכן את זה גם פה. אם אתם נכנסים דרך <code>http://localhost:…</code>, כדאי להוסיף כתובת נוספת עם המילה <code>localhost</code> — גוגל לא סולחים על טעויות הקלדה כאן.
                                 </li>
-                                <li>יוצרים ושומרים את <strong>Client ID</strong> ו-<strong>Client Secret</strong>.</li>
+                                <li>לחצו יצירה ושימרו בצד את ה-<strong>Client ID</strong> ואת ה-<strong>Client Secret</strong> שתקבלו.</li>
                             </ol>
-                            <h3>5. הדבקה באפליקציה</h3>
+                            <h3>5. חיבור למערכת שלנו</h3>
                             <ol>
-                                <li><strong>הגדרות</strong> → <strong>גוגל</strong> (או קובץ runtime).</li>
-                                <li>מגדירים <code>GOOGLE_CLIENT_ID</code> ו-<code>GOOGLE_CLIENT_SECRET</code>.</li>
-                                <li><code>GOOGLE_REDIRECT_URI</code> חייב להיות זהה ל-URI שרשומים ב-Google (תו-תו).</li>
-                                <li>הפעלה מחדש של השרת אם נדרש, ואז התחברות דרך לשוניות Google / Sheets בממשק.</li>
+                                <li>במערכת שלנו, היכנסו ל-<strong>הגדרות</strong> → <strong>גוגל</strong>.</li>
+                                <li>הדביקו שם את ה-<code>GOOGLE_CLIENT_ID</code> ואת ה-<code>GOOGLE_CLIENT_SECRET</code> שהפקתם.</li>
+                                <li>ודאו שכתובת ה-<code>GOOGLE_REDIRECT_URI</code> זהה לחלוטין (אות לאות) למה ששמתם בגוגל.</li>
+                                <li>אם השרת דורש, הפעילו אותו מחדש, ואז תוכלו להתחבר בקליק מלשוניות Google או Sheets במערכת.</li>
                             </ol>
                             <div class="callout warning">
-                                <strong>„Google hasn’t verified this app”:</strong> נורמלי לפרויקט אישי. לחצו <strong>Advanced</strong> ואז <strong>Go to … (unsafe)</strong> כדי להמשיך.
+                                <strong>ראיתם הודעה ש-"Google hasn’t verified this app"?</strong> אל תיבהלו, זה קורה תמיד כשפותחים פרויקט אישי. פשוט לחצו על <strong>Advanced</strong> (מתקדם) ואז על <strong>Go to … (unsafe)</strong> כדי להמשיך.
                             </div>
                         `
                     },
                     "getting-started": {
-                        title: "🚀 איך מתחילים",
+                        title: "🚀 בואו נצא לדרך",
                         html: `
                             <div class="callout success">
-                                <strong>מומלץ:</strong> להשתמש ב<strong>אשף ההתקנה</strong> (Onboarding) בדרך הראשית להגדרת האפליקציה — Telegram, Gemini, Google OAuth/Drive, ו<strong>נעילת אפליקציה</strong> בזרימה אחת מודרכת.
+                                <strong>המלצה חמה:</strong> הכי קל ונוח להשתמש ב<strong>אשף ההתקנה (Onboarding)</strong> שמופיע במערכת. הוא ייקח אתכם יד ביד כדי להגדיר את הטלגרם, ה-AI (Gemini), החיבור לגוגל ו<strong>נעילת האפליקציה</strong> — הכל ברצף אחד ברור.
                             </div>
-                            <h3>דרישות מערכת</h3>
+                            <h3>מה צריך כדי להתחיל?</h3>
+                            <p>המערכת שלנו היא למעשה <strong>אתר אינטרנט פרטי</strong> שיושב על <strong>שרת Node.js מקומי אצלכם</strong>. הנה מה שצריך לפי איך שתבחרו להתקין:</p>
                             <ul>
-                                <li><strong>דפדפן:</strong> Chrome, Firefox, Safari, או Edge.</li>
-                                <li><strong>אינטרנט:</strong> חיבור פעיל לגישה לאתרי הבנקים.</li>
-                                <li><strong>JavaScript:</strong> חייב להיות מופעל בדפדפן.</li>
+                                <li><strong>המנוע מאחורי הקלעים:</strong> מחשב עם מערכת הפעלה מודרנית של <strong>64-bit</strong> (חלונות, לינוקס, או מאק). אם אתם משתמשים במתקין שלנו לחלונות (Windows), ב-Docker או ב-Home Assistant, <strong>אתם לא צריכים להתקין שום דבר מסובך</strong> — הכל כבר בפנים.</li>
+                                <li><strong>איך נכנסים למערכת:</strong> פשוט דרך ה<strong>דפדפן הרגיל שלכם</strong> (כרום, פיירפוקס, אדג', ספארי), <em>או</em> בעזרת <strong>אפליקציית שולחן העבודה לווינדוס</strong> (שמבוססת על Electron ונראית בדיוק אותו דבר) — מה שיותר נוח לכם.</li>
+                                <li><strong>חיבור לרשת:</strong> המערכת צריכה אינטרנט רק כדי למשוך את הנתונים מאתרי הבנקים, וכדי לדבר עם ה<strong>טלגרם</strong>, <strong>ה-AI</strong> או <strong>גוגל</strong> (אם בחרתם להפעיל אותם). הנתונים שלכם לא נשלחים לשום מקום אחר.</li>
+                                <li><strong>מקום במחשב:</strong> מספיק מקום לתיקיית הנתונים שלנו (איפה שיישמרו העסקאות וההגדרות). אל דאגה, זה לא תופס הרבה.</li>
+                                <li><strong>סריקת הבנקים:</strong> אם אתם על ווינדוס, המערכת משתמשת בדפדפן הקיים שלכם כדי לבצע את הסריקה השקטה. ודאו שיש לכם <strong>Chrome</strong> או <strong>Edge</strong> מותקנים.</li>
                             </ul>
-                            <h3>הפעלה ראשונית</h3>
+                            <h3>הפעם הראשונה במערכת</h3>
                             <ol>
-                                <li>עבור לכתובת האפליקציה (Docker/Home Assistant לרוב <code>localhost:3000</code>; פיתוח מקומי עם Vite לעיתים <code>127.0.0.1:5173</code>).</li>
-                                <li>בחר את השפה המועדפת עליך.</li>
-                                <li>עקוב אחרי <strong>אשף ההתקנה</strong> כשמופיע, או פתח אותו מבאנרי ה-Onboarding — זו הדרך המועדפת לנעילה ואינטגרציות.</li>
+                                <li>הקלידו בדפדפן את הכתובת של המערכת (אם התקנתם עם Docker או Home Assistant זה בדרך כלל יהיה <code>localhost:3000</code>).</li>
+                                <li>בחרו אם בא לכם שהמערכת תדבר איתכם בעברית או באנגלית.</li>
+                                <li>קפצו פנימה עם <strong>אשף ההתקנה</strong> כשיופיע המסך או הבאנר — זו הדרך הכי טובה לסיים את כל ההגדרות צ'יק-צ'ק.</li>
                             </ol>
-                            <h3>אשף התקנה (Onboarding)</h3>
-                            <p>הצעדים המודרכים כוללים Telegram, Gemini, Google OAuth, בחירת תיקיית Drive, ויצירת <strong>סיסמת נעילת האפליקציה</strong>. השלמת האשף היא הדרך הקלה ביותר להגדרה עקבית ועובדת.</p>
+                            <h3>אשף ההתקנה (Onboarding)</h3>
+                            <p>האשף יעבור איתכם על ההגדרות החשובות באמת: בוט הטלגרם, ה-AI של Gemini, החיבור לגוגל, ואיך שומרים על הכל מאובטח עם <strong>סיסמת נעילה</strong>. סיימו אותו, ואתם מסודרים.</p>
+                            <h3>מה קורה אחרי ההתקנה?</h3>
+                            <p>כשתסיימו, המערכת תשאל אם תרצו סיבוב קצר כדי להכיר את המסכים (<strong>סיור התחלה</strong>), ואולי גם תבקש מכם קצת רקע על עצמכם לטובת ה-AI (<strong>פרסונה</strong>). הכל אופציונלי לגמרי. לקצת יותר התמצאות, מוזמנים להציץ בחלק של <a href="#main-interface">הממשק שלנו</a>.</p>
                         `
                     },
                     "windows-install": {
-                        title: "🪟 התקנה ב-Windows",
+                        title: "🪟 התקנה בווינדוס (Windows)",
                         html: `
-                            <p>בגרסת <strong>Windows</strong> מקבלים קובץ התקנה אחד (<code>FinancialOverview-Windows-Setup.exe</code>) שמתקין את השרת, את ממשק האינטרנט, את התלויות ואת <strong>Node.js מוטמע</strong> — אין צורך להתקין Node בנפרד.</p>
-                            <h3>התקנה והפעלה</h3>
+                            <p>משתמשי ווינדוס? יש לכם שתי דרכים להתקין את המערכת. בחרו מה שהכי מתאים לכם:</p>
+                            <ul>
+                                <li><strong>התקנה רגילה + אפליקציה למחשב (הכי מומלץ):</strong> קובץ <code>FinancialOverview-Windows-Setup.exe</code> יעשה הכל בשבילכם. הוא מתקין את השרת, את הממשק ואפליקציה נוחה לשולחן העבודה. תוכלו גם לסגור אותה ל<strong>מגש המערכת</strong> (הסמלים הקטנים למטה ליד השעון) כדי שהיא תמשיך למשוך נתונים ולשלוח התראות לטלגרם בלי להפריע. <strong>אתם לא צריכים להתקין כלום מעבר לזה.</strong></li>
+                                <li><strong>גרסה ניידת למתקדמים (ללא התקנה):</strong> חילצתם את <code>windows-package.zip</code>? קיבלתם תיקייה עם הכל בפנים, אבל <strong>בלי אפליקציה חלונות ובלי אייקון במגש המערכת</strong>. פשוט מפעילים את <code>launch-FinancialOverview.cmd</code>, משאירים את החלון השחור פתוח, וגולשים למערכת מהדפדפן. מעולה למי שרוצה לשים את זה על דיסק-און-קי או להריץ סקריפטים.</li>
+                            </ul>
+                            <h3>הדרך המומלצת (התקנה עם אפליקציה)</h3>
                             <ol>
-                                <li>הרצת מתקין והשלמת האשף (ברירת מחדל לתיקייה: <code>%LocalAppData%\\FinancialOverview</code>).</li>
-                                <li>הפעלה דרך תפריט התחל — <strong>Financial Overview</strong>, או הרצת <code>launch-FinancialOverview.cmd</code> מתיקיית ההתקנה. חלון קונסולה נשאר פתוח כל עוד השרת רץ; סגירה עוצרת את השרת.</li>
-                                <li>פתיחת <code>http://127.0.0.1:3000</code> בדפדפן (פורט ברירת מחדל <strong>3000</strong>). אפשר להשתמש בקיצור <strong>Open Financial Overview in browser</strong> אחרי שהשרת עלה.</li>
+                                <li>הורידו את קובץ ההתקנה (<code>FinancialOverview-Windows-Setup.exe</code>) מתוך דף ה-<strong>Releases</strong> ב-GitHub והריצו אותו.</li>
+                                <li>פתחו את <strong>Financial Overview</strong> מתפריט ההתחלה. השרת יידלק מאחורי הקלעים, והאפליקציה תפתח לכם חלון יפה, וגם יופיע <strong>סמל במגש המערכת</strong>.</li>
+                                <li>רוצים שהאפליקציה תרוץ ברקע? ביחרו ב<strong>סגירה למגש</strong> (יופיע פופאפ בפעם הראשונה, או שניתן להגדיר דרך <strong>הגדרות → תחזוקה</strong>). כדי לסגור הכל לגמרי, קליק ימני על הסמל במגש ובחרו ב<strong>יציאה</strong>.</li>
+                                <li>ברירת המחדל היא להיכנס לכתובת <code>http://127.0.0.1:3000</code>.</li>
                             </ol>
-                            <h3>איפה הנתונים נשמרים</h3>
-                            <p>ברירת מחדל: <code>%AppData%\\FinancialOverview\\data</code> (<strong>DATA_DIR</strong>). ניתן לשנות <code>PORT</code> או <code>DATA_DIR</code> במשתני סביבה של Windows לפני ההפעלה — ראו <strong>DEPLOYMENT.md</strong> בפרויקט.</p>
-                            <h3>קובץ הגדרות (פורט ותיקיית נתונים)</h3>
-                            <p>ערכו את <code>financial-overview.json</code> בתיקיית ההתקנה (קובץ ברירת מחדל כלול). השתמשו ב-<code>port</code> וב-<code>dataDir</code> אופציונלי. משתני סביבה דורסים את הקובץ אם הם מוגדרים.</p>
+                            <h3>הדרך הניידת (בלי התקנה)</h3>
+                            <ol>
+                                <li>חילצו את תוכן ה-<code>windows-package.zip</code> לכל תיקייה במחשב.</li>
+                                <li>הפעילו את <code>launch-FinancialOverview.cmd</code>. יקפוץ לכם <strong>חלון קונסולה שחור</strong> — השאירו אותו פתוח כל עוד אתם רוצים שהמערכת תעבוד.</li>
+                                <li>היכנסו ל-<code>http://127.0.0.1:3000</code> בדפדפן. סיימתם? סגרו את החלון השחור.</li>
+                            </ol>
+                            <h3>הגדרות אפליקציית חלונות (לשונית תחזוקה)</h3>
+                            <p>אם בחרתם בדרך המומלצת ופתחתם את האפליקציה במחשב, היכנסו ל-<strong>הגדרות</strong> → <strong>תחזוקה</strong>. יופיע לכם שם אזור מיוחד ל<strong>אפליקציית Windows</strong>. (אם תיכנסו מהדפדפן או מהגרסה הניידת, לא תראו את זה, כי שם זה פשוט לא רלוונטי).</p>
+                            <ul>
+                                <li><strong>סגירה למגש המערכת:</strong> אם זה דלוק, כשתלחצו על האיקס של החלון — האפליקציה לא תיסגר לגמרי אלא תרד להתחבא ליד השעון. ככה היא תוכל להמשיך להריץ סריקות ברקע ולשלוח לכם הודעות לטלגרם.</li>
+                            </ul>
+                            <h3>איפה כל המידע שלי נשמר?</h3>
+                            <p>כברירת מחדל, הכל נשמר אצלכם בתיקייה: <code>%AppData%\\FinancialOverview\\data</code>. אם אתם אוהבים לשחק עם הגדרות, תוכלו לשנות את זה (או את הפורט של השרת) דרך משתני סביבה בווינדוס, קובץ <code>financial-overview.json</code>, או הכי פשוט — דרך הממשק תחת <strong>הגדרות → תחזוקה</strong>.</p>
                             <div class="callout info">
-                                <strong>סריקה:</strong> יש להתקין <strong>Google Chrome</strong> או <strong>Microsoft Edge</strong> במחשב (חבילת Windows כברירת מחדל לא כוללת את Chromium של Puppeteer).
+                                <strong>כדי שהסריקה תעבוד:</strong> אנחנו צריכים שיהיה לכם במחשב <strong>Chrome</strong> או <strong>Edge</strong> כדי לעשות את פעולת הסריקה עצמה.
                             </div>
-                            <p>לאחר ההתקנה השתמשו ב<strong>אשף ההתקנה</strong> באפליקציה עבור Telegram, Gemini, Google ונעילה — כמו בכל שיטת פריסה אחרת.</p>
+                            <h3>איך מעדכנים גרסה?</h3>
+                            <p>קל. היכנסו ל-<strong>הגדרות → תחזוקה</strong> ולחצו על <strong>בדיקת גרסה ב-GitHub</strong>. המערכת תגיד לכם אם יצא משהו חדש ששווה להוריד משם.</p>
                         `
                     },
                     "app-lock": {
-                        title: "🔒 נעילת אפליקציה",
+                        title: "🔒 נעילת האפליקציה (כספת)",
                         html: `
-                            <p><strong>סיסמת נעילת האפליקציה</strong> (מינימום <strong>8 תווים</strong>) משמשת לגזירת מפתח AES ש<strong>מצפין פרטי פרופילי בנק</strong> שמורים על הדיסק. היא גם שולטת בשחרור סשן כשנעילת האפליקציה מופעלת.</p>
-                            <p>ניתן להשתמש ברוב הממשק — דשבורד, יומנים, הגדרות, צפייה בתוצאות — <strong>בלי</strong> לשחרר סשן. <strong>הרצת סריקות</strong> ו<strong>יצירה או עריכה של פרופילים שמורים</strong> דורשות שהאפליקציה תהיה <strong>במצב שחרור</strong> כשנעילת האפליקציה מוגדרת.</p>
-                            <p>השחרור מבוסס <strong>סשן</strong>. אם הוגדר, ניתן לעיתים לשחרר דרך Telegram עם <code>/unlock</code>.</p>
+                            <p>סיסמת האפליקציה שלכם היא המפתח ששומר על פרטי הבנק שלכם בטוחים (מינימום <strong>8 תווים</strong>). המערכת הופכת אותה למפתח הצפנה קשוח במיוחד כדי לנעול את סיסמאות הבנק שלכם על הדיסק הקשיח.</p>
+                            <p>אפשר לעשות המון דברים במערכת — להסתכל על הדשבורד, לחקור נתונים, לקרוא יומנים — <strong>בלי</strong> לפתוח את הנעילה. אבל אם תרצו <strong>ליזום סריקה חדשה מהבנק</strong> או <strong>להוסיף ולערוך כרטיסים ופרופילים</strong>, תצטרכו להקליד את הסיסמה ו"לפתוח את הכספת".</p>
+                            <p>הנעילה הזו פועלת רק ל<strong>זמן הסשן הנוכחי</strong>. אם חיברתם את הטלגרם, תוכלו במצבים מסוימים לפתוח את הנעילה אפילו מהנייד.</p>
                             <div class="callout info">
-                                <strong>המלצה:</strong> שחררו רק כשצריך <strong>להריץ סריקה</strong> או <strong>להוסיף/לערוך פרופיל שמור</strong>, ואז <strong>נעלו שוב</strong> מיד — כך מקוצר הזמן שבו מפתח ההצפנה נמצא בזיכרון השרת.
+                                <strong>המלצה שלנו:</strong> פתחו את הנעילה רק כשיש לכם צורך אמיתי למשוך נתונים או להוסיף כרטיס, ו<strong>מיד אחרי זה נעלו בחזרה</strong>. ככה הסיסמה שלכם לא נשארת בזיכרון של השרת אפילו שנייה מיותרת.
                             </div>
                             <div class="callout warning">
-                                אין "שכחתי סיסמה" בענן, ו<strong>לא ניתן לפענח פרופילים מוצפנים</strong> בלי הסיסמה הנכונה. אם שכחת — חובה <strong>למחוק את הפרופילים השמורים</strong> (קבצים תחת <code>data/profiles</code> או מחיקה בממשק), לאפס/ליצור מחדש נעילה דרך <code>data/security</code> לפי תיעוד ההתקנה, להגדיר <strong>סיסמה חדשה</strong>, ואז <strong>ליצור פרופילים מחדש</strong> ולהזין שוב את פרטי הבנק.
+                                בניגוד לאתרים רגילים, <strong>אין פה כפתור "שכחתי סיסמה"</strong> שישלח לכם מייל, ואף אחד (גם לא אנחנו) לא יכול לפענח את הסיסמאות שלכם בלי הסיסמה הראשית! אם שכחתם אותה, תאלצו <strong>למחוק את הפרופילים השמורים</strong>, לאפס את ההגדרות, להמציא סיסמה חדשה ולהזין את כל פרטי הבנק שלכם מחדש.
                             </div>
-                            <h3>מה מוצפן במנוחה (at rest)</h3>
-                            <p>פרטי התחברות בפרופילי בנק — בכל קובץ תחת <code>data/profiles/</code>, אובייקט ה-<code>credentials</code> מוצפן ב-<strong>AES-256-GCM</strong> (IV, תג אימות וטקסט מוצפן ב-hex). המפתח מופק מסיסמת הנעילה באמצעות <strong>scrypt</strong>; המלחים ב-<code>data/security/app-lock.json</code>. הסיסמה לא נשמרת — רק גיבוב scrypt לאימות.</p>
-                            <p>שחרור סשן — המפתח המופק קיים רק בזיכרון השרת כל עוד האפליקציה בשחרור.</p>
-                            <p>לא מוצפן במנוחה על ידי האפליקציה — מפתחות API, טוקן טלגרם, סודות OAuth, מסד SQLite (<code>app.db</code>), נתוני עסקאות/סריקה ושאר JSON תחת <code>DATA_DIR</code>. השתמשו בהרשאות מערכת והצפנת דיסק על כל תיקיית הנתונים.</p>
-                            <h3>מודל איומים</h3>
-                            <p><strong>במצב נעול:</strong> השרת <strong>מאפס</strong> את המפתח מזיכרון ו<strong>לא</strong> מפענח פרטי התחברות לפרופילים עבור ה־API — לכן משתמש או סקריפט שמשתמשים <strong>רק בממשק</strong> לא אמורים לקבל סיסמאות בנק בטקסט גלוי. זו <strong>לא</strong> ערובה מוחלטת: קבצים מוצפנים נשארים על הדיסק (ניסיון פיצוח סיסמה לא מקוון), וזדונית שרצה בזמן <strong>שחרור</strong> עלולה כבר לרכוש נתונים.</p>
-                            <p><strong>סיסמאות בנק:</strong> הגנה משמעותית דורשת נעילת אפליקציה. אם מעולם לא הפעלתם, ייתכן שקבצי פרופיל משתמשים במפתח קבוע מהקוד המפורסם — יש להתייחס לפרטים כחשופים לכל מי שיכול לקרוא את <code>data/profiles/</code>. עם נעילה, תוקף זקוק לסיסמה או לגישה כשהאפליקציה בשחרור (זדוניות וכו').</p>
-                            <p><strong>עסקאות וסודות:</strong> מסד SQLite (<code>app.db</code>), תוצאות סריקה ו-JSON הגדרות לא מוצפנים בשכבת האפליקציה. כל מי שיכול לקרוא את <code>DATA_DIR</code> רואה היסטוריית עסקאות וסודות API/Telegram/OAuth — נעילת האפליקציה לא מסתירה את הקבצים האלה. השתמשו בהרשאות מערכת, הצפנת דיסק ונעילה כשעוזבים את המחשב. פירוט מלא: <code>docs/THREAT_MODEL.md</code> במאגר.</p>
+                            <h3>מה המערכת מצפינה לכם מאחורי הקלעים?</h3>
+                            <p><strong>סיסמאות הבנקים:</strong> כל פרטי ההתחברות (בתיקייה <code>data/profiles/</code>) זוכים להצפנה צבאית. רק כשתקלידו את הסיסמה שלכם, המערכת תדע לתרגם אותה חזרה למפתח כדי להתחבר לבנק. לעולם לא נשמור את סיסמת האפליקציה עצמה — אלא רק קוד מיוחד (hash) כדי לוודא שאתם זה אתם.</p>
+                            <p><strong>שחרור זמני:</strong> כשהאפליקציה פתוחה ופעילה, המפתח שמור רק ב<strong>זיכרון הזמני של השרת</strong> ולא נכתב לשום מקום.</p>
+                            <p><strong>מה נשאר חשוף (לא מוצפן על ידינו):</strong> העסקאות עצמן, שמות בתי העסק, קבצי ההגדרות והמפתחות ל-API ולטלגרם. כל אלה נשמרים כטקסט רגיל בקבצים שעל המחשב שלכם. לכן חשוב שהמחשב שלכם עצמו יהיה מוגן ועם סיסמה.</p>
+                            <h3>ממה זה מגן עליכם?</h3>
+                            <p><strong>כשהאפליקציה נעולה:</strong> השרת 'שוכח' את מפתח ההצפנה. ככה שאם איכשהו סקריפט או תוכנה אחרת מנסים לגשת לנתונים — הם יקבלו ג'יבריש במקום את סיסמאות הבנק שלכם. (כמובן שאם המחשב נפרץ בזמן שהכספת הייתה <strong>פתוחה</strong>, הסיפור קצת שונה).</p>
+                            <p><strong>בשורה התחתונה:</strong> נעילת האפליקציה היא חומת המגן שלכם על סיסמאות הבנק. בלעדיה — הסיסמאות שמורות בצורה הרבה יותר חלשה וחשופות למי שיש לו גישה לקבצים.</p>
+                        `
+                    },
+                    "main-interface": {
+                        title: "🖥️ מבט כללי על המערכת",
+                        html: `
+                            <h3>סרגל הניווט והכותרת</h3>
+                            <p>למעלה תמצאו את הלשוניות של המערכת: <strong>דשבורד</strong>, <strong>סריקה</strong>, <strong>יומני פעילות</strong>, ו<strong>הגדרות</strong>. (במסכים קטנים כמו בנייד, אפשר להחליק אותן ימינה ושמאלה).</p>
+                            <ul>
+                                <li><strong>המערכת אופליין?</strong> אם השרת נתקע, תראו התראה שהשרת לא זמין. כדאי לבדוק שהוא פועל ברקע ושאתם בכתובת הנכונה (כפי שהוגדרה ב<strong>הגדרות → תחזוקה</strong>).</li>
+                                <li><strong>עובדים מאחורי הקלעים:</strong> כשהמערכת מושכת נתונים או מפעילה את ה-AI, תראו חיווי קטן למעלה שמעדכן אתכם.</li>
+                                <li><strong>בדשבורד:</strong> תפריט הפעמון הקטן למעלה יראה לכם את ה<strong>התראות המיוחדות</strong> של אותו חודש. כפתור הניצוצות הקטן יקפיץ לכם את <strong>צ'אט האנליסט</strong> המבריק שלנו.</li>
+                                <li><strong>החלפת שפה:</strong> מעבר קליל בין עברית לאנגלית בלחיצת כפתור.</li>
+                                <li><strong>העוזר שלכם:</strong> אם חיברתם את ה-API של Gemini, יופיע לכם רובוט כחול למעלה שמוכן לעזור בכל מה שצריך.</li>
+                                <li><strong>מדריך למשתמש:</strong> לחיצה על סימן השאלה תפתח את העמוד הזה בלשונית חדשה, ליתר ביטחון.</li>
+                                <li><strong>פידבק ומשוב:</strong> נתקלתם בבאג? יש לכם רעיון אדיר? ספרו לנו! (אפשר גם לצרף את קובץ השגיאות כדי לעזור למפתחים).</li>
+                            </ul>
+                            <h3>קופץ לכם באנר?</h3>
+                            <ul>
+                                <li><strong>תנועות שדורשות יחס:</strong> אם המערכת מצאה הוצאות שהיא לא סגורה עליהן, יקפוץ לכם באנר שיציע לכם לעבור עליהן ולסדר אותן בצ'יק.</li>
+                                <li><strong>המיון החכם קצת התבלבל:</strong> אם ה-AI נתקע באמצע למיין עסקאות, תוכלו ללחוץ על 'נסה שוב' או פשוט לסגור את ההודעה.</li>
+                            </ul>
+                            <h3>לאן המערכת נכנסת כברירת מחדל?</h3>
+                            <p>אם זו הפעם הראשונה ועדיין אין לכם עסקאות במסד הנתונים — נזרוק אתכם ישר ללשונית ה<strong>סריקה</strong> כדי שנתחיל לעבוד.</p>
                         `
                     },
                     "dashboard": {
-                        title: "📈 דשבורד ואנליטיקה",
+                        title: "📈 לוח הבקרה (דשבורד)",
                         html: `
-                            <p>ה<strong>דשבורד</strong> מסכם את החודש הנבחר: התקדמות הכנסות, הוצאות, מנויים, עסקאות חודשיות, תובנות, אנליטיקה וצ'אט <strong>AI</strong> אופציונלי על הנתונים.</p>
-                            <h3>הכנסות בחודש הנוכחי</h3>
-                            <p>ב<strong>חודש הקלנדרי הנוכחי</strong>, תנועה חיובית בסטטוס <strong>הושלם</strong> ש<strong>תאריכה אחרי היום</strong> נספרת כ<strong>צפוי להגיע</strong> (עדיין לא התקבל), יחד עם הכנסות ממתינות והכנסות חוזרות — כדי שמשכורת או העברות בתאריך עתידי לא ינפחו את "כבר התקבל".</p>
-                            <h3>תצוגה רספונסיבית</h3>
-                            <p>ברוחב צר מ-<strong>640px</strong> (Tailwind <code>sm</code>), אזורים מרכזיים מתחילים <strong>מכווצים</strong>; במסך רחב הם מתחילים מורחבים.</p>
-                            <h3>ייצוא</h3>
-                            <p>תפריט הייצוא מאפשר הורדת נתונים (למשל CSV/JSON) בהתאם ליכולות הממשק.</p>
+                            <p>ה<strong>דשבורד</strong> הוא לב המערכת. פה תוכלו לראות סיכום חודשי מדויק: כמה הכנסתם, כמה הוצאתם, כמה הולך על מנויים חודשיים וכמה כסף פנוי נשאר. ואם ה-AI מופעל, תוכלו גם להתייעץ איתו על המספרים האלו בדיוק.</p>
+                            <h3>איך אנחנו מחשבים הכנסות החודש?</h3>
+                            <p>המערכת יודעת להבדיל בין הכנסה שכבר ירדה לחשבון (כלומר ה<strong>תאריך שלה עבר</strong>) לבין הכנסה שעוד <strong>צפויה להיכנס</strong> בהמשך החודש. ככה שמשכורת שאמורה להיכנס בעשירי לחודש, לא תעוות לכם את הנתונים אם תבדקו את המצב בראשון לחודש.</p>
+                            <h3>תצוגה שמתאימה את עצמה</h3>
+                            <p>אם תפתחו את המערכת בנייד או במסך קטן, חלק מהחלוניות יהיו <strong>מכווצות</strong> כדי לחסוך מקום. במסך גדול? הכל פרוס ופתוח בפניכם.</p>
+                            <h3>ייצוא נתונים</h3>
+                            <p>צריכים את הנתונים באקסל? השתמשו בתפריט הייצוא כדי להוריד הכל בפורמט CSV או JSON נקי.</p>
+                            <h3>מה קופץ לי ב"תובנות מובילות"?</h3>
+                            <p>במקטע התובנות בדשבורד תמצאו מיקס של הערות. חלקן מגיעות ישירות מה<strong>AI</strong> (ששם לב לדברים מעניינים), וחלקן הן <strong>חוקים קבועים</strong> שאתם הגדרתם בעצמכם תחת <strong>הגדרות → כללי תובנה</strong>. כדי שלא תתבלבלו, לכל הודעה יש תגית קטנה שמסבירה מאיפה היא הגיעה.</p>
                         `
                     },
                     "scrape": {
-                        title: "🔄 ביצוע סריקה",
+                        title: "🔄 איך סורקים?",
                         html: `
-                            <p>הסריקה <strong>לא מבוססת AI</strong>. היא משתמשת בספריית הקוד הפתוח <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> (רישיון MIT, <strong>מתוחזקת על ידי הקהילה</strong>), שמבצעת אוטומציה לאתרי בנקים וכרטיסים — בדרך כלל דפדפן ללא ממשק. תהליך ההתחברות נשאר בשרת שלך; <strong>סיסמאות בנק לא נשלחות לספקי AI</strong>.</p>
+                            <p>רגע לפני שנתחיל: הסריקה של הבנקים <strong>היא לא מבוססת AI</strong>, והסיסמאות שלכם <strong>לעולם לא נשלחות לגוגל או לאף שרת חיצוני</strong>. המערכת משתמשת בפרויקט קוד-פתוח מדהים בשם <a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> שקורא את הנתונים ישירות מהבנק שלכם למחשב שלכם.</p>
                             <ol>
-                                <li><strong>בחר ספק:</strong> בחר בנק או כרטיס אשראי (הפועלים, לאומי, ישראכרט וכו').</li>
-                                <li><strong>הזן פרטים:</strong> שם משתמש וסיסמה.</li>
-                                <li><strong>הגדרות:</strong> בחר טווחי תאריכים וזמן המתנה.</li>
-                                <li><strong>הפעלה:</strong> לחץ על <strong>Start Scrape</strong> והמתן לתוצאות.</li>
+                                <li><strong>בוחרים מאיפה לשאוב:</strong> בנק הפועלים? לאומי? כרטיס אשראי של מקס? רק תבחרו.</li>
+                                <li><strong>פרטי התחברות:</strong> מכניסים שם משתמש וסיסמה ממש כמו באתר של הבנק.</li>
+                                <li><strong>הגדרות קטנות:</strong> כמה זמן אחורה לסרוק? צריכים לראות את הדפדפן נפתח (כדי לפתור קאפצ'ה)? זה המקום לסמן.</li>
+                                <li><strong>מתחילים:</strong> לוחצים על <strong>Start Scrape</strong> ונותנים למערכת לעשות את העבודה השחורה.</li>
                             </ol>
                         `
                     },
                     "profiles": {
                         title: "💾 ניהול פרופילים",
                         html: `
-                            <p>פרופילים שומרים פרטי הבנק מוצפנים במפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong> (AES-256-GCM על הדיסק).</p>
-                            <h4>יצירת פרופיל</h4>
+                            <p>אין כוח להקליד סיסמאות מחדש? תנו למערכת לזכור אותן בשבילכם (תחת הצפנה כבדה כמובן, בעזרת <strong>סיסמת נעילת האפליקציה</strong> שלכם).</p>
+                            <h4>איך שומרים?</h4>
                             <ul>
-                                <li>סמן את <strong>"Save Profile"</strong> במהלך הסריקה.</li>
-                                <li>תן שם לפרופיל (למשל "חשבון אישי").</li>
-                                <li>ודא שהאפליקציה <strong>משוחררת</strong> כשנעילת האפליקציה מוגדרת.</li>
+                                <li>פשוט סמנו את התיבה של <strong>"Save Profile"</strong> לפני שאתם מתחילים סריקה.</li>
+                                <li>תנו לפרופיל שם הגיוני (למשל: "אשראי ראשי שלי").</li>
+                                <li>זכרו שהמערכת צריכה להיות פתוחה (unlocked) כדי שנוכל לשמור את זה מוצפן.</li>
                             </ul>
-                            <h4>שימוש בפרופיל</h4>
-                            <p>בחר את הפרופיל מרשימת <strong>"Start from Profile"</strong> למילוי אוטומטי מיידי.</p>
+                            <h4>איך משתמשים בפרופיל קיים?</h4>
+                            <p>לפני הסריקה, פשוט בחרו את הפרופיל שלכם מהרשימה הנפתחת והכל יתמלא מעצמו כאילו כלום.</p>
                         `
                     },
                     "results": {
-                        title: "📊 דפדפן תוצאות",
+                        title: "📊 סייר הנתונים",
                         html: `
-                            <p>לוח בקרה מקיף לצפייה בנתונים הפיננסיים שלך.</p>
-                            <h3>תכונות עיקריות</h3>
+                            <p>זה המקום לצלול אל המספרים ולעשות בהם סדר.</p>
+                            <h3>מה יש פה?</h3>
                             <ul>
-                                <li><strong>סרגל צד:</strong> ניווט בין כל סריקות העבר.</li>
-                                <li><strong>טבלת עסקאות:</strong> צפייה בכל עסקה עם מסננים מתקדמים.</li>
-                                <li><strong>כרטיסי סיכום:</strong> מבט מיידי על יתרות, הכנסות והוצאות.</li>
-                                <li><strong>חיפוש חכם:</strong> מצא עסקאות לפי תיאור או שם בית עסק.</li>
+                                <li><strong>סרגל הצד (ההיסטוריה):</strong> מעבר קל בין כל הסריקות שעשיתם בעבר.</li>
+                                <li><strong>הטבלה הגדולה:</strong> כל תנועה ותנועה מופיעה כאן, ואפשר לסנן ולחפש ממש כמו באקסל.</li>
+                                <li><strong>סיכומים זריזים:</strong> קוביות מידע למעלה שנותנות תמונת מצב זריזה של הכנסות מול הוצאות.</li>
+                                <li><strong>חיפוש סופר-מהיר:</strong> מצאו בדיוק את הפעם ההיא שקניתם קפה בתל אביב.</li>
                             </ul>
-                            <h3>פעולות</h3>
+                            <h3>מה אפשר לעשות עם זה?</h3>
                             <ul>
-                                <li><strong>עריכה/מחיקה:</strong> ארגן את ההיסטוריה על ידי לחיצה על סמלי העיפרון או הפח.</li>
-                                <li><strong>ייצוא:</strong> הורד נתונים כ-CSV או JSON.</li>
-                                <li><strong>סנכרון ענן:</strong> העלה כל תוצאה ישירות ל-Google Sheet שלך.</li>
+                                <li><strong>לעשות סדר:</strong> לערוך שמות של סריקות או למחוק סריקות ישנות.</li>
+                                <li><strong>לשלוח החוצה:</strong> לייצא את הכל לאקסל (CSV) למחשב.</li>
+                                <li><strong>לענן:</strong> לדחוף את התוצאות הישר ל-Google Sheets שלכם בקליק.</li>
                             </ul>
                         `
                     },
                     "logs": {
-                        title: "📋 יומנים",
+                        title: "📋 יומני פעילות (Logs)",
                         html: `
-                            <p>בלשונית <strong>יומנים</strong> מחולק הפלט לפי סוג:</p>
+                            <p>בלשונית <strong>יומנים</strong> המערכת רושמת לעצמה כל מה שקרה. זה מחולק לפי סוג הפעילות:</p>
                             <ul>
-                                <li><strong>שרת / לקוח</strong> — זרמי טקסט חיים לניפוי שגיאות.</li>
-                                <li><strong>AI</strong> — היסטוריה מובנית של סיווג AI ופעולות קשורות.</li>
-                                <li><strong>סריקה</strong> — רשומות מובנות אחרי סריקה (קבצים, פעולות, ספירות).</li>
+                                <li><strong>השרת / לקוח</strong> — פה תראו טקסט שרץ בלייב. מעולה למי שמבין קצת ורוצה לראות אם משהו נתקע.</li>
+                                <li><strong>ה-AI</strong> — כל מה שהמוח המלאכותי שלנו חשב עליו, ניתח או סיווג - מופיע פה בצורה מסודרת.</li>
+                                <li><strong>סריקות</strong> — דיווחים בסוף סריקה (כמה קבצים ירדו, כמה שורות נכנסו).</li>
                             </ul>
                         `
                     },
                     "configuration": {
-                        title: "⚙️ הגדרות",
+                        title: "⚙️ מסך ההגדרות",
                         html: `
-                            <p>פתחו <strong>הגדרות</strong> מהניווט הראשי. תת-לשונות כוללות <strong>AI</strong> (וזיכרון), <strong>קטגוריות</strong>, <strong>מתזמן</strong> (וגיבויים מתוזמנים), <strong>סריקה</strong> (כולל הונאה והתראות), <strong>גוגל</strong> (OAuth, Sheets, Drive), <strong>טלגרם</strong>, ו<strong>תחזוקה</strong> (גיבויים, פורט, תיקיית נתונים).</p>
-                            <p class="callout info">קישורים עמוקים: <code>?view=configuration&amp;tab=&lt;id&gt;</code> (למשל <code>tab=sheets</code> לגוגל).</p>
+                            <p>זה מרכז העצבים של המערכת. תחת <strong>הגדרות</strong> תמצאו המון תתי-לשוניות: <strong>AI</strong> (והזיכרון שלו), <strong>קטגוריות</strong> (איך המערכת ממיינת הוצאות), <strong>כללי תובנה</strong> (הכללים שקובעים מתי יקפצו לכם התראות בדשבורד), <strong>מתזמן אוטומטי</strong> (שואב נתונים בזמן שאתם ישנים), <strong>הגדרות סריקה</strong> (שם גם תמצאו את הגדרות הונאה), <strong>החיבורים לגוגל</strong>, <strong>טלגרם</strong>, ו<strong>תחזוקה</strong>.</p>
+                            <p class="callout info">אפשר לשלוח חברים ישירות להגדרה ספציפית דרך ה-URL (כמו <code>tab=sheets</code> לדוגמה).</p>
+                            <h3>אזור התחזוקה</h3>
+                            <p>כאן תוכלו לשנות את <strong>הפורט של השרת</strong> או את התיקייה שבה <strong>נשמרים הנתונים</strong>. תוכלו גם ליצור <strong>גיבויים</strong> למחשב או לגוגל דרייב, ולבחור בדיוק מה לגבות (הכל? רק פרופילים? רק הגדרות?). כשמשחזרים, מומלץ תמיד לקרוא שנייה את הודעת הסיכום כדי לא לדרוס דברים בטעות.</p>
+                            <p><strong>משתמשים באפליקציית Windows?</strong> כאן יש את האפשרות להשאיר את המערכת רצה "מוחבאת" ליד השעון כשסוגרים את החלון הראשי, ככה שהטלגרם והסריקות האוטומטיות ימשיכו לעבוד בכיף.</p>
+                            <p><strong>עדכונים שוטפים:</strong> תוכלו לבדוק כאן בלחיצת כפתור אם יצאה גרסה חדשה וטובה יותר של המערכת ב-GitHub.</p>
+                            <p>וכמובן, אפשר גם למחוק פה את נתוני האתר בדפדפן אם המערכת מתחילה לגמגם ואתם רוצים לאפס את התצוגה.</p>
                         `
                     },
                     "ai": {
-                        title: "🤖 תכונות מבוססות AI",
+                        title: "🤖 העוזר החכם (AI)",
                         html: `
-                            <p><strong>Google Gemini</strong> מפעיל סיווג אוטומטי, את <strong>צ'אט המנתח</strong> בדשבורד, ואם הופעל — גם בדיקות הונאה מבוססות AI. AI אופציונלי רץ רק בהתקנה שלך ורק לתכונות שתפעילו.</p>
+                            <p><strong>Google Gemini</strong> הוא המוח מאחורי הקלעים. הוא זה שממיין לכם עסקאות לקטגוריות, מנהל איתכם שיחות בתור <strong>האנליסט הפיננסי</strong> בדשבורד, ואפילו עוזר לחפש חיובים חשודים (אם ביקשתם ממנו). אם תרצו, אתם שולטים על הכל ואפשר לכבות או להדליק כל תכונה כזאת בנפרד.</p>
                             <div class="callout info">
-                                <strong>פרופילים והתחברות לבנק:</strong> ל-AI <strong>אין</strong> גישה ל<strong>אישורי הפרופיל המוצפנים</strong> או לסודות התחברות לבנק. הסריקה עצמה נפרדת (ראו <strong>סריקה</strong>) ולא משתמשת ב-AI. Gemini רואה רק <strong>טקסט עסקאות והקשר</strong> שאתם שולחים לסיווג, צ'אט או הונאת AI אופציונלית — לא סיסמאות שמורות.
+                                <strong>הסיסמאות שלכם בטוחות לחלוטין!</strong> ל-AI שלנו <strong>אין שום גישה</strong> לסיסמאות הבנק או לפרופילים שהצפנתם. הסריקה עצמה עובדת בנפרד בלי שום קשר ל-AI. הדבר היחיד שגוגל רואה זה את <strong>טקסט התנועות בלבד</strong> (למשל "שופרסל - 200 שח") שאתם שולחים לו כדי שיעזור למיין או ינתח עבורכם. שום דבר מעבר.
                             </div>
-                            <h3>זיכרון AI — עובדות שמורות, תובנות והתראות</h3>
-                            <p>תחת <strong>הגדרות → AI</strong> (ולשונית <strong>זיכרון AI</strong>) נשמרים שלושה סוגים של פריטים שהמנתח המאוחד יכול לעשות בהם שימוש בכל שאילתה:</p>
+                            <h3>הזיכרון של ה-AI: עובדות, תובנות והתראות</h3>
+                            <p>בתוך ה<strong>הגדרות → AI</strong> (בלשונית 'זיכרון AI'), יש שלושה דברים שהמערכת זוכרת עליכם כדי שהצ'אט איתה ירגיש כמו שיחה עם מישהו שמכיר אתכם:</p>
                             <ul>
-                                <li><strong>עובדות שמורות (AI memory facts):</strong> שורות קבועות במסד הנתונים — הקשר יציב שהמודל צריך לראות כנכון עד שתעדכנו (למשל „המשכורת ב-1 וב-15”, „Wolt נחשב אוכל בחוץ”). אפשר להוסיף, לערוך ולמחוק ידנית. כשתשובת המנתח המובנית כוללת שורות „עובדות” חדשות, האפליקציה <strong>ממזגת</strong> עובדות שאינן כפולות לאותה רשימה (הפרומפט מבקש מהמודל לא לשכפל עובדות שכבר קיימות אלא אם המצב השתנה).</li>
-                                <li><strong>תובנות (Insights):</strong> מסקנות אנליטיות מתשובות קודמות, כדי שלא יחזור על אותה נקודה. מחק תובנה אם תרצה שניתחו שוב נושא זה.</li>
-                                <li><strong>התראות (Alerts):</strong> פריטים דחופים או רגישים לזמן שהעוזר שומר עם <strong>ציון (1–100)</strong>. הסרה מוחקת את השורה ומונעת שמירה חוזרת של אותו טקסט. ניתן להגדיר מחיקה אוטומטית של תובנות/התראות ישנות לפי ימים.</li>
+                                <li><strong>עובדות ברזל (Facts):</strong> דברים קבועים שחשוב שה-AI יזכור עליכם לתמיד. למשל: "המשכורת נכנסת כל עשירי לחודש" או "Wolt מבחינתנו זה מסעדות, לא קניות". אפשר להוסיף אותן לבד, או שה-AI יציע אותן בעצמו וישמור אותן כדי לא לשאול אתכם שוב בעתיד.</li>
+                                <li><strong>תובנות (Insights):</strong> מסקנות חכמות שה-AI הסיק משיחות קודמות שלכם. ככה הוא לא יחפור לכם שוב על אותו דבר. משהו כבר לא רלוונטי? פשוט תמחקו.</li>
+                                <li><strong>התראות דחופות (Alerts):</strong> דברים שחשוב שתראו עכשיו (ה-AI נותן להן ציון דחיפות של 1 עד 100). ברגע שתסגרו את ההתראה, המערכת תדע לא להציק לכם איתה שוב. המערכת יכולה גם לנקות ולמחוק תובנות ישנות באופן אוטומטי אם תגידו לה.</li>
                             </ul>
-                            <p class="callout info"><strong>לא אותו דבר כמו „נקודות חילוץ פרסונה”:</strong> באשף ההתקנה (או כשמתארים את המצב בשפה חופשית), Gemini עשוי להחזיר <strong>נקודות תקציר קצרות</strong> יחד עם שדות פרסונה מובנים. אלה <strong>סיכום של מה שהוסק</strong>; הן לא מועתקות אוטומטית לרשימת העובדות השמורות בזיכרון — אלא אם תוסיפו אותן שם בעצמכם.</p>
-                            <h3>פרסונת AI (יישור משתמש)</h3>
-                            <p>ב<strong>הגדרות → AI</strong>, פתחו את כרטיס <strong>פרסונה / יישור</strong>. זהו <strong>פרופיל מובנה</strong> למנתח: משק בית, מגורים, נוחות טכנית, כרטיסים וימי חיוב, לוח זמנים להכנסות, יעדים פיננסיים, יעדי חיסכון, וסגנון תשובות (למשל תמיכה מול נקודות קצרות, עומק דיווח).</p>
+                            <p class="callout info"><strong>נקודות לזיהוי פרסונה זה משהו אחר:</strong> כשאתם מתארים את עצמכם ל-AI בהתחלה בשפה חופשית, הוא אולי יחזיר לכם כמה נקודות סיכום. אלו רק סיכומים זריזים למה שהוא הבין עליכם, וזה לא נשמר אוטומטית כ"עובדות ברזל" אלא אם תבחרו להוסיף את זה לשם.</p>
+                            <h3>פרסונת ה-AI (איך הייתם רוצים שהוא ידבר איתכם?)</h3>
+                            <p>תחת <strong>הגדרות → AI</strong>, תמצאו את כרטיסיית <strong>פרסונה ויישור ציפיות</strong>. זה בעצם הפרופיל שלכם מול המערכת: כמה ילדים יש, מתי האשראי יורד, אם אתם חוסכים למשהו מסוים ואיזה סגנון שיחה אתם מעדיפים (נגיד קצר ולעניין, או מפרגן ותומך).</p>
                             <ul>
-                                <li><strong>לכלול בפרומפטים:</strong> אפשר לבחור האם לשלוח את ה-JSON הזה ל-Gemini יחד עם צ'אט המנתח בדשבורד. כיבוי משאיר פרומפטים מבוססי עסקאות בלבד (הפרסונה נשמרת לשימוש עתידי).</li>
-                                <li><strong>מילוי:</strong> עריכה ישירה בשדות, או שימוש באשף / „חילוץ מטקסט חופשי” כדי שהמודל יציע שדות ונקודות תקציר מתיאור בשפה טבעית.</li>
+                                <li><strong>לצרף לפרומפטים?</strong> אתם מחליטים אם הפרופיל הזה בכלל יישלח ל-Gemini כשאתם מתכתבים איתו בדשבורד. כבוי = הצ'אט יענה לכם נטו לפי המספרים (אבל הפרופיל יישאר שמור לפעם הבאה).</li>
+                                <li><strong>איך ממלאים את זה?</strong> אפשר למלא לבד את השדות כמו טופס רגיל, או פשוט לכתוב פסקה חופשית של "מי אני ומה המצב שלי בבנק" ולתת למערכת לתרגם את זה לבד.</li>
                             </ul>
-                            <p>הפרסונה מכוונת <strong>טון ועדיפויות</strong>; העובדות השמורות בזיכרון מכוונות <strong>טענות ארוכות טווח</strong> שצריך לזכור. שניהם יכולים להופיע באותו פרומפט מנתח כשמופעלים.</p>
-                            <h3>דשבורד — תובנות AI מובילות</h3>
-                            <p>ב<strong>דשבורד</strong>, כרטיס <strong>תובנות AI מובילות</strong> מציג את התובנות בעלות הציון הגבוה לאחרונה כדי שתראה מסקנות חשובות במבט אחד. ניתן להסיר תובנות בודדות.</p>
-                            <h3>צ'אט מנתח</h3>
-                            <p>שאלו בשפה טבעית על הוצאות, מגמות או חריגים. כשהזיכרון פעיל, הצ'אט עשוי להוסיף עובדות, תובנות או התראות (מוצגות בממשק וביומני AI). ב<strong>סייר התוצאות</strong> השתמשו ב<strong>קטלוג עם AI</strong> לתיוג אצווה.</p>
+                            <p>ה"פרסונה" היא זו שנותנת למנתח הפיננסי שלכם את ה<strong>אופי</strong> והמיקוד שלו. ה"עובדות" (Facts) הן ה<strong>חוקים</strong> שהוא חייב לזכור תמיד. הכל משתלב יחד בצ'אט.</p>
+                            <h3>תובנות מובילות בדשבורד</h3>
+                            <p>בדשבורד הראשי תראו את ה"תובנות המובילות" — תמהיל חכם של רעיונות שה-AI רשם לעצמו, יחד עם חוקים ברזל שקבעתם מראש ב<strong>הגדרות → כללי תובנה</strong>. לכל הערה כזאת יש סימון כדי שתדעו ממי היא הגיעה, ותמיד אפשר פשוט לסגור אותן.</p>
+                            <h3>לדבר עם האנליסט בכיף שלכם</h3>
+                            <p>לחצו על האייקון של הניצוצות בדשבורד ותתחילו לשאול שאלות על הכסף שלכם כמו שהייתם שואלים חבר. "למה בזבזתי ככה החודש?", "איך אני מצמצם את ההוצאות על אוכל?". כשהזיכרון פעיל, השיחה זורמת ולפעמים הוא ירשום לעצמו תובנות בעקבותיה. רוצים שה-AI יעשה סדר בבלאגן? השתמשו בכפתור 'קטלוג עם AI' בתוך <strong>סייר הנתונים</strong> כדי לתייג המון עסקאות בבת אחת.</p>
                         `
                     },
                     "fraud": {
-                        title: "🛡️ זיהוי הונאה (מקומי)",
+                        title: "🛡️ הגנה וזיהוי חריגות (לוקאלי אצלכם במחשב)",
                         html: `
-                            <p>זיהוי <strong>מקומי</strong> רץ <strong>בשרת שלך</strong> אחרי סריקה. הוא משתמש <strong>בכללים ובחישובים על היסטוריית העסקאות השמורה</strong> — לא נדרש AI בענן לנתיב הזה, ולא נשלח למודל כלום אלא אם מפעילים בנפרד מצב <strong>AI</strong> להונאה.</p>
-                            <h3>מה המקומי בודק</h3>
+                            <p>מנגנון זיהוי החריגות ה<strong>מקומי</strong> שלנו קם לתחייה מיד אחרי כל סריקה. הכל מתבצע אצלכם על השרת, בלי שום AI ובלי לשלוח כלום לאף ענן בחוץ (אלא אם בחרתם ספציפית להפעיל גם את המנגנון של ה-AI במקביל).</p>
+                            <h3>על מה המערכת מסתכלת?</h3>
                             <ul>
-                                <li><strong>מטבע זר:</strong> חיובים שאינם בשקל שנראים כהוצאה, מעל סף מינימום.</li>
-                                <li><strong>ספק/תיאור חדש:</strong> תשלום לגורם שלא נראה בהיסטוריה, במיוחד מעל סף בשקלים או עם תיאור שאינו בעברית (כשהכלל פעיל).</li>
-                                <li><strong>חריגי סכום:</strong> סכומים חריגים ביחס להיסטוריה שלך לאותו תיאור מנורמל (z-score), כשיש מספיק נתוני עבר.</li>
-                                <li><strong>חזרות מהירות:</strong> מספר חיובים דומים מאוד באותה קבוצת סריקה בחלון זמן (כפילויות או שימוש חשוד בכרטיס).</li>
+                                <li><strong>הוצאות במט"ח:</strong> חיובים שלא בשקלים פתאום? אם הם מעל רף מסוים שקבעתם, נדליק נורה אדומה.</li>
+                                <li><strong>עסקאות חדשות:</strong> בית עסק שמעולם לא ראינו קודם בהיסטוריה שלכם (ממש טוב אם מישהו גיהץ אצלכם כרטיס אשראי באתר קניות נידח בחו"ל).</li>
+                                <li><strong>קפיצות מוזרות בסכומים:</strong> רגילים לשלם 50 שקל בסופר ופתאום ירדו 800? המערכת תזהה שזו חריגה מההרגלים הרגילים שלכם ותקפיץ הערה.</li>
+                                <li><strong>חיובים כפולים (חזרות מהירות):</strong> שתי עסקאות על אותו סכום, לאותו עסק, בהפרש של כמה דקות? לפעמים זו טעות, לפעמים כפילות, אנחנו פשוט נגיד לכם שזה קרה.</li>
                             </ul>
-                            <p>כל התאמה מוסיפה <strong>נקודות</strong> לציון (0–100) ורמת <strong>חומרה</strong> (נמוכה / בינונית / גבוהה). מכוונים ספים וכללים תחת <strong>הגדרות → הונאה</strong>. אפשר <strong>מקומי בלבד</strong>, <strong>AI בלבד</strong>, או <strong>שניהם</strong>, ולבחור אם לנתח רק את הסריקה הנוכחית או היסטוריה רחבה יותר.</p>
-                            <p class="callout info">ממצאים יכולים להזניק התראות (למשל לטלגרם) כשרמת החומרה עומדת בסף שקבעת — באותו אזור בהגדרות.</p>
+                            <p>על כל בעיה שהמערכת מוצאת, היא נותנת לה <strong>ניקוד</strong> (מ-0 עד 100) וקובעת אם זו חריגה <strong>קלה, בינונית או דחופה (קריטית)</strong>. הכל בשליטה שלכם — היכנסו ל<strong>הגדרות → סריקה</strong>, לאזור 'הונאות והתראות', ושחקו שם עם הרגישות. תוכלו גם לבחור אם להשתמש רק בזיהוי הלוקאלי, רק ב-AI, או גם וגם.</p>
+                            <p class="callout info">אם המערכת חושדת במשהו רציני (לפי ההגדרות שקבעתם), היא גם יכולה לשלוח לכם הודעה ישר לטלגרם כדי שתהיו בעניינים.</p>
                         `
                     },
                     "automation": {
-                        title: "⏱️ אוטומציה ותזמון",
+                        title: "⏱️ אוטומציות וגיבויים שמנהלים את עצמם",
                         html: `
-                            <p>אוטומציה של סריקות ו<strong>גיבויים מתוזמנים</strong> מתוך <strong>הגדרות → מתזמן</strong>.</p>
-                            <h3>הגדרת מתזמן</h3>
+                            <p>למה לעבוד קשה? תנו למערכת להריץ סריקות ולבצע <strong>גיבויים מסודרים</strong> לגמרי לבד דרך <strong>הגדרות → מתזמן אוטומטי</strong>.</p>
+                            <h3>איך מפעילים את הקסם הזה?</h3>
                             <ol>
-                                <li>פתחו <strong>הגדרות</strong> ובחרו בלשונית <strong>מתזמן</strong>.</li>
-                                <li>הפעילו את המתזמן והגדירו תדירות (יומי, שבועי, חודשי, כל N ימים, או cron מותאם).</li>
-                                <li>בחרו אילו <strong>פרופילים</strong> להריץ.</li>
-                                <li>הגדירו התראות והעלאה ל-Sheets בהתאם להגדרות הצינור.</li>
+                                <li>היכנסו ל<strong>הגדרות</strong> ולחצו על לשונית <strong>מתזמן אוטומטי</strong>.</li>
+                                <li>הדליקו את המתזמן ובחרו כל כמה זמן הוא יעבוד (פעם ביום, פעם בשבוע, או כל זמן שתבחרו).</li>
+                                <li>בחרו מאיזה <strong>פרופילים</strong> ששמרתם אתם רוצים לשאוב נתונים אוטומטית.</li>
+                                <li>אם הכל מוגדר נכון, הנתונים גם יכולים להיזרק אוטומטית לגוגל שיטס ולקפוץ לכם לטלגרם על הבוקר.</li>
                             </ol>
                         `
                     },
                     "troubleshooting": {
-                        title: "🛠️ פתרון בעיות",
+                        title: "🛠️ פתרון תקלות נפוצות",
                         html: `
-                            <h3>בעיות נפוצות</h3>
+                            <h3>בעיות שכולם נתקלים בהן</h3>
                             <ul>
-                                <li><strong>פרטים נדחו:</strong> ודא שאתה יכול להתחבר לאתר הבנק ישירות.</li>
-                                <li><strong>שגיאת זמן (Timeout):</strong> הגדל את ערך ה-timeout בהגדרות הסריקה.</li>
-                                <li><strong>שגיאת פענוח / סיסמה שגויה:</strong> שחרר עם אותה <strong>סיסמת נעילת אפליקציה</strong> ששימשה בעת שמירת הפרופיל. אם <strong>שכחת</strong> — ראה סעיף <strong>נעילת אפליקציה</strong>: מחק פרופילים והזן מחדש.</li>
+                                <li><strong>המסך ריק או שהשרת לא מגיב:</strong> ודאו שהתהליך השחור של השרת רץ ברקע (אם אתם בגרסה ניידת), ושהפורט בכתובת דפדפן הוא הפורט הנכון. שיניתם משהו בהגדרות הליבה? אל תשכחו לעשות ריסטארט לשרת!</li>
+                                <li><strong>הבנק דוחה את ההתחברות:</strong> יכול להיות שהסיסמה פגה תוקף באתר של הבנק. נסו קודם להתחבר רגיל לאתר של הבנק כדי לראות אם משהו השתנה.</li>
+                                <li><strong>המערכת נתקעת (Timeout):</strong> האינטרנט שלכם או של הבנק קצת איטי? כנסו להגדרות הסריקה והאריכו את זמן ההמתנה כדי לתת לה אוויר נשימה.</li>
+                                <li><strong>אופס, סיסמה לא נכונה / אי אפשר לפתוח את הפרופילים:</strong> הסיסמה שפותחת את האפליקציה חייבת להיות בדיוק <strong>אותה סיסמה</strong> שאיתה שמרתם את הפרופיל בהתחלה. אם <strong>שכחתם אותה לחלוטין</strong>, אין ברירה אלא למחוק את הפרופילים הישנים (שממילא מוצפנים) ולהכניס אותם מחדש עם הסיסמה החדשה.</li>
                             </ul>
-                            <p>לבעיות מתקדמות, בדוק את לשונית ה- <strong>Logs</strong> לקבלת קודי שגיאה.</p>
+                            <p>עדיין נתקעים? הציצו בלשונית <strong>יומני הפעילות (Logs)</strong> כדי לראות בדיוק מה מתרחש מאחורי הקלעים.</p>
                         `
                     },
                     "telegram-guide": {
-                        title: "✈️ בוט טלגרם",
-                        html: `<p class="callout info">מקור: <code>client/public/guides/TELEGRAM_BOT_GUIDE.he.md</code></p>
-<div class="telegram-guide-body"><h2>סקירה</h2>
-<p><strong>מבט כלכלי</strong> כולל בוט טלגרם מלא שמאפשר:</p>
+                        title: "✈️ הבוט שלנו בטלגרם",
+                        html: `<div class="telegram-guide-body"><h2>הנה מה שהבוט יודע לעשות</h2>
+<p>מערכת מבט כלכלי מגיעה עם בוט טלגרם אישי משלכם שהופך לכם את החיים לקלים:</p>
 <ul>
-<li>📬 <strong>קבלת התראות</strong> על סורקי עסקאות</li>
-<li>💬 <strong>שיחה עם AI</strong> על עסקאות פיננסיות</li>
-<li>🏦 <strong>הפעלת סורקים</strong> ישירות מטלגרם</li>
-<li>⚙️ <strong>ניהול הגדרות</strong> דרך פקודות בצ&#39;אט</li>
+<li>📬 <strong>שולח לכם הודעות</strong> בכל פעם שסריקה מסתיימת (או נכשלת).</li>
+<li>💬 <strong>מדבר איתכם כמו יועץ</strong> דרך ה-AI ישר בתוך הטלגרם.</li>
+<li>🏦 <strong>מפעיל את הסריקות</strong> במערכת מרחוק (מהפלאפון).</li>
+<li>⚙️ <strong>מנהל לכם את ההגדרות</strong> בלי לפתוח את המחשב.</li>
 </ul>
-<h2>התחלה מהירה</h2>
-<h3>1. יצירת בוט בטלגרם</h3>
+<h2>יאללה, איך מתחילים?</h2>
+<h3>1. פותחים בוט משלנו בטלגרם</h3>
 <ol>
-<li>פתחו את טלגרם וחפשו <strong>@BotFather</strong></li>
-<li>שלחו את הפקודה <code>/newbot</code></li>
-<li>עקבו אחר ההנחיות לתת שם לבוט</li>
-<li>BotFather יספק את <strong>טוקן הבוט</strong> (למשל <code>123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>)</li>
+<li>פתחו את הטלגרם בטלפון או במחשב וחפשו את המשתמש <strong>@BotFather</strong>.</li>
+<li>שלחו לו הודעה עם המילה <code>/newbot</code>.</li>
+<li>הוא ישאל איך לקרוא לבוט (מה שתרצו) ואז איך לקרוא ל"שם משתמש" שלו (חייב להסתיים במילה bot).</li>
+<li>בסוף התהליך תקבלו הודעה ארוכה. חפשו שם את <strong>הטוקן של הבוט</strong> (הוא נראה בערך ככה: <code>123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</code>). העתיקו אותו.</li>
 </ol>
-<h3>2. הגדרת טוקן הבוט</h3>
-<h4>אפשרות א׳: משתני סביבה (.env)</h4>
-<p>הוסיפו לקובץ <code>.env</code>:</p>
-<pre class="code-block"><code>TELEGRAM_BOT_TOKEN=your_bot_token_here
-</code></pre>
-<h4>אפשרות ב׳: דרך הממשק</h4>
+<h3>2. שמים את הטוקן במערכת שלנו</h3>
+<p>אפשר לעשות את זה ישר מהממשק:</p>
 <ol>
-<li>עברו ל־<strong>הגדרות</strong> → לשונית <strong>Telegram</strong></li>
-<li>הדביקו את טוקן הבוט בשדה &quot;Bot Token&quot;</li>
-<li>לחצו <strong>שמור</strong></li>
-<li>לחצו <strong>התחל</strong> כדי להפעיל את הבוט</li>
+<li>היכנסו ל-<strong>הגדרות</strong> ואז ללשונית <strong>טלגרם</strong>.</li>
+<li>הדביקו את מה שהעתקתם מקודם בשדה של "הטוקן הסודי של הבוט".</li>
+<li>לחצו על <strong>שמירה</strong>.</li>
+<li>לחצו על כפתור <strong>הדלקה</strong>. הבוט שלכם חי!</li>
 </ol>
-<h3>3. קבלת מזהה צ&#39;אט (Chat ID)</h3>
-<p>כדי לקבל התראות או להשתמש בבוט, נדרש <strong>מזהה הצ&#39;אט</strong> בטלגרם:</p>
-<p><strong>בצ&#39;אט פרטי:</strong></p>
+<h3>3. אומרים לבוט למי מותר לענות</h3>
+<p>כדי שהבוט ישלח לכם הודעות, הוא צריך לדעת מי אתם ומה ה-<strong>ID שלכם בטלגרם</strong> (כדי שלא ישלח את העו"ש שלכם לאנשים זרים):</p>
+<p><strong>הדרך הכי קלה לגלות מי אתם:</strong></p>
 <ol>
-<li>התחילו צ&#39;אט עם הבוט (חיפוש בשם הבוט)</li>
-<li>שלחו כל הודעה לבוט (למשל <code>/start</code>)</li>
-<li>בצ&#39;אט <strong>פרטי</strong>, <strong>מזהה הצ&#39;אט</strong> הוא אותו מספר כמו <strong>מזהה המשתמש בטלגרם</strong>.</li>
+<li>חפשו את הבוט החדש שלכם בטלגרם, היכנסו לשיחה איתו ושלחו לו משהו (למשל: <code>/start</code> או סתם היי).</li>
+<li>מכיוון שעוד לא הכנסתם את עצמכם למערכת כמשתמש מורשה, הבוט יסנן אתכם, וישלח לכם הודעה בנוסח: "אין לכם הרשאה, אבל אם תרצו לדעת — <strong>זה ה-ID שלכם: 123456789</strong>".</li>
+<li>העתיקו את המספר הזה.</li>
+<li>חזרו ל<strong>הגדרות → טלגרם</strong> במערכת, תחת "מי מורשה לדבר איתו?" הדביקו את המספר. שייכו את החשבונות שלכם ולחצו הוספה. עכשיו הבוט יענה לכם!</li>
 </ol>
-<p><strong>אם עדיין אין הרשאה</strong> (השרת משתמש ברשימת <code>allowedUsers</code> והחשבון שלכם לא ברשימה): שלחו בכל זאת הודעה לבוט. תקבלו תשובה בסגנון &quot;גישה נדחית&quot; שעדיין כוללת את <strong>מזהה המשתמש שלכם</strong> כמספר להעתקה — שלחו אותו למנהל כדי שיוסיף אתכם ל־<code>allowedUsers</code> ולצ&#39;אטי התראות לפי הצורך.</p>
-<p><strong>חלופה — API getUpdates:</strong></p>
+<p><strong>רוצים שישלח הודעות לקבוצה משפחתית משותפת?</strong></p>
 <ol>
-<li>אחרי שליחת הודעה לבוט, פתחו: <code>https://api.telegram.org/bot&lt;YOUR_BOT_TOKEN&gt;/getUpdates</code></li>
-<li>חפשו <code>&quot;chat&quot;: {&quot;id&quot;: &lt;YOUR_CHAT_ID&gt;}</code> או <code>&quot;from&quot;: {&quot;id&quot;: ...}</code> עבור השולח</li>
-<li>העתיקו את מספר מזהה הצ&#39;אט</li>
+<li>צרו קבוצה בטלגרם והכניסו אליה את הבוט שלכם.</li>
+<li>שלחו הודעה וכתבו לו (עם שטרודל) משהו כמו: <code>@your_bot_name היי תתעורר</code>.</li>
+<li>באותה צורה תוכלו לקבל את ה-ID של הקבוצה (הוא בדרך כלל מתחיל במינוס <code>-</code>) ולהוסיף אותו ל"לאן לשלוח הודעות קבוצתיות?".</li>
 </ol>
-<p><strong>בקבוצות:</strong></p>
-<ol>
-<li>הוסיפו את הבוט לקבוצת טלגרם</li>
-<li>שלחו הודעה שמזכירה את הבוט: <code>@your_bot_name שלום</code></li>
-<li>באותה שיטה מזהים את מזהה הצ&#39;אט של הקבוצה (מתחיל ב־<code>-</code>)</li>
-</ol>
-<h2>תכונות ופקודות</h2>
-<h3>פקודות זמינות</h3>
+<h2>מה אפשר להגיד לו? (הפקודות)</h2>
 <table>
 <thead>
 <tr>
 <th>פקודה</th>
-<th>תיאור</th>
-<th>שימוש</th>
+<th>מה זה עושה?</th>
+<th>איפה רושמים את זה?</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>/start</code></td>
-<td>אתחול הבוט והודעת פתיחה</td>
-<td>בצ&#39;אט פרטי עם הבוט</td>
+<td>מעיר את הבוט ומוודא שהוא עובד איתכם.</td>
+<td>בצ&#39;אט פרטי שלכם מול הבוט.</td>
 </tr>
 <tr>
 <td><code>/help</code></td>
-<td>הצגת כל הפקודות</td>
-<td>בכל צ&#39;אט</td>
+<td>פותח לכם רשימה של כל מה שהוא יודע לעשות.</td>
+<td>בכל מקום.</td>
 </tr>
 <tr>
 <td><code>/scrape</code></td>
-<td>בחירה והרצת סורק</td>
-<td>בחירת פרופיל מכפתורים</td>
+<td>פותח כפתורים של הבנקים שלכם, לוחצים - והסריקה יוצאת לדרך.</td>
+<td>בכל מקום.</td>
 </tr>
 <tr>
 <td><code>/chat</code></td>
-<td>מצב שיחה עם AI</td>
-<td>שאלות על עסקאות</td>
+<td>הופך את הבוט ליועץ הפיננסי שלכם. מפה אפשר פשוט לדבר אליו חופשי.</td>
+<td>בכל מקום.</td>
 </tr>
 <tr>
 <td><code>/settings</code></td>
-<td>ניהול העדפות התראות</td>
-<td>תפריט אינטראקטיבי</td>
+<td>פותח את הגדרות ההתראות ישר בטלגרם.</td>
+<td>בכל מקום.</td>
 </tr>
 <tr>
 <td><code>/subscribe</code></td>
-<td>הפעלת התראות על עסקאות</td>
-<td>התראות לסריקות חדשות</td>
+<td>אומר לבוט "יאללה, תתחיל לשלוח לי הודעות כשיש חיובים חדשים".</td>
+<td>איפה שאתם רוצים שישלח.</td>
 </tr>
 <tr>
 <td><code>/unsubscribe</code></td>
-<td>כיבוי התראות</td>
-<td>בלי התראות</td>
+<td>משתיק את הבוט, הוא יפסיק לשלוח לכם עדכונים לשם.</td>
+<td>איפה שאתם רוצים להשתיק.</td>
 </tr>
 <tr>
 <td><code>/status</code></td>
-<td>בדיקת סטטוס הבוט והמערכת</td>
-<td>האם הבוט פעיל</td>
+<td>בודק מה שלום המערכת.</td>
+<td>בכל מקום.</td>
 </tr>
 </tbody></table>
-<h3>שימוש בצ&#39;אט AI</h3>
-<pre class="code-block"><code>אתה: /chat
-בוט: 💬 מצב צ&#39;אט AI הופעל!
+<h3>ככה מדברים עם ה-AI בטלגרם</h3>
+<pre class="code-block"><code>אתם: /chat
+הבוט: 💬 מצב שיחה עם ה-AI מופעל! מה תרצו לבדוק?
 
-אתה: מה ההוצאות הגדולות שלי?
-בוט: לפי העסקאות שלך, קטגוריות ההוצאה הגדולות ביותר הן...
+אתם: איפה בזבזתי הכי הרבה החודש?
+הבוט: בדקתי את זה בשבילך. נראה שההוצאה הכי גדולה שלך החודש הייתה...
 
-אתה: הצג מגמות הוצאה
-בוט: [ניתוח מפורט של דפוסי הוצאה]
+אתם: איך אני מול חודש שעבר?
+הבוט: [התשובה שלו יחד עם נתונים ומספרים]
 </code></pre>
-<h3>הרצת סורקים</h3>
-<pre class="code-block"><code>אתה: /scrape
-בוט: 🏦 בחר פרופיל לסריקה:
-     [בנק לאומי] [בנק הפועלים] [אחר]
+<h3>ככה מריצים סריקה מהנייד</h3>
+<pre class="code-block"><code>אתם: /scrape
+הבוט: 🏦 איזה חשבון תרצו לסרוק עכשיו?
+     [בנק לאומי] [בנק הפועלים] [כרטיס אשראי]
 
-אתה: לחיצה על הבנק הרצוי
-בוט: ⏳ מריץ סורק, נא להמתין...
-     ✅ הסריקה הושלמה בהצלחה
+אתם: (לוחצים על הכפתור של הפועלים)
+הבוט: ⏳ יצאתי לבדוק מול הבנק, מיד חוזר אליכם...
+     ✅ הכל עבר חלק! הסריקה הסתיימה.
      
-     📊 תוצאות:
-     • חשבונות: 3
-     • עסקאות: 487
-     • משך: 2350ms
+     📊 והנה הסיכום:
+     • סרקתי 3 חשבונות.
+     • מצאתי 487 עסקאות.
+     • זה לקח לי בערך 2.3 שניות.
 </code></pre>
-<h2>הגדרת צ&#39;אטים להתראות</h2>
-<h3>הוספת צ&#39;אט להתראות</h3>
+<h2>איך שולטים בהתראות?</h2>
+<h3>איך מוסיפים קבוצה או אדם לרשימת ההתראות</h3>
 <ol>
-<li>עברו ל־<strong>הגדרות</strong> → <strong>Telegram</strong> → <strong>צ&#39;אטים להתראות</strong></li>
-<li>הזינו את מזהה הצ&#39;אט שאמור לקבל התראות</li>
-<li>לחצו <strong>הוסף</strong></li>
+<li>במערכת במחשב: עברו ל־<strong>הגדרות</strong> → <strong>טלגרם</strong> → תחת <strong>לאן לשלוח הודעות קבוצתיות?</strong>.</li>
+<li>הזינו את המספר המזהה (ה-ID) של מי שצריך לקבל את ההודעות.</li>
+<li>לחצו <strong>הוספה</strong>.</li>
 </ol>
-<h3>אירועי התראות</h3>
-<p>הבוט שולח התראות כאשר:</p>
+<h3>מתי הבוט קופץ?</h3>
+<p>אתם תקבלו הודעות ישר לנייד כש:</p>
 <ul>
-<li>סריקה הסתיימה בהצלחה ✅</li>
-<li>סריקה נכשלה ❌</li>
-<li>נותחו עסקאות עם תובנות AI</li>
-<li>צינור (pipeline) הסתיים</li>
-<li>התרעות מערכת</li>
+<li>סריקה הסתיימה בהצלחה ויש עסקאות חדשות ✅</li>
+<li>משהו השתבש והסריקה נפלה באמצע ❌</li>
+<li>המערכת או ה-AI מצאו חריגות בהוצאות שאתם חייבים לדעת מהן.</li>
+<li>סיימתם תהליך אוטומציה לילי והכל עבר בשלום.</li>
 </ul>
-<h3>רמות פירוט התראות</h3>
-<p>ניתן להגדיר כמה מפורטות ההתראות:</p>
+<h3>כמה לחפור לכם? (רמת הפירוט)</h3>
+<p>אתם בוחרים כמה הבוט יהיה דברן:</p>
 <ul>
-<li><strong>מינימלי</strong>: סטטוס ומשך בלבד</li>
-<li><strong>רגיל</strong>: סטטוס, משך, שלבים, מספר עסקאות, תובנות</li>
-<li><strong>מפורט</strong>: מידע מלא כולל פרטי חשבון ויתרה</li>
-<li><strong>מפורט מאוד</strong>: JSON מלא למשתמשים מתקדמים</li>
+<li><strong>מינימלי</strong>: "סיימתי, הכל עובד". וזהו.</li>
+<li><strong>רגיל (הכי מומלץ)</strong>: הסטטוס, כמה עסקאות מצאנו, והתובנות המעניינות שה-AI מצא.</li>
+<li><strong>מפורט</strong>: כולל את כל יתרות החשבון המדויקות שלכם בהודעה.</li>
+<li><strong>הכל או כלום</strong>: שולח את קוד ה-JSON הגולמי למי שאוהב לקרוא את זה ככה.</li>
 </ul>
-<h2>לוח הגדרות Telegram</h2>
-<p>גישה להגדרות מהממשק:</p>
+<h2>רוצים לבדוק שהכל עובד?</h2>
+<p>הכי קל. באזור ההגדרות במחשב יש חלק של <strong>בואו נבדוק שהכל עובד</strong>:</p>
 <ol>
-<li>עברו ל־<strong>הגדרות</strong> → לשונית <strong>Telegram</strong></li>
-<li>ניתן להגדיר:<ul>
-<li>טוקן בוט (מוסתר לחלקית)</li>
-<li>צ&#39;אטים להתראות (הוספה/הסרה של מזהי צ&#39;אט)</li>
-<li>בדיקת חיבור</li>
-<li>הגדרות מתקדמות</li>
+<li>הקלידו את המספר של ה-ID שלכם.</li>
+<li>לחצו <strong>שליחת הודעת ניסיון</strong>.</li>
+<li>אם הכל תקין, הטלפון שלכם אמור לרטוט עם הודעה חדשה בטלגרם ממש עכשיו.</li>
+</ol>
+<h2>אבטחה: איך שומרים על הטוקן שלכם?</h2>
+<ol>
+<li><p><strong>הטוקן של הבוט</strong> הוא כמו סיסמה: </p>
+<ul>
+<li>אל תתנו אותו לאף אחד! מי שיש לו את הטוקן יכול להפעיל את הבוט שלכם.</li>
+<li>בממשק שלנו הטוקן מצונזר כוכביות כדי שחברים שמסתכלים לכם מעבר לכתף לא יצלמו אותו בטעות.</li>
+<li>אם יש לכם חשד שמישהו ראה אותו - תמיד אפשר להחליף אותו מול @BotFather.</li>
+</ul>
+</li>
+<li><p><strong>מספר המזהה (Chat ID)</strong>:</p>
+<ul>
+<li>שמרו אותו קרוב ללב ואל תכניסו מזהים של אנשים זרים.</li>
+<li>אם מחקתם קבוצה, אל תשכחו למחוק גם את המזהה שלה מהמערכת.</li>
+</ul>
+</li>
+<li><p><strong>זה לא כמו הפרופילים בבנק</strong>:</p>
+<ul>
+<li>הטוקן של הטלגרם נשמר בתוך קבצי ההגדרות הרגילים של האפליקציה (כמו משתנים רגילים). הוא <strong>לא עובר את ההצפנה הכבדה (AES)</strong> כמו סיסמאות הבנק שלכם.</li>
+<li>בקיצור - פשוט שימרו על התיקייה במחשב מוגנת, ודאגו שתהיה לכם סיסמה למחשב עצמו.</li>
 </ul>
 </li>
 </ol>
-<h3>בדיקת חיבור</h3>
-<p>לאימות ההגדרות:</p>
-<ol>
-<li>הזינו את טוקן הבוט</li>
-<li>הזינו את מזהה הצ&#39;אט</li>
-<li>לחצו <strong>בדיקה</strong></li>
-<li>אמורה להגיע הודעת אישור בטלגרם</li>
-</ol>
-<h2>נקודות קצה API (REST)</h2>
-<p>התכונה חושפת את נקודות ה־API הבאות (נתיבים כפי שמופיעים בשרת):</p>
-<h3>הגדרות</h3>
-<pre class="code-block"><code class="language-bash"># קבלת הגדרות טלגרם
-GET /api/telegram/config
-
-# עדכון הגדרות
-POST /api/telegram/config
-{
-  &quot;botToken&quot;: &quot;...&quot;,
-  &quot;adminChatIds&quot;: [&quot;123456&quot;],
-  &quot;notificationChatIds&quot;: [&quot;123456&quot;, &quot;-789012&quot;]
-}
+<h2>קצת דוגמאות מחיים אמיתיים</h2>
+<h3>דוגמה 1: בוא נסגור את השבוע</h3>
+<pre class="code-block"><code>אתם: /chat
+אתם: תוכל לסכם לי איך היו ההוצאות שלי השבוע?
+הבוט: 📊 הסיכום השבועי שלך:
+     💰 סך הכל יצא: ₪4,250
+     - סופר ומכולת: ₪800
+     - דלק ונסיעות: ₪300
+     - מסעדות ובילויים: ₪450
+     - חשבונות שוטפים: ₪200
+     ... פירוט מלא בהמשך ההודעה ...
 </code></pre>
-<h3>בקרת בוט</h3>
-<pre class="code-block"><code class="language-bash"># הפעלת הבוט
-POST /api/telegram/start
-{
-  &quot;botToken&quot;: &quot;optional_token_to_override_config&quot;
-}
-
-# עצירת הבוט
-POST /api/telegram/stop
-
-# סטטוס הבוט
-GET /api/telegram/status
-
-# בדיקת חיבור
-POST /api/telegram/test
-{
-  &quot;botToken&quot;: &quot;...&quot;,
-  &quot;chatId&quot;: &quot;...&quot;
-}
+<h3>דוגמה 2: הבוט קם בבוקר ועושה הכל לבד</h3>
+<pre class="code-block"><code>1. כיוונתם את המתזמן שימשוך נתונים כל יום ב-6:00 בבוקר.
+2. הגדרתם שהטלגרם ישלח לכם הודעות.
+3. ב-6:00 הטלפון רוטט:
+   - "המערכת התחילה סריקה..."
+   - דקה אחרי: "✅ סיימנו בהצלחה! מצאתי 12 עסקאות חדשות."
+   - והבוט גם יגיד לכם אם משהו חריג קפץ לו לעין.
 </code></pre>
-<h3>צ&#39;אטים להתראות</h3>
-<pre class="code-block"><code class="language-bash"># רשימת כל צ&#39;אטי ההתראות
-GET /api/telegram/notification-chats
-
-# הוספת צ&#39;אט להתראות
-POST /api/telegram/notification-chat/add
-{
-  &quot;chatId&quot;: &quot;123456&quot;
-}
-
-# הסרת צ&#39;אט מהתראות
-POST /api/telegram/notification-chat/remove
-{
-  &quot;chatId&quot;: &quot;123456&quot;
-}
-</code></pre>
-<h2>תכונות מתקדמות</h2>
-<h3>ריבוי שפות</h3>
-<p>ממשק הבוט מזהה את שפת הממשק באינטרנט:</p>
-<ul>
-<li>🇺🇸 אנגלית</li>
-<li>🇮🇱 עברית</li>
-</ul>
-<h3>כפתורים מובנים (Inline)</h3>
-<p>הבוט משתמש בכפתורי טלגרם:</p>
-<ul>
-<li>בחירת פרופיל לסריקה</li>
-<li>מתגי הגדרות</li>
-<li>ניווט בתפריטים</li>
-</ul>
-<h3>הודעות ארוכות</h3>
-<p>אם תשובות AI חורגות ממגבלת 4096 תווים של טלגרם, הן מפוצלות אוטומטית.</p>
-<h3>תבניות הודעות</h3>
-<p>התראות משתמשות ב־HTML:</p>
-<ul>
-<li><strong>טקסט מודגש</strong> לכותרות</li>
-<li><code>קוד</code> למזהים</li>
-<li>אימוג&#39;י ✅/❌ לסטטוס</li>
-</ul>
-<h2>פתרון בעיות</h2>
-<h3>הבוט לא מגיב</h3>
+<h2>מגבלות שיש לטלגרם (ושלנו)</h2>
 <ol>
-<li>ודאו שטוקן הבוט נכון</li>
-<li>ודאו שהבוט הופעל: <strong>הגדרות</strong> → <strong>Telegram</strong> → כפתור <strong>התחל</strong></li>
-<li>ודאו ששלחתם <code>/start</code> לבוט בטלגרם</li>
-<li>בדקו יומני שרת: <strong>הגדרות</strong> → <strong>תחזוקה</strong> → יומנים</li>
+<li><strong>הפצצת הודעות</strong>: טלגרם חוסמים בוטים ששולחים 20 הודעות בשנייה. אל תשתגעו עם זה.</li>
+<li><strong>קבצים ותמונות</strong>: הבוט שלנו עדיין לא יודע לקבל מכם קבצי אקסל או לשלוח לכם גרפים נוצצים דרך הטלגרם. הכל עדיין טקסט מבוסס.</li>
+<li><strong>ניהול קבוצות</strong>: אם הוספתם את הבוט לקבוצה והוא לא עונה - ודאו שיש לו הרשאות מתאימות בתוך הקבוצה.</li>
 </ol>
-<h3>לא מתקבלות התראות</h3>
+<h2>תמיכה ועזרה</h2>
+<p>משהו תקוע?</p>
 <ol>
-<li>ודאו שמזהה הצ&#39;אט נכון</li>
-<li>בדקו שהצ&#39;אט ברשימת ההתראות: <strong>הגדרות</strong> → <strong>Telegram</strong> → <strong>צ&#39;אטים להתראות</strong></li>
-<li>הריצו בדיקת חיבור עם מזהה הצ&#39;אט</li>
-<li>ודאו שסטטוס הבוט &quot;פעיל&quot; (אינדיקטור ירוק)</li>
-</ol>
-<h3>לא מצליחים למצוא Chat ID</h3>
-<ol>
-<li>שלחו הודעה לבוט, ואז: <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code></li>
-<li>בקבוצות: הוסיפו את הבוט וציינו אותו — <code>@botname שלום</code></li>
-<li>חפשו <code>&quot;chat&quot;: {&quot;id&quot;: &lt;מספר&gt;}</code></li>
-</ol>
-<h3>שגיאות בממשק</h3>
-<ul>
-<li><strong>&quot;Bot token not provided&quot;</strong>: הוסיפו טוקן ושמרו</li>
-<li><strong>&quot;Telegram API error&quot;</strong>: ייתכן שהטוקן שגוי — אמתו עם @BotFather</li>
-<li><strong>&quot;Failed to add chat&quot;</strong>: ייתכן שפורמט מזהה הצ&#39;אט שגוי (מספרים לפרטי, קידומת <code>-</code> לקבוצות)</li>
-</ul>
-<h2>אבטחה</h2>
-<ol>
-<li><p><strong>הגנת טוקן הבוט</strong>:</p>
-<ul>
-<li>אל תשתפו את הטוקן בפומבי</li>
-<li>בממשק הטוקן מוסתר (<code>***...10 תווים אחרונים</code>)</li>
-<li>אם דלף — צרו טוקן חדש ב־@BotFather</li>
-</ul>
-</li>
-<li><p><strong>פרטיות מזהה צ&#39;אט</strong>:</p>
-<ul>
-<li>שמרו כמו סיסמאות</li>
-<li>הוסיפו רק צ&#39;אטים מהימנים</li>
-<li>הסירו מזהים ישנים</li>
-</ul>
-</li>
-<li><p><strong>צ&#39;אטי מנהל</strong>:</p>
-<ul>
-<li>הרשאות ברמת מנהל</li>
-<li>רק מנהלים מריצים פקודות רגישות</li>
-<li>שקלו קבוצה פרטית להתראות מנהלים</li>
-</ul>
-</li>
-<li><p><strong>הצפנה (מה זה <em>לא</em>)</strong>:</p>
-<ul>
-<li><strong>טוקן הבוט</strong> והגדרות Telegram נשמרים כמו שאר הקונפיגורציה (JSON תחת תיקיית הנתונים). הם <strong>לא</strong> עטופים באותה שכבת <strong>AES-256-GCM</strong> כמו <strong>פרטי התחברות לבנק בפרופילים שמורים</strong> (אלה מוצפנים במפתח שמופק מ<strong>סיסמת נעילת האפליקציה</strong>).</li>
-<li>התייחסו לטוקן כסוד: הגבילו גישה ל-<strong><code>DATA_DIR</code></strong>, הרשאות מערכת הפעלה והצפנת דיסק לפי הצורך — כמו למפתחות API ול-<code>runtime-settings.json</code>.</li>
-</ul>
-</li>
-</ol>
-<h2>דוגמאות</h2>
-<h3>דוגמה 1: סיכום הוצאות שבועי</h3>
-<pre class="code-block"><code>אתה: /chat
-אתה: תוכל לסכם את ההוצאות השבוע לפי קטגוריה?
-בוט: 📊 סיכום הוצאות שבועי:
-     💰 סה&quot;כ: ₪4,250
-     - מכולת: ₪800
-     - תחבורה: ₪300
-     - בילויים: ₪450
-     - חשבונות: ₪200
-     ... פירוט ...
-</code></pre>
-<h3>דוגמה 2: הרצת סורק מתוזמנת</h3>
-<pre class="code-block"><code>1. הגדרת סורק חודשי בהגדרות צינור (Pipeline)
-2. הוספת צ&#39;אט התראות בהגדרות טלגרם
-3. כשהצינור רץ:
-   - הבוט שולח: &quot;📬 הצינור התחיל&quot;
-   - אחרי סיום: &quot;✅ סריקה הושלמה - 487 עסקאות&quot;
-   - תובנות AI נכללות אוטומטית
-</code></pre>
-<h3>דוגמה 3: ניתוח פיננסי</h3>
-<pre class="code-block"><code>אתה: /chat
-אתה: האם ההוצאות שלי עלו החודש?
-בוט: 📈 כן, ההוצאה עלתה בכ־12% לעומת החודש הקודם
-     
-     גורמים עיקריים:
-     • נסיעות: +₪450
-     • מסעדות: +₪280
-     • קניות: +₪150
-     
-     בתוך תקציב:
-     ✅ מכולת
-     ✅ חשבונות
-</code></pre>
-<h2>מגבלות ונושאים ידועים</h2>
-<ol>
-<li><strong>מגבלת קצב הודעות</strong>: לטלגרם יש הגבלות (הימנעו מ־25+ הודעות/שנייה)</li>
-<li><strong>העלאת קבצים</strong>: כרגע אין תמיכה בהעלאת קבצים לבוט</li>
-<li><strong>מדיה</strong>: עסקאות מוצגות כטקסט בלבד (אין גרפים בתוך טלגרם עדיין)</li>
-<li><strong>הרשאות בקבוצות</strong>: ודאו שלבוט יש הרשאות מתאימות</li>
-</ol>
-<h2>שיפורים עתידיים</h2>
-<p>תכנון לגרסאות עתידיות:</p>
-<ul>
-<li>📊 גרפי עסקאות אינטראקטיביים</li>
-<li>📝 ייצוא נתונים לקבצים</li>
-<li>🔔 התראות חכמות (שינויים מהותיים בלבד)</li>
-<li>🌙 דוחות מתוזמנים</li>
-<li>👥 תמיכה בריבוי משתמשים עם תפקידים</li>
-<li>🔄 סנכרון Google Sheets דרך טלגרם</li>
-</ul>
-<h2>תמיכה</h2>
-<p>לבעיות או בקשות לתכונות:</p>
-<ol>
-<li>עברו על סעיף פתרון הבעיות למעלה</li>
-<li>בדקו יומני שרת ב־<strong>הגדרות</strong> → <strong>יומנים</strong></li>
-<li>השתמשו ב־<strong>בדיקת חיבור</strong></li>
-<li>דווחו עם הודעות שגיאה מפורטות</li>
+<li>תקפצו רגע לאזור של "פתרון תקלות נפוצות" למעלה.</li>
+<li>במערכת במחשב, היכנסו ללשונית <strong>יומני פעילות (Logs)</strong> ותבדקו אם יש שם משהו אדום שכדאי לשים אליו לב.</li>
+<li>נסו שוב את כפתור "שליחת הודעת ניסיון".</li>
 </ol>
 </div>
                         `
                     },
                     "credits": {
-                        title: "💝 קרדיטים",
+                        title: "💝 תודות וקרדיטים",
                         html: `
-                            <p>פרויקט זה מתאפשר בזכות קהילת הקוד הפתוח.</p>
-                            <h4>ספריית ליבה</h4>
-                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — שכבת סריקה בקוד פתוח (מתוחזקת על ידי הקהילה).</p>
+                            <p>מבט כלכלי קיים אך ורק בזכות האנשים הטובים בקהילת הקוד הפתוח.</p>
+                            <h4>ספריית הליבה שאחראית על כל הקסם (הסריקה)</h4>
+                            <p><a href="https://github.com/eshaham/israeli-bank-scrapers" target="_blank">israeli-bank-scrapers</a> — פרויקט קוד פתוח שמתוחזק באהבה על ידי הקהילה הישראלית.</p>
                         `
                     }
                 }
@@ -1496,7 +1455,7 @@ POST /api/telegram/notification-chat/remove
             // Render Sections (fixed order so nav and reading order stay logical)
             const sectionOrder = [
                 'getting-started', 'windows-install', 'env-setup', 'app-lock', 'api-guides', 'google-setup', 'telegram-guide',
-                'dashboard', 'scrape', 'profiles', 'results', 'logs', 'configuration',
+                'main-interface', 'dashboard', 'scrape', 'profiles', 'results', 'logs', 'configuration',
                 'ai', 'fraud', 'automation', 'troubleshooting', 'credits'
             ];
             let mainHtml = `<header><h1>${data.title}</h1><p>${data.subtitle}</p></header>`;

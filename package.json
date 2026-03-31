@@ -4,7 +4,8 @@
     "workspaces": [
         "shared",
         "server",
-        "client"
+        "client",
+        "desktop-electron"
     ],
     "scripts": {
         "postinstall": "node scripts/ensure-rollup-native.mjs",
@@ -15,7 +16,10 @@
         "kill-port": "powershell ./kill-port.ps1",
         "start": "npm run dev",
         "guide:embed-telegram": "npx marked -o .tmp-telegram.html -i docs/TELEGRAM_BOT_GUIDE.md --gfm && npx marked -o .tmp-telegram-he.html -i client/public/guides/TELEGRAM_BOT_GUIDE.he.md --gfm && node scripts/inline-telegram-guide-into-guide.mjs",
-        "windows:package": "powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1"
+        "windows:package": "powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1",
+        "electron:start": "npm run start -w desktop-electron",
+        "electron:dist": "npm run dist -w desktop-electron",
+        "windows:electron": "npm run windows:package && npm run electron:dist"
     },
     "engines": {
         "node": ">=20"

@@ -51,6 +51,10 @@ export default defineConfig(({ mode }) => {
         process.env.VITE_APP_BUILD_VERSION?.trim() ||
         `${clientVersion}-dev`
     const installKind = env.VITE_INSTALL_KIND?.trim() || process.env.VITE_INSTALL_KIND?.trim() || ''
+    const githubRepo =
+        env.VITE_GITHUB_REPO?.trim() ||
+        process.env.VITE_GITHUB_REPO?.trim() ||
+        'yohaybn/Israeli-Financial-Overview'
 
     const pwaPlugin = VitePWA({
         registerType: 'autoUpdate',
@@ -103,6 +107,7 @@ export default defineConfig(({ mode }) => {
         define: {
             'import.meta.env.VITE_APP_BUILD_VERSION': JSON.stringify(appBuildVersion),
             'import.meta.env.VITE_INSTALL_KIND': JSON.stringify(installKind),
+            'import.meta.env.VITE_GITHUB_REPO': JSON.stringify(githubRepo),
         },
         plugins: [react(), ...(isDemo ? [] : [pwaPlugin])],
         resolve: {

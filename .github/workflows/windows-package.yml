@@ -27,14 +27,38 @@ jobs:
           node-version: "20"
           cache: npm
 
+      # Semver for Electron / Inno: use tag v1.2.3 → 1.2.3; branches → 0.0.0-<sanitizedRef>
+      - name: Resolve app version from ref
+        shell: pwsh
+        run: |
+          $ref = "${{ github.ref_name }}"
+          $sha7 = "${{ github.sha }}".Substring(0, [Math]::Min(7, "${{ github.sha }}".Length))
+          if ($ref -match '^v(\d+\.\d+(\.\d+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?)$') {
+            $v = $Matches[1]
+          } elseif ($ref -match '^(\d+\.\d+(\.\d+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?)$') {
+            $v = $ref
+          } else {
+            $safe = ($ref -replace '[^a-zA-Z0-9.-]', '-').Trim('-')
+            if ([string]::IsNullOrWhiteSpace($safe)) { $safe = "ci" }
+            $v = "0.0.0-$safe"
+          }
+          "APP_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "APP_VERSION=$v (ref=$ref sha=$sha7)"
+
       - name: Build Windows package folder
         shell: pwsh
         env:
           CI: "true"
           PUPPETEER_SKIP_DOWNLOAD: "true"
           VITE_INSTALL_KIND: windows
-          VITE_APP_BUILD_VERSION: ${{ github.ref_name }}@${{ github.sha }}
+          VITE_APP_BUILD_VERSION: ${{ env.APP_VERSION }}@${{ github.sha }}
         run: npm run windows:package
+
+      - name: Build Electron desktop shell
+        shell: pwsh
+        env:
+          CI: "true"
+        run: npm run dist -w desktop-electron -- --config.extraMetadata.version="$env:APP_VERSION"
 
       - name: Zip windows-package
         shell: pwsh
@@ -52,7 +76,7 @@ jobs:
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe" }
           if (-not (Test-Path $iscc)) { throw "ISCC.exe not found after Inno Setup install" }
-          & $iscc packaging/windows/FinancialOverview.iss
+          & $iscc "/DMyAppVersion=$env:APP_VERSION" packaging/windows/FinancialOverview.iss
 
       - name: Verify outputs
         shell: pwsh

@@ -46,7 +46,16 @@ See **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)** for the full narrative. Sho
 
 ## Windows desktop (installer / portable folder)
 
-The Windows package is a normal **Node production tree** plus a **bundled `node.exe`** (see `packaging/windows/package.ps1`). The server listens on **`PORT`** (default **3000**) and stores SQLite and runtime settings under **`DATA_DIR`**.
+The Windows **installer** (`FinancialOverview-Windows-Setup.exe`, built after `npm run windows:electron`) installs:
+
+- **`FinancialOverview.exe`** — Electron desktop shell that starts the same **Node server** as the legacy launcher, loads the UI at `http://127.0.0.1:<port>/`, and shows a **system tray icon**. **Close to tray** (first-run dialog and **Configuration → Maintenance**) keeps the server running when you close the window so **scheduler** and **Telegram** keep working; use **Quit (stop server)** from the tray to exit fully. **Restart server** in Maintenance restarts the child process from the shell.
+- **Optional Start menu shortcuts** — **Open in browser (localhost)** and **Launch server (console)** for the browser-only or console workflows.
+
+The **`windows-package.zip`** artifact is still a **portable Node tree** + **`launch-FinancialOverview.cmd`** (no Electron): you must **leave the console window open**; there is no tray.
+
+**End-user install guide (GitHub Pages):** after Pages deploy, open **`https://<user>.github.io/<repo>/install/`** (e.g. with repository name `Israeli-Financial-Overview`: `/Israeli-Financial-Overview/install/`). Source: [`client/public/install/index.html`](client/public/install/index.html).
+
+Maintainer build steps: [`packaging/windows/README.md`](packaging/windows/README.md) (`windows:package`, `electron:dist`, Inno Setup).
 
 ### `financial-overview.json` (install folder)
 
