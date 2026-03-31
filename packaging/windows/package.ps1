@@ -166,5 +166,6 @@ if (-not $SkipNodeDownload) {
 
 Write-Host "`nDone. Package ready at:" -ForegroundColor Green
 Write-Host ('  ' + $Stage) -ForegroundColor Green
-Write-Host "`nNext: compile the installer with Inno Setup:" -ForegroundColor Cyan
-Write-Host '  ISCC.exe packaging\windows\FinancialOverview.iss' -ForegroundColor White
+Write-Host "`nNext: build the Windows installer (electron-builder NSIS):" -ForegroundColor Cyan
+Write-Host '  npm run dist -w desktop-electron' -ForegroundColor White
+Write-Host '  Output: dist\electron-win\FinancialOverview-Windows-Setup-<version>.exe' -ForegroundColor DarkGray

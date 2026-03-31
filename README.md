@@ -69,15 +69,14 @@ For a **one-file** distribution on Windows, build an installer that bundles the 
 **Maintainers — create the package and installer**
 
 1. On **Windows x64**, from the repo root: `npm run windows:package` (or run [`packaging/windows/package.ps1`](packaging/windows/package.ps1)). This produces `dist/windows-package/`.
-2. Build the desktop shell: `npm run electron:dist` (or **`npm run windows:electron`** to run steps 1 and 2 together).
-3. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) and compile [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) to get **`dist/FinancialOverview-Windows-Setup.exe`** (installs **`FinancialOverview.exe`** + server under `resources/`).
-4. **GitHub Releases:** publish a **release** (e.g. tag `v1.0.0`). The [Windows package workflow](.github/workflows/windows-package.yml) runs on **`release: published`**, builds the zip and installer, and **uploads `windows-package.zip` and `FinancialOverview-Windows-Setup.exe`**. You can also run the workflow manually from the **Actions** tab (`workflow_dispatch`).
+2. Build the desktop shell: `npm run electron:dist` (or **`npm run windows:electron`** to run steps 1 and 2 together). This produces **`dist/electron-win/FinancialOverview-Windows-Setup-<version>.exe`** (electron-builder **NSIS**; installs **`FinancialOverview.exe`** + server under `resources/`). Optional legacy [Inno Setup](https://jrsoftware.org/isinfo.php) wrapper: [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) (not used in CI).
+3. **GitHub Releases:** publish a **release** (e.g. tag `v1.0.0`). The [Windows package workflow](.github/workflows/windows-package.yml) runs on **`release: published`**, builds the zip and installer, and **uploads `windows-package.zip` and `FinancialOverview-Windows-Setup-<version>.exe`**. You can also run the workflow manually from the **Actions** tab (`workflow_dispatch`).
 
 **End users**
 
 Step-by-step (download, SmartScreen, **desktop app + tray**, background operation for scheduler/Telegram, app lock, Gemini): **[Installation guide on GitHub Pages](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** (English / Hebrew).
 
-1. Run **`FinancialOverview-Windows-Setup.exe`** and complete the wizard (default install folder: `%LocalAppData%\FinancialOverview`).
+1. Download **`FinancialOverview-Windows-Setup-<version>.exe`** from Releases and run it (default install folder is often under `%LocalAppData%\FinancialOverview`).
 2. Start **`Financial Overview`** from the Start menu (runs **`FinancialOverview.exe`**). The UI opens in an app window; a **tray icon** appears. **Close to tray** keeps the server running when you close the window (for scheduled scrapes and Telegram); use **Quit (stop server)** from the tray to exit fully. Optional: **Open in browser (localhost)** or **`launch-FinancialOverview.cmd`** (console stays open; no tray).
 3. Default URL is **`http://127.0.0.1:3000`** (default **port** `3000`). With the desktop app you usually do not need a separate browser tab.
 4. **Port and data folder:** edit **`financial-overview.json`** in the install folder (a default file is included; see [`financial-overview.json.example`](financial-overview.json.example)). Set **`port`** and optional **`dataDir`** (Windows paths can use `%APPDATA%`, etc.). **Environment variables** (`PORT`, `DATA_DIR`) override the file if set. See [DEPLOYMENT.md](DEPLOYMENT.md).

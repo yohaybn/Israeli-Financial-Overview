@@ -1,4 +1,5 @@
-; Inno Setup 6 — compile after npm run windows:electron (packages app + Electron shell).
+; Optional legacy wrapper — CI and releases use electron-builder NSIS (FinancialOverview-Windows-Setup-<version>.exe).
+; Inno re-compresses win-unpacked and can fail on deep node_modules paths (MAX_PATH). Use only if you need Inno-specific tweaks.
 ; Run from repo root: "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\FinancialOverview.iss
 
 #define MyAppName "Financial Overview"

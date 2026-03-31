@@ -1,5 +1,5 @@
-# Builds dist/windows-package, zips it, compiles Inno Setup, uploads artifacts.
-# On published release: attaches windows-package.zip and FinancialOverview-Windows-Setup.exe to that release.
+# Builds dist/windows-package, zips it, builds Electron + NSIS installer, uploads artifacts.
+# On published release: attaches windows-package.zip and FinancialOverview-Windows-Setup-<version>.exe to that release.
 name: Windows package
 
 on:
@@ -27,7 +27,7 @@ jobs:
           node-version: "20"
           cache: npm
 
-      # Semver for Electron / Inno: use tag v1.2.3 → 1.2.3; branches → 0.0.0-<sanitizedRef>
+      # Semver for Electron / NSIS: use tag v1.2.3 → 1.2.3; branches → 0.0.0-<sanitizedRef>
       - name: Resolve app version from ref
         shell: pwsh
         run: |
@@ -66,22 +66,12 @@ jobs:
           if (Test-Path dist/windows-package.zip) { Remove-Item dist/windows-package.zip -Force }
           Compress-Archive -Path dist/windows-package -DestinationPath dist/windows-package.zip -CompressionLevel Optimal
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup -y --no-progress
-
-      - name: Compile installer (Inno Setup)
-        shell: pwsh
-        run: |
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe" }
-          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found after Inno Setup install" }
-          & $iscc "/DMyAppVersion=$env:APP_VERSION" packaging/windows/FinancialOverview.iss
-
       - name: Verify outputs
         shell: pwsh
         run: |
-          Get-Item dist/windows-package.zip, dist/FinancialOverview-Windows-Setup.exe | Format-Table Name, Length
+          $setup = "dist/electron-win/FinancialOverview-Windows-Setup-$env:APP_VERSION.exe"
+          if (-not (Test-Path $setup)) { throw "Missing NSIS installer: $setup" }
+          Get-Item dist/windows-package.zip, $setup | Format-Table Name, Length
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
@@ -89,7 +79,7 @@ jobs:
           name: windows-release-assets
           path: |
             dist/windows-package.zip
-            dist/FinancialOverview-Windows-Setup.exe
+            dist/electron-win/FinancialOverview-Windows-Setup-*.exe
           if-no-files-found: error
 
       - name: Upload assets to GitHub Release
@@ -98,7 +88,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
+          $setup = Get-Item "dist/electron-win/FinancialOverview-Windows-Setup-*.exe" | Select-Object -First 1
+          if (-not $setup) { throw "No FinancialOverview-Windows-Setup-*.exe under dist/electron-win" }
           gh release upload "${{ github.event.release.tag_name }}" `
             "dist/windows-package.zip" `
-            "dist/FinancialOverview-Windows-Setup.exe" `
+            "$($setup.FullName)" `
             --clobber

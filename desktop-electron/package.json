@@ -22,6 +22,7 @@
         "appId": "com.financialoverview.desktop",
         "productName": "Financial Overview",
         "executableName": "FinancialOverview",
+        "artifactName": "FinancialOverview-Windows-Setup-${version}.${ext}",
         "directories": {
             "output": "../dist/electron-win"
         },

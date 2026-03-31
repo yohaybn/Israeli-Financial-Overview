@@ -11,7 +11,7 @@ This manual describes how to use each major area of the application.
 *   **Network:** Internet for **bank scrapes**; optional **Gemini**, **Telegram**, and **Google** when you enable them.
 *   **Disk:** Space for `DATA_DIR` (grows with transactions and scrape history).
 *   **Windows bank automation:** **Google Chrome** or **Microsoft Edge** (Chromium) for the scraper; not bundled by default in the Windows package.
-*   **Windows packages:** **`FinancialOverview-Windows-Setup.exe`** — installer with **Electron**, tray, and close-to-tray (recommended). **`windows-package.zip`** — portable folder, run `launch-FinancialOverview.cmd`, **no Electron** / **no tray**; keep the console open.
+*   **Windows packages:** **`FinancialOverview-Windows-Setup-<version>.exe`** — single NSIS installer with **Electron**, tray, and close-to-tray (recommended; version in the filename matches the release). **`windows-package.zip`** — portable folder, run `launch-FinancialOverview.cmd`, **no Electron** / **no tray**; keep the console open.
 
 ---
 

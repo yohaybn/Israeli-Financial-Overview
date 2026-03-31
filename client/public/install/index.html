@@ -130,21 +130,21 @@
                 sections: {
                     overview: {
                         title: 'Overview',
-                        html: '<p>This guide is for the <strong>Windows installer</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) on <a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a>. The installer deploys the <strong>Financial Overview</strong> desktop application (<code>FinancialOverview.exe</code>, Electron) that starts the local server and shows the UI in a window—plus optional shortcuts for opening in an external browser or running the legacy console launcher.</p>' +
+                        html: '<p>This guide is for the <strong>Windows installer</strong> — the single setup file <code>FinancialOverview-Windows-Setup-&lt;version&gt;.exe</code> on <a href="' + REPO + '/releases" target="_blank" rel="noopener">GitHub Releases</a> (the version in the filename matches the release). The installer deploys the <strong>Financial Overview</strong> desktop application (<code>FinancialOverview.exe</code>, Electron) that starts the local server and shows the UI in a window. Optional browser or console workflows use <code>resources\\open-browser.cmd</code> and <code>resources\\launch-FinancialOverview.cmd</code> next to the installed app.</p>' +
                             '<p>Releases may also include <code>windows-package.zip</code> (portable folder, browser + console workflow, no desktop shell). For scheduler, Telegram, and AI features you need the <strong>Node server</strong> running—easiest via the desktop app with background mode below.</p>' +
                             '<div class="callout info"><strong>Demo on GitHub Pages:</strong> The main Pages deployment is a <strong>static demo</strong> with mocked data. Real banking features require the server on your PC (this installer), Docker, or Home Assistant—see the repository README.</div>'
                     },
                     'windows-install': {
                         title: 'Step 1 — Download and install',
-                        html: '<p><strong>Two Windows artifacts on Releases:</strong></p><ul>' +
-                            '<li><strong><code>FinancialOverview-Windows-Setup.exe</code> (recommended)</strong> — full installer with the <strong>Electron</strong> desktop shell (<code>FinancialOverview.exe</code>), bundled Node, tray icon, and optional close-to-tray. Use this for everyday use and background scheduler/Telegram.</li>' +
+                        html: '<p><strong>Two Windows downloads on Releases</strong> (only one is an installer):</p><ul>' +
+                            '<li><strong><code>FinancialOverview-Windows-Setup-&lt;version&gt;.exe</code> (recommended)</strong> — the <strong>only</strong> Windows setup program: full <strong>Electron</strong> desktop shell (<code>FinancialOverview.exe</code>), bundled Node, tray icon, and optional close-to-tray. Use this for everyday use and background scheduler/Telegram.</li>' +
                             '<li><strong><code>windows-package.zip</code> (portable)</strong> — extract and run <code>launch-FinancialOverview.cmd</code>; <strong>no Electron</strong>, <strong>no tray</strong>; keep the console window open. Same server and UI, for advanced or portable setups.</li></ul>' +
-                            '<p><strong>Installing the .exe (Electron path)</strong></p><ol class="steps">' +
-                            '<li><strong>Find the release.</strong> Open <a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases</a> and download <code>FinancialOverview-Windows-Setup.exe</code>.</li>' +
+                            '<p><strong>Installing the setup .exe</strong></p><ol class="steps">' +
+                            '<li><strong>Find the release.</strong> Open <a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases</a> and download <code>FinancialOverview-Windows-Setup-&lt;version&gt;.exe</code> (pick the file whose version matches the release).</li>' +
                             '<li><strong>Run the file.</strong> Double-click the <code>.exe</code>. If SmartScreen appears, <strong>More info</strong> → <strong>Run anyway</strong> (common for community builds).</li>' +
                             '<li><strong>Wizard.</strong> Continue through welcome/license; choose the install folder if offered (default often <code>%LocalAppData%\\FinancialOverview</code>).</li>' +
                             '<li><strong>Shortcuts.</strong> Optionally create a desktop shortcut for quick launch.</li>' +
-                            '<li><strong>Finish.</strong> The Start menu lists <strong>Financial Overview</strong> (Electron app), and may list <strong>Open in browser (localhost)</strong> and <strong>Launch server (console)</strong> for browser-only or console workflows without Electron.</li>' +
+                            '<li><strong>Finish.</strong> The Start menu lists <strong>Financial Overview</strong> (Electron app). For browser-only or console workflows, run <code>resources\\open-browser.cmd</code> or <code>resources\\launch-FinancialOverview.cmd</code> under the install folder.</li>' +
                             '</ol>' +
                             '<div class="callout warning"><strong>Note:</strong> The installer bundles Node.js—you do <strong>not</strong> install Node separately.</div>' +
                             '<div class="callout info"><strong>Portable zip:</strong> Extract anywhere, run <code>launch-FinancialOverview.cmd</code>, open <code>http://127.0.0.1:3000</code> in a browser, and leave the console open. See also the tray section for differences vs the installer.</div>'
@@ -245,21 +245,21 @@
                 sections: {
                     overview: {
                         title: 'מבט כללי',
-                        html: '<p>המדריך הזה יעזור לכם להתקין את המערכת בווינדוס באמצעות <strong>קובץ ההתקנה הרשמי</strong> (<code>FinancialOverview-Windows-Setup.exe</code>) שאפשר למצוא בעמוד ה־<a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases שלנו ב-GitHub</a>. ההתקנה תשים לכם במחשב את <strong>מבט כלכלי</strong> כאפליקציית שולחן עבודה נוחה (מבוססת Electron) שמפעילה את השרת מאחורי הקלעים ומציגה את הממשק בחלון מסודר. יש גם אפשרויות לפתוח בדפדפן רגיל אם תעדיפו.</p>' +
+                        html: '<p>המדריך הזה יעזור לכם להתקין את המערכת בווינדוס באמצעות <strong>קובץ ההתקנה היחיד</strong> — <code>FinancialOverview-Windows-Setup-&lt;version&gt;.exe</code> בעמוד ה־<a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases שלנו ב-GitHub</a> (המספר בשם הקובץ תואם לגרסה). ההתקנה תשים לכם במחשב את <strong>מבט כלכלי</strong> כאפליקציית שולחן עבודה נוחה (מבוססת Electron) שמפעילה את השרת מאחורי הקלעים ומציגה את הממשק בחלון מסודר. לפתיחה בדפדפן או בקונסולה אפשר להשתמש ב־<code>resources\\open-browser.cmd</code> ו־<code>resources\\launch-FinancialOverview.cmd</code> ליד תיקיית ההתקנה.</p>' +
                             '<p>בעמוד ההורדות תמצאו גם קובץ בשם <code>windows-package.zip</code> (גרסה ניידת ללא התקנה). שימו לב שכדי להשתמש באוטומציות, בטלגרם וב-AI, <strong>השרת חייב לרוץ ברקע</strong> — והכי קל לעשות את זה דרך האפליקציה שמתקינים, שמאפשרת עבודה שקטה ברקע.</p>' +
                             '<div class="callout info"><strong>ניסיתם את הדמו שלנו ב-GitHub Pages?</strong> חשוב לדעת שהדמו מציג רק נתונים מדומים לצורך הדגמה. כדי באמת למשוך את הנתונים שלכם מהבנק, חובה להתקין את השרת על המחשב שלכם (בעזרת המדריך הזה), ב-Docker או ב-Home Assistant (פרטים ב-README של הפרויקט).</div>'
                     },
                     'windows-install': {
                         title: 'שלב 1: איך מורידים ומתקינים?',
-                        html: '<p><strong>יש שני סוגי קבצים להורדה:</strong></p><ul>' +
-                            '<li><strong>קובץ ההתקנה <code>FinancialOverview-Windows-Setup.exe</code> (הכי מומלץ!)</strong> — מתקין לכם אפליקציה מסודרת, מפעיל את השרת מאחורי הקלעים ונותן לכם אפשרות להשאיר את המערכת פועלת בשקט ברקע (מעולה לתזמונים ובוט טלגרם).</li>' +
-                            '<li><strong>גרסה ניידת <code>windows-package.zip</code> (למתקדמים)</strong> — פשוט מחלצים ומפעילים את <code>launch-FinancialOverview.cmd</code>. אין כאן התקנה ואין חלון אפליקציה — צריך להשאיר את החלון השחור של הקונסולה פתוח בזמן שעובדים.</li></ul>' +
+                        html: '<p><strong>שני קבצים להורדה</strong> (רק אחד מהם הוא קובץ התקנה):</p><ul>' +
+                            '<li><strong><code>FinancialOverview-Windows-Setup-&lt;version&gt;.exe</code> (הכי מומלץ!)</strong> — <strong>קובץ ההתקנה היחיד</strong> לווינדוס: אפליקציה מסודרת, שרת ברקע ואפשרות להשאיר את המערכת פועלת בשקט (מעולה לתזמונים ובוט טלגרם).</li>' +
+                            '<li><strong>גרסה ניידת <code>windows-package.zip</code> (למתקדמים)</strong> — מחלצים ומפעילים את <code>launch-FinancialOverview.cmd</code>. אין כאן התקנה ואין חלון אפליקציה — צריך להשאיר את חלון הקונסולה פתוח.</li></ul>' +
                             '<p><strong>אז איך מתקינים את הגרסה המומלצת?</strong></p><ol class="steps">' +
-                            '<li><strong>מורידים:</strong> נכנסים לעמוד ה־<a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases שלנו</a> ומורידים את הקובץ <code>FinancialOverview-Windows-Setup.exe</code>.</li>' +
+                            '<li><strong>מורידים:</strong> נכנסים לעמוד ה־<a href="' + REPO + '/releases" target="_blank" rel="noopener">Releases שלנו</a> ומורידים את <code>FinancialOverview-Windows-Setup-&lt;version&gt;.exe</code> (הגרסה בשם הקובץ תואמת לשחרור).</li>' +
                             '<li><strong>מפעילים:</strong> לוחצים עליו פעמיים. אם ווינדוס מקפיץ אזהרה (SmartScreen), פשוט לוחצים על <strong>More info</strong> (מידע נוסף) ואז <strong>Run anyway</strong> (הפעל בכל זאת).</li>' +
                             '<li><strong>מתקינים:</strong> ממשיכים עם המסכים של אשף ההתקנה ובוחרים איפה לשמור את המערכת (בדרך כלל זה ילך ל־<code>%LocalAppData%\\FinancialOverview</code>).</li>' +
                             '<li><strong>קיצור דרך:</strong> מומלץ לאשר יצירת קיצור דרך בשולחן העבודה כדי שיהיה קל להיכנס בפעם הבאה.</li>' +
-                            '<li><strong>זהו, סיימנו!</strong> עכשיו תמצאו את <strong>Financial Overview</strong> בתפריט ההתחלה שלכם. תמצאו שם גם קיצורים לפתיחה בדפדפן או בקונסולה אם אי פעם תצטרכו.</li>' +
+                            '<li><strong>זהו, סיימנו!</strong> עכשיו תמצאו את <strong>Financial Overview</strong> בתפריט ההתחלה. לפתיחה בדפדפן או בקונסולה: <code>resources\\open-browser.cmd</code> ו־<code>resources\\launch-FinancialOverview.cmd</code> בתיקיית ההתקנה.</li>' +
                             '</ol>' +
                             '<div class="callout warning"><strong>שימו לב:</strong> ההתקנה כבר כוללת בתוכה את סביבת Node.js — <strong>אין שום צורך</strong> להתקין אותה בנפרד.</div>' +
                             '<div class="callout info"><strong>בחרתם בגרסה הניידת (Zip)?</strong> פשוט חלצו אותה לאיזו תיקייה שתרצו, הפעילו את <code>launch-FinancialOverview.cmd</code>, היכנסו בדפדפן לכתובת <code>http://127.0.0.1:3000</code>, ואל תסגרו את חלון הקונסולה.</div>'
