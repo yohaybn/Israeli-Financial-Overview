@@ -27,6 +27,25 @@ function unescapeMDV2(text: string): string {
   return String(text).replace(/\\([_*[\]()~`>#+\-=|{}.!])/g, '$1');
 }
 
+/**
+ * AI replies often use Markdown `**bold**`. Telegram MarkdownV2 uses `*bold*` (single asterisks).
+ * Convert paired `**...**` blocks first, then escape the rest so `**` is not shown literally.
+ */
+function markdownBoldToMarkdownV2(text: string): string {
+  const s = String(text);
+  const re = /\*\*([\s\S]*?)\*\*/g;
+  let last = 0;
+  let out = '';
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    out += escMDV2(s.slice(last, m.index));
+    out += `*${escMDV2(m[1])}*`;
+    last = m.index + m[0].length;
+  }
+  out += escMDV2(s.slice(last));
+  return out;
+}
+
 const LABELS: Record<'en' | 'he', Record<string, string>> = {
   en: {
     scrapeNotification: '🏦 Scrape Notification',
@@ -190,7 +209,7 @@ export class TelegramNotifier extends BaseNotifier {
     }
     if (payload.telegramSegment === 'custom-ai') {
       const body = (payload.summary.insights || []).join('\n\n');
-      return `*${escMDV2(this.L('customAiSegmentTitle'))}*\n\n${escMDV2(body)}`;
+      return `*${escMDV2(this.L('customAiSegmentTitle'))}*\n\n${markdownBoldToMarkdownV2(body)}`;
     }
 
     const statusLine = `${this.statusText(payload.status)}`;

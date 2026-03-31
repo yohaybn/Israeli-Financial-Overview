@@ -86,6 +86,16 @@ export class StorageService {
         return crypto.createHash('md5').update(data).digest('hex');
     }
 
+    /**
+     * Sets {@link Transaction.id} when missing, using the same logic as {@link saveScrapeResult}.
+     * Post-scrape runs before persist on the normal scrape path; Telegram memo prompts need this id to match the DB row.
+     */
+    ensureStableTransactionId(txn: Transaction): void {
+        if (!txn.id) {
+            txn.id = this.generateStableId(txn, txn.accountNumber);
+        }
+    }
+
     private async migrateLegacyResults() {
         const files = await fs.readdir(DATA_DIR);
         const internalFiles = [

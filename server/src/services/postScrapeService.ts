@@ -667,6 +667,10 @@ export class PostScrapeService {
         });
       }
 
+      for (const t of transactions) {
+        this.storageService.ensureStableTransactionId(t);
+      }
+
       try {
         await this.maybeNotifyTransactionReview(transactions, request, botLanguage);
         actions.push({ key: 'transaction-review', status: 'ok' });
