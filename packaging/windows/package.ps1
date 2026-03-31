@@ -83,6 +83,19 @@ foreach ($r in $robocopyRoots) {
     Assert-RobocopyOk $LASTEXITCODE
 }
 
+# Staged tree uses the pruned node_modules copied above. Restore devDependencies at repo root so
+# a follow-up `npm run dist -w desktop-electron` (electron-builder) still works; CI and
+# `npm run windows:electron` run Electron after this script.
+Write-Host "`nRestore devDependencies at repo root (e.g. electron-builder; not used in stage) ..." -ForegroundColor Yellow
+Push-Location $RepoRoot
+try {
+    npm install
+    if ($LASTEXITCODE -ne 0) { throw "npm install failed after staging pruned node_modules" }
+}
+finally {
+    Pop-Location
+}
+
 # Remove sources from staged packages (keep dist + package.json + node_modules)
 foreach ($rel in @("client\src", "client\public", "server\src", "shared\src")) {
     $p = Join-Path $Stage $rel
