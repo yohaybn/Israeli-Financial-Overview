@@ -52,8 +52,9 @@ ENV VITE_INSTALL_KIND=$VITE_INSTALL_KIND
 RUN npm run build -w client
 RUN npm run build -w server
 
-# Prune dev dependencies before copying to production stage
-RUN npm prune --omit=dev
+# Prune dev dependencies before copying to production stage.
+# shared has only devDependencies; prune can remove shared/node_modules entirely, which breaks COPY below.
+RUN npm prune --omit=dev && mkdir -p shared/node_modules
 
 
 # --- Production Stage ---
