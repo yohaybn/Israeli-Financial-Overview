@@ -10,6 +10,7 @@ import { useUnifiedData } from './hooks/useUnifiedData';
 import { ScrapeWorkspace } from './components/scrape/ScrapeWorkspace';
 import { AppLockBanner } from './components/AppLockBanner';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { PersonaOnboardingWizard } from './components/onboarding/PersonaOnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { useGettingStarted } from './contexts/GettingStartedContext';
@@ -23,8 +24,10 @@ import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/
 import { HelpAssistantChat } from './components/help/HelpAssistantChat';
 import { FeedbackModal } from './components/FeedbackModal';
 import { TransactionReviewModal } from './components/TransactionReviewModal';
-import { PersonaPromptModal, isPersonaPromptDismissed } from './components/persona/PersonaPromptModal';
+import { usePersonaSetupWizardVisibility } from './hooks/usePersonaSetupWizardVisibility';
 import { transactionsForReviewItems } from '@app/shared';
+import { useEnvConfig } from './hooks/useConfig';
+import { isGeminiApiKeyConfigured } from './utils/geminiKeyConfigured';
 
 function consumeSessionConfigTab(): string | null {
     try {
@@ -40,6 +43,7 @@ function App() {
     const { t, i18n } = useTranslation();
     const onboarding = useOnboarding();
     const gettingStarted = useGettingStarted();
+    const { showPersonaSetupWizard } = usePersonaSetupWizardVisibility();
 
     const navigateGettingStarted = useCallback((patch: Partial<AppUrlState>) => {
         setNav((prev) => ({ ...prev, ...patch }));
@@ -49,6 +53,7 @@ function App() {
         !isDemoMode() &&
         onboarding.completed &&
         !onboarding.showModal &&
+        !showPersonaSetupWizard &&
         gettingStarted.showModal;
     const [nav, setNav] = useState<AppUrlState>(() =>
         parseAppUrlState(window.location.search, consumeSessionConfigTab())
@@ -64,9 +69,10 @@ function App() {
     const { data: scrapeResults, isLoading: isLoadingScrape } = useScrapeResults();
     const { data: unifiedTransactions, isLoading: isLoadingUnified } = useUnifiedData();
     const { data: aiSettings } = useAISettings();
+    const { data: envConfig } = useEnvConfig();
+    const showAppAssistant = isGeminiApiKeyConfigured(envConfig?.GEMINI_API_KEY);
     const [transactionReviewModalOpen, setTransactionReviewModalOpen] = useState(false);
     const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
-    const [personaPromptOpen, setPersonaPromptOpen] = useState(false);
     const [hasCheckedData, setHasCheckedData] = useState(false);
 
     useEffect(() => {
@@ -118,18 +124,6 @@ function App() {
         window.addEventListener('open-ai-logs', onOpenAiLogs);
         return () => window.removeEventListener('open-ai-logs', onOpenAiLogs);
     }, []);
-
-    useEffect(() => {
-        const onGeminiFirst = () => {
-            if (isDemoMode()) return;
-            if (onboarding.showModal) return;
-            if (!onboarding.completed) return;
-            if (isPersonaPromptDismissed()) return;
-            setPersonaPromptOpen(true);
-        };
-        window.addEventListener('gemini-api-key-first-configured', onGeminiFirst);
-        return () => window.removeEventListener('gemini-api-key-first-configured', onGeminiFirst);
-    }, [onboarding.showModal, onboarding.completed]);
 
     const setView = (next: AppUrlState['view']) => {
         setNav((prev) => ({
@@ -217,17 +211,21 @@ function App() {
                                             <Sparkles className="w-5 h-5" strokeWidth={1.75} aria-hidden />
                                         </button>
                                     )}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            window.dispatchEvent(new CustomEvent('toggle-help-widget', { detail: { open: true } }));
-                                        }}
-                                        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-800 hover:bg-blue-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                                        title={t('help.open_button', 'App Assistant')}
-                                        aria-label={t('help.open_button', 'App Assistant')}
-                                    >
-                                        <Bot className="w-5 h-5" strokeWidth={1.75} aria-hidden />
-                                    </button>
+                                    {showAppAssistant && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                window.dispatchEvent(
+                                                    new CustomEvent('toggle-help-widget', { detail: { open: true } })
+                                                );
+                                            }}
+                                            className="h-9 w-9 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-800 hover:bg-blue-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                            title={t('help.open_button', 'App Assistant')}
+                                            aria-label={t('help.open_button', 'App Assistant')}
+                                        >
+                                            <Bot className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         onClick={() => window.open(`${import.meta.env.BASE_URL}GUIDE.html`, '_blank')}
@@ -484,20 +482,13 @@ function App() {
 
             {onboarding.showModal && <OnboardingWizard />}
 
-            <PersonaPromptModal
-                isOpen={personaPromptOpen}
-                onClose={() => setPersonaPromptOpen(false)}
-                onOpenAiSettings={() => {
-                    setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
-                    setPersonaPromptOpen(false);
-                }}
-            />
+            {showPersonaSetupWizard && <PersonaOnboardingWizard />}
 
             {showGettingStartedWizard && <GettingStartedWizard onNavigate={navigateGettingStarted} />}
 
             <FeedbackModal isOpen={feedbackModalOpen} onClose={() => setFeedbackModalOpen(false)} />
 
-            <HelpAssistantChat />
+            {showAppAssistant && <HelpAssistantChat />}
 
             <TransactionReviewModal
                 isOpen={transactionReviewModalOpen}

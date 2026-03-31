@@ -2,6 +2,7 @@ export type AppView = 'dashboard' | 'scrape' | 'logs' | 'configuration';
 
 export const CONFIG_TAB_IDS = [
     'ai',
+    'insight-rules',
     'categories',
     'scheduler',
     'scrape',

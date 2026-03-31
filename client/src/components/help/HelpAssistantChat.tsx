@@ -60,7 +60,7 @@ export function HelpAssistantChat() {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
+        <div className="fixed bottom-6 right-6 z-[110] flex flex-col items-end pointer-events-none">
             <div className="pointer-events-auto w-96 max-w-[calc(100vw-3rem)] h-[500px] max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200">
                     <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-2 font-bold">

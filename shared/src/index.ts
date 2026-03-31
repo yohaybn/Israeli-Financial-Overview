@@ -67,6 +67,21 @@ export {
     parseInsightRulesExportDocument,
     renderInsightRuleMessage,
 } from './insightRules.js';
+export {
+    builderStateToDefinition,
+    defaultBuilderState,
+    defaultBuilderRows,
+    definitionToBuilderState,
+    filterValidConditionRows,
+    isBuilderStateSavable,
+} from './insightRuleBuilder.js';
+export type {
+    BuilderCombineMode,
+    BuilderConditionRow,
+    BuilderState,
+    BuilderTxnMatch,
+    DefinitionToBuilderResult,
+} from './insightRuleBuilder.js';
 export type {
     EvaluateInsightRuleResult,
     InsightRuleCondition,
@@ -79,6 +94,14 @@ export type {
     InsightRulesExportDocument,
     TxnCondition,
 } from './insightRules.js';
+export {
+    BACKUP_SCOPE_IDS,
+    BACKUP_SNAPSHOT_RUNTIME_SETTINGS_PATH,
+    backupEntryPathToScope,
+    backupScopesInSnapshot,
+    isBackupScopeId
+} from './backupScopes.js';
+export type { BackupScopeId } from './backupScopes.js';
 export {
     AI_ANALYST_EST_CHARS_PER_TXN_ROW,
     AI_ANALYST_EST_CHARS_CSV_HEADER,

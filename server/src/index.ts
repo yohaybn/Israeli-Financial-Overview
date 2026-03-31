@@ -125,7 +125,10 @@ async function startServer() {
 
   app.use('/api/app-lock', appLockRoutes);
 
-  app.use('/api', createScrapeRoutes(scraperService, new StorageService(), new FilterService(), new AiService(), new ImportService(), io));
+  app.use(
+    '/api',
+    createScrapeRoutes(scraperService, new StorageService(), new FilterService(), new AiService(), new ImportService(), io, schedulerService)
+  );
   app.use('/api/post-scrape', createPostScrapeRoutes());
   app.use('/api/profiles', profileRoutes);
   app.use('/api/ai', aiRoutes);

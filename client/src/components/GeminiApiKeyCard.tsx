@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isUserPersonaEmpty } from '@app/shared';
 import { useEnvConfig, useUpdateEnvConfig, useRestartServer } from '../hooks/useConfig';
-import { useAISettings } from '../hooks/useScraper';
-import { isDemoMode } from '../demo/isDemo';
-import { isGeminiApiKeyConfigured } from '../utils/geminiKeyConfigured';
+import { markPersonaSetupPendingAfterRestart } from '../utils/personaSetupWizardStorage';
 import { CollapsibleCard } from './CollapsibleCard';
 
 /**
@@ -13,7 +10,6 @@ import { CollapsibleCard } from './CollapsibleCard';
 export function GeminiApiKeyCard() {
     const { t } = useTranslation();
     const { data: env, isLoading } = useEnvConfig();
-    const { data: aiSettings } = useAISettings();
     const { mutate: updateEnv, isPending: isUpdating } = useUpdateEnvConfig();
     const { mutate: restartServer, isPending: isRestarting } = useRestartServer();
 
@@ -25,24 +21,16 @@ export function GeminiApiKeyCard() {
 
     const save = () => {
         if (!env) return;
-        const wasEmpty = !isGeminiApiKeyConfigured(env.GEMINI_API_KEY);
-        const nextTrimmed = value.trim();
-        const willHaveKey = isGeminiApiKeyConfigured(nextTrimmed);
         updateEnv(
             { ...env, GEMINI_API_KEY: value },
             {
                 onSuccess: () => {
-                    if (
-                        !isDemoMode() &&
-                        wasEmpty &&
-                        willHaveKey &&
-                        isUserPersonaEmpty(aiSettings?.userContext)
-                    ) {
-                        window.dispatchEvent(new CustomEvent('gemini-api-key-first-configured'));
-                    }
                     if (window.confirm(t('env.confirm_restart_after_save'))) {
                         restartServer(undefined, {
-                            onSuccess: () => alert(t('env.restart_in_progress')),
+                            onSuccess: () => {
+                                markPersonaSetupPendingAfterRestart();
+                                alert(t('env.restart_in_progress'));
+                            },
                             onError: (err: any) =>
                                 alert(t('env.restart_failed', { error: err.message || t('common.unknown_error') })),
                         });
@@ -92,7 +80,10 @@ export function GeminiApiKeyCard() {
                 <button
                     type="button"
                     onClick={() => restartServer(undefined, {
-                        onSuccess: () => alert(t('env.restart_in_progress')),
+                        onSuccess: () => {
+                            markPersonaSetupPendingAfterRestart();
+                            alert(t('env.restart_in_progress'));
+                        },
                         onError: (err: any) =>
                             alert(t('env.restart_failed', { error: err.message || t('common.unknown_error') })),
                     })}

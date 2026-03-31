@@ -5,7 +5,9 @@ import { StorageService } from '../services/storageService.js';
 import { FilterService } from '../services/filterService.js';
 import { AiService } from '../services/aiService.js';
 import { ImportService } from '../services/importService.js';
-import { BackupService } from '../services/backupService.js';
+import { BackupService, BACKUP_SCOPE_IDS, normalizeBackupScopesParam } from '../services/backupService.js';
+import { SchedulerService } from '../services/schedulerService.js';
+import { notificationService } from '../services/notifications/notificationService.js';
 import { ScrapeRequest, PROVIDERS } from '@app/shared';
 import { Server } from 'socket.io';
 import multer from 'multer';
@@ -19,7 +21,8 @@ export function createScrapeRoutes(
     filterService: FilterService,
     aiService: AiService,
     importService: ImportService,
-    io: Server
+    io: Server,
+    schedulerService: SchedulerService
 ) {
     const router = Router();
     const backupService = new BackupService();
@@ -543,17 +546,30 @@ export function createScrapeRoutes(
         }
     });
 
-    // Reset all user changes to defaults
+    // Factory reset: wipe data directory, clear filters, reload in-memory services
     router.post('/results/reset', async (req, res) => {
         try {
-            console.log('[API] Received reset request');
-            // Clear all user modifications: categories, ignored, types, filters
-            await storageService.resetAllUserChanges();
+            console.log('[API] Received factory reset request');
+            await storageService.wipeEntireDataDirectory();
             await filterService.clearAllFilters();
-            console.log('[API] Reset completed successfully');
-            res.json({ success: true, message: 'All user changes have been reset to defaults' });
+            await aiService.getSettings();
+            schedulerService.reloadAfterDataWipe();
+            notificationService.reloadConfigAfterFactoryReset();
+            console.log('[API] Factory reset completed successfully');
+            res.json({
+                success: true,
+                message: 'Data directory cleared and defaults restored. Reload the app; browser storage should be cleared client-side.'
+            });
         } catch (error: any) {
-            console.error('[API] Reset failed:', error);
+            console.error('[API] Factory reset failed:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    router.get('/backups/scopes', (_req, res) => {
+        try {
+            res.json({ success: true, data: [...BACKUP_SCOPE_IDS] });
+        } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
     });
@@ -563,6 +579,16 @@ export function createScrapeRoutes(
         try {
             const backups = await backupService.listLocalBackups();
             res.json({ success: true, data: backups });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    router.get('/backups/local/:filename/summary', async (req, res) => {
+        try {
+            const filename = req.params.filename;
+            const data = await backupService.summarizeLocalBackupFile(filename);
+            res.json({ success: true, data });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -586,8 +612,9 @@ export function createScrapeRoutes(
         try {
             const destination = req.body?.destination === 'google-drive' ? 'google-drive' : 'local';
             const folderId = typeof req.body?.folderId === 'string' ? req.body.folderId : undefined;
+            const scopes = normalizeBackupScopesParam(req.body?.scopes);
 
-            const localBackup = await backupService.createLocalBackup();
+            const localBackup = await backupService.createLocalBackup(scopes);
             if (destination === 'local') {
                 return res.json({
                     success: true,
@@ -620,13 +647,14 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'filename is required' });
             }
 
-            const dbRestored = await backupService.restoreFromLocalBackup(filename);
-            if (!dbRestored) {
+            const scopes = normalizeBackupScopesParam(req.body?.scopes);
+            const { dbRestored, needsReloadFromFiles } = await backupService.restoreFromLocalBackup(filename, scopes);
+            if (needsReloadFromFiles) {
                 await storageService.reloadTransactionsFromFiles();
-            } else {
+            } else if (dbRestored) {
                 await storageService.reconcileInternalTransferFromRawData();
             }
-            res.json({ success: true, message: 'Restore completed from local backup', dbRestored });
+            res.json({ success: true, message: 'Restore completed from local backup', dbRestored, needsReloadFromFiles });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -643,6 +671,16 @@ export function createScrapeRoutes(
         }
     });
 
+    router.get('/backups/drive/:fileId/summary', async (req, res) => {
+        try {
+            const fileId = req.params.fileId;
+            const data = await backupService.summarizeDriveBackupFile(fileId);
+            res.json({ success: true, data });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
     // Restore from Google Drive backup file
     router.post('/backups/restore/drive', async (req, res) => {
         try {
@@ -651,13 +689,14 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'fileId is required' });
             }
 
-            const dbRestored = await backupService.restoreFromDriveBackup(fileId);
-            if (!dbRestored) {
+            const scopes = normalizeBackupScopesParam(req.body?.scopes);
+            const { dbRestored, needsReloadFromFiles } = await backupService.restoreFromDriveBackup(fileId, scopes);
+            if (needsReloadFromFiles) {
                 await storageService.reloadTransactionsFromFiles();
-            } else {
+            } else if (dbRestored) {
                 await storageService.reconcileInternalTransferFromRawData();
             }
-            res.json({ success: true, message: 'Restore completed from Google Drive backup', dbRestored });
+            res.json({ success: true, message: 'Restore completed from Google Drive backup', dbRestored, needsReloadFromFiles });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -670,14 +709,15 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'No backup file uploaded' });
             }
 
-            const dbRestored = await backupService.restoreFromUploadedBackup(req.file.path);
-            if (!dbRestored) {
+            const scopes = normalizeBackupScopesParam(req.body?.scopes);
+            const { dbRestored, needsReloadFromFiles } = await backupService.restoreFromUploadedBackup(req.file.path, scopes);
+            if (needsReloadFromFiles) {
                 await storageService.reloadTransactionsFromFiles();
-            } else {
+            } else if (dbRestored) {
                 await storageService.reconcileInternalTransferFromRawData();
             }
             await fs.remove(req.file.path).catch(() => {});
-            res.json({ success: true, message: 'Restore completed from uploaded backup', dbRestored });
+            res.json({ success: true, message: 'Restore completed from uploaded backup', dbRestored, needsReloadFromFiles });
         } catch (error: any) {
             if (req.file?.path) {
                 await fs.remove(req.file.path).catch(() => {});

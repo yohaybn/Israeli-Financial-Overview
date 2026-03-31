@@ -2,9 +2,19 @@ import fs from 'fs-extra';
 import path from 'path';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
+import {
+    BACKUP_SCOPE_IDS,
+    BACKUP_SNAPSHOT_RUNTIME_SETTINGS_PATH,
+    backupEntryPathToScope,
+    backupScopesInSnapshot,
+    isBackupScopeId,
+    type BackupScopeId
+} from '@app/shared';
 import { GoogleAuthService } from './googleAuthService.js';
 import { DbService, closeDbForRestore } from './dbService.js';
 import { RUNTIME_SETTINGS_PATH } from '../runtimeEnv.js';
+
+export { BACKUP_SCOPE_IDS, type BackupScopeId };
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
@@ -20,6 +30,8 @@ const SUPPORTED_SNAPSHOT_VERSIONS = [1, 2, 3];
 const SNAPSHOT_NAME_PREFIX = 'bank-scraper-backup';
 const BACKUP_EXT = '.backup.json';
 
+const RUNTIME_SETTINGS_SNAPSHOT_PATH = BACKUP_SNAPSHOT_RUNTIME_SETTINGS_PATH;
+
 const BACKUP_TARGETS = [
     'results',
     'config',
@@ -32,9 +44,6 @@ const BACKUP_TARGETS = [
 /** Optional JSON files stored directly under DATA_DIR (not in a subfolder). */
 const DATA_DIR_ROOT_CONFIG_FILES = ['scheduler_config.json', 'notification_config.json'] as const;
 
-/** Snapshot path label for runtime-settings (API keys, OAuth client id/secret, etc.); restored to DATA_DIR/config/runtime-settings.json. */
-const RUNTIME_SETTINGS_SNAPSHOT_PATH = 'root/runtime-settings.json';
-
 interface BackupEntry {
     path: string;
     encoding: 'base64';
@@ -45,6 +54,51 @@ interface BackupSnapshot {
     version: number;
     createdAt: string;
     files: BackupEntry[];
+}
+
+export interface RestoreSnapshotResult {
+    /** True if app.db was replaced in this operation */
+    dbRestored: boolean;
+    /** True when JSON under results/ was written and DB should be rebuilt from files (no DB restore) */
+    needsReloadFromFiles: boolean;
+}
+
+export interface BackupSnapshotSummary {
+    version: number;
+    createdAt: string;
+    scopes: BackupScopeId[];
+    fileCount: number;
+}
+
+export function normalizeBackupScopesParam(scopes: unknown): BackupScopeId[] | undefined {
+    if (scopes === undefined || scopes === null || scopes === '') {
+        return undefined;
+    }
+    if (typeof scopes === 'string') {
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(scopes);
+        } catch {
+            throw new Error('Invalid scopes JSON');
+        }
+        return normalizeBackupScopesParam(parsed);
+    }
+    if (!Array.isArray(scopes)) {
+        throw new Error('scopes must be an array of scope ids');
+    }
+    const out: BackupScopeId[] = [];
+    for (const s of scopes) {
+        if (typeof s !== 'string' || !isBackupScopeId(s)) {
+            throw new Error(`Invalid backup scope: ${String(s)}`);
+        }
+        if (!out.includes(s)) {
+            out.push(s);
+        }
+    }
+    if (out.length === 0) {
+        throw new Error('Select at least one backup scope, or omit scopes for a full backup');
+    }
+    return out;
 }
 
 export class BackupService {
@@ -95,31 +149,42 @@ export class BackupService {
         return entries;
     }
 
-    private async collectSnapshotFiles(): Promise<BackupEntry[]> {
+    private scopeWanted(scopes: BackupScopeId[] | undefined, id: BackupScopeId): boolean {
+        return !scopes || scopes.length === 0 || scopes.includes(id);
+    }
+
+    private async collectSnapshotFiles(scopes?: BackupScopeId[]): Promise<BackupEntry[]> {
         const entries: BackupEntry[] = [];
 
         for (const target of BACKUP_TARGETS) {
+            if (!this.scopeWanted(scopes, target as BackupScopeId)) {
+                continue;
+            }
             const targetPath = path.join(DATA_DIR, target);
             entries.push(...(await this.collectDirRecursive(targetPath, target)));
         }
 
-        await this.replaceWithResolvedTelegramConfig(entries);
-
-        for (const name of DATA_DIR_ROOT_CONFIG_FILES) {
-            const abs = path.join(DATA_DIR, name);
-            if (!(await fs.pathExists(abs))) continue;
-            const stat = await fs.stat(abs);
-            if (!stat.isFile()) continue;
-            const relativePath = this.resolveSafeRelativePath(name);
-            const buffer = await fs.readFile(abs);
-            entries.push({
-                path: relativePath,
-                encoding: 'base64',
-                content: buffer.toString('base64')
-            });
+        if (this.scopeWanted(scopes, 'config')) {
+            await this.replaceWithResolvedTelegramConfig(entries);
         }
 
-        if (await fs.pathExists(RUNTIME_SETTINGS_PATH)) {
+        if (this.scopeWanted(scopes, 'root_config')) {
+            for (const name of DATA_DIR_ROOT_CONFIG_FILES) {
+                const abs = path.join(DATA_DIR, name);
+                if (!(await fs.pathExists(abs))) continue;
+                const stat = await fs.stat(abs);
+                if (!stat.isFile()) continue;
+                const relativePath = this.resolveSafeRelativePath(name);
+                const buffer = await fs.readFile(abs);
+                entries.push({
+                    path: relativePath,
+                    encoding: 'base64',
+                    content: buffer.toString('base64')
+                });
+            }
+        }
+
+        if (this.scopeWanted(scopes, 'runtime_settings') && (await fs.pathExists(RUNTIME_SETTINGS_PATH))) {
             const stat = await fs.stat(RUNTIME_SETTINGS_PATH);
             if (stat.isFile()) {
                 const buffer = await fs.readFile(RUNTIME_SETTINGS_PATH);
@@ -131,9 +196,7 @@ export class BackupService {
             }
         }
 
-        // Include the SQLite database file
-        if (await fs.pathExists(DB_PATH)) {
-            // Checkpoint WAL to flush all changes into the main DB file
+        if (this.scopeWanted(scopes, 'database') && (await fs.pathExists(DB_PATH))) {
             try {
                 const dbService = new DbService();
                 dbService.checkpoint();
@@ -193,8 +256,8 @@ export class BackupService {
         });
     }
 
-    private async buildSnapshot(): Promise<BackupSnapshot> {
-        const files = await this.collectSnapshotFiles();
+    private async buildSnapshot(scopes?: BackupScopeId[]): Promise<BackupSnapshot> {
+        const files = await this.collectSnapshotFiles(scopes);
         return {
             version: SNAPSHOT_VERSION,
             createdAt: new Date().toISOString(),
@@ -217,9 +280,9 @@ export class BackupService {
         return process.env.GOOGLE_DRIVE_FOLDER_ID;
     }
 
-    async createLocalBackup(): Promise<{ filename: string; path: string }> {
+    async createLocalBackup(scopes?: BackupScopeId[]): Promise<{ filename: string; path: string }> {
         await fs.ensureDir(BACKUPS_DIR);
-        const snapshot = await this.buildSnapshot();
+        const snapshot = await this.buildSnapshot(scopes);
         const filename = this.getBackupFileName();
         const outputPath = path.join(BACKUPS_DIR, filename);
         await fs.writeJson(outputPath, snapshot, { spaces: 2 });
@@ -301,25 +364,45 @@ export class BackupService {
     }
 
     /**
-     * Restore from a backup snapshot.
-     * Returns true if the snapshot contained a DB file (v2+), false otherwise (v1).
-     * When a DB file is included, the caller should NOT rebuild the DB from files.
+     * Restore from a backup snapshot. Full restore (no scopes) replaces managed dirs and follows legacy DB rules.
+     * Partial restore merges selected paths; restoring `database` replaces app.db only.
      */
-    private async restoreFromSnapshot(snapshot: BackupSnapshot): Promise<boolean> {
+    private async restoreFromSnapshot(snapshot: BackupSnapshot, scopes?: BackupScopeId[]): Promise<RestoreSnapshotResult> {
         if (!snapshot || !SUPPORTED_SNAPSHOT_VERSIONS.includes(snapshot.version) || !Array.isArray(snapshot.files)) {
             throw new Error('Invalid backup snapshot format');
         }
 
-        // Check if snapshot includes a DB file
-        const hasDbFile = snapshot.files.some(e => e.path === 'app.db');
+        const isPartial = scopes !== undefined && scopes.length > 0;
+        const snapshotHadDb = snapshot.files.some(e => e.path === 'app.db');
 
-        for (const target of BACKUP_TARGETS) {
-            await fs.ensureDir(path.join(DATA_DIR, target));
-            await fs.emptyDir(path.join(DATA_DIR, target));
+        let filesToRestore = snapshot.files;
+        if (isPartial) {
+            filesToRestore = snapshot.files.filter(e => {
+                const sc = backupEntryPathToScope(e.path);
+                return sc !== null && scopes!.includes(sc);
+            });
+            if (filesToRestore.length === 0) {
+                throw new Error('No files in this backup match the selected scopes');
+            }
         }
 
-        // If restoring a DB file, close the shared connection so the file is not locked, then remove old DB files
-        if (hasDbFile) {
+        const willRestoreDb = filesToRestore.some(e => e.path === 'app.db');
+
+        if (!isPartial) {
+            for (const target of BACKUP_TARGETS) {
+                await fs.ensureDir(path.join(DATA_DIR, target));
+                await fs.emptyDir(path.join(DATA_DIR, target));
+            }
+            if (snapshotHadDb) {
+                closeDbForRestore();
+                for (const dbFile of ['app.db', 'app.db-shm', 'app.db-wal']) {
+                    const dbPath = path.join(DATA_DIR, dbFile);
+                    if (await fs.pathExists(dbPath)) {
+                        await fs.remove(dbPath);
+                    }
+                }
+            }
+        } else if (willRestoreDb) {
             closeDbForRestore();
             for (const dbFile of ['app.db', 'app.db-shm', 'app.db-wal']) {
                 const dbPath = path.join(DATA_DIR, dbFile);
@@ -329,7 +412,8 @@ export class BackupService {
             }
         }
 
-        for (const entry of snapshot.files) {
+        let wroteResultsFiles = false;
+        for (const entry of filesToRestore) {
             const content = Buffer.from(entry.content, 'base64');
 
             if (entry.path === RUNTIME_SETTINGS_SNAPSHOT_PATH) {
@@ -339,26 +423,32 @@ export class BackupService {
             }
 
             const relativePath = this.resolveSafeRelativePath(entry.path);
+            if (relativePath.startsWith('results/')) {
+                wroteResultsFiles = true;
+            }
             const outputPath = path.join(DATA_DIR, relativePath);
             const outputDir = path.dirname(outputPath);
             await fs.ensureDir(outputDir);
             await fs.writeFile(outputPath, content);
         }
 
-        return hasDbFile;
+        const dbRestored = willRestoreDb;
+        const needsReloadFromFiles = !dbRestored && (isPartial ? wroteResultsFiles : true);
+
+        return { dbRestored, needsReloadFromFiles };
     }
 
-    async restoreFromLocalBackup(filename: string): Promise<boolean> {
+    async restoreFromLocalBackup(filename: string, scopes?: BackupScopeId[]): Promise<RestoreSnapshotResult> {
         const resolved = this.getLocalBackupPath(filename);
         if (!await fs.pathExists(resolved)) {
             throw new Error('Backup file not found');
         }
 
         const snapshot = await fs.readJson(resolved) as BackupSnapshot;
-        return await this.restoreFromSnapshot(snapshot);
+        return await this.restoreFromSnapshot(snapshot, scopes);
     }
 
-    async restoreFromDriveBackup(fileId: string): Promise<boolean> {
+    async restoreFromDriveBackup(fileId: string, scopes?: BackupScopeId[]): Promise<RestoreSnapshotResult> {
         const auth = await this.authService.getClient();
         const drive = google.drive({ version: 'v3', auth });
         const response = await drive.files.get(
@@ -368,11 +458,44 @@ export class BackupService {
 
         const raw = Buffer.from(response.data as ArrayBuffer).toString('utf8');
         const snapshot = JSON.parse(raw) as BackupSnapshot;
-        return await this.restoreFromSnapshot(snapshot);
+        return await this.restoreFromSnapshot(snapshot, scopes);
     }
 
-    async restoreFromUploadedBackup(filePath: string): Promise<boolean> {
+    async restoreFromUploadedBackup(filePath: string, scopes?: BackupScopeId[]): Promise<RestoreSnapshotResult> {
         const snapshot = await fs.readJson(filePath) as BackupSnapshot;
-        return await this.restoreFromSnapshot(snapshot);
+        return await this.restoreFromSnapshot(snapshot, scopes);
+    }
+
+    private summarizeSnapshot(snapshot: BackupSnapshot): BackupSnapshotSummary {
+        if (!snapshot || !SUPPORTED_SNAPSHOT_VERSIONS.includes(snapshot.version) || !Array.isArray(snapshot.files)) {
+            throw new Error('Invalid backup snapshot format');
+        }
+        return {
+            version: snapshot.version,
+            createdAt: snapshot.createdAt,
+            scopes: backupScopesInSnapshot(snapshot),
+            fileCount: snapshot.files.length
+        };
+    }
+
+    async summarizeLocalBackupFile(filename: string): Promise<BackupSnapshotSummary> {
+        const resolved = this.getLocalBackupPath(filename);
+        if (!(await fs.pathExists(resolved))) {
+            throw new Error('Backup file not found');
+        }
+        const snapshot = await fs.readJson(resolved) as BackupSnapshot;
+        return this.summarizeSnapshot(snapshot);
+    }
+
+    async summarizeDriveBackupFile(fileId: string): Promise<BackupSnapshotSummary> {
+        const auth = await this.authService.getClient();
+        const drive = google.drive({ version: 'v3', auth });
+        const response = await drive.files.get(
+            { fileId, alt: 'media' },
+            { responseType: 'arraybuffer' }
+        );
+        const raw = Buffer.from(response.data as ArrayBuffer).toString('utf8');
+        const snapshot = JSON.parse(raw) as BackupSnapshot;
+        return this.summarizeSnapshot(snapshot);
     }
 }

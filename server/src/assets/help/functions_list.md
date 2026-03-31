@@ -13,6 +13,7 @@ Here is a comprehensive list of all functionalities available to the user in the
 *   **Monthly Transactions View:** Inspect all transactions for the selected month, with the ability to edit their categories.
 *   **Detailed Analytics:** View visual charts, Category Pie distributions, Monthly Trends, and Top Merchants.
 *   **AI Financial Chat:** Talk with an integrated AI chat box to get insights, query financial data, or ask ad-hoc questions scoped to your transactions.
+*   **Top insights:** View merged high-score cards from the AI analyst and from **insight rules** (badged **AI** vs **Rule**); dismiss removes that card (rule dismissals use rule-fire storage, not AI memory).
 
 ## 2. Scrape Workspace
 **Deep Link:** `/?view=scrape`
@@ -25,7 +26,8 @@ Here is a comprehensive list of all functionalities available to the user in the
 ## 3. Configuration Panel
 **Deep Link:** `/?view=configuration`
 *   **AI Settings (`/?view=configuration&configTab=ai`):** Set up language models (LLMs) used for auto-categorization and configure custom categories.
-*   **AI Memory Settings (`/?view=configuration&configTab=memory`):** Teach the AI specific rules or context for categorization by reviewing failed/successful past transactions.
+*   **AI Memory Settings (`/?view=configuration&configTab=memory`):** Manage persistent facts, scored insights, and alerts from the unified analyst chat; retention pruning applies to those items.
+*   **Insight rules (`/?view=configuration&tab=insight-rules`):** Define bilingual (EN/HE) deterministic rules over transactions (JSON v1), test them, optionally draft rules with Gemini, export/import rule packs (`financial-overview-insight-rules`), and re-evaluate rule fires for the dashboard **Top insights** strip.
 *   **Scheduler Settings (`/?view=configuration&configTab=scheduler`):** Configure the app to run scraping tasks fully automatically on a recurring schedule.
 *   **Scraper Global Options (`/?view=configuration&configTab=scrape`):** General configurations related to how browser automation connects to banking websites.
 *   **Fraud & alerts (under Scrape, `/?view=configuration&tab=scrape`):** Threshold alerts for potential duplicate charges or fraudulent activity warnings.

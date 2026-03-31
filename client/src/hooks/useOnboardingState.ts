@@ -3,32 +3,12 @@ import { isDemoMode } from '../demo/isDemo';
 
 const STORAGE_KEY = 'bank-scraper-onboarding-v1';
 
-/** Semantic wizard steps (persona and drive are optional in the computed flow). */
-export type OnboardingStepId =
-    | 'welcome'
-    | 'lock'
-    | 'telegram'
-    | 'gemini'
-    | 'persona_about'
-    | 'persona'
-    | 'google'
-    | 'drive'
-    | 'done';
+export type OnboardingStepId = 'welcome' | 'lock' | 'telegram' | 'gemini' | 'done';
 
-const WIZARD_LAYOUT_VERSION = 4;
+const WIZARD_LAYOUT_VERSION = 6;
 
 /** Order for resume banner “step N” (1-based). */
-const RESUME_STEP_ORDER: OnboardingStepId[] = [
-    'welcome',
-    'lock',
-    'telegram',
-    'gemini',
-    'persona_about',
-    'persona',
-    'google',
-    'drive',
-    'done'
-];
+const RESUME_STEP_ORDER: OnboardingStepId[] = ['welcome', 'lock', 'gemini', 'telegram', 'done'];
 
 type OnboardingSnapshot = {
     v: 1;
@@ -48,22 +28,21 @@ const defaultSnapshot = (): OnboardingSnapshot => ({
 });
 
 function isValidStepId(s: string): s is OnboardingStepId {
-    return (
-        s === 'welcome' ||
-        s === 'lock' ||
-        s === 'telegram' ||
-        s === 'gemini' ||
-        s === 'persona_about' ||
-        s === 'persona' ||
-        s === 'google' ||
-        s === 'drive' ||
-        s === 'done'
-    );
+    return s === 'welcome' || s === 'lock' || s === 'telegram' || s === 'gemini' || s === 'done';
 }
 
-/** v2: welcome, lock, telegram, gemini, google, drive, done — no persona step. */
+/** Legacy step ids before v6 (Google OAuth + persona lived in main wizard). */
+function migrateLegacyStepId(raw: string | undefined): OnboardingStepId | null {
+    if (!raw) return null;
+    if (raw === 'drive') return 'done';
+    if (raw === 'google') return 'done';
+    if (raw === 'persona' || raw === 'persona_about') return 'telegram';
+    return null;
+}
+
+/** Legacy numeric step indices (pre–layout v5). */
 function legacyNumericToStepId(n: number): OnboardingStepId {
-    const map: OnboardingStepId[] = ['welcome', 'lock', 'telegram', 'gemini', 'google', 'drive', 'done'];
+    const map: OnboardingStepId[] = ['welcome', 'lock', 'telegram', 'gemini', 'done', 'done', 'done'];
     if (n < 0) return 'welcome';
     if (n >= map.length) return 'done';
     return map[n];
@@ -75,8 +54,12 @@ function readSnapshot(): OnboardingSnapshot {
         if (!raw) return defaultSnapshot();
         const parsed = JSON.parse(raw) as Partial<OnboardingSnapshot> & { step?: number };
         let stepId: OnboardingStepId = 'welcome';
-        if (parsed.stepId && isValidStepId(parsed.stepId)) {
-            stepId = parsed.stepId;
+        const rawStep = parsed.stepId as string | undefined;
+        const legacy = migrateLegacyStepId(rawStep);
+        if (legacy !== null) {
+            stepId = legacy;
+        } else if (rawStep && isValidStepId(rawStep)) {
+            stepId = rawStep;
         } else if (typeof parsed.step === 'number') {
             let n = parsed.step;
             const layout = parsed.wizardLayoutVersion ?? 1;
@@ -86,8 +69,9 @@ function readSnapshot(): OnboardingSnapshot {
             stepId = legacyNumericToStepId(n);
         }
         let migratedStepId = stepId;
-        if ((parsed.wizardLayoutVersion ?? 1) < 4 && stepId === 'persona') {
-            migratedStepId = 'persona_about';
+        if ((parsed.wizardLayoutVersion ?? 1) < WIZARD_LAYOUT_VERSION) {
+            const again = migrateLegacyStepId(migratedStepId as string);
+            if (again !== null) migratedStepId = again;
         }
         const result: OnboardingSnapshot = {
             ...defaultSnapshot(),

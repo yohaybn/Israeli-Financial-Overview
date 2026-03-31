@@ -70,12 +70,12 @@ export function GettingStartedWizard({ onNavigate }: GettingStartedWizardProps) 
 
     return (
         <div
-            className="fixed inset-0 z-[99] flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-sm"
+            className="fixed inset-0 z-[99] pointer-events-none flex items-center justify-end p-4 sm:p-5"
             role="dialog"
             aria-modal="true"
             aria-labelledby="getting-started-title"
         >
-            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col">
+            <div className="pointer-events-auto w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                         <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 shrink-0">

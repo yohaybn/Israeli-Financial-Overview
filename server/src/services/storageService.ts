@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { ScrapeResult, Transaction, GlobalScrapeConfig } from '@app/shared';
 import { AiService } from './aiService.js';
-import { DbService } from './dbService.js';
+import { closeDbForRestore, DbService } from './dbService.js';
 import { serverLogger } from '../utils/logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
@@ -666,6 +666,34 @@ export class StorageService {
         if (n > 0) {
             serverLogger.info(`Reconciled isInternalTransfer for ${n} transaction(s) after restore`);
         }
+    }
+
+    /**
+     * Deletes all files under DATA_DIR (database, results, config, profiles, backups, logs, etc.),
+     * recreates empty layout, and rebuilds an empty transaction set from result files (none).
+     * Used for maintenance "restore to defaults" / factory reset.
+     */
+    async wipeEntireDataDirectory(): Promise<void> {
+        await this.initPromise;
+        serverLogger.info('Factory reset: wiping entire data directory...');
+        closeDbForRestore();
+        if (await fs.pathExists(DATA_DIR)) {
+            const entries = await fs.readdir(DATA_DIR);
+            for (const name of entries) {
+                await fs.remove(path.join(DATA_DIR, name));
+            }
+        }
+        await fs.ensureDir(DATA_DIR);
+        await fs.ensureDir(CONFIG_DIR);
+        await fs.ensureDir(RESULTS_DIR);
+        await fs.ensureDir(path.join(DATA_DIR, 'profiles'));
+        await fs.ensureDir(path.join(DATA_DIR, 'backups'));
+        await fs.ensureDir(path.join(DATA_DIR, 'uploads'));
+        await fs.ensureDir(path.join(DATA_DIR, 'logs'));
+        await fs.ensureDir(path.join(DATA_DIR, 'security'));
+        await fs.ensureDir(path.join(DATA_DIR, 'post_scrape'));
+        await this.reloadTransactionsFromFiles();
+        serverLogger.info('Factory reset: data directory wiped and database reinitialized');
     }
 
     async resetAllUserChanges() {

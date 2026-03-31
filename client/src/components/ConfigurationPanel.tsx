@@ -8,6 +8,7 @@ import { GoogleSheetsSync } from './GoogleSheetsSync';
 import { FraudSettings } from './FraudSettings';
 import { TelegramSettings } from './TelegramSettings';
 import { CategorySettings } from './CategorySettings';
+import { InsightRulesSettings } from './InsightRulesSettings';
 import type { ConfigTabId } from '../utils/appUrlState';
 
 export interface ConfigurationPanelProps {
@@ -27,6 +28,21 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
                         {t('config_tabs.ai')}
+                    </button>
+                    <button
+                        onClick={() => onTabChange('insight-rules')}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'insight-rules' ? 'bg-teal-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                        {t('config_tabs.insight-rules')}
+                        <span
+                            className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                activeTab === 'insight-rules'
+                                    ? 'bg-white/20 border-white/30 text-white'
+                                    : 'bg-amber-100 border-amber-200 text-amber-800'
+                            }`}
+                        >
+                            {t('insight_rules.beta')}
+                        </span>
                     </button>
                     <button
                         onClick={() => onTabChange('categories')}
@@ -70,6 +86,20 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
             <main className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-4xl mx-auto">
                     {activeTab === 'ai' && <AISettings isInline={true} />}
+                    {activeTab === 'insight-rules' && (
+                        <div className="space-y-6">
+                            <div>
+                                <h2 className="flex flex-wrap items-center gap-2 text-xl font-bold text-gray-900">
+                                    {t('config_tabs.insight-rules')}
+                                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-amber-100 border-amber-200 text-amber-800">
+                                        {t('insight_rules.beta')}
+                                    </span>
+                                </h2>
+                                <p className="text-gray-500 text-sm mt-1">{t('insight_rules.subtitle')}</p>
+                            </div>
+                            <InsightRulesSettings isInline standaloneTab />
+                        </div>
+                    )}
                     {activeTab === 'categories' && <CategorySettings />}
                     {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
                     {activeTab === 'scrape' && (

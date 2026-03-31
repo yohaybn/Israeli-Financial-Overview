@@ -605,6 +605,60 @@ export function useResetToDefaults() {
     });
 }
 
+const BACKUP_SCOPES_PLACEHOLDER = [
+    'database',
+    'results',
+    'config',
+    'profiles',
+    'security',
+    'post_scrape',
+    'runtime_settings',
+    'root_config'
+] as const;
+
+export function useBackupScopes() {
+    return useQuery({
+        queryKey: ['backups', 'scopes'],
+        queryFn: async () => {
+            const { data } = await api.get<{ success: boolean; data: string[] }>('/backups/scopes');
+            return data.data;
+        },
+        staleTime: Infinity,
+        placeholderData: [...BACKUP_SCOPES_PLACEHOLDER]
+    });
+}
+
+export type BackupSnapshotSummaryDto = {
+    version: number;
+    createdAt: string;
+    scopes: string[];
+    fileCount: number;
+};
+
+export function useLocalBackupSummary(filename: string | null) {
+    return useQuery({
+        queryKey: ['backups', 'local', 'summary', filename],
+        queryFn: async () => {
+            const enc = encodeURIComponent(filename!);
+            const { data } = await api.get<{ success: boolean; data: BackupSnapshotSummaryDto }>(`/backups/local/${enc}/summary`);
+            return data.data;
+        },
+        enabled: !!filename
+    });
+}
+
+export function useDriveBackupSummary(fileId: string | null) {
+    return useQuery({
+        queryKey: ['backups', 'drive', 'summary', fileId],
+        queryFn: async () => {
+            const enc = encodeURIComponent(fileId!);
+            const { data } = await api.get<{ success: boolean; data: BackupSnapshotSummaryDto }>(`/backups/drive/${enc}/summary`);
+            return data.data;
+        },
+        enabled: !!fileId
+    });
+}
+
 export function useLocalBackups() {
     return useQuery({
         queryKey: ['backups', 'local'],
@@ -626,11 +680,16 @@ export function useDriveBackups(enabled = false) {
     });
 }
 
+export type BackupScopePayload = { destination: 'local' | 'google-drive'; scopes?: string[] };
+
 export function useCreateBackup() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (destination: 'local' | 'google-drive') => {
-            const { data } = await api.post<{ success: boolean; data: any }>('/backups/create', { destination });
+        mutationFn: async ({ destination, scopes }: BackupScopePayload) => {
+            const { data } = await api.post<{ success: boolean; data: any }>('/backups/create', {
+                destination,
+                ...(scopes !== undefined ? { scopes } : {})
+            });
             return data.data;
         },
         onSuccess: () => {
@@ -643,8 +702,11 @@ export function useCreateBackup() {
 export function useRestoreLocalBackup() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (filename: string) => {
-            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean }>('/backups/restore/local', { filename });
+        mutationFn: async ({ filename, scopes }: { filename: string; scopes?: string[] }) => {
+            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean; needsReloadFromFiles?: boolean }>(
+                '/backups/restore/local',
+                { filename, ...(scopes !== undefined ? { scopes } : {}) }
+            );
             return data;
         },
         onSuccess: () => {
@@ -660,8 +722,11 @@ export function useRestoreLocalBackup() {
 export function useRestoreDriveBackup() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (fileId: string) => {
-            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean }>('/backups/restore/drive', { fileId });
+        mutationFn: async ({ fileId, scopes }: { fileId: string; scopes?: string[] }) => {
+            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean; needsReloadFromFiles?: boolean }>(
+                '/backups/restore/drive',
+                { fileId, ...(scopes !== undefined ? { scopes } : {}) }
+            );
             return data;
         },
         onSuccess: () => {
@@ -677,14 +742,21 @@ export function useRestoreDriveBackup() {
 export function useRestoreUploadedBackup() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (file: File) => {
+        mutationFn: async ({ file, scopes }: { file: File; scopes?: string[] }) => {
             const formData = new FormData();
             formData.append('file', file);
-            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean }>('/backups/restore/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
+            if (scopes !== undefined) {
+                formData.append('scopes', JSON.stringify(scopes));
+            }
+            const { data } = await api.post<{ success: boolean; message: string; dbRestored?: boolean; needsReloadFromFiles?: boolean }>(
+                '/backups/restore/upload',
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
                 }
-            });
+            );
             return data;
         },
         onSuccess: () => {

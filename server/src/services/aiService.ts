@@ -235,6 +235,8 @@ export class AiService {
             const maxRows = Math.floor(Number(raw.analystMaxTransactionRows ?? DEFAULT_SETTINGS.analystMaxTransactionRows) || 0);
             raw.analystMaxTransactionRows = Math.max(0, Math.min(500_000, maxRows));
             this.settings = raw;
+        } else {
+            this.settings = { ...DEFAULT_SETTINGS };
         }
         this.settings = {
             ...this.settings,

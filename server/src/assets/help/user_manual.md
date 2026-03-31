@@ -21,6 +21,7 @@ The Dashboard is your main home screen, providing analytics and summaries based 
 *   **View & Edit Transactions:** Browse all transactions for the selected month in a detailed list. You can click on transactions to manually override the AI's selected category.
 *   **View Detailed Analytics:** Analyze the Category Pie chart for distribution mapping, Monthly Trends to compare against previous months, and Top Merchants to see where your money goes.
 *   **Use the AI Financial Chat:** Talk with an integrated Copilot chatter box. You can ask ad-hoc questions scoped specifically to your transactions (e.g., "How much did I spend on groceries this month?").
+*   **Top insights:** When present, a row of high-importance cards combines **AI analyst** insights (from chat) and **insight rules** you define in Configuration. Cards are labeled **AI** or **Rule**; dismissing removes that row (rules use a separate rule-fire record from AI memory).
 
 ---
 
@@ -61,6 +62,23 @@ The AI keeps a **server-side memory** the unified analyst loads on each chat tur
 *   **Retention Days:** Set how many days the app should keep Insights and Alerts before pruning them (facts are edited or cleared explicitly).
 *   **Insights:** Analytical takeaways from past analyst replies (with scores). Delete an insight if you want that topic reconsidered from scratch.
 *   **Alerts:** Time-sensitive or high-priority items with scores; dismissing an alert blocks the same text from being stored again.
+
+### 3.2.1 Insight rules (bilingual rules engine)
+**Location:** `/?view=configuration&tab=insight-rules` (dedicated **Insight rules** tab under **Configuration**).
+
+Insight rules are **deterministic**: the server evaluates conditions against your stored transactions (no LLM call when a rule fires). Each rule has **two message strings**—English and Hebrew—so the dashboard and APIs can show the right language. You can use placeholders in the text: `{{sum}}`, `{{count}}`, and `{{category}}` (filled when the rule matches).
+
+*   **Visual builder (default):** **Add rule** opens an **If / Then** editor: choose **scope** (current month, all time, or last N days), add one or more **IF** conditions (expense total vs a threshold, transaction count, or “there exists a transaction where…”), combine them with **All (AND)** or **Any (OR)**, then set **Then** (insight or alert, score 1–100, English and Hebrew messages). An optional **strategy** note is stored as `description` in the definition. A **Rule summary** panel reflects the same logic in plain language. The UI follows your language direction (including RTL for Hebrew).
+*   **Advanced JSON:** Expand **Advanced: JSON (v1)** to view or edit the raw **definition** object. If your rule uses structures the visual form cannot represent (for example nested `not` or complex trees), the app switches to JSON-only editing for that rule until you simplify it. Saving uses the form when you have not edited the JSON; if you change the JSON, that text is what gets saved (after validation).
+*   **What a rule contains:** A JSON **definition** (version 1) with:
+    *   **scope:** `current_month`, `all`, or `last_n_days` (with `lastNDays` when using the last option).
+    *   **condition:** A tree of logical operators (`and`, `or`, `not`), plus building blocks such as totals over expenses (`sumExpensesGte` / `sumExpensesLte`), transaction counts (`txnCountGte`), or “at least one transaction matches” (`existsTxn` with per-transaction checks like category, memo/description contains text, account, amount thresholds, etc.).
+    *   **output:** `kind` (`insight` or `alert`), **score** (1–100 for ranking next to AI insights), and **message** `{ "en": "...", "he": "..." }`.
+*   **Creating and editing:** Use **Add rule** for the visual builder, or **Suggest with AI** (requires a configured Gemini API key) to describe the rule in plain language; the app inserts a draft you can refine in the form or JSON before saving. AI-suggested drafts are saved with **source** “AI” and can start disabled until you enable them.
+*   **Test:** **Test rule** (while editing a saved rule) runs the rule against the current full transaction set and shows the rendered bilingual messages (or “no match”).
+*   **Re-evaluate rules:** **Re-evaluate rules** recomputes which rules match and updates **rule fires** (deduplicated per rule and time bucket). The dashboard’s top-insights request also triggers this refresh.
+*   **Export / import:** **Export JSON** downloads a file with `format` `financial-overview-insight-rules` and `version` 1. **Import** accepts that document; choose **merge** (upsert by rule id) or clear-and-replace by turning merge off.
+*   **How this differs from AI memory insights:** Rule matches are stored in **`insight_rule_fires`**, not in the AI chat insight list. Retention settings for AI memory **prune** chat insights/alerts; they do not delete your **rule definitions**—only individual rule-fire rows when you dismiss them from the dashboard or when rules no longer match.
 
 ### 3.3 Scheduler Settings
 **Location:** `/?view=configuration&tab=scheduler`

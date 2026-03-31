@@ -222,6 +222,11 @@ export class NotificationService {
     return { ...this.config };
   }
 
+  /** After maintenance factory reset: notification config file may be gone; reload defaults into memory. */
+  reloadConfigAfterFactoryReset(): void {
+    this.config = this.loadConfig();
+  }
+
   /**
    * Helper to delay execution (for retries)
    */

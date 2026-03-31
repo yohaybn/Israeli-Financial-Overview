@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEnvConfig, useUpdateEnvConfig, useRestartServer } from '../hooks/useConfig';
+import { markPersonaSetupPendingAfterRestart } from '../utils/personaSetupWizardStorage';
 import { CollapsibleCard } from './CollapsibleCard';
 
 const PATH_KEYS = ['PORT', 'DATA_DIR'] as const;
@@ -34,7 +35,10 @@ export function MaintenanceServerPathsCard() {
             onSuccess: () => {
                 if (window.confirm(t('env.confirm_restart_after_save'))) {
                     restartServer(undefined, {
-                        onSuccess: () => alert(t('env.restart_in_progress')),
+                        onSuccess: () => {
+                            markPersonaSetupPendingAfterRestart();
+                            alert(t('env.restart_in_progress'));
+                        },
                         onError: (err: any) =>
                             alert(t('env.restart_failed', { error: err.message || t('common.unknown_error') })),
                     });
@@ -92,7 +96,10 @@ export function MaintenanceServerPathsCard() {
                     type="button"
                     onClick={() =>
                         restartServer(undefined, {
-                            onSuccess: () => alert(t('env.restart_in_progress')),
+                            onSuccess: () => {
+                                markPersonaSetupPendingAfterRestart();
+                                alert(t('env.restart_in_progress'));
+                            },
                             onError: (err: any) =>
                                 alert(t('env.restart_failed', { error: err.message || t('common.unknown_error') })),
                         })

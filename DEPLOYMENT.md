@@ -9,11 +9,11 @@ The application is configured using Environment Variables. These take precedence
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server listening port | `3000` |
-| `OAUTH_CLIENT_ID` | Google OAuth Client ID | - |
-| `OAUTH_CLIENT_SECRET` | Google OAuth Client Secret | - |
-| `OAUTH_REDIRECT_URI` | OAuth Redirect URI | `http://localhost:3000/oauth2callback` |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | - |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | - |
+| `GOOGLE_REDIRECT_URI` | OAuth callback URL | `http://localhost:3000/api/auth/google/callback` |
 | `DRIVE_FOLDER_ID` | Google Drive folder ID for uploads | - |
-| `APP_SECRET` | Reserved for Home Assistant add-on wiring; **not used by the current server for encryption** | - |
+| `GEMINI_API_KEY` | Google AI (Gemini) API key for categorization, chat, and related features | - |
 
 ### Application Structure
 
@@ -71,21 +71,17 @@ Set variables in **System → Environment variables** or in a wrapper script bef
 
 To build and run the application using Docker Compose:
 
-1. Create a `docker-compose.yml` (or use the one provided, ensuring it points to `app/Dockerfile`):
+1. Use the root `docker-compose.yml` (or create your own with a `build` / `image` and a `./data:/data` volume). **Do not** put API keys or OAuth secrets in Compose `environment:`; configure them in the app (Configuration) or via `DATA_DIR/config/runtime-settings.json` after first run.
 
 ```yaml
-version: '3'
 services:
-  bank-scraper:
-    build: 
-      context: ./app
-      dockerfile: Dockerfile
+  app:
+    image: ghcr.io/yohaybn/israeli-financial-overview-app:master
+    restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - OAUTH_CLIENT_ID=your_id
-      - OAUTH_CLIENT_SECRET=your_secret
-      - DRIVE_FOLDER_ID=your_folder_id
+    volumes:
+      - ./data:/data
 ```
 
 2. Run:
@@ -109,9 +105,12 @@ To deploy as a Home Assistant Add-on:
 5. Find "Financial Overview" and install it.
 
 ### Configuration
-In the Add-on "Configuration" tab, fill in your Google OAuth details and Drive Folder ID.
-- `oauth_client_id`
-- `oauth_client_secret`
+In the Add-on "Configuration" tab, fill in your Google OAuth details and Drive folder ID (optional: redirect URI and Gemini API key).
+
+- `google_client_id`
+- `google_client_secret`
 - `drive_folder_id`
+- `google_redirect_uri` (optional)
+- `gemini_api_key` (optional; for AI features)
 
 Start the add-on and open the Web UI from the sidebar.

@@ -44,6 +44,8 @@ export interface InsightRuleDefinitionV1 {
     scope: InsightRuleScope;
     /** When scope is last_n_days */
     lastNDays?: number;
+    /** Optional human-readable strategy / purpose (IFTTT-style description). */
+    description?: string;
     condition: InsightRuleCondition;
     output: InsightRuleOutputV1;
 }
@@ -315,12 +317,19 @@ export function parseInsightRuleDefinition(raw: unknown): { ok: true; value: Ins
     const condErr = validateCondition(cond);
     if (condErr) return { ok: false, error: condErr };
 
+    const description = raw.description;
+    if (description !== undefined && typeof description !== 'string') {
+        return { ok: false, error: 'description must be a string when present' };
+    }
+    const descriptionTrimmed = typeof description === 'string' ? description.trim() : '';
+
     return {
         ok: true,
         value: {
             version: 1,
             scope,
             ...(scope === 'last_n_days' ? { lastNDays: Math.floor(lastNDays as number) } : {}),
+            ...(descriptionTrimmed.length > 0 ? { description: descriptionTrimmed } : {}),
             condition: cond as InsightRuleCondition,
             output: {
                 kind: out.kind,

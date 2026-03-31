@@ -102,6 +102,14 @@ export class SchedulerService {
         };
     }
 
+    /** After maintenance factory reset: scheduler config file may be gone; re-read from disk and restart cron jobs. */
+    reloadAfterDataWipe(): void {
+        this.stopScrapeJob();
+        this.stopBackupJob();
+        this.config = this.loadConfig();
+        this.initialize();
+    }
+
     public updateConfig(newConfig: Partial<SchedulerConfigWithBackup>) {
         const mergedBackup = normalizeBackupSchedule({
             ...DEFAULT_BACKUP_SCHEDULE,

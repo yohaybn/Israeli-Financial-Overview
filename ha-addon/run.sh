@@ -18,12 +18,11 @@ if [ -f "$CONFIG_PATH" ]; then
         fi
     }
 
-    export_json_key "oauth_client_id" "OAUTH_CLIENT_ID"
-    export_json_key "oauth_client_secret" "OAUTH_CLIENT_SECRET"
-    export_json_key "oauth_redirect_uri" "OAUTH_REDIRECT_URI"
+    export_json_key "google_client_id" "GOOGLE_CLIENT_ID"
+    export_json_key "google_client_secret" "GOOGLE_CLIENT_SECRET"
+    export_json_key "google_redirect_uri" "GOOGLE_REDIRECT_URI"
     export_json_key "drive_folder_id" "DRIVE_FOLDER_ID"
-    export_json_key "app_secret" "APP_SECRET"
-    export_json_key "google_api_key" "GEMINI_API_KEY"
+    export_json_key "gemini_api_key" "GEMINI_API_KEY"
     
 fi
 
