@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Professional Documentation | Financial Overview</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Assistant:wght@400;600;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --primary: #2563eb;
@@ -23,85 +26,309 @@
             --sidebar-width: 300px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', 'Assistant', sans-serif; background-color: var(--bg); color: var(--text-main); line-height: 1.6; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Assistant', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
 
         /* Language Toggle Button */
         .lang-switcher {
-            position: fixed; top: 1.25rem; right: 1.25rem; z-index: 1000;
-            background: var(--card-bg); border: 1px solid var(--border);
-            padding: 0.6rem 1.25rem; border-radius: 9999px; cursor: pointer;
-            font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+            position: fixed;
+            top: 1.25rem;
+            right: 1.25rem;
+            z-index: 1000;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 0.6rem 1.25rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .lang-switcher:hover { transform: translateY(-2px); border-color: var(--primary); }
+
+        .lang-switcher:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
 
         /* Navigation Sidebar */
-        .wrapper { display: flex; min-height: 100vh; }
+        .wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
         aside {
-            width: var(--sidebar-width); background: var(--card-bg);
-            border-right: 1px solid var(--border); padding: 2.5rem 1.5rem;
-            position: fixed; height: 100vh; overflow-y: auto; z-index: 50;
+            width: var(--sidebar-width);
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            padding: 2.5rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 50;
         }
-        .nav-logo { font-size: 1.4rem; font-weight: 800; color: var(--primary); margin-bottom: 2.5rem; display: flex; align-items: center; gap: 10px; }
-        nav .nav-group { margin-bottom: 1.8rem; }
-        nav .nav-label { font-size: 0.7rem; font-weight: 800; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.8rem; padding-left: 0.5rem; }
-        nav ul { list-style: none; }
+
+        .nav-logo {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 2.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        nav .nav-group {
+            margin-bottom: 1.8rem;
+        }
+
+        nav .nav-label {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.8rem;
+            padding-left: 0.5rem;
+        }
+
+        nav ul {
+            list-style: none;
+        }
+
         nav ul li a {
-            text-decoration: none; color: var(--text-muted); font-weight: 500;
-            padding: 0.65rem 0.8rem; border-radius: 8px; display: block; transition: 0.15s; font-size: 0.95rem;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 0.65rem 0.8rem;
+            border-radius: 8px;
+            display: block;
+            transition: 0.15s;
+            font-size: 0.95rem;
         }
-        nav ul li a:hover { background: #eff6ff; color: var(--primary); }
+
+        nav ul li a:hover {
+            background: #eff6ff;
+            color: var(--primary);
+        }
 
         /* Main Content Area */
-        main { flex: 1; margin-left: var(--sidebar-width); padding: 4rem 8%; max-width: 1300px; }
-        header { margin-bottom: 4rem; }
-        header h1 { font-size: 2.8rem; font-weight: 800; color: #0f172a; margin-bottom: 1rem; }
-        header p { font-size: 1.2rem; color: var(--secondary); }
+        main {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 4rem 8%;
+            max-width: 1300px;
+        }
 
-        section { margin-bottom: 5rem; scroll-margin-top: 5rem; }
-        h2 { font-size: 2rem; margin-bottom: 1.5rem; color: #1e293b; border-bottom: 2px solid var(--border); padding-bottom: 0.8rem; }
-        h3 { font-size: 1.4rem; margin: 2rem 0 1rem; color: var(--primary-dark); font-weight: 700; }
-        h4 { font-size: 1.1rem; margin: 1.5rem 0 0.8rem; color: #334155; font-weight: 600; }
-        
-        p, li { margin-bottom: 0.9rem; font-size: 1.05rem; color: #475569; }
-        ul, ol { margin-left: 1.5rem; margin-bottom: 1.5rem; }
+        header {
+            margin-bottom: 4rem;
+        }
+
+        header h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 1rem;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            color: var(--secondary);
+        }
+
+        section {
+            margin-bottom: 5rem;
+            scroll-margin-top: 5rem;
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: #1e293b;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.8rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            margin: 1.5rem 0 0.8rem;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        p,
+        li {
+            margin-bottom: 0.9rem;
+            font-size: 1.05rem;
+            color: #475569;
+        }
+
+        ul,
+        ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
 
         /* UI Components */
-        .callout { padding: 1.25rem 1.75rem; border-radius: 12px; margin: 2rem 0; border-left: 5px solid; }
-        .callout.info { background: #eff6ff; border-color: var(--primary); color: #1e40af; }
-        .callout.warning { background: #fffbeb; border-color: var(--warning); color: #92400e; }
-        .callout.success { background: #f0fdf4; border-color: var(--success); color: #166534; }
+        .callout {
+            padding: 1.25rem 1.75rem;
+            border-radius: 12px;
+            margin: 2rem 0;
+            border-left: 5px solid;
+        }
+
+        .callout.info {
+            background: #eff6ff;
+            border-color: var(--primary);
+            color: #1e40af;
+        }
+
+        .callout.warning {
+            background: #fffbeb;
+            border-color: var(--warning);
+            color: #92400e;
+        }
+
+        .callout.success {
+            background: #f0fdf4;
+            border-color: var(--success);
+            color: #166534;
+        }
 
         .code-block {
-            background: #1e293b; color: #f8fafc; padding: 1.5rem;
-            border-radius: 10px; font-family: 'Courier New', monospace;
-            margin: 1.5rem 0; position: relative; overflow-x: auto;
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 1.5rem 0;
+            position: relative;
+            overflow-x: auto;
             border: 1px solid #334155;
         }
-        code { color: #e11d48; background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: monospace; }
 
-        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        th { background: #f8fafc; text-align: left; padding: 1.2rem; border-bottom: 2px solid var(--border); font-weight: 700; color: #64748b; }
-        td { padding: 1.2rem; border-bottom: 1px solid var(--border); }
+        code {
+            color: #e11d48;
+            background: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        th {
+            background: #f8fafc;
+            text-align: left;
+            padding: 1.2rem;
+            border-bottom: 2px solid var(--border);
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        td {
+            padding: 1.2rem;
+            border-bottom: 1px solid var(--border);
+        }
 
         /* Telegram guide body (long-form section in GUIDE.html) */
-        .telegram-guide-body { margin-top: 0.5rem; }
-        .telegram-guide-body h2 { font-size: 1.35rem; margin: 2rem 0 0.75rem; color: #1e293b; border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
-        .telegram-guide-body h3 { font-size: 1.15rem; margin: 1.5rem 0 0.6rem; color: var(--primary-dark); font-weight: 700; }
-        .telegram-guide-body h4 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; color: #334155; font-weight: 600; }
-        .telegram-guide-body .code-block { margin: 1rem 0; }
+        .telegram-guide-body {
+            margin-top: 0.5rem;
+        }
+
+        .telegram-guide-body h2 {
+            font-size: 1.35rem;
+            margin: 2rem 0 0.75rem;
+            color: #1e293b;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.45rem;
+        }
+
+        .telegram-guide-body h3 {
+            font-size: 1.15rem;
+            margin: 1.5rem 0 0.6rem;
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+
+        .telegram-guide-body h4 {
+            font-size: 1.05rem;
+            margin: 1.25rem 0 0.5rem;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        .telegram-guide-body .code-block {
+            margin: 1rem 0;
+        }
 
         /* RTL Specifics */
-        [dir="rtl"] aside { border-right: none; border-left: 1px solid var(--border); right: 0; left: auto; }
-        [dir="rtl"] main { margin-left: 0; margin-right: var(--sidebar-width); }
-        [dir="rtl"] .lang-switcher { right: auto; left: 1.25rem; }
-        [dir="rtl"] .callout { border-left: none; border-right: 5px solid; }
-        [dir="rtl"] th { text-align: right; }
+        [dir="rtl"] aside {
+            border-right: none;
+            border-left: 1px solid var(--border);
+            right: 0;
+            left: auto;
+        }
 
-        @media (max-width: 1100px) { aside { display: none; } main { margin: 0 !important; padding: 2rem; } }
+        [dir="rtl"] main {
+            margin-left: 0;
+            margin-right: var(--sidebar-width);
+        }
+
+        [dir="rtl"] .lang-switcher {
+            right: auto;
+            left: 1.25rem;
+        }
+
+        [dir="rtl"] .callout {
+            border-left: none;
+            border-right: 5px solid;
+        }
+
+        [dir="rtl"] th {
+            text-align: right;
+        }
+
+        @media (max-width: 1100px) {
+            aside {
+                display: none;
+            }
+
+            main {
+                margin: 0 !important;
+                padding: 2rem;
+            }
+        }
     </style>
 </head>
+
 <body>
 
     <button class="lang-switcher" onclick="toggleLanguage()">
@@ -396,6 +623,11 @@ GEMINI_API_KEY=(optional)
                                 <li><strong>Export:</strong> Download data as CSV or JSON.</li>
                                 <li><strong>Cloud Sync:</strong> Upload any result directly to your Google Sheet.</li>
                             </ul>
+                            <h3>Importing files</h3>
+                            <p>In the <strong>Results explorer</strong>, use <strong>Import</strong> to load <strong>Excel (XLS/XLSX)</strong>, <strong>PDF</strong>, or <strong>JSON</strong> without running the browser scraper.</p>
+                            <p><strong>Typical flow:</strong> Select files, optionally choose <strong>Import as</strong> (a provider and account from your existing transaction history—this helps <strong>format detection</strong> and sets the <strong>account number</strong> on rows), toggle <strong>Use AI for parsing</strong> if you want Gemini to interpret complex layouts, then <strong>Preview import</strong>. Review and edit the table, then <strong>Save to library</strong>. The same preview step is used for both AI and deterministic parsing.</p>
+                            <p><strong>Deterministic parsers (tested):</strong> <strong>Isracard</strong>—Excel in the <strong>פירוט עסקאות</strong> style (Hebrew columns such as תאריך רכישה, שם בית עסק, סכום חיוב) and <strong>PDF</strong> monthly card statements with the standard text layout; filenames like <code>1254_MM_YYYY.xlsx</code> or <code>1254_MM_YYYY.pdf</code> help infer the card’s last four digits. <strong>Mizrahi Tefahot</strong>—Excel exports with the usual Hebrew account-movement layout (מספר חשבון, תאריך, סוג תנועה, זכות / חובה).</p>
+                            <p>Other files use <strong>generic</strong> heuristics; results vary by bank. If import looks wrong, try <strong>Use AI for parsing</strong> (requires a configured Gemini API key) or export <strong>Excel</strong> from your institution when available.</p>
                         `
                     },
                     "logs": {
@@ -1122,7 +1354,15 @@ GEMINI_API_KEY=(optional)
                                 <li><strong>לשלוח החוצה:</strong> לייצא את הכל לאקסל (CSV) למחשב.</li>
                                 <li><strong>לענן:</strong> לדחוף את התוצאות הישר ל-Google Sheets שלכם בקליק.</li>
                             </ul>
-                        `
+                          <h3>ייבוא קבצים בקלות</h3>
+<p>ב<strong>סייר התוצאות</strong> תוכלו להשתמש בכפתור ה<strong>ייבוא</strong> כדי להעלות קבצי <strong>אקסל (XLS/XLSX)</strong>, <strong>PDF</strong> או <strong>JSON</strong> בצורה ישירה, בלי שיהיה צורך להריץ סריקה בדפדפן.</p>
+
+<p><strong>איך זה עובד?</strong> בוחרים את הקבצים הרצויים, ובמידת הצורך משתמשים באפשרות <strong>ייבוא כ־</strong> (בחירת ספק וחשבון מההיסטוריה תעזור למערכת <strong>לזהות את הפורמט</strong> ולהצמיד את <strong>מספר החשבון</strong> הנכון לשורות). אם מדובר בקובץ מורכב, כדאי להפעיל את ה-<strong>AI לפענוח</strong> כדי ש-Gemini יעזור לקרוא את הנתונים בצורה חכמה. לאחר מכן לוחצים על <strong>תצוגה מקדימה</strong>, עוברים על הטבלה, עורכים אם צריך, ולבסוף לוחצים על <strong>שמירה לספרייה</strong>.</p>
+
+<p><strong>פורמטים שנתמכים באופן מיוחד:</strong> 
+המערכת מותאמת לסריקה אופטימלית של קבצי <strong>ישראכרט</strong> (אקסל של פירוט עסקאות או PDF של דוח חודשי סטנדרטי) ושל <strong>בנק מזרחי טפחות</strong> (ייצוא אקסל של תנועות בחשבון). שמות קבצים שכוללים תאריך וארבע ספרות של הכרטיס (כמו <code>1254_MM_YYYY</code>) עוזרים למערכת לשייך את הנתונים אוטומטית לחשבון הנכון.</p>
+
+<p>בשאר סוגי הקבצים, המערכת תנסה לזהות את הנתונים בעצמה. אם התוצאה לא נראית לכם מדויקת, מומלץ להיעזר ב-<strong>AI לפענוח</strong> (דורש מפתח Gemini) או להשתמש בקובץ <strong>אקסל</strong> שהורדתם ישירות מהאתר של הבנק או חברת האשראי.</p>                        `
                     },
                     "logs": {
                         title: "📋 יומני פעילות (Logs)",
@@ -1483,4 +1723,5 @@ GEMINI_API_KEY=(optional)
         });
     </script>
 </body>
+
 </html>

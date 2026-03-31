@@ -1,6 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useImportFiles } from '../hooks/useScraper';
+import type { ScrapeResult, Transaction } from '@app/shared';
+import { parseTabularImportProfileJson } from '@app/shared';
+import { useImportPreview, useImportCommit } from '../hooks/useScraper';
+import { useUnifiedData } from '../hooks/useUnifiedData';
+import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
+import { ImportProfileBuilder } from './ImportProfileBuilder';
 
 interface ImportModalProps {
     isOpen: boolean;
@@ -14,17 +19,82 @@ interface FileStatus {
     error?: string;
 }
 
+type ReviewEntry = { originalName: string; result: ScrapeResult };
+
+function isoDateInputValue(iso: string | undefined): string {
+    if (!iso) return '';
+    return iso.slice(0, 10);
+}
+
+const inputCls =
+    'min-w-0 px-1.5 py-1 border border-gray-200 rounded text-xs bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none';
+
 export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
     const [isComplete, setIsComplete] = useState(false);
     const [accountNumberOverride, setAccountNumberOverride] = useState('');
+    const [providerTarget, setProviderTarget] = useState<string | undefined>(undefined);
     const [useAi, setUseAi] = useState(false);
-    const { mutate: importFiles, isPending: isUploading, error: importError } = useImportFiles();
+    const [aiReview, setAiReview] = useState<ReviewEntry[] | null>(null);
+    const [importProfileJson, setImportProfileJson] = useState<string | null>(null);
+    const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
+    const [showProfileBuilder, setShowProfileBuilder] = useState(false);
+
+    const { data: unifiedTxns = [] } = useUnifiedData();
+    const { data: providers = [] } = useProviders();
+
+    const accountOptions = useMemo(() => {
+        const map = new Map<string, { provider: string; accountNumber: string }>();
+        for (const txn of unifiedTxns) {
+            if (txn.provider && txn.accountNumber) {
+                const k = `${txn.provider}\0${txn.accountNumber}`;
+                if (!map.has(k)) {
+                    map.set(k, { provider: txn.provider, accountNumber: txn.accountNumber });
+                }
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => {
+            const pa = getProviderDisplayName(a.provider, providers, i18n.language);
+            const pb = getProviderDisplayName(b.provider, providers, i18n.language);
+            if (pa !== pb) return pa.localeCompare(pb);
+            return a.accountNumber.localeCompare(b.accountNumber);
+        });
+    }, [unifiedTxns, providers, i18n.language]);
+
+    const { mutate: importPreview, isPending: isPreviewing, error: previewError } = useImportPreview();
+    const { mutate: importCommit, isPending: isCommitting, error: commitError } = useImportCommit();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const profileJsonInputRef = useRef<HTMLInputElement>(null);
 
     if (!isOpen) return null;
+
+    const patchTxn = (groupIdx: number, txnIdx: number, patch: Partial<Transaction>) => {
+        setAiReview((prev) => {
+            if (!prev) return prev;
+            return prev.map((g, gi) => {
+                if (gi !== groupIdx) return g;
+                const txns = [...(g.result.transactions || [])];
+                const cur = txns[txnIdx];
+                if (!cur) return g;
+                txns[txnIdx] = { ...cur, ...patch };
+                return { ...g, result: { ...g.result, transactions: txns } };
+            });
+        });
+    };
+
+    const removeTxnRow = (groupIdx: number, txnIdx: number) => {
+        setAiReview((prev) => {
+            if (!prev) return prev;
+            return prev.map((g, gi) => {
+                if (gi !== groupIdx) return g;
+                const txns = [...(g.result.transactions || [])];
+                txns.splice(txnIdx, 1);
+                return { ...g, result: { ...g.result, transactions: txns } };
+            });
+        });
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
@@ -43,29 +113,63 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
         setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    const finishSuccess = (data: { results: any[]; success?: boolean; allSuccessful?: boolean }) => {
+        setFileStatuses(data.results.map((r: any) => ({
+            name: r.originalName,
+            status: r.success ? 'success' : 'error',
+            error: r.error
+        })));
+        setIsComplete(true);
+
+        if (data.success && data.allSuccessful) {
+            onSuccess?.(data.results);
+            setSelectedFiles([]);
+            setAiReview(null);
+            setTimeout(() => {
+                onClose();
+                setIsComplete(false);
+                setFileStatuses([]);
+            }, 2000);
+        } else if (data.success) {
+            onSuccess?.(data.results);
+        }
+    };
+
     const handleUpload = () => {
         if (selectedFiles.length === 0) return;
 
-        importFiles({ files: selectedFiles, accountNumberOverride, useAi }, {
-            onSuccess: (data) => {
-                setFileStatuses(data.results.map((r: any) => ({
-                    name: r.originalName,
-                    status: r.success ? 'success' : 'error',
-                    error: r.error
-                })));
-                setIsComplete(true);
+        importPreview(
+            {
+                files: selectedFiles,
+                accountNumberOverride,
+                useAi,
+                providerTarget,
+                importProfileJson,
+            },
+            {
+                onSuccess: (data) => {
+                    const entries: ReviewEntry[] = data.results.map((r) => ({
+                        originalName: r.originalName,
+                        result: JSON.parse(JSON.stringify(r.preview)) as ScrapeResult,
+                    }));
+                    setAiReview(entries);
+                },
+            }
+        );
+    };
 
-                if (data.success && data.allSuccessful) {
-                    onSuccess?.(data.results);
-                    setSelectedFiles([]);
-                    setTimeout(() => {
-                        onClose();
-                        setIsComplete(false);
-                        setFileStatuses([]);
-                    }, 2000);
-                } else if (data.success) {
-                    onSuccess?.(data.results);
-                }
+    const handleCommitReview = () => {
+        if (!aiReview || aiReview.length === 0) return;
+        const items = aiReview.filter(
+            g =>
+                g.result.success &&
+                ((g.result.transactions?.length ?? 0) > 0 || (g.result.accounts?.length ?? 0) > 0)
+        );
+        if (items.length === 0) return;
+        importCommit(items, {
+            onSuccess: (data) => {
+                setAiReview(null);
+                finishSuccess(data);
             }
         });
     };
@@ -94,16 +198,46 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
         setSelectedFiles([]);
         setFileStatuses([]);
         setAccountNumberOverride('');
+        setProviderTarget(undefined);
         setUseAi(false);
         setIsComplete(false);
+        setAiReview(null);
+        setImportProfileJson(null);
+        setProfileLoadError(null);
+        setShowProfileBuilder(false);
         onClose();
     };
 
+    const backFromAiReview = () => {
+        setAiReview(null);
+    };
+
+    const busy = isPreviewing || isCommitting;
+    const stepError = aiReview ? (commitError as Error | null) : (previewError as Error | null);
+
+    const canCommitAiReview =
+        !!aiReview?.some(
+            g =>
+                g.result.success &&
+                ((g.result.transactions?.length ?? 0) > 0 || (g.result.accounts?.length ?? 0) > 0)
+        );
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden border border-gray-200">
+            <ImportProfileBuilder
+                isOpen={showProfileBuilder}
+                onClose={() => setShowProfileBuilder(false)}
+                onSave={(json) => {
+                    setImportProfileJson(json);
+                    setProfileLoadError(null);
+                    setUseAi(false);
+                }}
+            />
+            <div className={`bg-white rounded-xl shadow-2xl w-full ${aiReview ? 'max-w-5xl' : 'max-w-lg'} max-h-[90vh] flex flex-col overflow-hidden border border-gray-200`}>
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-gray-800">{t('explorer.import_files')}</h2>
+                    <h2 className="text-xl font-bold text-gray-800">
+                        {aiReview ? t('explorer.import_review_title') : t('explorer.import_files')}
+                    </h2>
                     <button onClick={resetAndClose} className="text-gray-400 hover:text-gray-600">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -112,7 +246,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    {!isComplete && (
+                    {!isComplete && !aiReview && (
                         <>
                             <p className="text-gray-600 text-sm">{t('explorer.import_description')}</p>
 
@@ -140,6 +274,42 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                             </div>
 
                             <div className="space-y-1">
+                                {accountOptions.length > 0 ? (
+                                    <>
+                                        <label htmlFor="importAccountSelect" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                            {t('explorer.import_account_from_data')}
+                                        </label>
+                                        <select
+                                            id="importAccountSelect"
+                                            value={
+                                                providerTarget && accountNumberOverride
+                                                    ? `${providerTarget}|${accountNumberOverride}`
+                                                    : ''
+                                            }
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                if (!v) {
+                                                    setProviderTarget(undefined);
+                                                    setAccountNumberOverride('');
+                                                    return;
+                                                }
+                                                const pipe = v.indexOf('|');
+                                                if (pipe === -1) return;
+                                                setProviderTarget(v.slice(0, pipe));
+                                                setAccountNumberOverride(v.slice(pipe + 1));
+                                            }}
+                                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm bg-white mb-2"
+                                            disabled={busy}
+                                        >
+                                            <option value="">{t('explorer.import_account_auto')}</option>
+                                            {accountOptions.map((opt) => (
+                                                <option key={`${opt.provider}|${opt.accountNumber}`} value={`${opt.provider}|${opt.accountNumber}`}>
+                                                    {getProviderDisplayName(opt.provider, providers, i18n.language)} · {opt.accountNumber}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </>
+                                ) : null}
                                 <label htmlFor="accountNumber" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     {t('common.account_number')} ({t('common.optional')})
                                 </label>
@@ -147,14 +317,99 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                                     id="accountNumber"
                                     type="text"
                                     value={accountNumberOverride}
-                                    onChange={(e) => setAccountNumberOverride(e.target.value)}
+                                    onChange={(e) => {
+                                        setAccountNumberOverride(e.target.value);
+                                        setProviderTarget(undefined);
+                                    }}
                                     placeholder={t('common.account_number')}
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm"
-                                    disabled={isUploading}
+                                    disabled={busy}
                                 />
                                 <p className="text-[10px] text-gray-400 italic">
-                                    {t('common.auto_detection_hint')}
+                                    {t('explorer.import_account_hint')}
                                 </p>
+                            </div>
+
+                            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-2">
+                                <div className="flex flex-wrap gap-2 items-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowProfileBuilder(true)}
+                                        disabled={busy}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-50"
+                                    >
+                                        {t('explorer.import_profile_create')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => profileJsonInputRef.current?.click()}
+                                        disabled={busy}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-50"
+                                    >
+                                        {t('explorer.import_profile_load_json')}
+                                    </button>
+                                    <input
+                                        ref={profileJsonInputRef}
+                                        type="file"
+                                        accept=".json,application/json"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            e.target.value = '';
+                                            if (!f) return;
+                                            const reader = new FileReader();
+                                            reader.onload = () => {
+                                                try {
+                                                    const text = String(reader.result || '');
+                                                    parseTabularImportProfileJson(text);
+                                                    setImportProfileJson(text);
+                                                    setProfileLoadError(null);
+                                                    setUseAi(false);
+                                                } catch (err: unknown) {
+                                                    setProfileLoadError(err instanceof Error ? err.message : String(err));
+                                                    setImportProfileJson(null);
+                                                }
+                                            };
+                                            reader.readAsText(f);
+                                        }}
+                                    />
+                                    {importProfileJson && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setImportProfileJson(null);
+                                                setProfileLoadError(null);
+                                            }}
+                                            className="text-xs text-red-600 hover:underline"
+                                        >
+                                            {t('explorer.import_profile_clear')}
+                                        </button>
+                                    )}
+                                </div>
+                                {importProfileJson && (
+                                    <div className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded px-2 py-1 flex flex-wrap items-center justify-between gap-2">
+                                        <span>{t('explorer.import_profile_active')}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const blob = new Blob([importProfileJson], { type: 'application/json' });
+                                                const url = URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = 'tabular-import-profile.json';
+                                                a.click();
+                                                URL.revokeObjectURL(url);
+                                            }}
+                                            className="font-medium text-emerald-900 underline hover:no-underline"
+                                        >
+                                            {t('explorer.import_profile_download')}
+                                        </button>
+                                    </div>
+                                )}
+                                {profileLoadError && (
+                                    <p className="text-xs text-red-700">{profileLoadError}</p>
+                                )}
+                                <p className="text-[10px] text-gray-500">{t('explorer.import_profile_hint')}</p>
                             </div>
 
                             <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100 group transition-all hover:bg-indigo-100/50">
@@ -164,7 +419,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                                         checked={useAi}
                                         onChange={(e) => setUseAi(e.target.checked)}
                                         className="sr-only peer"
-                                        disabled={isUploading}
+                                        disabled={busy || !!importProfileJson}
                                     />
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
@@ -183,7 +438,125 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                         </>
                     )}
 
-                    {(selectedFiles.length > 0 || fileStatuses.length > 0) && (
+                    {aiReview && !isComplete && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-gray-600">{t('explorer.import_review_hint')}</p>
+                            {useAi && (
+                                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                    {t('dashboard.ai_disclaimer')}
+                                </p>
+                            )}
+                            {aiReview.map((group, gi) => (
+                                <div key={gi} className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
+                                    <div className="px-3 py-2 bg-gray-100 border-b border-gray-200 text-sm font-semibold text-gray-800 truncate">
+                                        {group.originalName}
+                                    </div>
+                                    {!group.result.success && (
+                                        <div className="p-3 text-sm text-red-700 bg-red-50">
+                                            {group.result.error || t('common.error')}
+                                        </div>
+                                    )}
+                                    {group.result.success && group.result.transactions && group.result.transactions.length > 0 && (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-xs border-collapse">
+                                                <thead>
+                                                    <tr className="bg-white border-b border-gray-200 text-left text-gray-500 uppercase tracking-wide">
+                                                        <th className="px-2 py-2 font-medium whitespace-nowrap">{t('table.date')}</th>
+                                                        <th className="px-2 py-2 font-medium min-w-[140px]">{t('table.description')}</th>
+                                                        <th className="px-2 py-2 font-medium whitespace-nowrap">{t('table.amount')}</th>
+                                                        <th className="px-2 py-2 font-medium min-w-[100px]">{t('table.category')}</th>
+                                                        <th className="px-2 py-2 font-medium whitespace-nowrap">{t('table.account')}</th>
+                                                        <th className="px-2 py-2 font-medium min-w-[80px]">{t('explorer.import_col_provider')}</th>
+                                                        <th className="px-2 py-2 font-medium w-10"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {group.result.transactions.map((txn, ti) => (
+                                                        <tr key={`${txn.id}-${ti}`} className="border-b border-gray-100 bg-white">
+                                                            <td className="px-2 py-1 align-top">
+                                                                <input
+                                                                    type="date"
+                                                                    className={inputCls + ' w-[118px]'}
+                                                                    value={isoDateInputValue(txn.date)}
+                                                                    onChange={(e) => {
+                                                                        const v = e.target.value;
+                                                                        const d = v ? `${v}T12:00:00.000Z` : txn.date;
+                                                                        patchTxn(gi, ti, { date: d, processedDate: d });
+                                                                    }}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-1 align-top">
+                                                                <input
+                                                                    type="text"
+                                                                    className={inputCls + ' w-full'}
+                                                                    value={txn.description}
+                                                                    onChange={(e) => patchTxn(gi, ti, { description: e.target.value })}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-1 align-top">
+                                                                <input
+                                                                    type="number"
+                                                                    step="1"
+                                                                    className={inputCls + ' w-24'}
+                                                                    value={Number.isFinite(txn.amount) ? txn.amount : ''}
+                                                                    onChange={(e) => {
+                                                                        const n = parseFloat(e.target.value);
+                                                                        if (Number.isNaN(n)) return;
+                                                                        patchTxn(gi, ti, { amount: n, chargedAmount: n });
+                                                                    }}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-1 align-top">
+                                                                <input
+                                                                    type="text"
+                                                                    className={inputCls + ' w-full'}
+                                                                    value={txn.category ?? ''}
+                                                                    onChange={(e) => patchTxn(gi, ti, { category: e.target.value || undefined })}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-1 align-top">
+                                                                <input
+                                                                    type="text"
+                                                                    className={inputCls + ' w-24'}
+                                                                    value={txn.accountNumber}
+                                                                    onChange={(e) => patchTxn(gi, ti, { accountNumber: e.target.value })}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-1 align-top">
+                                                                <input
+                                                                    type="text"
+                                                                    className={inputCls + ' w-full'}
+                                                                    value={txn.provider}
+                                                                    onChange={(e) => patchTxn(gi, ti, { provider: e.target.value })}
+                                                                />
+                                                            </td>
+                                                            <td className="px-1 py-1 align-top">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeTxnRow(gi, ti)}
+                                                                    className="text-red-500 hover:text-red-700 p-1"
+                                                                    title={t('explorer.import_row_remove')}
+                                                                >
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                    {group.result.success && (!group.result.transactions || group.result.transactions.length === 0) && (
+                                        <div className="p-3 text-sm text-gray-600">{t('explorer.import_no_transactions')}</div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {(selectedFiles.length > 0 || fileStatuses.length > 0) && !aiReview && (
                         <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-2 bg-gray-50">
                             {isComplete ? (
                                 fileStatuses.map((file, idx) => (
@@ -225,14 +598,14 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                         </div>
                     )}
 
-                    {importError && (
+                    {stepError && (
                         <div className="p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200">
-                            {(importError as any).message || t('common.error')}
+                            {(stepError as Error).message || t('common.error')}
                         </div>
                     )}
                 </div>
 
-                <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-wrap">
                     {isComplete ? (
                         <button
                             onClick={resetAndClose}
@@ -240,21 +613,23 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                         >
                             {t('common.close')}
                         </button>
-                    ) : (
+                    ) : aiReview ? (
                         <>
                             <button
-                                onClick={onClose}
+                                type="button"
+                                onClick={backFromAiReview}
                                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                disabled={isUploading}
+                                disabled={busy}
                             >
-                                {t('common.cancel')}
+                                {t('explorer.import_back_to_files')}
                             </button>
                             <button
-                                onClick={handleUpload}
-                                disabled={selectedFiles.length === 0 || isUploading}
-                                className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-all shadow-md ${selectedFiles.length === 0 || isUploading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg active:scale-95'}`}
+                                type="button"
+                                onClick={handleCommitReview}
+                                disabled={busy || !canCommitAiReview}
+                                className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-all shadow-md ${busy || !canCommitAiReview ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg active:scale-95'}`}
                             >
-                                {isUploading ? (
+                                {isCommitting ? (
                                     <span className="flex items-center gap-2">
                                         <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -262,7 +637,32 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                                         </svg>
                                         {t('explorer.uploading')}
                                     </span>
-                                ) : t('common.save')}
+                                ) : t('explorer.import_save_confirm')}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={onClose}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                disabled={busy}
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                onClick={handleUpload}
+                                disabled={selectedFiles.length === 0 || busy}
+                                className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-all shadow-md ${selectedFiles.length === 0 || busy ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg active:scale-95'}`}
+                            >
+                                {busy ? (
+                                    <span className="flex items-center gap-2">
+                                        <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        {t('explorer.import_parsing')}
+                                    </span>
+                                ) : t('explorer.import_parse_preview')}
                             </button>
                         </>
                     )}

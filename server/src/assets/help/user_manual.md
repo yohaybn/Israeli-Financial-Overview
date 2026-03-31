@@ -60,9 +60,22 @@ The Scrape workspace is where you connect to your banks and pull new financial d
 ### How to use the Scrape Workspace:
 *   **Start a New Scrape:** Select your bank or credit card provider profiles, define the date ranges (e.g., last 30 days), and start a manual scrape. The automated browser will fetch your new data.
 *   **Manage Profiles:** Create and save different profiles for each of your bank accounts or credit cards. The form will display saved profiles with their provider icons. Simply select a profile and click "Start Scrape" without needing to re-enter credentials every time.
-*   **Import Data Manually:** If you prefer not to use the automated browser or your bank is unsupported, use the manual import function to upload CSV files downloaded directly from your bank's website.
+*   **Import Data Manually:** If you prefer not to use the automated browser or your bank is unsupported, use **Import** in the Results Explorer to upload files exported from your bank or card issuer (see **Importing files** below).
 *   **View Scrape Progress:** Watch the live console footprint of the headless browser during a scrape to see exactly what the scraper is doing.
 *   **Explore Results:** Check the Results Explorer to see the data files and logs saved from your previous scraping sessions.
+
+### Importing files
+
+Use **Results Explorer → Import** to bring in **Excel (XLS/XLSX)**, **PDF**, or **JSON** scrape/result files without running the browser scraper.
+
+**Flow:** Choose files, optionally pick **Import as** (an existing **provider + account** from your transaction history—this helps **format detection** and sets the **account number** on imported rows), toggle **Use AI for parsing** if you want Gemini to interpret complex layouts, then **Preview import**. Review and edit rows in the table, then **Save to library**. The same preview step runs for both AI and **regular (deterministic) parsing**.
+
+**Deterministic parsers (tested / first-class):**
+
+*   **Isracard** — **Excel** exports whose sheet matches the **פירוט עסקאות** style (Hebrew column headers such as תאריך רכישה, שם בית עסק, סכום חיוב), and **PDF** monthly card statements where text extraction exposes the standard line layout (voucher, amounts, merchant, date). Filename patterns like `1254_MM_YYYY.xlsx` / `.pdf` are used to infer the card’s last four digits when present.
+*   **Mizrahi Tefahot** — **Excel** exports that match the bank’s Hebrew account-movement layout (e.g. מספר חשבון, תאריך, סוג תנועה, זכות / חובה).
+
+Other spreadsheets and PDFs fall back to **generic** line/table heuristics; quality varies by bank. If a file does not match a dedicated format, try **Use AI for parsing** (requires a configured Gemini API key) or export **Excel** from the issuer when available.
 
 ---
 

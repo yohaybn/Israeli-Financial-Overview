@@ -8,7 +8,7 @@ import { ImportService } from '../services/importService.js';
 import { BackupService, BACKUP_SCOPE_IDS, normalizeBackupScopesParam } from '../services/backupService.js';
 import { SchedulerService } from '../services/schedulerService.js';
 import { notificationService } from '../services/notifications/notificationService.js';
-import { ScrapeRequest, PROVIDERS } from '@app/shared';
+import { ScrapeRequest, PROVIDERS, ScrapeResult, parseTabularImportProfileJson, TabularImportProfileV1 } from '@app/shared';
 import { Server } from 'socket.io';
 import multer from 'multer';
 import path from 'path';
@@ -26,6 +26,14 @@ export function createScrapeRoutes(
 ) {
     const router = Router();
     const backupService = new BackupService();
+
+    function tabularProfileFromRequest(body: Record<string, unknown>): TabularImportProfileV1 | undefined {
+        const raw = body.importProfileJson;
+        if (raw === undefined || raw === null || String(raw).trim() === '') {
+            return undefined;
+        }
+        return parseTabularImportProfileJson(String(raw));
+    }
 
     const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
     const RESULTS_DIR = path.join(DATA_DIR, 'results');
@@ -169,13 +177,22 @@ export function createScrapeRoutes(
             }
 
             const importResults = [];
-            const { accountNumberOverride, useAi } = req.body;
+            const { accountNumberOverride, useAi, providerTarget } = req.body;
             const useAiBool = useAi === 'true' || useAi === true;
+            let tabularProfile: TabularImportProfileV1 | undefined;
+            try {
+                tabularProfile = tabularProfileFromRequest(req.body as Record<string, unknown>);
+            } catch (e: any) {
+                for (const file of files) {
+                    await fs.remove(file.path).catch(() => { });
+                }
+                return res.status(400).json({ success: false, error: e?.message || 'Invalid import profile JSON' });
+            }
 
             if (useAiBool && files.length > 1) {
                 // Batch process multiple files with AI in one call
                 try {
-                    const results = await importService.importFilesBatchWithAi(files.map(f => f.path), accountNumberOverride);
+                    const results = await importService.importFilesBatchWithAi(files.map(f => f.path), accountNumberOverride, providerTarget);
 
                     for (const result of results) {
                         if (result.success) {
@@ -219,7 +236,7 @@ export function createScrapeRoutes(
 
             for (const file of files) {
                 try {
-                    const result = await importService.importFile(file.path, accountNumberOverride, useAiBool);
+                    const result = await importService.importFile(file.path, accountNumberOverride, useAiBool, providerTarget, tabularProfile);
                     if (result.success) {
                         try {
                             const { filename } = await storageService.saveScrapeResult(result, (result.transactions?.[0]?.provider || 'imported'));
@@ -253,6 +270,126 @@ export function createScrapeRoutes(
                 // Log but don't fail the response
                 console.warn('Failed to clean up uploads folder:', error);
             }
+
+            res.json({
+                success: someSuccessful,
+                results: importResults,
+                allSuccessful
+            });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    /** Import preview: parse without persisting (AI batch, or per-file with or without AI). */
+    router.post('/results/import/preview', upload.array('files'), async (req, res) => {
+        try {
+            const files = req.files as Express.Multer.File[];
+            if (!files || files.length === 0) {
+                return res.status(400).json({ success: false, error: 'No files uploaded' });
+            }
+
+            const { accountNumberOverride, useAi, providerTarget } = req.body;
+            const useAiBool = useAi === 'true' || useAi === true;
+            let tabularProfile: TabularImportProfileV1 | undefined;
+            try {
+                tabularProfile = tabularProfileFromRequest(req.body as Record<string, unknown>);
+            } catch (e: any) {
+                for (const file of files) {
+                    await fs.remove(file.path).catch(() => { });
+                }
+                return res.status(400).json({ success: false, error: e?.message || 'Invalid import profile JSON' });
+            }
+
+            const previewResults: { originalName: string; preview: ScrapeResult }[] = [];
+
+            if (useAiBool && files.length > 1) {
+                try {
+                    const results = await importService.importFilesBatchWithAi(files.map(f => f.path), accountNumberOverride, providerTarget);
+                    for (const result of results) {
+                        previewResults.push({ originalName: 'Batch AI Import', preview: result });
+                    }
+                    for (const file of files) {
+                        await fs.remove(file.path).catch(() => { });
+                    }
+                    try {
+                        if (fs.existsSync(UPLOADS_DIR)) {
+                            await fs.emptyDir(UPLOADS_DIR);
+                        }
+                    } catch (e) { /* empty */ }
+
+                    return res.json({
+                        success: true,
+                        results: previewResults
+                    });
+                } catch (error: any) {
+                    for (const file of files) {
+                        await fs.remove(file.path).catch(() => { });
+                    }
+                    return res.status(500).json({ success: false, error: error.message });
+                }
+            }
+
+            for (const file of files) {
+                try {
+                    const result = await importService.importFile(file.path, accountNumberOverride, useAiBool, providerTarget, tabularProfile);
+                    previewResults.push({ originalName: file.originalname, preview: result });
+                } finally {
+                    await fs.remove(file.path).catch(() => { });
+                }
+            }
+
+            try {
+                if (fs.existsSync(UPLOADS_DIR)) {
+                    await fs.emptyDir(UPLOADS_DIR);
+                }
+            } catch (error) {
+                console.warn('Failed to clean up uploads folder:', error);
+            }
+
+            res.json({ success: true, results: previewResults });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    /** Persist scrape results after client review (e.g. edited AI import). */
+    router.post('/results/import/commit', async (req, res) => {
+        try {
+            const items = req.body?.items as { originalName?: string; result?: ScrapeResult }[] | undefined;
+            if (!Array.isArray(items) || items.length === 0) {
+                return res.status(400).json({ success: false, error: 'items array is required' });
+            }
+
+            const importResults: { originalName: string; filename?: string; success: boolean; count?: number; error?: string }[] = [];
+
+            for (const item of items) {
+                const originalName = item.originalName || 'Import';
+                const result = item.result;
+                if (!result || !result.success) {
+                    importResults.push({ originalName, success: false, error: result?.error || 'Invalid or failed result' });
+                    continue;
+                }
+                try {
+                    const provider = result.transactions?.[0]?.provider || 'imported';
+                    const { filename } = await storageService.saveScrapeResult(result, provider);
+                    importResults.push({
+                        originalName,
+                        filename,
+                        success: true,
+                        count: result.transactions?.length || 0
+                    });
+                } catch (saveError: any) {
+                    if (saveError.message?.includes('empty result')) {
+                        importResults.push({ originalName, success: false, error: 'Empty result - no transactions or accounts found' });
+                    } else {
+                        importResults.push({ originalName, success: false, error: saveError.message });
+                    }
+                }
+            }
+
+            const someSuccessful = importResults.some(r => r.success);
+            const allSuccessful = importResults.every(r => r.success);
 
             res.json({
                 success: someSuccessful,

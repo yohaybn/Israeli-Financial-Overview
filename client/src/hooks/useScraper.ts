@@ -287,7 +287,19 @@ export function useUploadFile() {
 export function useImportFiles() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ files, accountNumberOverride, useAi }: { files: File[]; accountNumberOverride?: string; useAi?: boolean }) => {
+        mutationFn: async ({
+            files,
+            accountNumberOverride,
+            useAi,
+            providerTarget,
+            importProfileJson,
+        }: {
+            files: File[];
+            accountNumberOverride?: string;
+            useAi?: boolean;
+            providerTarget?: string;
+            importProfileJson?: string | null;
+        }) => {
             const formData = new FormData();
             files.forEach(file => {
                 formData.append('files', file);
@@ -295,13 +307,78 @@ export function useImportFiles() {
             if (accountNumberOverride) {
                 formData.append('accountNumberOverride', accountNumberOverride);
             }
+            if (providerTarget) {
+                formData.append('providerTarget', providerTarget);
+            }
             if (useAi) {
                 formData.append('useAi', String(useAi));
+            }
+            if (importProfileJson) {
+                formData.append('importProfileJson', importProfileJson);
             }
             const { data } = await api.post<{ success: boolean; results: any[]; allSuccessful: boolean }>('/results/import', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
+            });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+        },
+    });
+}
+
+export function useImportPreview() {
+    return useMutation({
+        mutationFn: async ({
+            files,
+            accountNumberOverride,
+            useAi,
+            providerTarget,
+            importProfileJson,
+        }: {
+            files: File[];
+            accountNumberOverride?: string;
+            useAi?: boolean;
+            providerTarget?: string;
+            importProfileJson?: string | null;
+        }) => {
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+            if (accountNumberOverride) {
+                formData.append('accountNumberOverride', accountNumberOverride);
+            }
+            if (providerTarget) {
+                formData.append('providerTarget', providerTarget);
+            }
+            formData.append('useAi', String(useAi ?? false));
+            if (importProfileJson) {
+                formData.append('importProfileJson', importProfileJson);
+            }
+            const { data } = await api.post<{ success: boolean; results: { originalName: string; preview: ScrapeResult }[] }>(
+                '/results/import/preview',
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                }
+            );
+            return data;
+        },
+    });
+}
+
+export function useImportCommit() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (items: { originalName: string; result: ScrapeResult }[]) => {
+            const { data } = await api.post<{ success: boolean; results: any[]; allSuccessful: boolean }>('/results/import/commit', {
+                items,
             });
             return data;
         },

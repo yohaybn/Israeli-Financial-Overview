@@ -103,6 +103,37 @@ export {
 } from './backupScopes.js';
 export type { BackupScopeId } from './backupScopes.js';
 export {
+    TABULAR_IMPORT_PROFILE_FORMAT,
+    TABULAR_IMPORT_PROFILE_VERSION,
+    TABULAR_MAPPABLE_TXN_FIELDS,
+    DEFAULT_ISRACARD_LEDGER_STOP_MARKERS,
+    DEFAULT_LEDGER_FOOTER_STOP_MARKERS,
+    isTabularImportProfile,
+    isLedgerStyleColumns,
+    parseTabularImportProfileJson,
+} from './tabularImportProfile.js';
+export type {
+    ColumnRef,
+    TabularAmountMode,
+    TabularDateFormat,
+    TabularFieldMapping,
+    TabularImportProfile,
+    TabularImportProfileV1,
+    TabularMappableTxnField,
+} from './tabularImportProfile.js';
+export {
+    currencySymbolToIso,
+    normalizeCellText,
+    parseDateCell,
+    parseNumberCell,
+} from './tabularCells.js';
+export {
+    applyOptionalFieldMappings,
+    parseLedgerRowsToTransactions,
+    resolveColumnIndex,
+} from './tabularLedgerEngine.js';
+export { parseSimpleRowsToTransactions, parseTabularRows } from './tabularSimpleEngine.js';
+export {
     AI_ANALYST_EST_CHARS_PER_TXN_ROW,
     AI_ANALYST_EST_CHARS_CSV_HEADER,
     AI_ANALYST_EST_PROMPT_OVERHEAD_TOKENS,
