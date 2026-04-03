@@ -18,6 +18,8 @@ interface ImportProfileBuilderProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (profileJson: string) => void;
+    /** Full-page layout (no modal overlay); used from Import profile route. */
+    variant?: 'modal' | 'page';
 }
 
 function colLabel(idx: number, preview: string): string {
@@ -25,7 +27,7 @@ function colLabel(idx: number, preview: string): string {
     return p ? `${idx}: ${p}` : `${idx}`;
 }
 
-export function ImportProfileBuilder({ isOpen, onClose, onSave }: ImportProfileBuilderProps) {
+export function ImportProfileBuilder({ isOpen, onClose, onSave, variant = 'modal' }: ImportProfileBuilderProps) {
     const { t } = useTranslation();
     const [workbook, setWorkbook] = useState<xlsx.WorkBook | null>(null);
     const [sheetName, setSheetName] = useState('');
@@ -105,11 +107,17 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave }: ImportProfileB
         return opts;
     }, [maxCols, headerRow]);
 
-    const previewRows = useMemo(() => {
+    /** Rows after header + skip (data sample). */
+    const previewDataRows = useMemo(() => {
         const hi = headerRowOneBased - 1;
         const start = hi + 1 + skipDataRows;
         return rows.slice(start, start + 8);
     }, [rows, headerRowOneBased, skipDataRows]);
+
+    const headerPreviewIndex = headerRowOneBased - 1;
+    const headerPreviewCells =
+        headerPreviewIndex >= 0 && headerPreviewIndex < rows.length ? rows[headerPreviewIndex] || [] : null;
+    const dataPreviewStartIndex = headerPreviewIndex + 1 + skipDataRows;
 
     const buildLedgerProfile = useCallback((): TabularImportProfileV1 => {
         const headerRowIndex = Math.max(0, headerRowOneBased - 1);
@@ -185,8 +193,9 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave }: ImportProfileB
             ...(sheetNames.length > 0 ? { sheetNames } : {}),
         };
 
-        onSave(JSON.stringify(profile));
-        onClose();
+        const json = JSON.stringify(profile);
+        onSave(json);
+        if (variant === 'modal') onClose();
     };
 
     if (!isOpen) return null;
@@ -194,16 +203,38 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave }: ImportProfileB
     const selectCls =
         'w-full px-2 py-1.5 border border-gray-200 rounded text-sm bg-white focus:ring-1 focus:ring-blue-500 outline-none';
 
+    const outerCls =
+        variant === 'page'
+            ? 'min-h-full flex flex-col bg-gray-50 py-4 px-4'
+            : 'fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60';
+    const innerCls =
+        variant === 'page'
+            ? 'bg-white rounded-xl shadow-lg border border-gray-200 w-full max-w-3xl mx-auto flex flex-col flex-1 min-h-0 max-h-[calc(100vh-2rem)]'
+            : 'bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col border border-gray-200';
+
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col border border-gray-200">
-                <div className="p-4 border-b border-gray-100 flex justify-between items-center gap-2">
+        <div className={outerCls}>
+            <div className={innerCls}>
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center gap-2 shrink-0">
                     <h3 className="text-lg font-semibold text-gray-800">{t('explorer.import_profile_builder_title')}</h3>
-                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    {variant === 'page' ? (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                            {t('common.back')}
+                        </button>
+                    ) : (
+                        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('common.close')}>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm">
@@ -280,11 +311,6 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave }: ImportProfileB
                                         ))}
                                     </select>
                                 </div>
-                            </div>
-
-                            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-1">
-                                <p className="text-xs text-gray-800 font-medium">{t('explorer.import_profile_ledger_required')}</p>
-                                <p className="text-[10px] text-gray-600">{t('explorer.import_profile_ledger_mode_hint')}</p>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -545,14 +571,35 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave }: ImportProfileB
                             </div>
 
                             <div className="border rounded-lg overflow-hidden">
-                                <div className="bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600">
-                                    {t('explorer.import_profile_preview')}
+                                <div className="bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 flex flex-wrap items-center justify-between gap-2">
+                                    <span>{t('explorer.import_profile_preview')}</span>
+                                    <span className="text-[10px] font-normal text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded">
+                                        {t('explorer.import_profile_preview_header_hint', { n: headerRowOneBased })}
+                                    </span>
                                 </div>
-                                <div className="overflow-x-auto max-h-48 text-xs">
+                                <div className="overflow-x-auto max-h-48 text-xs" dir="ltr">
                                     <table className="min-w-full border-collapse">
                                         <tbody>
-                                            {previewRows.map((r, i) => (
-                                                <tr key={i} className="border-t border-gray-100">
+                                            {headerPreviewCells !== null && (
+                                                <tr className="border-t-2 border-amber-400 bg-amber-50">
+                                                    <td className="border-r border-amber-200 bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-900 whitespace-nowrap w-8 text-center">
+                                                        {headerRowOneBased}
+                                                    </td>
+                                                    {headerPreviewCells.slice(0, maxCols).map((cell, j) => (
+                                                        <td
+                                                            key={j}
+                                                            className="border-r border-amber-200 px-1 py-0.5 whitespace-nowrap max-w-[140px] truncate font-medium text-amber-950"
+                                                        >
+                                                            {String(cell ?? '')}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            )}
+                                            {previewDataRows.map((r, i) => (
+                                                <tr key={i} className="border-t border-gray-100 bg-white">
+                                                    <td className="border-r border-gray-200 bg-gray-50 px-1 py-0.5 text-[10px] text-gray-500 whitespace-nowrap w-8 text-center">
+                                                        {dataPreviewStartIndex + i + 1}
+                                                    </td>
                                                     {(r || []).slice(0, maxCols).map((cell, j) => (
                                                         <td key={j} className="border-r border-gray-100 px-1 py-0.5 whitespace-nowrap max-w-[140px] truncate">
                                                             {String(cell ?? '')}

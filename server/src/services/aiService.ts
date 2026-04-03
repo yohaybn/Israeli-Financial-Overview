@@ -84,11 +84,21 @@ export const AI_TXN_INLINE_MAX_ROWS = 100;
 
 /**
  * Injected into analyst prompts so the model does not misread CSV columns.
- * `originalAmount` often differs from `amount` for installment totals vs posted slice, or foreign-currency charges.
+ * `originalAmount` often differs from the posted ILS figure for installment totals vs posted slice, or foreign-currency charges.
  */
 const ANALYZE_TXN_CSV_COLUMN_HINT =
-    'Transaction CSV semantics: `amount` is the posted amount in the account currency (usually ILS). ' +
+    'Transaction CSV semantics: `amount` is the charged/posted amount in the account currency (usually ILS), taken from each row\'s charged amount when present (the bank\'s ILS debit/credit). ' +
     '`originalAmount` is the source figure when it differs from that posting: either the total for installment / multi-payment purchases (or the plan total as recorded by the bank), or the charge amount in the original foreign currency; use `originalCurrency` together with these columns.';
+
+/** Prefer model `chargedAmount` over `amount` (some exports omit `amount` but include charged ILS). */
+function canonicalAmountFromExtracted(t: { chargedAmount?: unknown; amount?: unknown }): number {
+    for (const v of [t.chargedAmount, t.amount]) {
+        if (v === null || v === undefined || v === '') continue;
+        const n = typeof v === 'number' ? v : Number(v);
+        if (Number.isFinite(n)) return n;
+    }
+    return 0;
+}
 
 /** Returned when categorization cannot call the model; cache-only mapping is still applied. */
 export const AI_CATEGORIZATION_NO_API_KEY = 'GEMINI_API_KEY not configured';
@@ -1131,7 +1141,8 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             IMPORTANT RULES FOR AMOUNTS:
             - For EXPENSES, CHARGES, or MONEY GOING OUT: Use NEGATIVE numbers (e.g., -150.50).
             - For INCOME, REFUNDS, PAYMENTS RECEIVED, or MONEY COMING IN: Use POSITIVE numbers (e.g., 2000.00).
-            - Do not include currency symbols in the amount field.
+            - The ILS posted/charged figure MUST appear in chargedAmount (primary). Also set amount to the same value when both are present.
+            - Do not include currency symbols in numeric fields.
             - Ensure the 'originalAmount' follows the same polarity rules.
 
             Output the result ONLY as a JSON object with the following structure:
@@ -1141,10 +1152,10 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                   "date": "YYYY-MM-DDTHH:mm:ss.SSSZ",
                   "processedDate": "YYYY-MM-DDTHH:mm:ss.SSSZ",
                   "description": "merchant or transaction name",
-                  "amount": number (MUST be negative for expenses),
+                  "amount": number (same as chargedAmount when both present; MUST be negative for expenses),
                   "originalAmount": number (MUST be negative for expenses),
                   "originalCurrency": "ILS",
-                  "chargedAmount": number (MUST be negative for expenses),
+                  "chargedAmount": number (primary ILS posted amount; MUST be negative for expenses),
                   "chargedCurrency": "ILS",
                   "status": "completed",
                   "type": "normal",
@@ -1178,10 +1189,11 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
 
             const transactions: Transaction[] = (extracted.transactions || []).map((t: any) => {
                 const txnAcc = t.accountNumber || extracted.accountNumber || accountNumber;
+                const canonical = canonicalAmountFromExtracted(t);
                 const baseTxn = {
                     accountNumber: txnAcc,
                     date: t.date,
-                    originalAmount: t.originalAmount || t.amount,
+                    originalAmount: t.originalAmount ?? t.amount ?? t.chargedAmount ?? canonical,
                     description: t.description,
                 };
 
@@ -1190,10 +1202,10 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                     date: t.date,
                     processedDate: t.processedDate || t.date,
                     description: t.description,
-                    amount: t.amount,
-                    chargedAmount: t.chargedAmount || t.amount,
+                    amount: canonical,
+                    chargedAmount: canonical,
                     chargedCurrency: t.chargedCurrency || t.originalCurrency || 'ILS',
-                    originalAmount: t.originalAmount || t.amount,
+                    originalAmount: t.originalAmount ?? t.amount ?? t.chargedAmount ?? canonical,
                     originalCurrency: t.originalCurrency || 'ILS',
                     status: t.status || 'completed',
                     type: t.type || 'normal',
@@ -1307,6 +1319,16 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         return strValue;
     }
 
+    /** ILS posted figure for analyst CSV: prefer charged amount (some rows omit `amount`). */
+    private amountForAnalystCsv(t: Transaction): number {
+        for (const v of [t.chargedAmount, t.amount]) {
+            if (v === null || v === undefined) continue;
+            const n = typeof v === 'number' ? v : Number(v);
+            if (Number.isFinite(n)) return n;
+        }
+        return 0;
+    }
+
     /**
      * Converts transactions to a compact CSV format to save tokens.
      * Removes irrelevant fields like 'id' and 'processedDate'.
@@ -1315,11 +1337,17 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         if (!transactions || transactions.length === 0) return '';
 
         // Define relevant fields to include in the CSV
-        // id, processedDate, chargedAmount, status, type, provider, accountNumber, etc. are usually less relevant for high-level analysis
+        // `amount` column uses chargedAmount first so rows with empty `amount` still analyze correctly
         const headers = ['date', 'description', 'amount', 'originalAmount', 'originalCurrency', 'category', 'memo', 'txnType'];
 
         const csvRows = transactions.map((t) =>
-            headers.map((header) => this.escapeCsvCell((t as any)[header])).join(',')
+            headers
+                .map((header) =>
+                    header === 'amount'
+                        ? this.escapeCsvCell(this.amountForAnalystCsv(t))
+                        : this.escapeCsvCell((t as any)[header])
+                )
+                .join(',')
         );
 
         return [headers.join(','), ...csvRows].join('\n');
@@ -1331,15 +1359,17 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
     private formatSplitTransactionsForAI(oldTx: Transaction[], newTx: Transaction[]): string {
         const headers = ['scope', 'date', 'description', 'amount', 'originalAmount', 'originalCurrency', 'category', 'memo', 'txnType'];
         const dataHeaders = headers.slice(1);
+        const cell = (t: Transaction, h: string) =>
+            h === 'amount' ? this.escapeCsvCell(this.amountForAnalystCsv(t)) : this.escapeCsvCell((t as any)[h]);
         const rows: string[] = [];
         for (const t of oldTx) {
             rows.push(
-                [this.escapeCsvCell('historical'), ...dataHeaders.map((h) => this.escapeCsvCell((t as any)[h]))].join(',')
+                [this.escapeCsvCell('historical'), ...dataHeaders.map((h) => cell(t, h))].join(',')
             );
         }
         for (const t of newTx) {
             rows.push(
-                [this.escapeCsvCell('current_scrape'), ...dataHeaders.map((h) => this.escapeCsvCell((t as any)[h]))].join(',')
+                [this.escapeCsvCell('current_scrape'), ...dataHeaders.map((h) => cell(t, h))].join(',')
             );
         }
         return [headers.join(','), ...rows].join('\n');

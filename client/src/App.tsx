@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { ImportModal } from './components/ImportModal';
+import { ImportProfilePage } from './pages/ImportProfilePage';
 import { FinancialCommandCenter } from './components/dashboard/FinancialCommandCenter';
 import { useScrapeResults, useUpdateTransactionCategory, useRecategorizeAll, useAISettings } from './hooks/useScraper';
 import { useSocket } from './hooks/useSocket';
@@ -463,6 +464,15 @@ function App() {
                         <div className={view === 'scrape' ? 'h-full overflow-y-auto' : 'hidden'}>
                             <ScrapeWorkspace onOpenImport={() => setIsImportModalOpen(true)} />
                         </div>
+                        <div className={view === 'importProfile' ? 'h-full overflow-y-auto' : 'hidden'}>
+                            <ImportProfilePage
+                                onBack={() => setView('scrape')}
+                                onSaved={() => {
+                                    setNav((prev) => ({ ...prev, view: 'scrape' }));
+                                    setIsImportModalOpen(true);
+                                }}
+                            />
+                        </div>
                         <div className={view === 'configuration' ? 'h-full' : 'hidden'}>
                             <ConfigurationPanel
                                 activeTab={configTab}
@@ -480,7 +490,14 @@ function App() {
                     </div>
                 </div>
             </div>
-            <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+            <ImportModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onOpenImportProfile={() => {
+                    setIsImportModalOpen(false);
+                    setView('importProfile');
+                }}
+            />
 
             {onboarding.showModal && <OnboardingWizard />}
 

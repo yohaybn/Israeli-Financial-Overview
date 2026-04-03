@@ -1,4 +1,4 @@
-export type AppView = 'dashboard' | 'scrape' | 'logs' | 'configuration';
+export type AppView = 'dashboard' | 'scrape' | 'logs' | 'configuration' | 'importProfile';
 
 export const CONFIG_TAB_IDS = [
     'ai',
@@ -31,7 +31,7 @@ function isLogTab(s: string): s is LogTabId {
 }
 
 function parseView(raw: string | null): AppView {
-    if (raw === 'scrape' || raw === 'logs' || raw === 'configuration') return raw;
+    if (raw === 'scrape' || raw === 'logs' || raw === 'configuration' || raw === 'importProfile') return raw;
     return 'dashboard';
 }
 
@@ -80,6 +80,9 @@ export function parseAppUrlState(search: string, sessionConfigTabOverride: strin
 export function buildAppUrlSearch(state: AppUrlState): string {
     const p = new URLSearchParams();
     if (state.view !== 'dashboard') p.set('view', state.view);
+    if (state.view === 'importProfile') {
+        return p.toString();
+    }
     if (state.view === 'configuration') p.set('tab', state.configTab);
     if (state.view === 'logs') {
         if (state.logType !== 'server') p.set('log', state.logType);

@@ -1,16 +1,18 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ScrapeResult, Transaction } from '@app/shared';
 import { parseTabularImportProfileJson } from '@app/shared';
 import { useImportPreview, useImportCommit } from '../hooks/useScraper';
 import { useUnifiedData } from '../hooks/useUnifiedData';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
-import { ImportProfileBuilder } from './ImportProfileBuilder';
+import { PENDING_TABULAR_IMPORT_PROFILE_JSON_KEY } from '../utils/pendingTabularImportProfile';
 
 interface ImportModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: (importResults: any[]) => void;
+    /** Full-page import profile builder (replaces the old in-modal builder). */
+    onOpenImportProfile: () => void;
 }
 
 interface FileStatus {
@@ -29,7 +31,7 @@ function isoDateInputValue(iso: string | undefined): string {
 const inputCls =
     'min-w-0 px-1.5 py-1 border border-gray-200 rounded text-xs bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none';
 
-export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
+export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }: ImportModalProps) {
     const { t, i18n } = useTranslation();
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
@@ -40,8 +42,6 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     const [aiReview, setAiReview] = useState<ReviewEntry[] | null>(null);
     const [importProfileJson, setImportProfileJson] = useState<string | null>(null);
     const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
-    const [showProfileBuilder, setShowProfileBuilder] = useState(false);
-
     const { data: unifiedTxns = [] } = useUnifiedData();
     const { data: providers = [] } = useProviders();
 
@@ -67,6 +67,22 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     const { mutate: importCommit, isPending: isCommitting, error: commitError } = useImportCommit();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const profileJsonInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        try {
+            const raw = sessionStorage.getItem(PENDING_TABULAR_IMPORT_PROFILE_JSON_KEY);
+            if (!raw) return;
+            sessionStorage.removeItem(PENDING_TABULAR_IMPORT_PROFILE_JSON_KEY);
+            parseTabularImportProfileJson(raw);
+            setImportProfileJson(raw);
+            setProfileLoadError(null);
+            setUseAi(false);
+        } catch (err: unknown) {
+            setProfileLoadError(err instanceof Error ? err.message : String(err));
+            setImportProfileJson(null);
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -204,7 +220,6 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
         setAiReview(null);
         setImportProfileJson(null);
         setProfileLoadError(null);
-        setShowProfileBuilder(false);
         onClose();
     };
 
@@ -224,15 +239,6 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <ImportProfileBuilder
-                isOpen={showProfileBuilder}
-                onClose={() => setShowProfileBuilder(false)}
-                onSave={(json) => {
-                    setImportProfileJson(json);
-                    setProfileLoadError(null);
-                    setUseAi(false);
-                }}
-            />
             <div className={`bg-white rounded-xl shadow-2xl w-full ${aiReview ? 'max-w-5xl' : 'max-w-lg'} max-h-[90vh] flex flex-col overflow-hidden border border-gray-200`}>
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                     <h2 className="text-xl font-bold text-gray-800">
@@ -334,7 +340,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                                 <div className="flex flex-wrap gap-2 items-center">
                                     <button
                                         type="button"
-                                        onClick={() => setShowProfileBuilder(true)}
+                                        onClick={onOpenImportProfile}
                                         disabled={busy}
                                         className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-50"
                                     >
