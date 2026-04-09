@@ -15,7 +15,9 @@ import { profileService, ProfileService } from './profileService.js';
 import { appLockService } from './appLockService.js';
 import { StorageService } from './storageService.js';
 import { Profile, ScrapeRequest, ScrapeResult, type Transaction, type TransactionReviewItem } from '@app/shared';
-import { transactionsToCsv, transactionsToJson } from '@app/shared';
+import { transactionsToCsv, transactionsToJson, buildCategoryExpenseSlices } from '@app/shared';
+import { ConfigService } from './configService.js';
+import { renderCategorySpendingPiePng } from './categoryPieImageService.js';
 import { postScrapeService } from './postScrapeService.js';
 import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
@@ -38,6 +40,16 @@ export interface TelegramConfig {
   notificationAccountsByChatId?: Record<string, string[]>;
   allowedUsers?: string[]; // Empty = allow all
   language?: 'en' | 'he'; // Bot UI language
+}
+
+/** Public bot profile from Telegram (getMe + optional profile photo presence). */
+export interface TelegramBotIdentity {
+  id: number;
+  firstName: string;
+  lastName?: string;
+  username?: string;
+  openTelegramUrl: string;
+  hasAvatar: boolean;
 }
 
 function normalizeAccountKey(s: string): string {
@@ -115,7 +127,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Financial Overview Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -199,6 +211,15 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     exportCaptionMonth: '📤 Month {{month}} · {{count}} rows.',
     exportInvalidMonth: '❌ Invalid month. Use YYYY-MM (example: 2026-03).',
     exportFailed: '❌ Export failed. Try again or use the web dashboard.',
+    cardUsage:
+      '📊 <b>Card image</b>\n\n• <code>/card categories</code> — spending by category (pie), current month\n• <code>/card categories YYYY-MM</code> — same for that month (e.g. <code>2026-03</code>)',
+    cardInvalidMonth: '❌ Invalid month. Use YYYY-MM (example: 2026-03).',
+    cardEmpty: '📭 No expense data for that month (same filters as dashboard analytics).',
+    cardFailed: '❌ Could not render the chart. Try again from the dashboard.',
+    cardTitleCategories: 'Spending by category',
+    /** Merged small slices in Telegram pie (distinct from a literal category named "Other") */
+    cardOtherMerged: 'Other (small categories)',
+    cardCaption: '📊 {{month}} · Total expenses {{total}}',
     newAiAlertTitle: '🤖 <b>New AI alert</b>',
     newAiAlertsTitle: '🤖 <b>New AI alerts</b>',
     newAiAlertScoreLine: 'Score: {{score}}/100',
@@ -208,7 +229,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט מבט כלכלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -292,6 +313,14 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     exportCaptionMonth: '📤 חודש {{month}} · {{count}} שורות.',
     exportInvalidMonth: '❌ חודש לא תקין. השתמש ב-YYYY-MM (לדוגמה: 2026-03).',
     exportFailed: '❌ הייצוא נכשל. נסה שוב או השתמש בייצוא מהדשבורד.',
+    cardUsage:
+      '📊 <b>תמונת כרטיס</b>\n\n• <code>/card categories</code> — הוצאות לפי קטגוריה (עוגה), חודש נוכחי\n• <code>/card categories YYYY-MM</code> — אותו דבר לחודש (למשל <code>2026-03</code>)',
+    cardInvalidMonth: '❌ חודש לא תקין. השתמש ב-YYYY-MM (לדוגמה: 2026-03).',
+    cardEmpty: '📭 אין נתוני הוצאות לחודש הזה (אותם מסננים כמו בניתוח בדשבורד).',
+    cardFailed: '❌ לא ניתן ליצור את התרשים. נסה שוב מהדשבורד.',
+    cardTitleCategories: 'הוצאות לפי קטגוריה',
+    cardOtherMerged: 'אחר (קטנים)',
+    cardCaption: '📊 {{month}} · סה״כ הוצאות {{total}}',
     newAiAlertTitle: '🤖 <b>התראת AI חדשה</b>',
     newAiAlertsTitle: '🤖 <b>התראות AI חדשות</b>',
     newAiAlertScoreLine: 'ציון: {{score}}/100',
@@ -325,6 +354,13 @@ export class TelegramBotService {
   /** Maps `${chatId}_${messageId}` → memo reply prompt for "reply with memo" notifications */
   private memoReplyMap: Map<string, { txnId: string; at: number }> = new Map();
   private memoReplyMapLoaded = false;
+
+  private dashboardConfigService: ConfigService | null = null;
+
+  private getDashboardConfigService(): ConfigService {
+    if (!this.dashboardConfigService) this.dashboardConfigService = new ConfigService();
+    return this.dashboardConfigService;
+  }
 
   /** Translate a key using the configured bot language */
   private t(key: string): string {
@@ -679,6 +715,64 @@ export class TelegramBotService {
   }
 
   /**
+   * Resolve bot display info via Telegram Bot API (getMe + profile photo check).
+   * Returns null if there is no token or the API call fails.
+   */
+  async fetchBotIdentity(): Promise<TelegramBotIdentity | null> {
+    const token = this.config.botToken?.trim();
+    if (!token) return null;
+    try {
+      const { Telegraf } = await import('telegraf');
+      const api = new Telegraf(token).telegram;
+      const me = await api.getMe();
+      let hasAvatar = false;
+      try {
+        const photos = await api.getUserProfilePhotos(me.id, 0, 1);
+        hasAvatar = (photos.total_count ?? 0) > 0;
+      } catch {
+        hasAvatar = false;
+      }
+      const openTelegramUrl = me.username
+        ? `https://t.me/${me.username}`
+        : `https://t.me/user?id=${me.id}`;
+      return {
+        id: me.id,
+        firstName: me.first_name,
+        lastName: me.last_name,
+        username: me.username,
+        openTelegramUrl,
+        hasAvatar,
+      };
+    } catch (e: any) {
+      serverLogger.warn('fetchBotIdentity failed', { error: e?.message || e });
+      return null;
+    }
+  }
+
+  /**
+   * Direct download URL for the largest profile photo (server-side only; includes token in path).
+   */
+  async getBotAvatarDownloadUrl(): Promise<string | null> {
+    const token = this.config.botToken?.trim();
+    if (!token) return null;
+    try {
+      const { Telegraf } = await import('telegraf');
+      const api = new Telegraf(token).telegram;
+      const me = await api.getMe();
+      const photos = await api.getUserProfilePhotos(me.id, 0, 1);
+      if (!photos.total_count || !photos.photos?.length) return null;
+      const sizes = photos.photos[0];
+      const largest = sizes[sizes.length - 1];
+      const file = await api.getFile(largest.file_id);
+      if (!file.file_path) return null;
+      return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+    } catch (e: any) {
+      serverLogger.warn('getBotAvatarDownloadUrl failed', { error: e?.message || e });
+      return null;
+    }
+  }
+
+  /**
    * Stop the bot
    */
   async stop(): Promise<void> {
@@ -773,6 +867,10 @@ export class TelegramBotService {
 
     this.bot.command('export', async (ctx) => {
       await this.handleExportCommand(ctx);
+    });
+
+    this.bot.command('card', async (ctx) => {
+      await this.handleCardCommand(ctx);
     });
   }
 
@@ -1373,7 +1471,6 @@ export class TelegramBotService {
       try {
         const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
           conversationHistory: chatHistory,
-          temperature: 0.7,
         });
         const { newAlerts } = mergeAndPersistAiMemory(structured);
         void this.notifyNewAiMemoryAlerts(newAlerts, { includeChatId: chatIdNum.toString() });
@@ -1441,7 +1538,7 @@ export class TelegramBotService {
 
       // Same unified context as /chat mode; on failure return code + details (no financial-tip fallback).
       try {
-        const structured = await aiService.analyzeDataStructured(contextQuery, transactions, { temperature: 0.7 });
+        const structured = await aiService.analyzeDataStructured(contextQuery, transactions);
         mergeAndPersistAiMemory(structured);
         const aiResponse = structured.response;
         if (aiResponse && aiResponse.trim().length > 0) {
@@ -1949,6 +2046,78 @@ export class TelegramBotService {
     } catch (err) {
       serverLogger.error('Error in /memo command', { error: err });
       await ctx.reply(this.t('errorProcessing'));
+    }
+  }
+
+  private formatIlsForBot(amount: number): string {
+    const lang = this.config?.language === 'he' ? 'he-IL' : 'en-US';
+    return new Intl.NumberFormat(lang, {
+      style: 'currency',
+      currency: 'ILS',
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+
+  private async handleCardCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/card');
+        await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`, { parse_mode: 'HTML' });
+        return;
+      }
+      const raw = ((ctx.message as Message.TextMessage)?.text || '').trim();
+      const parts = raw.split(/\s+/).filter(Boolean);
+      const sub = (parts[1] || '').split('@')[0].toLowerCase();
+      if (sub !== 'categories') {
+        await ctx.reply(this.t('cardUsage'), { parse_mode: 'HTML' });
+        return;
+      }
+      const maybeMonth = (parts[2] || '').split('@')[0];
+      let monthKey: string;
+      if (maybeMonth) {
+        if (!/^\d{4}-\d{2}$/.test(maybeMonth)) {
+          await ctx.reply(this.t('cardInvalidMonth'));
+          return;
+        }
+        monthKey = maybeMonth;
+      } else {
+        const d = new Date();
+        monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      const storage = this.getStorageService();
+      let transactions = (await storage.getAllTransactions(true)) as Transaction[];
+      transactions = transactions.filter((t) => typeof t.date === 'string' && t.date.startsWith(monthKey));
+
+      const dash = await this.getDashboardConfigService().getDashboardConfig();
+      const customCCKeywords = dash.customCCKeywords ?? [];
+
+      const slices = buildCategoryExpenseSlices(transactions, customCCKeywords);
+      const totalExpenses = slices.reduce((s, x) => s + x.value, 0);
+      if (totalExpenses <= 0 || slices.length === 0) {
+        await ctx.reply(this.t('cardEmpty'));
+        return;
+      }
+
+      const png = await renderCategorySpendingPiePng({
+        slices,
+        title: this.t('cardTitleCategories'),
+        subtitle: monthKey,
+        otherLabel: this.t('cardOtherMerged'),
+      });
+
+      const caption = this.t('cardCaption')
+        .replace(/\{\{month\}\}/g, monthKey)
+        .replace(/\{\{total\}\}/g, this.formatIlsForBot(totalExpenses));
+
+      await ctx.replyWithPhoto(Input.fromBuffer(png, `categories-${monthKey}.png`), {
+        caption,
+        parse_mode: 'HTML',
+      });
+    } catch (err) {
+      serverLogger.error('Error in /card command', { error: err });
+      await ctx.reply(this.t('cardFailed'));
     }
   }
 

@@ -413,6 +413,7 @@ export function FinancialCommandCenter({
                     activeDayFilter={analyticsDayFilter}
                     categories={availableCategories}
                     categoryMeta={aiSettings?.categoryMeta}
+                    chartDefaultSingleMonth={selectedMonth}
                 />
             </div>
 

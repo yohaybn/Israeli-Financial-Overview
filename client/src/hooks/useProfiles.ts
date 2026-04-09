@@ -48,8 +48,9 @@ export function useUpdateProfile() {
             const { data } = await api.put<{ success: boolean; data: Profile }>(`/profiles/${id}`, updates);
             return data.data;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            queryClient.invalidateQueries({ queryKey: ['profile', variables.id] });
         },
     });
 }

@@ -303,16 +303,83 @@ export interface AnomalyAlert {
     meta?: AnomalyAlertMeta;
 }
 
+/** User-created analytics chart (stored in dashboard config). */
+export type UserChartKind = 'bar' | 'line' | 'pie';
+export type UserChartGroupBy = 'month' | 'category' | 'weekday' | 'merchant';
+export type UserChartMeasure = 'sum_expense' | 'sum_income' | 'net' | 'count';
+/** @deprecated Ignored; scope follows the analytics “This month / All months” control. */
+export type UserChartViewRange = 'month' | 'all';
+
+/** Optional AND filters applied after base analytics rules (ignored/internal transfer). */
+export type UserChartFilterClause =
+    | { id: string; kind: 'category_in'; categories: string[] }
+    | { id: string; kind: 'category_not_in'; categories: string[] }
+    | { id: string; kind: 'description_contains'; text: string }
+    | { id: string; kind: 'description_not_contains'; text: string }
+    | { id: string; kind: 'amount_min'; value: number }
+    | { id: string; kind: 'amount_max'; value: number };
+
+export const MAX_USER_CHART_FILTER_CLAUSES = 12;
+
+/** Where the chart gets its transactions from (independent of other fields). */
+export type UserChartDataScope =
+    | 'follow_analytics'
+    | 'all_time'
+    | 'single_month'
+    | 'last_n_days'
+    | 'last_n_months'
+    | 'custom_range';
+
+/** Max `lastN` when `dataScope` is `last_n_days`. */
+export const USER_CHART_LAST_N_DAYS_MAX = 3660;
+/** Max `lastN` when `dataScope` is `last_n_months`. */
+export const USER_CHART_LAST_N_MONTHS_MAX = 120;
+
+export interface UserChartDefinition {
+    id: string;
+    title: string;
+    chartKind: UserChartKind;
+    groupBy: UserChartGroupBy;
+    measure: UserChartMeasure;
+    /** @deprecated Stored for backward compatibility; scope uses the dashboard analytics range only. */
+    viewRange?: UserChartViewRange;
+    /**
+     * `follow_analytics` (default): same slice as built-in charts (This month / All months).
+     * `all_time`: all loaded transactions.
+     * `single_month`: `singleMonth` (YYYY-MM) over the full pool.
+     * `last_n_days` / `last_n_months`: rolling window using `lastN`.
+     * `custom_range`: `customDateFrom`–`customDateTo` (inclusive YYYY-MM-DD) over the full pool.
+     */
+    dataScope?: UserChartDataScope;
+    /** Calendar month YYYY-MM when `dataScope` is `single_month`. */
+    singleMonth?: string;
+    /** Window size when `dataScope` is `last_n_days` or `last_n_months`. */
+    lastN?: number;
+    /** Inclusive start date (YYYY-MM-DD) when `dataScope` is `custom_range`. */
+    customDateFrom?: string;
+    /** Inclusive end date (YYYY-MM-DD) when `dataScope` is `custom_range`. */
+    customDateTo?: string;
+    /** When groupBy is merchant: top N (default 10, max 25). */
+    merchantTopN?: number;
+    /** AND filters; empty or omitted means no extra filtering. */
+    filters?: UserChartFilterClause[];
+}
+
+/** Maximum saved custom charts per dashboard. */
+export const MAX_USER_CHARTS = 12;
+
 export interface DashboardConfig {
     ccPaymentDate: number; // Day of month (1-31) when CC bill is debited
     forecastMonths: number; // How many months of history to use for forecasting (3, 6, or 12)
     customCCKeywords: string[]; // User-defined CC payment description keywords
+    customCharts?: UserChartDefinition[];
 }
 
 export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
     ccPaymentDate: 2, // Default: 2nd of the month
     forecastMonths: 6,
     customCCKeywords: [],
+    customCharts: [],
 };
 
 export interface Account {

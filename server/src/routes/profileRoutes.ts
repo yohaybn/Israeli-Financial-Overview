@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { profileService } from '../services/profileService.js';
-import { Profile } from '@app/shared';
+import { Profile, sanitizeProfileForClient } from '@app/shared';
 import { appLockService } from '../services/appLockService.js';
 
 const router = Router();
@@ -9,7 +9,7 @@ const router = Router();
 router.get('/', async (req, res) => {
     try {
         const profiles = await profileService.getProfiles();
-        res.json({ success: true, data: profiles });
+        res.json({ success: true, data: profiles.map(sanitizeProfileForClient) });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -22,7 +22,7 @@ router.get('/:id', async (req, res) => {
         if (!profile) {
             return res.status(404).json({ success: false, error: 'Profile not found' });
         }
-        res.json({ success: true, data: profile });
+        res.json({ success: true, data: sanitizeProfileForClient(profile) });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -49,7 +49,7 @@ router.post('/', async (req, res) => {
         }
 
         const profile = await profileService.createProfile(data);
-        res.status(201).json({ success: true, data: profile });
+        res.status(201).json({ success: true, data: sanitizeProfileForClient(profile) });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -73,7 +73,7 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Profile not found' });
         }
 
-        res.json({ success: true, data: profile });
+        res.json({ success: true, data: sanitizeProfileForClient(profile) });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }

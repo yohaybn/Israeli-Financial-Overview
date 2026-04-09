@@ -155,6 +155,49 @@ router.post('/stop', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/telegram/bot-info
+ * Bot display name, username, deep link, and whether a profile photo exists (avatar via /bot-avatar).
+ */
+router.get('/bot-info', async (req: Request, res: Response) => {
+  try {
+    const token = telegramBotService.getConfig().botToken?.trim();
+    if (!token) {
+      return res.json({ success: true, data: null });
+    }
+    const data = await telegramBotService.fetchBotIdentity();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    serverLogger.error('Error getting Telegram bot info', { error });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/telegram/bot-avatar
+ * Proxies the bot profile photo so the browser never sees the file URL with token.
+ */
+router.get('/bot-avatar', async (req: Request, res: Response) => {
+  try {
+    const url = await telegramBotService.getBotAvatarDownloadUrl();
+    if (!url) {
+      return res.status(404).end();
+    }
+    const r = await fetch(url);
+    if (!r.ok) {
+      return res.status(502).end();
+    }
+    const ct = r.headers.get('content-type') || 'image/jpeg';
+    res.setHeader('Content-Type', ct);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.send(buf);
+  } catch (error: any) {
+    serverLogger.error('Error proxying Telegram bot avatar', { error });
+    res.status(500).end();
+  }
+});
+
+/**
  * GET /api/telegram/status
  * Get bot status and info
  */

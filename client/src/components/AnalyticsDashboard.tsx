@@ -25,6 +25,12 @@ import {
 import { TREEMAP_SMALL_MERGED_ID, useAnalytics } from '../hooks/useAnalytics';
 import type { CategoryParentGroupKey } from '../utils/categoryParentGroup';
 import { isInternalTransfer, isLoanCategory } from '../utils/transactionUtils';
+import {
+    ANALYTICS_CHART_TOOLTIP_STYLE,
+    CustomChartCard,
+    CustomChartModal,
+    useUserCustomChartsEmbedded,
+} from './dashboard/UserCustomChartsSection';
 
 interface AnalyticsDashboardProps {
     transactions: Transaction[];
@@ -38,6 +44,8 @@ interface AnalyticsDashboardProps {
     categories?: string[];
     /** Per-category meta bucket; merged with defaults on the client. */
     categoryMeta?: Partial<Record<string, ExpenseMetaCategory>>;
+    /** YYYY-MM default when adding a custom chart with “single calendar month” scope. */
+    chartDefaultSingleMonth?: string;
 }
 
 type MerchantSortBy = 'amount' | 'frequency';
@@ -80,6 +88,7 @@ export function AnalyticsDashboard({
     activeDayFilter,
     categories = [],
     categoryMeta,
+    chartDefaultSingleMonth,
 }: AnalyticsDashboardProps) {
     const { t, i18n } = useTranslation();
     const [viewRange, setViewRange] = useState<ViewRange>('month');
@@ -88,6 +97,8 @@ export function AnalyticsDashboard({
 
     const displayTransactions = viewRange === 'all' && allTransactions ? allTransactions : monthTransactions;
     const analytics = useAnalytics(displayTransactions, customCCKeywords);
+
+    const ucc = useUserCustomChartsEmbedded();
 
     const mergedCategoryMeta = useMemo(
         () => mergeCategoryMeta(categories, categoryMeta),
@@ -320,10 +331,23 @@ export function AnalyticsDashboard({
     };
 
     return (
+        <>
         <div className="space-y-6 p-4">
-            <div className="flex justify-end mb-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 mb-2">
+                <button
+                    type="button"
+                    onClick={() => ucc.setModal({ initial: null })}
+                    disabled={ucc.atLimit}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all border border-gray-200 bg-white text-violet-700 hover:bg-violet-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    {t('dashboard.custom_charts_add')}
+                </button>
                 <div className="inline-flex bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-sm">
                     <button
+                        type="button"
                         onClick={() => handleViewRangeChange('month')}
                         className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${viewRange === 'month'
                             ? 'bg-white text-blue-600 shadow-sm'
@@ -333,6 +357,7 @@ export function AnalyticsDashboard({
                         {t('analytics.this_month')}
                     </button>
                     <button
+                        type="button"
                         onClick={() => handleViewRangeChange('all')}
                         className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${viewRange === 'all'
                             ? 'bg-white text-blue-600 shadow-sm'
@@ -345,7 +370,7 @@ export function AnalyticsDashboard({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_category')}</h3>
                     {analytics.byCategoryTree.length === 0 ? (
                         <div className="flex items-center justify-center h-[300px] text-sm text-gray-400">
@@ -383,8 +408,8 @@ export function AnalyticsDashboard({
                                                     : nm;
                                             return (
                                                 <div
-                                                    className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-sm shadow-lg"
-                                                    style={{ maxWidth: 280 }}
+                                                    className="rounded-xl bg-white px-3 py-2 text-sm"
+                                                    style={{ maxWidth: 280, ...ANALYTICS_CHART_TOOLTIP_STYLE }}
                                                 >
                                                     <p className="font-bold text-gray-900">{label}</p>
                                                     <p className="mt-0.5 font-semibold text-gray-700">{formatCurrency(v)}</p>
@@ -488,11 +513,7 @@ export function AnalyticsDashboard({
                                                 ))}
                                         </Pie>
                                         <Tooltip
-                                            contentStyle={{
-                                                borderRadius: '12px',
-                                                border: 'none',
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                            }}
+                                            contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
                                             formatter={(value: number | string | undefined, _name, item) => {
                                                 const n = Number(value ?? 0);
                                                 const payload = item?.payload as { label?: string } | undefined;
@@ -623,17 +644,14 @@ export function AnalyticsDashboard({
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.monthly_spending_trend')}</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={analytics.byMonth}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                formatter={(value) => formatCurrency(Number(value))}
-                            />
+                            <Tooltip contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE} formatter={(value) => formatCurrency(Number(value))} />
                             <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
                             <Bar dataKey="income" name={t('analytics.income')} fill="#10ac84" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="expenses" name={t('analytics.expenses')} fill="#ee5253" radius={[4, 4, 0, 0]} />
@@ -641,17 +659,14 @@ export function AnalyticsDashboard({
                     </ResponsiveContainer>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_month_day')}</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={analytics.byMonthDay}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={2} />
                             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                formatter={(value) => formatCurrency(Number(value))}
-                            />
+                            <Tooltip contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE} formatter={(value) => formatCurrency(Number(value))} />
                             <Bar
                                 dataKey="value"
                                 name={t('analytics.expenses')}
@@ -676,7 +691,7 @@ export function AnalyticsDashboard({
                     </ResponsiveContainer>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.spending_by_weekday')}</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={analytics.byWeekday}>
@@ -690,7 +705,7 @@ export function AnalyticsDashboard({
                             />
                             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
                             <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
                                 labelFormatter={(value) => getWeekdayLabel(Number(value))}
                                 formatter={(value) => formatCurrency(Number(value))}
                             />
@@ -717,7 +732,35 @@ export function AnalyticsDashboard({
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
+
+                {ucc.charts.map((spec) => (
+                    <CustomChartCard
+                        key={spec.id}
+                        spec={spec}
+                        followTransactions={displayTransactions}
+                        fullTransactionPool={allTransactions ?? monthTransactions}
+                        analyticsViewLabel={
+                            viewRange === 'month' ? t('analytics.this_month') : t('analytics.all_months')
+                        }
+                        customCCKeywords={customCCKeywords}
+                        weekdayLabels={ucc.weekdayLabels}
+                        onEdit={() => ucc.setModal({ initial: spec })}
+                        onRemove={() => ucc.handleRemove(spec.id)}
+                    />
+                ))}
             </div>
         </div>
+        {ucc.modal && (
+            <CustomChartModal
+                key={ucc.modal.initial?.id ?? `add-${chartDefaultSingleMonth ?? 'none'}`}
+                initial={ucc.modal.initial}
+                onClose={() => ucc.setModal(null)}
+                onSave={ucc.handleSaveChart}
+                atLimit={ucc.atLimit}
+                categoryOptions={categories}
+                defaultSingleMonth={chartDefaultSingleMonth}
+            />
+        )}
+    </>
     );
 }

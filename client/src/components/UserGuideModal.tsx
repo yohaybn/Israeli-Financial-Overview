@@ -82,7 +82,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'configuration',
                     title: 'Configuration',
                     icon: '⚙️',
-                    content: 'AI and memory, Insight rules (deterministic bilingual rules), Categories, Scheduler (and scheduled backups), Scrape (including fraud & alerts), Google (OAuth, Sheets, Drive), Telegram, and Maintenance (backups, port, data folder). Use deep links ?view=configuration&tab=<id> when needed (e.g. tab=insight-rules).'
+                    content: 'Configuration: AI (sub-tabs: AI settings for key/models/quota/preferences, AI memory for persona & goals plus facts/insights/alerts), Insight rules (deterministic bilingual rules), Categories, Scheduler (and scheduled backups), Scrape (including fraud & alerts), Google (OAuth, Sheets, Drive), Telegram, and Maintenance (backups, port, data folder). Use deep links ?view=configuration&tab=<id> when needed (e.g. tab=insight-rules).'
                 },
                 {
                     id: 'telegram',

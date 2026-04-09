@@ -207,7 +207,13 @@ export function PersonaOnboardingWizard() {
 
                     {step === 'details' && (
                         <div className="max-h-[45vh] overflow-y-auto pr-1">
-                            <PersonaAlignmentForm value={personaDraft} onChange={setPersonaDraft} disabled={isSavingPersona} compact />
+                            <PersonaAlignmentForm
+                                value={personaDraft}
+                                onChange={setPersonaDraft}
+                                disabled={isSavingPersona}
+                                compact
+                                includeAiPreferencesSection
+                            />
                         </div>
                     )}
                 </div>

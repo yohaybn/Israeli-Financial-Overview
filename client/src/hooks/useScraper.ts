@@ -211,7 +211,13 @@ export function useUnifiedAIChat() {
         }) => {
             const { data } = await api.post<{
                 success: boolean;
-                data: { response: string; factsAdded: number; insightsAdded: number; alertsAdded: number };
+                data: {
+                    response: string;
+                    factsAdded: number;
+                    insightsAdded: number;
+                    alertsAdded: number;
+                    usedFallbackModel?: string;
+                };
             }>('/ai/chat/unified', { query, scope, filename, historyNote, conversationHistory });
             return data.data;
         },

@@ -14,6 +14,8 @@ interface Message {
     isError?: boolean;
     errorDetails?: AIErrorDetails;
     userQuery?: string;
+    /** Set when the server answered using the configured fallback model after 429/503 on the primary model. */
+    usedFallbackModel?: string;
 }
 
 interface DashboardAIChatProps {
@@ -108,7 +110,8 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: result.response + memoryNote
+                content: result.response + memoryNote,
+                ...(result.usedFallbackModel ? { usedFallbackModel: result.usedFallbackModel } : {}),
             }]);
         } catch (error: any) {
             console.error('AI Chat Error:', error);
@@ -275,6 +278,14 @@ export function DashboardAIChat({ isOpen, onClose, scope, contextMonth, onNaviga
                                     </div>
                                 ) : (
                                     <div className={`text-sm leading-relaxed ${msg.role === 'user' ? 'text-white' : 'text-gray-700'}`}>
+                                        {msg.role === 'assistant' && msg.usedFallbackModel && (
+                                            <div
+                                                className="mb-2.5 rounded-xl border border-amber-200/90 bg-amber-50 px-3 py-2 text-xs text-amber-950 leading-snug"
+                                                role="status"
+                                            >
+                                                {t('ai_chat.fallback_used', { model: msg.usedFallbackModel })}
+                                            </div>
+                                        )}
                                         <ReactMarkdown
                                             components={{
                                                 p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,

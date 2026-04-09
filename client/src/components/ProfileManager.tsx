@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useProfiles, useCreateProfile, useDeleteProfile } from '../hooks/useProfiles';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { Profile, ScraperOptions } from '@app/shared';
-import { Landmark, CreditCard, Smartphone, Tag, Plus, Trash2, ShieldCheck } from 'lucide-react';
+import { Landmark, CreditCard, Smartphone, Tag, Plus, Trash2, ShieldCheck, Pencil } from 'lucide-react';
+import { EditProfileModal } from './EditProfileModal';
 
 interface ProfileManagerProps {
     currentCompanyId: string;
@@ -70,6 +71,7 @@ export function ProfileManager({
 
     const [newProfileName, setNewProfileName] = useState('');
     const [showSaveInput, setShowSaveInput] = useState(false);
+    const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
     const getProviderName = (companyId: string): string =>
         getProviderDisplayName(companyId, providers, i18n.language);
@@ -112,12 +114,24 @@ export function ProfileManager({
         }
     };
 
+    const handleEditProfile = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingProfileId(id);
+    };
+
     if (isLoading) {
         return <div className="text-sm text-gray-500 p-4">{t('profiles.loading')}</div>;
     }
 
     return (
         <div className="space-y-4">
+            {editingProfileId && (
+                <EditProfileModal
+                    profileId={editingProfileId}
+                    onClose={() => setEditingProfileId(null)}
+                    restricted={restrictNewProfile}
+                />
+            )}
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-700">{t('profiles.title')}</h3>
                 <div className="flex gap-2">
@@ -208,14 +222,32 @@ export function ProfileManager({
                             <div className="text-xs text-gray-500 truncate">{getProviderName(profile.companyId)}</div>
                         </div>
                         
-                        <button
-                            onClick={(e) => handleDeleteProfile(profile.id, e)}
-                            disabled={isDeleting}
-                            className="p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-50"
-                            title={t('common.delete')}
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                type="button"
+                                onClick={(e) => handleEditProfile(profile.id, e)}
+                                disabled={restrictNewProfile}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                    restrictNewProfile
+                                        ? 'text-gray-200 cursor-not-allowed'
+                                        : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                }`}
+                                title={
+                                    restrictNewProfile ? t('app_lock.locked_title') : t('profiles.edit_action')
+                                }
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => handleDeleteProfile(profile.id, e)}
+                                disabled={isDeleting}
+                                className="p-1.5 text-gray-400 hover:text-red-500 rounded-md hover:bg-red-50"
+                                title={t('common.delete')}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 ))}
             </div>

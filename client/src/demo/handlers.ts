@@ -1,5 +1,12 @@
 import { http, HttpResponse } from 'msw';
-import { PROVIDERS, transactionsToCsv, transactionsToJson } from '@app/shared';
+import {
+    Profile,
+    PROVIDERS,
+    mergeProfileCredentialsOnUpdate,
+    sanitizeProfileForClient,
+    transactionsToCsv,
+    transactionsToJson,
+} from '@app/shared';
 import {
     DEMO_SAMPLE_FILENAME,
     demoAiSettings,
@@ -174,7 +181,47 @@ export const demoHandlers = [
     ),
 
     http.get(apiPath('/profiles'), () =>
-        HttpResponse.json({ success: true, data: demoProfiles })
+        HttpResponse.json({ success: true, data: demoProfiles.map(sanitizeProfileForClient) })
+    ),
+
+    http.get(({ request }) => {
+        const p = new URL(request.url).pathname;
+        return /^\/api\/profiles\/[^/]+$/.test(p);
+    }, ({ request }) => {
+        const id = new URL(request.url).pathname.split('/').pop()!;
+        const profile = demoProfiles.find((x) => x.id === id);
+        if (!profile) {
+            return HttpResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
+        }
+        return HttpResponse.json({ success: true, data: sanitizeProfileForClient(profile) });
+    }),
+
+    http.put(
+        ({ request }) => {
+            const p = new URL(request.url).pathname;
+            return /^\/api\/profiles\/[^/]+$/.test(p);
+        },
+        async ({ request }) => {
+            const id = new URL(request.url).pathname.split('/').pop()!;
+            const profile = demoProfiles.find((x) => x.id === id);
+            if (!profile) {
+                return HttpResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
+            }
+            const body = (await request.json().catch(() => ({}))) as Partial<Profile>;
+            if (body.name !== undefined) profile.name = body.name;
+            if (body.options !== undefined) {
+                profile.options = { ...profile.options, ...body.options };
+            }
+            if (body.credentials !== undefined) {
+                profile.credentials = mergeProfileCredentialsOnUpdate(
+                    profile.credentials,
+                    body.credentials,
+                    profile.companyId
+                );
+            }
+            profile.updatedAt = new Date().toISOString();
+            return HttpResponse.json({ success: true, data: sanitizeProfileForClient(profile) });
+        }
     ),
 
     http.get(apiPath('/post-scrape/review-alert'), () =>
@@ -265,9 +312,18 @@ export const demoHandlers = [
     http.get(apiPath('/telegram/status'), () =>
         HttpResponse.json({
             success: true,
-            data: { running: false, configured: false },
+            data: { isActive: false, hasToken: true, usersConfigured: false },
         })
     ),
+
+    http.get(apiPath('/telegram/bot-info'), () =>
+        HttpResponse.json({
+            success: true,
+            data: { id: 0, firstName: 'Demo Bot', username: 'demo_bot', openTelegramUrl: 'https://t.me/demo_bot', hasAvatar: false },
+        })
+    ),
+
+    http.get(apiPath('/telegram/bot-avatar'), () => new HttpResponse(null, { status: 404 })),
 
     http.get(apiPath('/post-scrape/config'), () =>
         HttpResponse.json({
@@ -288,7 +344,7 @@ export const demoHandlers = [
         HttpResponse.json({
             success: true,
             data: {
-                botToken: '',
+                botToken: '***demo12345',
                 chatId: '',
                 allowedUsers: [],
             },

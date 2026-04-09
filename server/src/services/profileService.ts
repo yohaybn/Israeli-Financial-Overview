@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import crypto from 'crypto';
-import { Profile } from '@app/shared';
+import { Profile, mergeProfileCredentialsOnUpdate } from '@app/shared';
 import { v4 as uuidv4 } from 'uuid';
 import { appLockService, SECURITY_DIR } from './appLockService.js';
 
@@ -219,9 +219,22 @@ export class ProfileService {
             return null;
         }
 
+        if (data.companyId !== undefined && data.companyId !== existing.companyId) {
+            throw new Error('Changing the provider for a saved profile is not supported.');
+        }
+
+        const companyId = existing.companyId;
+        const mergedCredentials = mergeProfileCredentialsOnUpdate(
+            existing.credentials,
+            data.credentials,
+            companyId
+        );
+
         const updatedData = {
             ...existing,
-            ...data
+            ...data,
+            companyId,
+            credentials: mergedCredentials
         };
 
         const now = new Date().toISOString();

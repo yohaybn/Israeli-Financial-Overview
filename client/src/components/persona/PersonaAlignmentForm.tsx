@@ -21,9 +21,20 @@ export interface PersonaAlignmentFormProps {
     disabled?: boolean;
     /** Slightly tighter spacing for onboarding modal */
     compact?: boolean;
+    /**
+     * When true, includes communication style & reporting depth (normally under Configuration → AI → AI Settings).
+     * Onboarding wizard sets this so first-time setup still captures AI preferences.
+     */
+    includeAiPreferencesSection?: boolean;
 }
 
-export function PersonaAlignmentForm({ value, onChange, disabled, compact }: PersonaAlignmentFormProps) {
+export function PersonaAlignmentForm({
+    value,
+    onChange,
+    disabled,
+    compact,
+    includeAiPreferencesSection = false,
+}: PersonaAlignmentFormProps) {
     const { t } = useTranslation();
     const profile = value.profile ?? {};
     const fg = value.financialGoals ?? {};
@@ -437,35 +448,37 @@ export function PersonaAlignmentForm({ value, onChange, disabled, compact }: Per
                 </div>
             </div>
 
-            <div>
-                <h3 className="text-sm font-black text-slate-800 mb-2">{t('ai_settings.persona.section_ai')}</h3>
-                <div className="space-y-3">
-                    <div>
-                        <label className={label}>{t('ai_settings.persona.communication_style')}</label>
-                        <select
-                            disabled={disabled}
-                            className={select}
-                            value={ap.communicationStyle ?? ''}
-                            onChange={(e) => setAp({ communicationStyle: e.target.value || undefined })}
-                        >
-                            <option value="">{t('ai_settings.persona.placeholder_select')}</option>
-                            {opt('ai_settings.persona.options.communication', PERSONA_COMMUNICATION_OPTIONS)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className={label}>{t('ai_settings.persona.reporting_depth')}</label>
-                        <select
-                            disabled={disabled}
-                            className={select}
-                            value={ap.reportingDepth ?? ''}
-                            onChange={(e) => setAp({ reportingDepth: e.target.value || undefined })}
-                        >
-                            <option value="">{t('ai_settings.persona.placeholder_select')}</option>
-                            {opt('ai_settings.persona.options.depth', PERSONA_REPORTING_DEPTH_OPTIONS)}
-                        </select>
+            {includeAiPreferencesSection && (
+                <div>
+                    <h3 className="text-sm font-black text-slate-800 mb-2">{t('ai_settings.persona.section_ai')}</h3>
+                    <div className="space-y-3">
+                        <div>
+                            <label className={label}>{t('ai_settings.persona.communication_style')}</label>
+                            <select
+                                disabled={disabled}
+                                className={select}
+                                value={ap.communicationStyle ?? ''}
+                                onChange={(e) => setAp({ communicationStyle: e.target.value || undefined })}
+                            >
+                                <option value="">{t('ai_settings.persona.placeholder_select')}</option>
+                                {opt('ai_settings.persona.options.communication', PERSONA_COMMUNICATION_OPTIONS)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={label}>{t('ai_settings.persona.reporting_depth')}</label>
+                            <select
+                                disabled={disabled}
+                                className={select}
+                                value={ap.reportingDepth ?? ''}
+                                onChange={(e) => setAp({ reportingDepth: e.target.value || undefined })}
+                            >
+                                <option value="">{t('ai_settings.persona.placeholder_select')}</option>
+                                {opt('ai_settings.persona.options.depth', PERSONA_REPORTING_DEPTH_OPTIONS)}
+                            </select>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

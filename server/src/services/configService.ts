@@ -79,8 +79,12 @@ export class ConfigService {
             if (!(await fs.pathExists(DASHBOARD_CONFIG_PATH))) {
                 return DEFAULT_DASHBOARD_CONFIG;
             }
-            const content = await fs.readJson(DASHBOARD_CONFIG_PATH);
-            return { ...DEFAULT_DASHBOARD_CONFIG, ...content };
+            const content = (await fs.readJson(DASHBOARD_CONFIG_PATH)) as Partial<DashboardConfig>;
+            const merged = { ...DEFAULT_DASHBOARD_CONFIG, ...content };
+            if (!Array.isArray(merged.customCharts)) {
+                merged.customCharts = DEFAULT_DASHBOARD_CONFIG.customCharts;
+            }
+            return merged;
         } catch (error) {
             console.error('Error reading backend dashboard config:', error);
             return DEFAULT_DASHBOARD_CONFIG;

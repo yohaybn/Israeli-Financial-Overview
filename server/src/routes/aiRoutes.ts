@@ -73,8 +73,8 @@ router.post('/chat', async (req, res) => {
         const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
         const txns = sliceTransactionsForAnalyst(result.transactions, maxRows);
 
-        const answer = await aiService.analyzeData(query, txns);
-        res.json({ success: true, data: answer });
+        const { text: answer, usedFallbackModel } = await aiService.analyzeData(query, txns);
+        res.json({ success: true, data: answer, ...(usedFallbackModel ? { usedFallbackModel } : {}) });
     } catch (error: any) {
         const status = error.status || error.response?.status || 500;
         const code = error.code || error.response?.data?.error?.code || 'INTERNAL_ERROR';
@@ -126,7 +126,6 @@ router.post('/chat/unified', async (req, res) => {
 
         const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
             conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : undefined,
-            temperature: 0.7
         });
         const { factsAdded, insightsAdded, alertsAdded, newAlerts } = mergeAndPersistAiMemory(structured);
         void telegramBotService.notifyNewAiMemoryAlerts(newAlerts);
@@ -137,7 +136,8 @@ router.post('/chat/unified', async (req, res) => {
                 response: structured.response,
                 factsAdded,
                 insightsAdded,
-                alertsAdded
+                alertsAdded,
+                ...(structured.usedFallbackModel ? { usedFallbackModel: structured.usedFallbackModel } : {})
             }
         });
     } catch (error: any) {

@@ -806,7 +806,7 @@ export class PostScrapeService {
                   const fraudQuery = runContext + previousInstruction + baseQuery;
 
                   const useFraudSplit = scope === 'all' && history.length > 0;
-                  const fraudResult = await this.ai.analyzeData(
+                  const { text: fraudResult } = await this.ai.analyzeData(
                     fraudQuery,
                     useFraudSplit ? [] : (transactionsToAnalyze as any),
                     {
@@ -906,7 +906,7 @@ export class PostScrapeService {
               const customQuery = runContext + previousInstruction + cfg.customAI.query + langSuffix;
 
               const useCustomSplit = cfg.customAI.scope === 'all' && customHistory.length > 0;
-              const aiResult = await this.ai.analyzeData(
+              const { text: aiResult } = await this.ai.analyzeData(
                 customQuery,
                 useCustomSplit ? [] : (transactionsToAnalyze as any),
                 {

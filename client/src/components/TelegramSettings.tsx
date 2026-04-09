@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, Square, AlertCircle, CheckCircle, Info, Send, Trash2 } from 'lucide-react';
+import { Play, Square, AlertCircle, CheckCircle, Info, Send, Trash2, ExternalLink } from 'lucide-react';
 import { getApiRoot } from '../lib/api';
 
 interface TelegramSettingsProps {
@@ -25,6 +25,11 @@ function avatarColorClass(id: string): string {
 function avatarLetter(label: string): string {
     const s = label.replace(/^@/, '').trim();
     return (s[0] || '?').toUpperCase();
+}
+
+function botDisplayName(bot: { firstName: string; lastName?: string }): string {
+    const s = [bot.firstName, bot.lastName].filter(Boolean).join(' ').trim();
+    return s || bot.firstName;
 }
 
 function parseAccountsMapFromInput(input: Record<string, string>, ids: string[]): Record<string, string[]> {
@@ -104,10 +109,34 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         refetchInterval: 5000,
     });
 
-    const hasStoredToken = Boolean(
+    const hasSavedToken = Boolean(
         status?.hasToken || (typeof config?.botToken === 'string' && config.botToken.startsWith('***'))
     );
-    const showTokenMask = hasStoredToken && !botToken.trim() && !tokenFieldFocused;
+
+    const {
+        data: botInfo,
+        isLoading: isLoadingBotInfo,
+        isError: isBotInfoError,
+    } = useQuery({
+        queryKey: ['telegramBotInfo'],
+        queryFn: async () => {
+            const res = await fetch(`${getApiRoot()}/telegram/bot-info`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'bot-info failed');
+            return data.data as {
+                id: number;
+                firstName: string;
+                lastName?: string;
+                username?: string;
+                openTelegramUrl: string;
+                hasAvatar: boolean;
+            } | null;
+        },
+        enabled: isEnabled && hasSavedToken && Boolean(status?.isActive),
+        refetchInterval: status?.isActive ? 60_000 : false,
+    });
+
+    const showTokenMask = hasSavedToken && !botToken.trim() && !tokenFieldFocused;
     const tokenInputValue = showTokenMask ? TOKEN_MASK : botToken;
 
     const { data: notificationChats } = useQuery({
@@ -154,6 +183,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
             queryClient.invalidateQueries({ queryKey: ['telegramConfig'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramBotInfo'] });
             showNotification('success', t('telegram.bot_started'));
         },
         onError: (err: any) => {
@@ -173,6 +203,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramBotInfo'] });
             showNotification('success', t('telegram.bot_stopped'));
         },
         onError: (err: any) => {
@@ -195,6 +226,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             queryClient.invalidateQueries({ queryKey: ['telegramConfig'] });
             queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
             queryClient.invalidateQueries({ queryKey: ['telegramNotificationChats'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramBotInfo'] });
             if (typeof variables?.botToken === 'string' && variables.botToken.trim()) {
                 setBotToken('');
                 setTokenFieldFocused(false);
@@ -481,6 +513,57 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                             </div>
                         )}
                     </>
+                )}
+
+                {hasSavedToken && status?.isActive && (
+                    <div className="mb-6 p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <p className="text-xs font-bold tracking-wide text-gray-500 uppercase mb-3">
+                            {t('telegram.bot_identity_title')}
+                        </p>
+                        {isBotInfoError && (
+                            <p className="text-sm text-red-700">{t('telegram.bot_identity_error')}</p>
+                        )}
+                        {isLoadingBotInfo && !isBotInfoError && (
+                            <p className="text-sm text-gray-500">{t('telegram.bot_identity_loading')}</p>
+                        )}
+                        {!isLoadingBotInfo && !isBotInfoError && botInfo === null && (
+                            <p className="text-sm text-gray-600">{t('telegram.bot_identity_unavailable')}</p>
+                        )}
+                        {!isLoadingBotInfo && !isBotInfoError && botInfo && (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                <div className="flex shrink-0 items-center gap-3">
+                                    {botInfo.hasAvatar ? (
+                                        <img
+                                            src={`${getApiRoot()}/telegram/bot-avatar`}
+                                            alt={botDisplayName(botInfo)}
+                                            className="h-16 w-16 rounded-full object-cover border border-slate-200 bg-slate-100"
+                                        />
+                                    ) : (
+                                        <span
+                                            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white ${avatarColorClass(String(botInfo.id))}`}
+                                        >
+                                            {avatarLetter(botDisplayName(botInfo))}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-gray-900 truncate">{botDisplayName(botInfo)}</p>
+                                    {botInfo.username ? (
+                                        <p className="text-sm text-gray-600 truncate">@{botInfo.username}</p>
+                                    ) : null}
+                                    <a
+                                        href={botInfo.openTelegramUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                                    >
+                                        {t('telegram.open_in_telegram')}
+                                        <ExternalLink className="w-4 h-4 shrink-0" aria-hidden />
+                                    </a>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">

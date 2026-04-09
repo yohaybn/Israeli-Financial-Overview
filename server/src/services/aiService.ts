@@ -14,6 +14,7 @@ import {
     type InsightRuleDefinitionV1
 } from '@app/shared';
 import { attachGeminiRateLimitToError } from '../utils/geminiRateLimitCapture.js';
+import { isGeminiRateLimitOrOverloadError } from '../utils/geminiRetryableError.js';
 import fs from 'fs-extra';
 import path from 'path';
 import axios from 'axios';
@@ -49,6 +50,32 @@ export interface AiSettings {
      * 0 = no limit (all rows). Newest-first lists should pass the first N rows after sort.
      */
     analystMaxTransactionRows?: number;
+    /**
+     * Optional alternate Gemini model used for one retry when the primary model returns 429 or 503 (quota / overload).
+     * Should differ from your primary chat and categorization models (often a smaller or different-tier model).
+     */
+    fallbackModel?: string;
+    /** Appended to the user question for analyst calls (dashboard chat, legacy /chat, Telegram). */
+    analyticsPromptExtra?: string;
+    /** Appended to the analyst system instruction (plain and structured JSON replies). */
+    analyticsSystemInstructionExtra?: string;
+    /** Inserted before OUTPUT FORMAT in the categorization prompt. */
+    categorizationPromptExtra?: string;
+    /** Appended to the categorization system instruction. */
+    categorizationSystemInstructionExtra?: string;
+    /** Generation temperature for analyst (0–2). Default 0.7 when unset. */
+    analyticsTemperature?: number;
+    /** Generation temperature for categorization (0–2). Default 0.7 when unset. */
+    categorizationTemperature?: number;
+    /** Optional Gemini topP for analyst (0–1). */
+    analyticsTopP?: number;
+    categorizationTopP?: number;
+    /** Optional Gemini topK for analyst. */
+    analyticsTopK?: number;
+    categorizationTopK?: number;
+    /** Optional max output tokens for analyst. */
+    analyticsMaxOutputTokens?: number;
+    categorizationMaxOutputTokens?: number;
 }
 
 /** One turn in a conversation for multi-turn AI analysis */
@@ -87,7 +114,8 @@ export const AI_TXN_INLINE_MAX_ROWS = 100;
  * `originalAmount` often differs from the posted ILS figure for installment totals vs posted slice, or foreign-currency charges.
  */
 const ANALYZE_TXN_CSV_COLUMN_HINT =
-    'Transaction CSV semantics: `amount` is the charged/posted amount in the account currency (usually ILS), taken from each row\'s charged amount when present (the bank\'s ILS debit/credit). ' +
+    'Transaction CSV semantics: `accountNumber` is the bank/card account identifier for that row. ' +
+    '`amount` is the charged/posted amount in the account currency (usually ILS), taken from each row\'s charged amount when present (the bank\'s ILS debit/credit). ' +
     '`originalAmount` is the source figure when it differs from that posting: either the total for installment / multi-payment purchases (or the plan total as recorded by the bank), or the charge amount in the original foreign currency; use `originalCurrency` together with these columns.';
 
 /** Prefer model `chargedAmount` over `amount` (some exports omit `amount` but include charged ILS). */
@@ -112,6 +140,8 @@ export interface CategorizeTransactionsResult {
      * Use this to apply force recategorization (cache may omit default-bucket answers on purpose).
      */
     descriptionCategories?: Record<string, string>;
+    /** Primary model failed with 429/503; categorization succeeded with {@link AiSettings.fallbackModel}. */
+    usedFallbackModel?: string;
 }
 
 /** Options for {@link AiService.categorizeTransactions}. */
@@ -136,6 +166,14 @@ export interface StructuredChatResult {
     facts: string[];
     insights: ScoredMemoryItem[];
     alerts: ScoredMemoryItem[];
+    /** Set when the request succeeded using {@link AiSettings.fallbackModel} after a 429/503 on the primary model. */
+    usedFallbackModel?: string;
+}
+
+/** Result of {@link AiService.analyzeData} including optional fallback metadata. */
+export interface AnalyzeDataResult {
+    text: string;
+    usedFallbackModel?: string;
 }
 
 function clampScore(n: unknown): number {
@@ -274,6 +312,34 @@ export class AiService {
         if (next.analystMaxTransactionRows !== undefined) {
             next.analystMaxTransactionRows = Math.max(0, Math.min(500_000, Math.floor(Number(next.analystMaxTransactionRows) || 0)));
         }
+        if (next.fallbackModel !== undefined) {
+            const t = String(next.fallbackModel).trim();
+            next.fallbackModel = t || undefined;
+        }
+        const optStr = (v: unknown) => {
+            if (v === null || v === undefined) return undefined;
+            return typeof v === 'string' ? v.trim() || undefined : undefined;
+        };
+        if ('analyticsPromptExtra' in rest) next.analyticsPromptExtra = optStr(rest.analyticsPromptExtra);
+        if ('analyticsSystemInstructionExtra' in rest) next.analyticsSystemInstructionExtra = optStr(rest.analyticsSystemInstructionExtra);
+        if ('categorizationPromptExtra' in rest) next.categorizationPromptExtra = optStr(rest.categorizationPromptExtra);
+        if ('categorizationSystemInstructionExtra' in rest) next.categorizationSystemInstructionExtra = optStr(rest.categorizationSystemInstructionExtra);
+
+        const optFloat = (v: unknown, min: number, max: number): number | undefined => {
+            if (v === undefined || v === null || v === '') return undefined;
+            const n = typeof v === 'number' ? v : Number(v);
+            if (!Number.isFinite(n)) return undefined;
+            return Math.max(min, Math.min(max, n));
+        };
+        if ('analyticsTemperature' in rest) next.analyticsTemperature = optFloat(rest.analyticsTemperature, 0, 2);
+        if ('categorizationTemperature' in rest) next.categorizationTemperature = optFloat(rest.categorizationTemperature, 0, 2);
+        if ('analyticsTopP' in rest) next.analyticsTopP = optFloat(rest.analyticsTopP, 0, 1);
+        if ('categorizationTopP' in rest) next.categorizationTopP = optFloat(rest.categorizationTopP, 0, 1);
+        if ('analyticsTopK' in rest) next.analyticsTopK = optFloat(rest.analyticsTopK, 1, 500);
+        if ('categorizationTopK' in rest) next.categorizationTopK = optFloat(rest.categorizationTopK, 1, 500);
+        if ('analyticsMaxOutputTokens' in rest) next.analyticsMaxOutputTokens = optFloat(rest.analyticsMaxOutputTokens, 1, 65536);
+        if ('categorizationMaxOutputTokens' in rest) next.categorizationMaxOutputTokens = optFloat(rest.categorizationMaxOutputTokens, 1, 65536);
+
         next.categoryMeta = mergeCategoryMeta(next.categories, next.categoryMeta);
         this.settings = next;
         const CONFIG_DIR = path.join(DATA_DIR, 'config');
@@ -281,6 +347,54 @@ export class AiService {
         await fs.writeJson(SETTINGS_FILE, this.settings, { spaces: 2 });
         serverLogger.info(`Settings updated and saved to ${SETTINGS_FILE} `);
         return this.settings;
+    }
+
+    /** Optional shared fallback model name when it differs from the primary model for this call. */
+    private effectiveFallbackModel(primaryModel: string): string | undefined {
+        const fb = this.settings.fallbackModel?.trim();
+        if (!fb || fb === primaryModel) return undefined;
+        return fb;
+    }
+
+    private appendAnalyticsPromptExtra(query: string): string {
+        const extra = this.settings.analyticsPromptExtra?.trim();
+        if (!extra) return query;
+        return `${query}\n\nAdditional instructions:\n${extra}`;
+    }
+
+    private buildAnalyzeDataPlainSystemInstruction(): string {
+        const base =
+            'You are a professional financial analyst. Provide concise, data-driven answers based on provided transaction history. ' +
+            'Do not repeat your previous analysis verbatim; when relevant, refer to prior points briefly and emphasize what is new or changed.';
+        const extra = this.settings.analyticsSystemInstructionExtra?.trim();
+        return extra ? `${base}\n\n${extra}` : base;
+    }
+
+    private analyticsGenerationConfigPlain(options?: AnalyzeDataOptions): Record<string, unknown> {
+        const temperature = options?.temperature ?? this.settings.analyticsTemperature ?? 0.7;
+        const cfg: Record<string, unknown> = { temperature };
+        if (this.settings.analyticsTopP !== undefined) cfg.topP = this.settings.analyticsTopP;
+        if (this.settings.analyticsTopK !== undefined) cfg.topK = this.settings.analyticsTopK;
+        if (this.settings.analyticsMaxOutputTokens !== undefined) cfg.maxOutputTokens = this.settings.analyticsMaxOutputTokens;
+        return cfg;
+    }
+
+    private analyticsGenerationConfigStructured(options?: AnalyzeDataOptions): Record<string, unknown> {
+        return {
+            ...this.analyticsGenerationConfigPlain(options),
+            responseMimeType: 'application/json',
+        };
+    }
+
+    private categorizationGenerationConfig(): Record<string, unknown> {
+        const cfg: Record<string, unknown> = {
+            temperature: this.settings.categorizationTemperature ?? 0.7,
+            responseMimeType: 'application/json',
+        };
+        if (this.settings.categorizationTopP !== undefined) cfg.topP = this.settings.categorizationTopP;
+        if (this.settings.categorizationTopK !== undefined) cfg.topK = this.settings.categorizationTopK;
+        if (this.settings.categorizationMaxOutputTokens !== undefined) cfg.maxOutputTokens = this.settings.categorizationMaxOutputTokens;
+        return cfg;
     }
 
     async getAvailableModels(): Promise<string[]> {
@@ -344,8 +458,6 @@ export class AiService {
 
         serverLogger.info(`Categorizing ${transactions.length} transactions using ${this.settings.categorizationModel}`);
 
-        const model = this.genAI.getGenerativeModel({ model: this.settings.categorizationModel });
-
         // Skip descriptions the user locked in the UI; unless skipCache: only uncached descriptions
         const uncategorized = skipCache
             ? transactions.filter((t) => !this.dbService.descriptionHasUserSetCategory(t.description))
@@ -366,6 +478,7 @@ export class AiService {
 
         // Prepare prompt
         const descriptions = Array.from(new Set(uncategorized.map((t) => t.description)));
+        const catExtra = this.settings.categorizationPromptExtra?.trim();
         const prompt = `
             Analyze the Objective: You are a professional financial assistant specializing in Israeli banking. 
             Your core task is to categorize the following transaction descriptions into the most appropriate category.
@@ -382,6 +495,7 @@ export class AiService {
             DEFAULT CATEGORY:
             Use "${this.settings.defaultCategory}" if you are unsure or if the description doesn't fit any other category.
 
+            ${catExtra ? `Additional instructions:\n${catExtra}\n\n` : ''}
             OUTPUT FORMAT:
             You MUST return the result as a VALID JSON object where:
             - The key is the EXACT transaction description. If the description contains quotes or special characters, you MUST properly escape them in the JSON.
@@ -396,25 +510,32 @@ export class AiService {
             Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
         `;
 
-        let startTime = Date.now();
-        try {
-            serverLogger.info(`Sending request to Gemini model: ${this.settings.categorizationModel}`, {
+        const primary = this.settings.categorizationModel;
+        const categorizationSystemPrompt =
+            `Categorize Israeli bank transactions. Categories: ${this.settings.categories.join(', ')}` +
+            (this.settings.categorizationSystemInstructionExtra?.trim()
+                ? `\n\n${this.settings.categorizationSystemInstructionExtra.trim()}`
+                : '');
+
+        const runCategorizeWithModel = async (modelName: string) => {
+            serverLogger.info(`Sending request to Gemini model: ${modelName}`, {
                 categoryCount: this.settings.categories.length,
                 descriptionCount: descriptions.length
             });
-
-            startTime = Date.now();
+            const genStart = Date.now();
+            const m = this.genAI!.getGenerativeModel({
+                model: modelName,
+                systemInstruction: categorizationSystemPrompt
+            });
             const result = await runWithAILoadTracking(() =>
-                model.generateContent({
+                m.generateContent({
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json"
-                    }
+                    generationConfig: this.categorizationGenerationConfig()
                 })
             );
             const response = await result.response;
             const text = response.text();
-            const latencyMs = Date.now() - startTime;
+            const latencyMs = Date.now() - genStart;
 
             serverLogger.debug(`Gemini raw response: ${text}`);
 
@@ -424,20 +545,73 @@ export class AiService {
                 serverLogger.info(`Received ${Object.keys(categoriesMap).length} categories from AI`);
             } catch (parseError: any) {
                 serverLogger.error(`Failed to parse AI response as JSON: ${parseError.message}`, {
-                    rawText: text.substring(0, 500) // Log part of the response for debugging
+                    rawText: text.substring(0, 500)
                 });
                 throw new Error(`AI categorization returned malformed data: ${parseError.message}`);
             }
 
-            // Log the AI call
-            const usageMetadata = response.usageMetadata;
+            return { categoriesMap, response, latencyMs, modelName };
+        };
+
+        let startTime = Date.now();
+        try {
+            let outcome: Awaited<ReturnType<typeof runCategorizeWithModel>>;
+            let usedFallbackModel: string | undefined;
+
+            try {
+                startTime = Date.now();
+                outcome = await runCategorizeWithModel(primary);
+            } catch (e1: any) {
+                const fb = this.effectiveFallbackModel(primary);
+                if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                    const latencyMs = Date.now() - startTime;
+                    await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
+                        latencyMs,
+                        systemPrompt: categorizationSystemPrompt
+                    });
+                    serverLogger.error(`Categorization failed: ${e1.message}`);
+                    return {
+                        transactions: skipCache
+                            ? transactions.map((t) => ({ ...t }))
+                            : this.mapTransactionsWithCategoryCache(transactions),
+                        aiError: e1.message || String(e1)
+                    };
+                }
+                const latencyMsPrimary = Date.now() - startTime;
+                await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
+                    latencyMs: latencyMsPrimary,
+                    systemPrompt: categorizationSystemPrompt
+                });
+                serverLogger.warn(`Categorization: retrying with fallback model ${fb} after ${primary} was rate limited or overloaded`);
+                startTime = Date.now();
+                try {
+                    outcome = await runCategorizeWithModel(fb);
+                    usedFallbackModel = fb;
+                } catch (e2: any) {
+                    const latencyMs = Date.now() - startTime;
+                    await logAIError(fb, 'gemini', `Categorize ${descriptions.length} descriptions`, e2, {
+                        latencyMs,
+                        systemPrompt: categorizationSystemPrompt
+                    });
+                    serverLogger.error(`Categorization failed (fallback): ${e2.message}`);
+                    return {
+                        transactions: skipCache
+                            ? transactions.map((t) => ({ ...t }))
+                            : this.mapTransactionsWithCategoryCache(transactions),
+                        aiError: e2.message || String(e2)
+                    };
+                }
+            }
+
+            const { categoriesMap, response, latencyMs, modelName } = outcome;
+
             const descriptionsStr = descriptions.join(', ');
             await logAICall({
-                model: this.settings.categorizationModel,
+                model: modelName,
                 provider: 'gemini',
                 requestInfo: {
-                    systemPrompt: `Categorize Israeli bank transactions. Categories: ${this.settings.categories.join(', ')}`,
-                    userInput: descriptionsStr,  // Log full descriptions
+                    systemPrompt: categorizationSystemPrompt,
+                    userInput: descriptionsStr,
                     inputLength: descriptions.length
                 },
                 responseInfo: {
@@ -446,49 +620,37 @@ export class AiService {
                     success: true
                 },
                 metadata: {
-                    promptTokens: usageMetadata?.promptTokenCount,
-                    completionTokens: usageMetadata?.candidatesTokenCount,
-                    totalTokens: usageMetadata?.totalTokenCount,
+                    promptTokens: response.usageMetadata?.promptTokenCount,
+                    completionTokens: response.usageMetadata?.candidatesTokenCount,
+                    totalTokens: response.usageMetadata?.totalTokenCount,
                     latencyMs
                 }
             });
 
-            // Save to DB (when forcing re-categorization, do not store the default bucket — keeps prior cache when the model is unsure)
             for (const [desc, cat] of Object.entries(categoriesMap)) {
                 const c = String(cat);
                 if (this.dbService.descriptionHasUserSetCategory(desc)) continue;
                 if (skipCache && c === this.settings.defaultCategory) continue;
                 this.dbService.setCategory(desc, c);
             }
-            // Object.assign(this.cache, categoriesMap);
-            // await this.saveCache();
-            // serverLogger.info(`Cache saved to ${CACHE_FILE}`);
 
             return {
                 transactions: this.mapTransactionsWithCategoryCache(transactions),
                 ...(skipCache ? { descriptionCategories: categoriesMap } : {}),
+                ...(usedFallbackModel ? { usedFallbackModel } : {})
             };
         } catch (error: any) {
             const latencyMs = Date.now() - (startTime || Date.now());
-
-            // Log the error
-            await logAIError(
-                this.settings.categorizationModel,
-                'gemini',
-                `Categorize ${descriptions.length} descriptions`,
-                error,
-                {
-                    latencyMs,
-                    systemPrompt: `Categorize Israeli bank transactions. Categories: ${this.settings.categories.join(', ')}`
-                }
-            );
-
+            await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, error, {
+                latencyMs,
+                systemPrompt: categorizationSystemPrompt
+            });
             serverLogger.error(`Categorization failed: ${error.message}`);
             return {
                 transactions: skipCache
                     ? transactions.map((t) => ({ ...t }))
                     : this.mapTransactionsWithCategoryCache(transactions),
-                aiError: error.message || String(error),
+                aiError: error.message || String(error)
             };
         }
     }
@@ -570,18 +732,13 @@ export class AiService {
         return `${promptText}\n\n${fileLines}\n\nTotal rows (all attachments): ${totalRows}`;
     }
 
-    async analyzeData(query: string, transactions: Transaction[], options?: AnalyzeDataOptions): Promise<string> {
+    async analyzeData(query: string, transactions: Transaction[], options?: AnalyzeDataOptions): Promise<AnalyzeDataResult> {
         if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
 
         await this.loadSettings();
-        const temperature = options?.temperature ?? 0.7;
-        const systemInstruction =
-            'You are a professional financial analyst. Provide concise, data-driven answers based on provided transaction history. ' +
-            'Do not repeat your previous analysis verbatim; when relevant, refer to prior points briefly and emphasize what is new or changed.';
-        const model = this.genAI.getGenerativeModel({
-            model: this.settings.chatModel,
-            systemInstruction
-        });
+        const effectiveQuery = this.appendAnalyticsPromptExtra(query);
+        const systemInstruction = this.buildAnalyzeDataPlainSystemInstruction();
+        const primaryChat = this.settings.chatModel;
 
         const apiKey = process.env.GEMINI_API_KEY || '';
         const fileManager = new GoogleAIFileManager(apiKey);
@@ -670,7 +827,7 @@ export class AiService {
             ${layout}
             ${ANALYZE_TXN_CSV_COLUMN_HINT}
 
-            Question: ${query}
+            Question: ${effectiveQuery}
             ${newBlock}
             Constraints & Output Format:
             Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
@@ -698,7 +855,7 @@ export class AiService {
                     uploadedFileLog,
                     totalRows
                 );
-                currentPrompt = buildSplitPromptCombinedFile(locale, oldTx.length, newTx.length, totalRows, query);
+                currentPrompt = buildSplitPromptCombinedFile(locale, oldTx.length, newTx.length, totalRows, effectiveQuery);
                 if (up) {
                     userParts = [{ fileData: { mimeType: up.mimeType, fileUri: up.uri } }, { text: currentPrompt }];
                 } else {
@@ -782,7 +939,7 @@ export class AiService {
             The attached CSV file contains all ${transactions.length} transactions (${transactions.length} rows). Use it for the question below.
             ${ANALYZE_TXN_CSV_COLUMN_HINT}
 
-            Question: ${query}
+            Question: ${effectiveQuery}
 
             Constraints & Output Format:
             Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
@@ -795,7 +952,7 @@ export class AiService {
             [Note: CSV is inline because upload to the AI file service failed (e.g. network/DNS/firewall/proxy).]\n\n
             ${ANALYZE_TXN_CSV_COLUMN_HINT}
 
-            Question: ${query}
+            Question: ${effectiveQuery}
 
             ---
             CSV:
@@ -813,7 +970,7 @@ export class AiService {
 
             ${ANALYZE_TXN_CSV_COLUMN_HINT}
             
-            Question: ${query}
+            Question: ${effectiveQuery}
 
             ---
             CSV:
@@ -835,27 +992,72 @@ export class AiService {
         }
         contents.push({ role: 'user', parts: userParts });
 
-        const generationConfig: { temperature?: number } = { temperature };
+        const generationConfig = this.analyticsGenerationConfigPlain(options);
 
         let startTime = Date.now();
         try {
-            startTime = Date.now();
-            const result = await runWithAILoadTracking(() =>
-                model.generateContent({
-                    contents,
-                    generationConfig
-                })
-            );
-            const response = await result.response;
-            const text = response.text();
-            const latencyMs = Date.now() - startTime;
+            const runGeneration = async (chatModelName: string) => {
+                const m = this.genAI!.getGenerativeModel({
+                    model: chatModelName,
+                    systemInstruction
+                });
+                const genStart = Date.now();
+                const result = await runWithAILoadTracking(() =>
+                    m.generateContent({
+                        contents,
+                        generationConfig
+                    })
+                );
+                const response = await result.response;
+                const text = response.text();
+                const latencyMs = Date.now() - genStart;
+                return { text, response, latencyMs, chatModelName };
+            };
+
+            let usedFallbackModel: string | undefined;
+            let outcome: Awaited<ReturnType<typeof runGeneration>>;
+            try {
+                startTime = Date.now();
+                outcome = await runGeneration(primaryChat);
+            } catch (e1: any) {
+                const fb = this.effectiveFallbackModel(primaryChat);
+                if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                    const latencyMs = Date.now() - startTime;
+                    await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                        latencyMs,
+                        systemPrompt: systemInstruction
+                    });
+                    attachGeminiRateLimitToError(e1);
+                    throw e1;
+                }
+                const latencyMsPrimary = Date.now() - startTime;
+                await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                    latencyMs: latencyMsPrimary,
+                    systemPrompt: systemInstruction
+                });
+                serverLogger.warn(`analyzeData: retrying with fallback model ${fb} after ${primaryChat} was rate limited or overloaded`);
+                startTime = Date.now();
+                try {
+                    outcome = await runGeneration(fb);
+                    usedFallbackModel = fb;
+                } catch (e2: any) {
+                    const latencyMs = Date.now() - startTime;
+                    await logAIError(fb, 'gemini', effectiveQuery, e2, {
+                        latencyMs,
+                        systemPrompt: systemInstruction
+                    });
+                    attachGeminiRateLimitToError(e2);
+                    throw e2;
+                }
+            }
+
+            const { text, response, latencyMs, chatModelName } = outcome;
 
             const logInputSummary = this.buildAnalyzeDataLogUserInput(currentPrompt, uploadedFileLog);
 
-            // Log the AI call
             const usageMetadata = response.usageMetadata;
             await logAICall({
-                model: this.settings.chatModel,
+                model: chatModelName,
                 provider: 'gemini',
                 requestInfo: {
                     systemPrompt: systemInstruction,
@@ -875,18 +1077,10 @@ export class AiService {
                 }
             });
 
-            return text;
-        } catch (error: any) {
-            const latencyMs = Date.now() - startTime;
-
-            // Log the error
-            await logAIError(this.settings.chatModel, 'gemini', query, error, {
-                latencyMs,
-                systemPrompt: systemInstruction
-            });
-
-            attachGeminiRateLimitToError(error);
-            throw error;
+            return {
+                text,
+                ...(usedFallbackModel ? { usedFallbackModel } : {})
+            };
         } finally {
             for (const name of uploadedResourceNames) {
                 try {
@@ -933,22 +1127,21 @@ export class AiService {
         if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
 
         await this.loadSettings();
-        const temperature = options?.temperature ?? 0.7;
+        const effectiveQuery = this.appendAnalyticsPromptExtra(query);
         const personaHint =
             this.settings.personaInjectionEnabled !== false &&
             this.settings.userContext &&
             !isUserPersonaEmpty(this.settings.userContext)
                 ? ' Adapt tone, depth, and priorities to the User persona alignment JSON in the user message when present; if it conflicts with stored facts, prefer stored facts.'
                 : '';
-        const systemInstruction =
+        const systemInstructionBase =
             'You are a professional financial analyst. Reply with a single JSON object exactly as specified in the user message. ' +
             'Do not wrap JSON in markdown fences. Do not repeat prior insights verbatim; facts are long-term memory, insights are one-time analytical notes.' +
             personaHint;
+        const sysExtra = this.settings.analyticsSystemInstructionExtra?.trim();
+        const systemInstruction = sysExtra ? `${systemInstructionBase}\n\n${sysExtra}` : systemInstructionBase;
 
-        const model = this.genAI.getGenerativeModel({
-            model: this.settings.chatModel,
-            systemInstruction
-        });
+        const primaryChat = this.settings.chatModel;
 
         const jsonSpec = `
 
@@ -964,7 +1157,7 @@ Respond with one JSON object only (no markdown code fences, no text before or af
 
 Facts are user-editable persistent memory. Insights and alerts are stored with scores for prioritization.`;
 
-        const fullQuery = query + jsonSpec;
+        const fullQuery = effectiveQuery + jsonSpec;
 
         const apiKey = process.env.GEMINI_API_KEY || '';
         const fileManager = new GoogleAIFileManager(apiKey);
@@ -1039,29 +1232,72 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         }
         contents.push({ role: 'user', parts: userParts });
 
-        const generationConfig: {
-            temperature: number;
-            responseMimeType: string;
-        } = { temperature, responseMimeType: 'application/json' };
+        const generationConfig = this.analyticsGenerationConfigStructured(options);
 
         let startTime = Date.now();
         try {
-            startTime = Date.now();
-            const result = await runWithAILoadTracking(() =>
-                model.generateContent({
-                    contents,
-                    generationConfig
-                })
-            );
-            const response = await result.response;
-            const text = response.text();
-            const latencyMs = Date.now() - startTime;
+            const runGeneration = async (chatModelName: string) => {
+                const m = this.genAI!.getGenerativeModel({
+                    model: chatModelName,
+                    systemInstruction
+                });
+                const genStart = Date.now();
+                const result = await runWithAILoadTracking(() =>
+                    m.generateContent({
+                        contents,
+                        generationConfig
+                    })
+                );
+                const response = await result.response;
+                const text = response.text();
+                const latencyMs = Date.now() - genStart;
+                return { text, response, latencyMs, chatModelName };
+            };
+
+            let usedFallbackModel: string | undefined;
+            let outcome: Awaited<ReturnType<typeof runGeneration>>;
+            try {
+                startTime = Date.now();
+                outcome = await runGeneration(primaryChat);
+            } catch (e1: any) {
+                const fb = this.effectiveFallbackModel(primaryChat);
+                if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                    const latencyMs = Date.now() - startTime;
+                    await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                        latencyMs,
+                        systemPrompt: systemInstruction
+                    });
+                    attachGeminiRateLimitToError(e1);
+                    throw e1;
+                }
+                const latencyMsPrimary = Date.now() - startTime;
+                await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                    latencyMs: latencyMsPrimary,
+                    systemPrompt: systemInstruction
+                });
+                serverLogger.warn(`analyzeDataStructured: retrying with fallback model ${fb} after ${primaryChat} was rate limited or overloaded`);
+                startTime = Date.now();
+                try {
+                    outcome = await runGeneration(fb);
+                    usedFallbackModel = fb;
+                } catch (e2: any) {
+                    const latencyMs = Date.now() - startTime;
+                    await logAIError(fb, 'gemini', effectiveQuery, e2, {
+                        latencyMs,
+                        systemPrompt: systemInstruction
+                    });
+                    attachGeminiRateLimitToError(e2);
+                    throw e2;
+                }
+            }
+
+            const { text, response, latencyMs, chatModelName } = outcome;
 
             const logInputSummary = this.buildAnalyzeDataLogUserInput(currentPrompt, uploadedFileLog);
 
             const usageMetadata = response.usageMetadata;
             await logAICall({
-                model: this.settings.chatModel,
+                model: chatModelName,
                 provider: 'gemini',
                 requestInfo: {
                     systemPrompt: systemInstruction,
@@ -1089,7 +1325,8 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                     response: text,
                     facts: [],
                     insights: [],
-                    alerts: []
+                    alerts: [],
+                    ...(usedFallbackModel ? { usedFallbackModel } : {})
                 };
             }
             const resText = typeof parsed.response === 'string' ? parsed.response : '';
@@ -1100,16 +1337,9 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                 response: resText || text,
                 facts,
                 insights,
-                alerts
+                alerts,
+                ...(usedFallbackModel ? { usedFallbackModel } : {})
             };
-        } catch (error: any) {
-            const latencyMs = Date.now() - startTime;
-            await logAIError(this.settings.chatModel, 'gemini', query, error, {
-                latencyMs,
-                systemPrompt: systemInstruction
-            });
-            attachGeminiRateLimitToError(error);
-            throw error;
         } finally {
             for (const name of uploadedResourceNames) {
                 try {
@@ -1125,7 +1355,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
 
         await this.loadSettings();
-        const model = this.genAI.getGenerativeModel({ model: this.settings.categorizationModel });
+        const primaryCat = this.settings.categorizationModel;
 
         const prompt = `
             Analyze the Objective: You are a financial data extraction expert. Your core task is to extract all bank/credit card transactions from the provided text.
@@ -1173,17 +1403,33 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         `;
 
         try {
-            serverLogger.info(`AI Parsing document text (${text.length} chars) using ${this.settings.categorizationModel}`);
-            const result = await runWithAILoadTracking(() =>
-                model.generateContent({
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json"
-                    }
-                })
-            );
-            const response = await result.response;
-            const resText = response.text();
+            const runParseWithModel = async (modelName: string) => {
+                serverLogger.info(`AI Parsing document text (${text.length} chars) using ${modelName}`);
+                const m = this.genAI!.getGenerativeModel({ model: modelName });
+                const result = await runWithAILoadTracking(() =>
+                    m.generateContent({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            responseMimeType: 'application/json'
+                        }
+                    })
+                );
+                const response = await result.response;
+                return response.text();
+            };
+
+            let resText: string;
+            try {
+                resText = await runParseWithModel(primaryCat);
+            } catch (e1: any) {
+                const fb = this.effectiveFallbackModel(primaryCat);
+                if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                    attachGeminiRateLimitToError(e1);
+                    throw e1;
+                }
+                serverLogger.warn(`parseDocument: retrying with fallback model ${fb} after ${primaryCat} was rate limited or overloaded`);
+                resText = await runParseWithModel(fb);
+            }
 
             const extracted = this.extractJson(resText);
 
@@ -1338,7 +1584,17 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
 
         // Define relevant fields to include in the CSV
         // `amount` column uses chargedAmount first so rows with empty `amount` still analyze correctly
-        const headers = ['date', 'description', 'amount', 'originalAmount', 'originalCurrency', 'category', 'memo', 'txnType'];
+        const headers = [
+            'date',
+            'accountNumber',
+            'description',
+            'amount',
+            'originalAmount',
+            'originalCurrency',
+            'category',
+            'memo',
+            'txnType'
+        ];
 
         const csvRows = transactions.map((t) =>
             headers
@@ -1357,7 +1613,18 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
      * Historical + current scrape in one CSV; `scope` is `historical` or `current_scrape`.
      */
     private formatSplitTransactionsForAI(oldTx: Transaction[], newTx: Transaction[]): string {
-        const headers = ['scope', 'date', 'description', 'amount', 'originalAmount', 'originalCurrency', 'category', 'memo', 'txnType'];
+        const headers = [
+            'scope',
+            'date',
+            'accountNumber',
+            'description',
+            'amount',
+            'originalAmount',
+            'originalCurrency',
+            'category',
+            'memo',
+            'txnType'
+        ];
         const dataHeaders = headers.slice(1);
         const cell = (t: Transaction, h: string) =>
             h === 'amount' ? this.escapeCsvCell(this.amountForAnalystCsv(t)) : this.escapeCsvCell((t as any)[h]);
@@ -1442,64 +1709,92 @@ User text:
 ${trimmed}
 ---`;
 
-        const model = this.genAI.getGenerativeModel({
-            model: this.settings.chatModel,
-            systemInstruction
-        });
+        const primaryChat = this.settings.chatModel;
 
         const startTime = Date.now();
+        const runPersonaGen = async (chatModelName: string) => {
+                const m = this.genAI!.getGenerativeModel({
+                    model: chatModelName,
+                    systemInstruction
+                });
+                const genResult = await runWithAILoadTracking(() =>
+                    m.generateContent({
+                        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                        generationConfig: {
+                            temperature: 0.2,
+                            maxOutputTokens: 4096,
+                            responseMimeType: 'application/json'
+                        }
+                    } as Parameters<typeof m.generateContent>[0])
+                );
+                const response = await genResult.response;
+                const text = response.text();
+                return { response, text, chatModelName };
+        };
+
+        let outcome: Awaited<ReturnType<typeof runPersonaGen>>;
         try {
-            const genResult = await runWithAILoadTracking(() =>
-                model.generateContent({
-                    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-                    generationConfig: {
-                        temperature: 0.2,
-                        maxOutputTokens: 4096,
-                        responseMimeType: 'application/json'
-                    }
-                } as Parameters<typeof model.generateContent>[0])
-            );
-            const response = await genResult.response;
-            const text = response.text();
-            let parsed: unknown;
-            try {
-                parsed = JSON.parse(text);
-            } catch {
-                const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-                parsed = JSON.parse(fence ? fence[1].trim() : text.trim());
+            outcome = await runPersonaGen(primaryChat);
+        } catch (e1: any) {
+            const fb = this.effectiveFallbackModel(primaryChat);
+            if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                const err = e1 instanceof Error ? e1 : new Error(String(e1));
+                await logAIError(primaryChat, 'gemini', '[persona extract]', err, {
+                    latencyMs: Date.now() - startTime,
+                    systemPrompt: systemInstruction
+                });
+                attachGeminiRateLimitToError(err);
+                throw err;
             }
-            const normalized = normalizePersonaExtractFromAi(parsed);
-            const usageMetadata = response.usageMetadata;
-            await logAICall({
-                model: this.settings.chatModel,
-                provider: 'gemini',
-                requestInfo: {
-                    systemPrompt: systemInstruction,
-                    userInput: `[persona extract] ${trimmed.length} chars`,
-                    inputLength: trimmed.length
-                },
-                responseInfo: {
-                    rawOutput: JSON.stringify(normalized),
-                    finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
-                    success: true
-                },
-                metadata: {
-                    promptTokens: usageMetadata?.promptTokenCount,
-                    completionTokens: usageMetadata?.candidatesTokenCount,
-                    totalTokens: usageMetadata?.totalTokenCount,
-                    latencyMs: Date.now() - startTime
-                }
-            });
-            return normalized;
-        } catch (error: unknown) {
-            const err = error instanceof Error ? error : new Error(String(error));
-            await logAIError(this.settings.chatModel, 'gemini', '[persona extract]', err, {
+            await logAIError(primaryChat, 'gemini', '[persona extract]', e1 instanceof Error ? e1 : new Error(String(e1)), {
                 latencyMs: Date.now() - startTime,
                 systemPrompt: systemInstruction
             });
-            attachGeminiRateLimitToError(err);
-            throw err;
+            serverLogger.warn(`extractPersonaFromNarrative: retrying with fallback model ${fb}`);
+            try {
+                outcome = await runPersonaGen(fb);
+            } catch (e2: any) {
+                const err = e2 instanceof Error ? e2 : new Error(String(e2));
+                await logAIError(fb, 'gemini', '[persona extract]', err, {
+                    latencyMs: Date.now() - startTime,
+                    systemPrompt: systemInstruction
+                });
+                attachGeminiRateLimitToError(err);
+                throw err;
+            }
         }
+
+        const { response, text, chatModelName } = outcome;
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(text);
+        } catch {
+            const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+            parsed = JSON.parse(fence ? fence[1].trim() : text.trim());
+        }
+        const normalized = normalizePersonaExtractFromAi(parsed);
+        const usageMetadata = response.usageMetadata;
+        await logAICall({
+            model: chatModelName,
+            provider: 'gemini',
+            requestInfo: {
+                systemPrompt: systemInstruction,
+                userInput: `[persona extract] ${trimmed.length} chars`,
+                inputLength: trimmed.length
+            },
+            responseInfo: {
+                rawOutput: JSON.stringify(normalized),
+                finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                success: true
+            },
+            metadata: {
+                promptTokens: usageMetadata?.promptTokenCount,
+                completionTokens: usageMetadata?.candidatesTokenCount,
+                totalTokens: usageMetadata?.totalTokenCount,
+                latencyMs: Date.now() - startTime
+            }
+        });
+        return normalized;
     }
 
     /**
@@ -1509,6 +1804,7 @@ ${trimmed}
         if (!this.genAI) {
             throw new Error(AI_CATEGORIZATION_NO_API_KEY);
         }
+        await this.loadSettings();
         const trimmed = userDescription.trim();
         if (!trimmed) {
             throw new Error('Description required');
@@ -1555,70 +1851,98 @@ Prefer bilingual message.en and message.he.`;
 
         const userPrompt = `User request:\n---\n${trimmed}\n---`;
 
-        const model = this.genAI.getGenerativeModel({
-            model: this.settings.chatModel,
-            systemInstruction,
-        });
+        const primaryChat = this.settings.chatModel;
 
         const startTime = Date.now();
-        try {
+        const runDraftGen = async (chatModelName: string) => {
+            const m = this.genAI!.getGenerativeModel({
+                model: chatModelName,
+                systemInstruction,
+            });
             const genResult = await runWithAILoadTracking(() =>
-                model.generateContent({
+                m.generateContent({
                     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                     generationConfig: {
                         temperature: 0.3,
                         maxOutputTokens: 2048,
                         responseMimeType: 'application/json',
                     },
-                } as Parameters<typeof model.generateContent>[0])
+                } as Parameters<typeof m.generateContent>[0])
             );
             const response = await genResult.response;
             const text = response.text();
-            let parsed: unknown;
-            try {
-                parsed = JSON.parse(text);
-            } catch {
-                const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-                parsed = JSON.parse(fence ? fence[1].trim() : text.trim());
-            }
-            const obj = parsed as { name?: string; definition?: unknown };
-            if (typeof obj.name !== 'string' || !obj.name.trim()) {
-                throw new Error('Model did not return a valid name');
-            }
-            const defParsed = parseInsightRuleDefinition(obj.definition);
-            if (!defParsed.ok) {
-                throw new Error(defParsed.error);
-            }
-            const usageMetadata = response.usageMetadata;
-            await logAICall({
-                model: this.settings.chatModel,
-                provider: 'gemini',
-                requestInfo: {
-                    systemPrompt: systemInstruction,
-                    userInput: `[insight rule draft] ${trimmed.length} chars`,
-                    inputLength: trimmed.length,
-                },
-                responseInfo: {
-                    rawOutput: JSON.stringify({ name: obj.name, definition: defParsed.value }),
-                    finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
-                    success: true,
-                },
-                metadata: {
-                    promptTokens: usageMetadata?.promptTokenCount,
-                    completionTokens: usageMetadata?.candidatesTokenCount,
-                    totalTokens: usageMetadata?.totalTokenCount,
+            return { response, text, chatModelName };
+        };
+
+        let outcome: Awaited<ReturnType<typeof runDraftGen>>;
+        try {
+            outcome = await runDraftGen(primaryChat);
+        } catch (e1: any) {
+            const fb = this.effectiveFallbackModel(primaryChat);
+            if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                const err = e1 instanceof Error ? e1 : new Error(String(e1));
+                await logAIError(primaryChat, 'gemini', '[insight rule draft]', err, {
                     latencyMs: Date.now() - startTime,
-                },
-            });
-            return { name: obj.name.trim(), definition: defParsed.value };
-        } catch (error: unknown) {
-            const err = error instanceof Error ? error : new Error(String(error));
-            await logAIError(this.settings.chatModel, 'gemini', '[insight rule draft]', err, {
+                    systemPrompt: systemInstruction,
+                });
+                attachGeminiRateLimitToError(err);
+                throw err;
+            }
+            await logAIError(primaryChat, 'gemini', '[insight rule draft]', e1 instanceof Error ? e1 : new Error(String(e1)), {
                 latencyMs: Date.now() - startTime,
                 systemPrompt: systemInstruction,
             });
-            attachGeminiRateLimitToError(err);
-            throw err;
+            serverLogger.warn(`suggestInsightRuleDraft: retrying with fallback model ${fb}`);
+            try {
+                outcome = await runDraftGen(fb);
+            } catch (e2: any) {
+                const err = e2 instanceof Error ? e2 : new Error(String(e2));
+                await logAIError(fb, 'gemini', '[insight rule draft]', err, {
+                    latencyMs: Date.now() - startTime,
+                    systemPrompt: systemInstruction,
+                });
+                attachGeminiRateLimitToError(err);
+                throw err;
+            }
         }
+
+        const { response, text, chatModelName } = outcome;
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(text);
+        } catch {
+            const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+            parsed = JSON.parse(fence ? fence[1].trim() : text.trim());
+        }
+        const obj = parsed as { name?: string; definition?: unknown };
+        if (typeof obj.name !== 'string' || !obj.name.trim()) {
+            throw new Error('Model did not return a valid name');
+        }
+        const defParsed = parseInsightRuleDefinition(obj.definition);
+        if (!defParsed.ok) {
+            throw new Error(defParsed.error);
+        }
+        const usageMetadata = response.usageMetadata;
+        await logAICall({
+            model: chatModelName,
+            provider: 'gemini',
+            requestInfo: {
+                systemPrompt: systemInstruction,
+                userInput: `[insight rule draft] ${trimmed.length} chars`,
+                inputLength: trimmed.length,
+            },
+            responseInfo: {
+                rawOutput: JSON.stringify({ name: obj.name, definition: defParsed.value }),
+                finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                success: true,
+            },
+            metadata: {
+                promptTokens: usageMetadata?.promptTokenCount,
+                completionTokens: usageMetadata?.candidatesTokenCount,
+                totalTokens: usageMetadata?.totalTokenCount,
+                latencyMs: Date.now() - startTime,
+            },
+        });
+        return { name: obj.name.trim(), definition: defParsed.value };
     }
 }

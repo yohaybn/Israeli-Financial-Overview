@@ -11,8 +11,24 @@ export {
 } from './schedulerSchedule.js';
 export { DEFAULT_BACKUP_SCHEDULE, DEFAULT_DASHBOARD_CONFIG, DEFAULT_SCHEDULER_CONFIG } from './types.js';
 export * from './providers.js';
+export {
+    getSensitiveCredentialFieldNames,
+    isSensitiveCredentialKey,
+    mergeProfileCredentialsOnUpdate,
+    sanitizeProfileForClient,
+} from './profileCredentials.js';
 export * from './isInternalTransfer.js';
 export { isTransactionIgnored } from './isTransactionIgnored.js';
+export { isLoanExpenseCategory } from './loanCategory.js';
+export {
+    buildCategoryExpenseSlices,
+    type CategoryExpenseSlice,
+} from './analytics/categoryExpenseSlices.js';
+export {
+    CATEGORY_COLORS,
+    CATEGORY_COLOR_PALETTE,
+    getColorForCategory,
+} from './analytics/categoryColors.js';
 export {
     DEFAULT_EXPENSE_CATEGORY,
     expenseCategoryKey,
