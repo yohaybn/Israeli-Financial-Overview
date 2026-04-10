@@ -56,6 +56,9 @@ RUN npm run build -w server
 # shared has only devDependencies; prune can remove shared/node_modules entirely, which breaks COPY below.
 RUN npm prune --omit=dev && mkdir -p shared/node_modules
 
+# sharp: restore linux-x64 optional deps after monorepo prune (fixes "Could not load sharp using linux-x64 runtime").
+RUN npm install --no-save --os=linux --cpu=x64 --libc=glibc sharp -w server
+
 
 # --- Production Stage ---
 FROM node:20-slim

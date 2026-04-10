@@ -43,6 +43,8 @@ RUN npm run build -w server
 ENV NODE_ENV=production
 RUN npm prune --production
 
+RUN npm install --no-save --os=linux --cpu=x64 sharp -w server
+
 # Link to run.sh
 COPY ha-addon/run.sh /
 RUN chmod a+x /run.sh
