@@ -1,20 +1,102 @@
-# Financial Overview (מבט כלכלי)
+# מבט כלכלי · Financial Overview
 
-Self-hosted tool to pull transactions from Israeli banks and credit cards, explore and categorize them in a web UI, export to CSV/JSON or Google Sheets, and automate runs with optional Telegram notifications and AI-assisted workflows.
+---
 
-**Preferred setup:** use the in-app **setup wizard** (onboarding) to configure Telegram, Gemini, Google OAuth/Drive, and **app lock**—the same password derives the key that **encrypts saved bank profiles**.
+## בעברית
 
-## What you get
+### מה זה?
+
+**מבט כלכלי** הוא כלי שרץ אצלך במחשב או בשרת הביתי (ולא בענן של חברה אחרת), ועוזר לך לאסוף את התנועות מהבנקים ובכרטיסי האשראי בישראל, לראות אותן במקום אחד, ולהבין איך נראים ההכנסות וההוצאות שלך לאורך זמן.
+
+המטרה היא פשוטה: פחות להתעסק עם קבצים ואקסלים מפוזרים, ויותר תמונה ברורה של הכסף שלך — עם אפשרות לסווג, לייצא, ולקבל עדכונים כשאתה רוצה.
+
+**קישורים:** [דמו — ממשק לדוגמה בדפדפן](https://yohaybn.github.io/Israeli-Financial-Overview/) (נתונים לדוגמה בלבד, בלי חיבור לבנק) · [מדריך התקנה — Windows](https://yohaybn.github.io/Israeli-Financial-Overview/install/)
+
+### מה אפשר לעשות איתו (בקצרה)
+
+- **למשוך נתונים מהבנק והאשראי** — הרצה מתוזמנת או ידנית, עם מעקב אחרי ההתקדמות במסך.
+- **לוח בקרה** — סיכומים חודשיים, הכנסות והוצאות, מנויים חוזרים, ותצוגות שמסייעות לראות דפוסים.
+- **לחקור ולסווג** — עבודה עם תוצאות מרובות, סינונים, וסיוע בקטגוריזציה (כולל אפשרות לעבוד עם בינה מלאכותית לניתוח ושיחה, לפי הגדרותיך).
+- **ייצוא** — ל־CSV, JSON או לגיליונות Google, כדי שתוכל להמשיך לעבוד איפה שמתאים לך.
+- **שפות** — ממשק בעברית ובאנגלית, כולל תמיכה בכיוון כתיבה (ימין־שמאל / שמאל־ימין).
+- **התראות בטלגרם** — אופציונלי, כדי לקבל עדכונים או לבצע פעולות דרך הבוט (לפי ההגדרות שבחרת).
+- **נעילת אפליקציה** — סיסמה שמגנה על הסשן ומסייעת להצפין את פרטי ההתחברות לבנקים שנשמרים אצלך במכשיר (ראו מדריך והערות אבטחה למטה).
+
+כל זה מיועד ל**שימוש אישי וביתי** — אתה שולט איפה הנתונים נשמרים ואיך ניגשים אליהם.
+
+---
+
+## In English
+
+### What is it?
+
+**Financial Overview** is a **self-hosted** tool: it runs on **your** computer or home server, not on someone else’s cloud. It helps you **pull transactions** from Israeli banks and credit cards, see them in **one place**, and understand your **income and spending** over time.
+
+The idea is straightforward: less juggling spreadsheets and scattered exports, and a clearer picture of your money — with optional **categorization**, **export**, and **notifications** when you want them.
+
+**Links:** [Live demo](https://yohaybn.github.io/Israeli-Financial-Overview/) (sample data in the browser — **not** connected to your bank) · [Installation guide — Windows](https://yohaybn.github.io/Israeli-Financial-Overview/install/)
+
+### Main features (at a glance)
+
+- **Fetch bank & card data** — run on a schedule or on demand, with live progress in the UI.
+- **Dashboard** — monthly summaries, income and expenses, recurring charges, and views that help spot patterns.
+- **Explore & categorize** — work across multiple result sets, filter, and optional **AI-assisted** workflows (categorization and chat), according to your settings.
+- **Export** — to **CSV**, **JSON**, or **Google Sheets** so you can keep working where you prefer.
+- **Languages** — **English** and **Hebrew** with proper LTR/RTL layout.
+- **Telegram** (optional) — updates and bot commands, depending on how you configure it.
+- **App lock** — a password that protects your session and helps **encrypt saved bank profile credentials** on disk (see the user guide and security notes below).
+
+This is aimed at **personal / home** use: **you** choose where data lives and how it is accessed.
+
+---
+
+<a id="windows-install"></a>
+
+## התקנה ב־Windows (בלי מומחי מחשבים)
+
+אם אתם משתמשים ב־**Windows**, הדרך הפשוטה ביותר היא להוריד את **קובץ ההתקנה** (סיומת `.exe`) מדף ה־**Releases** בפרויקט ב־GitHub, ולהפעיל אותו כמו כל תוכנה רגילה.
+
+- **אין צורך להתקין Node.js או Docker** — ההתקנה מכילה את כל מה שהאפליקציה צריכה כדי לרוץ במחשב שלכם.
+- אחרי ההתקנה תמצאו את **מבט כלכלי** בתפריט התחל; בפתיחה נפתח חלון של האפליקציה עם המסכים — בדרך כלל **לא צריך לפתוח דפדפן בנפרד**.
+- ליד השעון (מגש המערכת) מופיעה **אייקון קטן**. אם **סוגרים את החלון** והאפליקציה נשארת ברקע — זה נורמלי: כך פעולות מתוזמנות (למשל משיכת נתונים) והתראות בטלגרם יכולות להמשיך לעבוד. כדי **לסגור לגמרי**, השתמשו באפשרות יציאה מהתפריט של האייקון (למשל "יציאה" / עצירת השרת).
+- אם Windows מציג אזהרה בזמן ההתקנה (למשל SmartScreen) — זה קורה לעיתים בתוכנות שלא חתומות בידי חברות גדולות; עקבו אחרי ההוראות במדריך או בדף ההתקנה הרשמי.
+- למשיכת נתונים מהבנק נדרש **דפדפן כרום או אדג'** מותקן במחשב (Chrome או Edge) — בלי זה החיבור לבנק עלול לא לעבוד.
+
+**מדריך מפורט עם צילומי מסך (עברית / אנגלית):**  
+[מדריך התקנה — GitHub Pages](https://yohaybn.github.io/Israeli-Financial-Overview/install/)
+
+---
+
+## Installing on Windows (no tech background needed)
+
+On **Windows**, the straightforward path is to download the **installer** (a file ending in `.exe`) from the project’s **Releases** page on GitHub, then run it like any normal desktop program.
+
+- **You do not need to install Node.js or Docker** — the installer bundles what the app needs to run on your PC.
+- After setup, open **Financial Overview** from the Start menu. The app opens in its **own window** — you usually **do not need a separate browser tab**.
+- Look for a **small icon** near the clock (the system tray). If **closing the window** leaves the app running in the background, that is intentional: **scheduled tasks** (for example automatic bank updates) and **Telegram** notifications can keep working. To **fully quit**, use the tray menu (for example **Quit** / stop server).
+- If Windows shows a **security warning** during install (for example SmartScreen), that can happen with apps not signed like big commercial vendors; follow the steps in the official install guide if you trust this software.
+- **Google Chrome** or **Microsoft Edge** must be installed on the PC for bank login flows — the app relies on a Chromium-based browser that is typically provided by Chrome or Edge on Windows.
+
+**Step-by-step guide with screenshots (English / Hebrew):**  
+[Installation guide — GitHub Pages](https://yohaybn.github.io/Israeli-Financial-Overview/install/)
+
+---
+
+## Technical overview & setup
+
+**Preferred setup:** use the in-app **setup wizard** (onboarding) to configure Telegram, Gemini, Google OAuth/Drive, and **app lock** — the same password derives the key that **encrypts saved bank profiles**.
+
+### What you get (detail)
 
 | Area | Highlights |
 |------|------------|
-| **Web UI** | Dashboard (monthly income/expenses, subscriptions, analytics, AI chat), Scrape with live progress, Results explorer (multi-file, filters, AI categorization), structured **Logs** (server/client/AI/scrape), **Configuration** (AI with **persona** alignment and **AI memory**—stored facts, insights, alerts; scheduler, scrape/fraud, Google, Telegram, maintenance). |
+| **Web UI** | Dashboard (monthly income/expenses, subscriptions, analytics, AI chat), Scrape with live progress, Results explorer (multi-file, filters, AI categorization), structured **Logs** (server/client/AI/scrape), **Configuration** (AI with **persona** alignment and **AI memory** — stored facts, insights, alerts; scheduler, scrape/fraud, Google, Telegram, maintenance). |
 | **Languages** | English and Hebrew with LTR/RTL. |
-| **App lock & profiles** | **App lock** (min. 8 characters) protects the session and **encrypts stored profile credentials**. You can use most of the app (dashboard, logs, configuration, exploring results) **without** unlocking; **running scrapes** and **creating/editing saved bank profiles** require the app to be **unlocked** when app lock is enabled. **Forgot password:** encrypted profiles cannot be recovered—you must **delete those profiles** and **re-enter** bank credentials after resetting lock (see **[GUIDE.html](client/public/GUIDE.html)**). |
+| **App lock & profiles** | **App lock** (min. 8 characters) protects the session and **encrypts stored profile credentials**. You can use most of the app (dashboard, logs, configuration, exploring results) **without** unlocking; **running scrapes** and **creating/editing saved bank profiles** require the app to be **unlocked** when app lock is enabled. **Forgot password:** encrypted profiles cannot be recovered — you must **delete those profiles** and **re-enter** bank credentials after resetting lock (see **[GUIDE.html](client/public/GUIDE.html)**). |
 | **Integrations** | Google OAuth → Drive/Sheets; **Gemini** for categorization and analyst chat; **Telegram** bot — see **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** (commands, notifications, optional `/unlock` when the UI is locked). |
 | **Deployment** | Docker / Compose, **Home Assistant** add-on, **Windows** installer (see below), local **Node** monorepo for development. |
 
-## Repository layout
+### Repository layout
 
 This repo is an **npm workspace** monorepo:
 
@@ -22,7 +104,7 @@ This repo is an **npm workspace** monorepo:
 - **`server/`** — API, scraping orchestration, persistence.
 - **`client/`** — Vite + React UI (also buildable as a static **demo** with mocked APIs).
 
-## Quick start (local development)
+### Quick start (local development)
 
 From the repository root:
 
@@ -33,7 +115,7 @@ npm run dev
 
 This runs the API and the Vite dev client together (see root `package.json`). The UI is typically served on **`http://127.0.0.1:5173`** with the API proxied; for Docker/Home Assistant the app is often exposed on **port 3000** (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 
-## Docker
+### Docker
 
 ```bash
 docker-compose up --build
@@ -54,7 +136,7 @@ docker build \
 
 CI workflows set `VITE_APP_BUILD_VERSION` and `VITE_INSTALL_KIND` automatically where applicable.
 
-## Home Assistant add-on
+### Home Assistant add-on
 
 1. Add this repository in **Settings → Add-ons → Add-on Store → Repositories**.
 2. Install **Financial Overview** and configure OAuth/Drive (and other options) in the add-on **Configuration** tab.
@@ -62,42 +144,32 @@ CI workflows set `VITE_APP_BUILD_VERSION` and `VITE_INSTALL_KIND` automatically 
 
 Details: [DEPLOYMENT.md](DEPLOYMENT.md).
 
-## Windows desktop app (single installer)
+### Windows installer (maintainers — build from source)
 
-For a **one-file** distribution on Windows, build an installer that bundles the production server, the built web UI, **npm dependencies** (after pruning dev tools), and a **portable Node.js** runtime—users do **not** install Node separately.
+End-user steps are in the **[Windows install section](#windows-install)** above; this block is for **packaging** the `.exe`.
 
-**Maintainers — create the package and installer**
+The Windows build produces a **single installer** that bundles the production server, the built web UI, pruned **npm** dependencies, and a **portable Node.js** — end users do **not** install Node separately.
 
-1. On **Windows x64**, from the repo root: `npm run windows:package` (or run [`packaging/windows/package.ps1`](packaging/windows/package.ps1)). This produces `dist/windows-package/`.
-2. Build the desktop shell: `npm run electron:dist` (or **`npm run windows:electron`** to run steps 1 and 2 together). This produces **`dist/electron-win/FinancialOverview-Windows-Setup-<version>.exe`** (electron-builder **NSIS**; installs **`FinancialOverview.exe`** + server under `resources/`). Optional legacy [Inno Setup](https://jrsoftware.org/isinfo.php) wrapper: [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) (not used in CI).
-3. **GitHub Releases:** publish a **release** (e.g. tag `v1.0.0`). The [Windows package workflow](.github/workflows/windows-package.yml) runs on **`release: published`**, builds the zip and installer, and **uploads `windows-package.zip` and `FinancialOverview-Windows-Setup-<version>.exe`**. You can also run the workflow manually from the **Actions** tab (`workflow_dispatch`).
+1. On **Windows x64**, from the repo root: `npm run windows:package` (or [`packaging/windows/package.ps1`](packaging/windows/package.ps1)) → `dist/windows-package/`.
+2. Build the Electron shell: `npm run electron:dist`, or **`npm run windows:electron`** for both steps → **`dist/electron-win/FinancialOverview-Windows-Setup-<version>.exe`** (NSIS; installs **`FinancialOverview.exe`** + server under `resources/`). Optional legacy [Inno Setup](https://jrsoftware.org/isinfo.php): [`packaging/windows/FinancialOverview.iss`](packaging/windows/FinancialOverview.iss) (not used in CI).
+3. **GitHub Releases:** on **`release: published`**, [windows-package workflow](.github/workflows/windows-package.yml) uploads **`windows-package.zip`** and **`FinancialOverview-Windows-Setup-<version>.exe`** (or run manually via **Actions** → `workflow_dispatch`).
 
-**End users**
+**Advanced (optional):** default app URL is **`http://127.0.0.1:3000`**. To change **port** or **data folder**, edit **`financial-overview.json`** in the install directory (see [`financial-overview.json.example`](financial-overview.json.example)); `PORT` / `DATA_DIR` env vars override the file. See [DEPLOYMENT.md](DEPLOYMENT.md). Packaging skips bundling Puppeteer’s Chromium — **Chrome** or **Edge** on the machine is expected (or customize the build — [packaging/windows/README.md](packaging/windows/README.md)).
 
-Step-by-step (download, SmartScreen, **desktop app + tray**, background operation for scheduler/Telegram, app lock, Gemini): **[Installation guide on GitHub Pages](https://yohaybn.github.io/Israeli-Financial-Overview/install/)** (English / Hebrew).
-
-1. Download **`FinancialOverview-Windows-Setup-<version>.exe`** from Releases and run it (default install folder is often under `%LocalAppData%\FinancialOverview`).
-2. Start **`Financial Overview`** from the Start menu (runs **`FinancialOverview.exe`**). The UI opens in an app window; a **tray icon** appears. **Close to tray** keeps the server running when you close the window (for scheduled scrapes and Telegram); use **Quit (stop server)** from the tray to exit fully. Optional: **Open in browser (localhost)** or **`launch-FinancialOverview.cmd`** (console stays open; no tray).
-3. Default URL is **`http://127.0.0.1:3000`** (default **port** `3000`). With the desktop app you usually do not need a separate browser tab.
-4. **Port and data folder:** edit **`financial-overview.json`** in the install folder (a default file is included; see [`financial-overview.json.example`](financial-overview.json.example)). Set **`port`** and optional **`dataDir`** (Windows paths can use `%APPDATA%`, etc.). **Environment variables** (`PORT`, `DATA_DIR`) override the file if set. See [DEPLOYMENT.md](DEPLOYMENT.md).
-5. **Bank scraping** uses a Chromium-based browser. The Windows build skips downloading Puppeteer’s browser during packaging; install **Google Chrome** or **Microsoft Edge** on the PC (or run `npm install` in the repo without `PUPPETEER_SKIP_DOWNLOAD` before packaging if you need a bundled Chromium).
-
-Full maintainer notes: [packaging/windows/README.md](packaging/windows/README.md).
-
-## GitHub Pages (demo UI + installation guide)
+### GitHub Pages (demo UI + installation guide)
 
 The workflow in `.github/workflows/pages.yml` publishes:
 
 - A **static demo** (`VITE_DEMO=true`, in-browser API mocks, sample data). It does **not** connect to banks or your server. Full functionality requires the server stack above.
 - A bilingual **installation guide** (English / Hebrew) for the Windows installer: **`/install/`** on your GitHub Pages site (e.g. [https://yohaybn.github.io/Israeli-Financial-Overview/install/](https://yohaybn.github.io/Israeli-Financial-Overview/install/) after Pages is enabled). It covers the **Electron desktop app**, **system tray**, **close-to-tray / background** (scheduler & Telegram), and the legacy console workflow. Screenshots live under [`client/public/install/screenshots/`](client/public/install/screenshots/) and are copied into the Pages build with the rest of `client/public/`.
 
-## Dashboard behavior (recent logic)
+### Dashboard behavior (recent logic)
 
 For the **current calendar month**, positive **completed** transactions whose **posting date is after today** are treated as **expected inflow** (not yet received), together with pending income and detected recurring income. The same rules feed **Telegram digests** via shared code so server and UI stay consistent.
 
 On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **start collapsed**; on wider screens they start expanded.
 
-## Documentation in this repo
+### Documentation in this repo
 
 | Doc | Purpose |
 |-----|---------|
@@ -112,28 +184,32 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | **[financial-overview.json.example](financial-overview.json.example)** | Optional install-local JSON (`port`, `dataDir`) read by the server (copy to `financial-overview.json`). |
 | **[server/src/index.ts](server/src/index.ts)** | Mounts REST routes under `/api/*` (see `server/src/routes/`). Health: `GET /api/health`. |
 
-## API
+### API
 
 REST JSON under **`/api/*`** (Express). Route modules live in **`server/src/routes/`**; **`server/src/index.ts`** shows how they are mounted. **`GET /api/health`** returns `{ status, version }`.
 
-## Security & encryption (at rest)
+### Security & encryption (at rest)
 
 | What | How |
 |------|-----|
-| **Saved bank profile credentials** | **AES-256-GCM** on disk under `data/profiles/` (each profile’s `credentials` field). The key is derived from your **app lock password** with **scrypt** (salt stored in `data/security/app-lock.json`). The password itself is **not** stored—only a **scrypt hash** for verification. |
+| **Saved bank profile credentials** | **AES-256-GCM** on disk under `data/profiles/` (each profile’s `credentials` field). The key is derived from your **app lock password** with **scrypt** (salt stored in `data/security/app-lock.json`). The password itself is **not** stored — only a **scrypt hash** for verification. |
 | **In memory** | While the app is **unlocked**, the derived AES key exists only in server memory; it is **not** written to disk. |
 | **Not encrypted by the application** | **Gemini / OAuth / Telegram** secrets in `runtime-settings.json` and config JSON; **SQLite** (`app.db`) for transactions and AI memory; scrape **results** and other files under **`DATA_DIR`**. Treat the whole data directory as sensitive and use **OS permissions** and optional **full-disk encryption**. |
 | **Backups** | Local/Drive snapshots copy the same on-disk representation (encrypted profile blobs stay encrypted; plaintext config stays plaintext). |
 
 Default deployment uses **HTTP** to localhost; use a **reverse proxy with TLS** if you expose the UI beyond trusted networks.
 
-### Threat model (credentials vs. local access)
+#### Threat model (credentials vs. local access)
 
-- **Best practice:** **Unlock** only to **run a scrape** or **add/edit a saved profile**, then **lock again**—this keeps the derived encryption key in memory for the **shortest** time. See **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)** for when locking **does** and **does not** stop credential access.
-- **Bank logins (saved profiles):** Meaningful protection requires **app lock** with a **strong password**. If you **never** enable app lock, the app may use a **fixed fallback key** published in source—**anyone who can read `data/profiles/` can recover credentials.** With app lock, an attacker needs your **password**, an **unlocked** session, or **offline cracking** of the lock file (e.g. after **stolen disk**), not just a folder copy alone.
-- **Transaction history & scrape data:** Stored in **SQLite** (`app.db`) and **`data/results/`**—**not** app-encrypted. Anyone with read access to **`DATA_DIR`** can read **transactions** and **config secrets** (Gemini, Telegram, OAuth) even **without** the app lock password. **App lock does not hide the database from someone who can open files.**
-- **Remote “hackers”** need a path to your machine (**malware**, **exposed port**, **stolen backup**, etc.)—they do not magically read localhost. Full detail: **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)**.
+- **Best practice:** **Unlock** only to **run a scrape** or **add/edit a saved profile**, then **lock again** — this keeps the derived encryption key in memory for the **shortest** time. See **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)** for when locking **does** and **does not** stop credential access.
+- **Bank logins (saved profiles):** Meaningful protection requires **app lock** with a **strong password**. If you **never** enable app lock, the app may use a **fixed fallback key** published in source — **anyone who can read `data/profiles/` can recover credentials.** With app lock, an attacker needs your **password**, an **unlocked** session, or **offline cracking** of the lock file (e.g. after **stolen disk**), not just a folder copy alone.
+- **Transaction history & scrape data:** Stored in **SQLite** (`app.db`) and **`data/results/`** — **not** app-encrypted. Anyone with read access to **`DATA_DIR`** can read **transactions** and **config secrets** (Gemini, Telegram, OAuth) even **without** the app lock password. **App lock does not hide the database from someone who can open files.**
+- **Remote “hackers”** need a path to your machine (**malware**, **exposed port**, **stolen backup**, etc.) — they do not magically read localhost. Full detail: **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)**.
+
+---
 
 ## Credits
 
-Bank and card scraping uses the open-source **[israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers)** library (community-maintained). Scraping does **not** use AI; optional **Gemini** features (categorization, chat, etc.) do **not** receive your encrypted profile credentials or bank login secrets—only the transaction text and context you send for those features.
+Bank and credit-card **scraping** is powered by the open-source **[israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers)** project — a community-maintained library that connects to Israeli financial institutions. This app builds on top of that work; **thank you to the maintainers and contributors** of **israeli-bank-scrapers**.
+
+Scraping does **not** use AI. Optional **Gemini** features (categorization, chat, etc.) do **not** receive your encrypted profile credentials or bank login secrets — only the transaction text and context you choose to send for those features.

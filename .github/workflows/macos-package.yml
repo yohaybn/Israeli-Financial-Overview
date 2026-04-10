@@ -1,0 +1,107 @@
+# Builds dist/macos-package, zips it, builds Electron DMG + ZIP (arm64), uploads artifacts.
+# On published release: attaches macos-package.zip and FinancialOverview-Mac-<version>.dmg (and .zip) to that release.
+name: macOS package
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout (release tag when applicable)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Resolve app version from ref
+        run: |
+          REF="${GITHUB_REF_NAME}"
+          SHA7=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          if [[ "$REF" =~ ^v([0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?)$ ]]; then
+            APP_VERSION="${BASH_REMATCH[1]}"
+          elif [[ "$REF" =~ ^[0-9]+\.[0-9]+ ]]; then
+            APP_VERSION="$REF"
+          else
+            SAFE=$(echo "$REF" | sed 's/[^a-zA-Z0-9._-]/-/g' | sed 's/^-\|-$//g')
+            if [[ -z "$SAFE" ]]; then SAFE="ci"; fi
+            APP_VERSION="0.0.0-${SAFE}"
+          fi
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$APP_VERSION (ref=$REF sha=$SHA7)"
+
+      - name: Build macOS package folder
+        env:
+          CI: "true"
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+          VITE_INSTALL_KIND: macos
+          VITE_APP_BUILD_VERSION: ${{ env.APP_VERSION }}@${{ github.sha }}
+        run: npm run macos:package
+
+      - name: Build Electron desktop shell (mac)
+        env:
+          CI: "true"
+        run: npm run dist:mac -w desktop-electron -- --config.extraMetadata.version="${APP_VERSION}"
+
+      - name: Zip macos-package
+        run: |
+          rm -f dist/macos-package.zip
+          ditto -c -k --sequesterRsrc --keepParent dist/macos-package dist/macos-package.zip
+
+      - name: Verify outputs
+        run: |
+          test -f dist/macos-package.zip
+          shopt -s nullglob
+          DMGS=(dist/electron-mac/FinancialOverview-Mac-*.dmg)
+          ZIPS=(dist/electron-mac/FinancialOverview-Mac-*.zip)
+          if [[ ${#DMGS[@]} -lt 1 ]]; then
+            echo "No FinancialOverview-Mac-*.dmg under dist/electron-mac"
+            ls -la dist/electron-mac/ || true
+            exit 1
+          fi
+          if [[ ${#ZIPS[@]} -lt 1 ]]; then
+            echo "No FinancialOverview-Mac-*.zip under dist/electron-mac"
+            ls -la dist/electron-mac/ || true
+            exit 1
+          fi
+          ls -la dist/macos-package.zip "${DMGS[0]}" "${ZIPS[0]}"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release-assets
+          path: |
+            dist/macos-package.zip
+            dist/electron-mac/FinancialOverview-Mac-*.dmg
+            dist/electron-mac/FinancialOverview-Mac-*.zip
+          if-no-files-found: error
+
+      - name: Upload assets to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DMG=$(ls dist/electron-mac/FinancialOverview-Mac-*.dmg | head -1)
+          ZIP=$(ls dist/electron-mac/FinancialOverview-Mac-*.zip | head -1)
+          if [[ -z "$DMG" || -z "$ZIP" ]]; then echo "Missing DMG or ZIP under dist/electron-mac"; ls -la dist/electron-mac/; exit 1; fi
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "dist/macos-package.zip" \
+            "$DMG" \
+            "$ZIP" \
+            --clobber

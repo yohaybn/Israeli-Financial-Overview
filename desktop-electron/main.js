@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { spawn } = require('child_process');
 const http = require('http');
 const Store = require('electron-store');
@@ -25,16 +26,31 @@ function expandWindowsEnvInPath(s) {
     return s.replace(/%([^%]+)%/g, (_, name) => process.env[name] ?? `%${name}%`);
 }
 
+/** `~/...` (macOS/Linux) and `%VAR%` (Windows) in financial-overview.json paths. */
+function expandHomeInPath(s) {
+    if (!s || typeof s !== 'string') return s;
+    const t = s.trim();
+    if (t === '~') return os.homedir();
+    if (t.startsWith('~/')) return path.join(os.homedir(), t.slice(2));
+    return expandWindowsEnvInPath(t);
+}
+
+function defaultDataDir() {
+    if (process.platform === 'win32') {
+        return path.join(process.env.APPDATA || '', 'FinancialOverview', 'data');
+    }
+    if (process.platform === 'darwin') {
+        return path.join(process.env.HOME || os.homedir(), 'Library', 'Application Support', 'FinancialOverview', 'data');
+    }
+    return path.join(os.homedir(), '.local', 'share', 'FinancialOverview', 'data');
+}
+
 /**
  * Same rules as launch-FinancialOverview.ps1 + server runtimeEnv (OS env wins).
  */
 function buildServerEnv(installRoot) {
     const env = { ...process.env, NODE_ENV: 'production' };
     const cfgPath = path.join(installRoot, 'financial-overview.json');
-
-    if (!env.DATA_DIR && !fs.existsSync(cfgPath)) {
-        env.DATA_DIR = path.join(process.env.APPDATA || '', 'FinancialOverview', 'data');
-    }
 
     if (fs.existsSync(cfgPath)) {
         try {
@@ -48,11 +64,15 @@ function buildServerEnv(installRoot) {
                 cfg.dataDir.trim() !== '' &&
                 process.env.DATA_DIR === undefined
             ) {
-                env.DATA_DIR = expandWindowsEnvInPath(cfg.dataDir.trim());
+                env.DATA_DIR = expandHomeInPath(cfg.dataDir.trim());
             }
         } catch (_) {
             /* ignore */
         }
+    }
+
+    if (!env.DATA_DIR) {
+        env.DATA_DIR = defaultDataDir();
     }
 
     return env;
@@ -67,7 +87,7 @@ function getListenPort(serverEnv) {
 /** Match server: PORT can come from DATA_DIR/config/runtime-settings.json */
 function getListenPortForWait(installRoot) {
     const env = { ...buildServerEnv(installRoot) };
-    const dataDir = env.DATA_DIR || path.join(process.env.APPDATA || '', 'FinancialOverview', 'data');
+    const dataDir = env.DATA_DIR || defaultDataDir();
     try {
         const rs = path.join(path.resolve(dataDir), 'config', 'runtime-settings.json');
         if (fs.existsSync(rs)) {
@@ -194,23 +214,39 @@ function destroyTray() {
     }
 }
 
+function resolveBundledNodeBinary(installRoot) {
+    const winBin = path.join(installRoot, 'runtime', 'node', 'node.exe');
+    if (process.platform === 'win32' && fs.existsSync(winBin)) {
+        return winBin;
+    }
+    const unixBin = path.join(installRoot, 'runtime', 'node', 'bin', 'node');
+    if (fs.existsSync(unixBin)) {
+        return unixBin;
+    }
+    return null;
+}
+
 function spawnServer(installRoot) {
     lastInstallRoot = installRoot;
-    const nodeExe = path.join(installRoot, 'runtime', 'node', 'node.exe');
     const serverJs = path.join(installRoot, 'server', 'dist', 'index.js');
     if (!fs.existsSync(serverJs)) {
         throw new Error(`Server build not found: ${serverJs}`);
     }
 
     const env = { ...buildServerEnv(installRoot), ELECTRON_MANAGED_SERVER: '1' };
-    const useExe = fs.existsSync(nodeExe) ? nodeExe : 'node';
+    const bundled = resolveBundledNodeBinary(installRoot);
+    const useExe = bundled || 'node';
 
-    serverProcess = spawn(useExe, [serverJs], {
+    const spawnOpts = {
         cwd: installRoot,
         env,
         stdio: 'ignore',
-        windowsHide: true,
-    });
+    };
+    if (process.platform === 'win32') {
+        spawnOpts.windowsHide = true;
+    }
+
+    serverProcess = spawn(useExe, [serverJs], spawnOpts);
     serverProcess.on('error', (err) => {
         console.error('[electron] server spawn error', err);
     });

@@ -8,7 +8,8 @@
     "scripts": {
         "start": "electron .",
         "predist": "node scripts/clean-electron-dist.cjs",
-        "dist": "electron-builder --win"
+        "dist": "electron-builder --win",
+        "dist:mac": "electron-builder --mac -c.directories.output=../dist/electron-mac"
     },
     "dependencies": {
         "electron-store": "^8.2.0"
@@ -22,7 +23,6 @@
         "appId": "com.financialoverview.desktop",
         "productName": "Financial Overview",
         "executableName": "FinancialOverview",
-        "artifactName": "FinancialOverview-Windows-Setup-${version}.${ext}",
         "directories": {
             "output": "../dist/electron-win"
         },
@@ -30,16 +30,17 @@
             "main.js",
             "preload.js"
         ],
-        "extraResources": [
-            {
-                "from": "../dist/windows-package",
-                "to": ".",
-                "filter": [
-                    "**/*"
-                ]
-            }
-        ],
         "win": {
+            "extraResources": [
+                {
+                    "from": "../dist/windows-package",
+                    "to": ".",
+                    "filter": [
+                        "**/*"
+                    ]
+                }
+            ],
+            "artifactName": "FinancialOverview-Windows-Setup-${version}.${ext}",
             "sign": null,
             "signAndEditExecutable": false,
             "target": [
@@ -57,6 +58,40 @@
                 }
             ],
             "icon": "../client/public/favicon.ico"
+        },
+        "mac": {
+            "extraResources": [
+                {
+                    "from": "../dist/macos-package",
+                    "to": ".",
+                    "filter": [
+                        "**/*"
+                    ]
+                }
+            ],
+            "artifactName": "FinancialOverview-Mac-${version}.${ext}",
+            "category": "public.app-category.finance",
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "arm64"
+                    ]
+                },
+                {
+                    "target": "zip",
+                    "arch": [
+                        "arm64"
+                    ]
+                }
+            ],
+            "identity": null,
+            "hardenedRuntime": false,
+            "gatekeeperAssess": false,
+            "icon": "../client/public/favicon.ico"
+        },
+        "dmg": {
+            "sign": false
         },
         "nsis": {
             "oneClick": false,

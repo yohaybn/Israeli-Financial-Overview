@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -16,6 +17,18 @@ function expandWindowsEnvInPath(s: string): string {
     return s.replace(/%([^%]+)%/g, (_, name: string) => process.env[name] ?? `%${name}%`);
 }
 
+/** `~/...` in financial-overview.json (macOS/Linux); `%VAR%` on Windows. */
+function expandPathFromConfig(s: string): string {
+    const t = s.trim();
+    if (t === '~') {
+        return os.homedir();
+    }
+    if (t.startsWith('~/')) {
+        return path.join(os.homedir(), t.slice(2));
+    }
+    return expandWindowsEnvInPath(t);
+}
+
 function loadFinancialOverviewConfig(): void {
     if (!fs.existsSync(FINANCIAL_OVERVIEW_CONFIG_PATH)) {
         return;
@@ -26,7 +39,7 @@ function loadFinancialOverviewConfig(): void {
             process.env.PORT = String(cfg.port);
         }
         if (cfg.dataDir != null && typeof cfg.dataDir === 'string' && cfg.dataDir.trim() !== '' && process.env.DATA_DIR === undefined) {
-            process.env.DATA_DIR = expandWindowsEnvInPath(cfg.dataDir.trim());
+            process.env.DATA_DIR = expandPathFromConfig(cfg.dataDir.trim());
         }
     } catch (e) {
         console.warn('[runtime] Could not read financial-overview.json:', (e as Error).message);

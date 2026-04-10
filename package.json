@@ -17,9 +17,11 @@
         "start": "npm run dev",
         "guide:embed-telegram": "npx marked -o .tmp-telegram.html -i docs/TELEGRAM_BOT_GUIDE.md --gfm && npx marked -o .tmp-telegram-he.html -i client/public/guides/TELEGRAM_BOT_GUIDE.he.md --gfm && node scripts/inline-telegram-guide-into-guide.mjs",
         "windows:package": "powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1",
+        "macos:package": "bash packaging/macos/package.sh",
         "electron:start": "npm run start -w desktop-electron",
         "electron:dist": "npm run dist -w desktop-electron",
-        "windows:electron": "npm run windows:package && npm run electron:dist"
+        "windows:electron": "npm run windows:package && npm run electron:dist",
+        "macos:electron": "npm run macos:package && npm run dist:mac -w desktop-electron"
     },
     "engines": {
         "node": ">=20"
