@@ -1,15 +1,25 @@
 import * as xlsx from '@e965/xlsx';
 import { PDFParse } from 'pdf-parse';
-import { Transaction, ScrapeResult, Account } from '@app/shared';
+import {
+    Transaction,
+    ScrapeResult,
+    Account,
+    assignTransactionId,
+    type AssignTransactionIdInput,
+    type AssignTransactionIdResult,
+} from '@app/shared';
 import type { TabularImportProfileV1 } from '@app/shared';
 import fs from 'fs-extra';
-import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { AiService } from './aiService.js';
 import { parseTabularSpreadsheet } from './tabularImportParse.js';
 
 export class ImportService {
     constructor(private aiService?: AiService) { }
+
+    private assignImportId(args: Omit<AssignTransactionIdInput, 'existingId'>): AssignTransactionIdResult {
+        return assignTransactionId({ ...args, existingId: undefined });
+    }
     async importFiles(filePaths: string[]): Promise<ScrapeResult[]> {
         const results: ScrapeResult[] = [];
         for (const filePath of filePaths) {
@@ -388,11 +398,20 @@ export class ImportService {
             if (!date || chgAbs === 0) return null;
             const memoExtra = `תשלום ${nPay} מתוך ${nTot}`;
             const memo = [...tags, memoExtra].filter(Boolean).join(' · ');
-            const id = `isracard-${voucher}`;
             const chargedSigned = -chgAbs;
             const originalSigned = -origAbs;
+            const ids = this.assignImportId({
+                provider: 'isracard',
+                accountNumber,
+                date: date.toISOString(),
+                amount: chargedSigned,
+                chargedAmount: chargedSigned,
+                description: desc,
+                externalId: voucher,
+                sourceRef: 'import:isracard-pdf',
+            });
             return {
-                id,
+                ...ids,
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description: desc,
@@ -422,9 +441,18 @@ export class ImportService {
             const date = this.parseDate(fr[5]);
             if (!date || chgAbs === 0) return null;
             const memo = tags.length ? tags.join(' · ') : undefined;
-            const id = `isracard-${voucher}`;
+            const ids = this.assignImportId({
+                provider: 'isracard',
+                accountNumber,
+                date: date.toISOString(),
+                amount: -chgAbs,
+                chargedAmount: -chgAbs,
+                description: desc,
+                externalId: voucher,
+                sourceRef: 'import:isracard-pdf',
+            });
             return {
-                id,
+                ...ids,
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description: desc,
@@ -455,11 +483,20 @@ export class ImportService {
             const date = this.parseDate(il[5]);
             if (!date || chgAbs === 0) return null;
             const memo = tags.length ? tags.join(' · ') : undefined;
-            const id = `isracard-${voucher}`;
             const chargedSigned = -chgAbs;
             const originalSigned = -origAbs;
+            const ids = this.assignImportId({
+                provider: 'isracard',
+                accountNumber,
+                date: date.toISOString(),
+                amount: chargedSigned,
+                chargedAmount: chargedSigned,
+                description: desc,
+                externalId: voucher,
+                sourceRef: 'import:isracard-pdf',
+            });
             return {
-                id,
+                ...ids,
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description: desc,
@@ -569,11 +606,22 @@ export class ImportService {
                     const amount = this.parseNumber(lastAmount);
 
                     if (amount !== 0) {
+                        const description = line.replace(dateStr, '').replace(lastAmount, '').trim();
+                        const dateIso = date.toISOString();
+                        const ids = this.assignImportId({
+                            provider,
+                            accountNumber,
+                            date: dateIso,
+                            amount,
+                            chargedAmount: amount,
+                            description,
+                            sourceRef: 'import:generic-pdf-text',
+                        });
                         transactions.push({
-                            id: uuidv4(),
-                            date: date.toISOString(),
-                            processedDate: date.toISOString(),
-                            description: line.replace(dateStr, '').replace(lastAmount, '').trim(),
+                            ...ids,
+                            date: dateIso,
+                            processedDate: dateIso,
+                            description,
                             amount: amount,
                             chargedAmount: amount,
                             originalAmount: amount,
@@ -727,10 +775,19 @@ export class ImportService {
                 ? { number: parseInt(instMatch[1], 10), total: parseInt(instMatch[2], 10) }
                 : undefined;
 
-            const id = voucher ? `isracard-${voucher}` : uuidv4();
+            const ids = this.assignImportId({
+                provider: 'isracard',
+                accountNumber,
+                date: date.toISOString(),
+                amount: chargedSigned,
+                chargedAmount: chargedSigned,
+                description,
+                externalId: voucher || undefined,
+                sourceRef: 'import:isracard-xlsx',
+            });
 
             transactions.push({
-                id,
+                ...ids,
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description,
@@ -821,11 +878,26 @@ export class ImportService {
 
                 if (amount === 0) continue;
 
+                const refRaw = getCell(COL_REFERENCE);
+                const refStr =
+                    refRaw != null && String(refRaw).trim() ? String(refRaw).trim() : undefined;
+                const desc = String(description).trim();
+                const dateIso = date.toISOString();
+                const ids = this.assignImportId({
+                    provider: 'mizrahi',
+                    accountNumber,
+                    date: dateIso,
+                    amount,
+                    chargedAmount: amount,
+                    description: desc,
+                    externalId: refStr,
+                    sourceRef: 'import:mizrahi-xlsx',
+                });
                 transactions.push({
-                    id: uuidv4(),
-                    date: date.toISOString(),
-                    processedDate: date.toISOString(),
-                    description: String(description).trim(),
+                    ...ids,
+                    date: dateIso,
+                    processedDate: dateIso,
+                    description: desc,
                     amount: amount,
                     chargedAmount: amount,
                     originalAmount: amount,
@@ -888,11 +960,22 @@ export class ImportService {
 
             if (amount === 0) continue;
 
+            const desc = String(row[descIdx] || 'No description').trim();
+            const dateIso = date.toISOString();
+            const ids = this.assignImportId({
+                provider: 'imported',
+                accountNumber: defaultAccountNumber,
+                date: dateIso,
+                amount,
+                chargedAmount: amount,
+                description: desc,
+                sourceRef: 'import:generic-spreadsheet',
+            });
             transactions.push({
-                id: uuidv4(),
-                date: date.toISOString(),
-                processedDate: date.toISOString(),
-                description: String(row[descIdx] || 'No description').trim(),
+                ...ids,
+                date: dateIso,
+                processedDate: dateIso,
+                description: desc,
                 amount: amount,
                 chargedAmount: amount,
                 originalAmount: amount,

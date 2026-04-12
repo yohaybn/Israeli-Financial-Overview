@@ -53,44 +53,6 @@ router.post('/categorize/:filename', async (req, res) => {
     }
 });
 
-// Chat with the data (AI Analyst)
-router.post('/chat', async (req, res) => {
-    try {
-        const { query, filename } = req.body;
-
-        // If filename is provided, load that data. Otherwise maybe use a global context?
-        // For now, let's require a filename context.
-        if (!filename) {
-            return res.status(400).json({ success: false, error: 'Filename context required' });
-        }
-
-        const result = await storageService.getScrapeResult(filename);
-        if (!result || !result.transactions) {
-            return res.status(404).json({ success: false, error: 'Data context not found' });
-        }
-
-        const aiSettings = await aiService.getSettings();
-        const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
-        const txns = sliceTransactionsForAnalyst(result.transactions, maxRows);
-
-        const { text: answer, usedFallbackModel } = await aiService.analyzeData(query, txns);
-        res.json({ success: true, data: answer, ...(usedFallbackModel ? { usedFallbackModel } : {}) });
-    } catch (error: any) {
-        const status = error.status || error.response?.status || 500;
-        const code = error.code || error.response?.data?.error?.code || 'INTERNAL_ERROR';
-        const msg = typeof error?.message === 'string' ? error.message : String(error);
-        const rateLimit = (error as { geminiRateLimit?: unknown }).geminiRateLimit;
-        res.status(status).json({
-            success: false,
-            error: msg,
-            ...(isAiModelHighDemandMessage(msg) ? { errorKey: AI_MODEL_HIGH_DEMAND_ERROR_KEY } : {}),
-            code,
-            status,
-            ...(rateLimit ? { rateLimit } : {})
-        });
-    }
-});
-
 // Chat with the data for the unified dashboard (structured JSON: response + facts + insights; memory persisted server-side)
 router.post('/chat/unified', async (req, res) => {
     try {

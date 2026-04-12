@@ -19,7 +19,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { generateTransactionId } from '../utils/idGenerator.js';
+import { assignTransactionId } from '@app/shared';
 import { serverLogger } from '../utils/logger.js';
 import { maskSensitiveData } from '../utils/masking.js';
 import { logAICall, logAIError, withAILogging, runWithAILoadTracking } from '../utils/aiLogger.js';
@@ -46,7 +46,7 @@ export interface AiSettings {
      */
     personaInjectionEnabled?: boolean;
     /**
-     * Max transaction rows sent to the AI analyst (unified chat, legacy /chat, Telegram).
+     * Max transaction rows sent to the AI analyst (unified chat, Telegram).
      * 0 = no limit (all rows). Newest-first lists should pass the first N rows after sort.
      */
     analystMaxTransactionRows?: number;
@@ -55,7 +55,7 @@ export interface AiSettings {
      * Should differ from your primary chat and categorization models (often a smaller or different-tier model).
      */
     fallbackModel?: string;
-    /** Appended to the user question for analyst calls (dashboard chat, legacy /chat, Telegram). */
+    /** Appended to the user question for analyst calls (unified analyst chat, Telegram). */
     analyticsPromptExtra?: string;
     /** Appended to the analyst system instruction (plain and structured JSON replies). */
     analyticsSystemInstructionExtra?: string;
@@ -142,6 +142,8 @@ export interface CategorizeTransactionsResult {
     descriptionCategories?: Record<string, string>;
     /** Primary model failed with 429/503; categorization succeeded with {@link AiSettings.fallbackModel}. */
     usedFallbackModel?: string;
+    /** AI log entry ids for this categorization attempt (success and/or logged errors), newest-relevant first. */
+    aiLogIds?: string[];
 }
 
 /** Options for {@link AiService.categorizeTransactions}. */
@@ -174,6 +176,8 @@ export interface StructuredChatResult {
 export interface AnalyzeDataResult {
     text: string;
     usedFallbackModel?: string;
+    /** AI log entry ids for this request (success and/or logged errors before a thrown failure). */
+    aiLogIds?: string[];
 }
 
 function clampScore(n: unknown): number {
@@ -554,6 +558,7 @@ export class AiService {
         };
 
         let startTime = Date.now();
+        const aiLogIds: string[] = [];
         try {
             let outcome: Awaited<ReturnType<typeof runCategorizeWithModel>>;
             let usedFallbackModel: string | undefined;
@@ -565,23 +570,26 @@ export class AiService {
                 const fb = this.effectiveFallbackModel(primary);
                 if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
                     const latencyMs = Date.now() - startTime;
-                    await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
+                    const errId = await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
                         latencyMs,
                         systemPrompt: categorizationSystemPrompt
                     });
+                    if (errId) aiLogIds.push(errId);
                     serverLogger.error(`Categorization failed: ${e1.message}`);
                     return {
                         transactions: skipCache
                             ? transactions.map((t) => ({ ...t }))
                             : this.mapTransactionsWithCategoryCache(transactions),
-                        aiError: e1.message || String(e1)
+                        aiError: e1.message || String(e1),
+                        ...(aiLogIds.length ? { aiLogIds } : {})
                     };
                 }
                 const latencyMsPrimary = Date.now() - startTime;
-                await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
+                const primaryErrId = await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
                     latencyMs: latencyMsPrimary,
                     systemPrompt: categorizationSystemPrompt
                 });
+                if (primaryErrId) aiLogIds.push(primaryErrId);
                 serverLogger.warn(`Categorization: retrying with fallback model ${fb} after ${primary} was rate limited or overloaded`);
                 startTime = Date.now();
                 try {
@@ -589,16 +597,18 @@ export class AiService {
                     usedFallbackModel = fb;
                 } catch (e2: any) {
                     const latencyMs = Date.now() - startTime;
-                    await logAIError(fb, 'gemini', `Categorize ${descriptions.length} descriptions`, e2, {
+                    const fbErrId = await logAIError(fb, 'gemini', `Categorize ${descriptions.length} descriptions`, e2, {
                         latencyMs,
                         systemPrompt: categorizationSystemPrompt
                     });
+                    if (fbErrId) aiLogIds.push(fbErrId);
                     serverLogger.error(`Categorization failed (fallback): ${e2.message}`);
                     return {
                         transactions: skipCache
                             ? transactions.map((t) => ({ ...t }))
                             : this.mapTransactionsWithCategoryCache(transactions),
-                        aiError: e2.message || String(e2)
+                        aiError: e2.message || String(e2),
+                        ...(aiLogIds.length ? { aiLogIds } : {})
                     };
                 }
             }
@@ -606,7 +616,7 @@ export class AiService {
             const { categoriesMap, response, latencyMs, modelName } = outcome;
 
             const descriptionsStr = descriptions.join(', ');
-            await logAICall({
+            const successId = await logAICall({
                 model: modelName,
                 provider: 'gemini',
                 requestInfo: {
@@ -626,6 +636,7 @@ export class AiService {
                     latencyMs
                 }
             });
+            if (successId) aiLogIds.push(successId);
 
             for (const [desc, cat] of Object.entries(categoriesMap)) {
                 const c = String(cat);
@@ -637,20 +648,23 @@ export class AiService {
             return {
                 transactions: this.mapTransactionsWithCategoryCache(transactions),
                 ...(skipCache ? { descriptionCategories: categoriesMap } : {}),
-                ...(usedFallbackModel ? { usedFallbackModel } : {})
+                ...(usedFallbackModel ? { usedFallbackModel } : {}),
+                ...(aiLogIds.length ? { aiLogIds } : {})
             };
         } catch (error: any) {
             const latencyMs = Date.now() - (startTime || Date.now());
-            await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, error, {
+            const outerErrId = await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, error, {
                 latencyMs,
                 systemPrompt: categorizationSystemPrompt
             });
+            if (outerErrId) aiLogIds.push(outerErrId);
             serverLogger.error(`Categorization failed: ${error.message}`);
             return {
                 transactions: skipCache
                     ? transactions.map((t) => ({ ...t }))
                     : this.mapTransactionsWithCategoryCache(transactions),
-                aiError: error.message || String(error)
+                aiError: error.message || String(error),
+                ...(aiLogIds.length ? { aiLogIds } : {})
             };
         }
     }
@@ -996,6 +1010,7 @@ export class AiService {
 
         let startTime = Date.now();
         try {
+            const aiLogIds: string[] = [];
             const runGeneration = async (chatModelName: string) => {
                 const m = this.genAI!.getGenerativeModel({
                     model: chatModelName,
@@ -1023,18 +1038,20 @@ export class AiService {
                 const fb = this.effectiveFallbackModel(primaryChat);
                 if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
                     const latencyMs = Date.now() - startTime;
-                    await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                    const errId = await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
                         latencyMs,
                         systemPrompt: systemInstruction
                     });
+                    if (errId) aiLogIds.push(errId);
                     attachGeminiRateLimitToError(e1);
                     throw e1;
                 }
                 const latencyMsPrimary = Date.now() - startTime;
-                await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                const primaryErrId = await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
                     latencyMs: latencyMsPrimary,
                     systemPrompt: systemInstruction
                 });
+                if (primaryErrId) aiLogIds.push(primaryErrId);
                 serverLogger.warn(`analyzeData: retrying with fallback model ${fb} after ${primaryChat} was rate limited or overloaded`);
                 startTime = Date.now();
                 try {
@@ -1042,10 +1059,11 @@ export class AiService {
                     usedFallbackModel = fb;
                 } catch (e2: any) {
                     const latencyMs = Date.now() - startTime;
-                    await logAIError(fb, 'gemini', effectiveQuery, e2, {
+                    const fbErrId = await logAIError(fb, 'gemini', effectiveQuery, e2, {
                         latencyMs,
                         systemPrompt: systemInstruction
                     });
+                    if (fbErrId) aiLogIds.push(fbErrId);
                     attachGeminiRateLimitToError(e2);
                     throw e2;
                 }
@@ -1056,7 +1074,7 @@ export class AiService {
             const logInputSummary = this.buildAnalyzeDataLogUserInput(currentPrompt, uploadedFileLog);
 
             const usageMetadata = response.usageMetadata;
-            await logAICall({
+            const successId = await logAICall({
                 model: chatModelName,
                 provider: 'gemini',
                 requestInfo: {
@@ -1076,10 +1094,12 @@ export class AiService {
                     latencyMs
                 }
             });
+            if (successId) aiLogIds.push(successId);
 
             return {
                 text,
-                ...(usedFallbackModel ? { usedFallbackModel } : {})
+                ...(usedFallbackModel ? { usedFallbackModel } : {}),
+                ...(aiLogIds.length ? { aiLogIds } : {})
             };
         } finally {
             for (const name of uploadedResourceNames) {
@@ -1152,8 +1172,8 @@ Respond with one JSON object only (no markdown code fences, no text before or af
 
 - "response": Your main answer to the user (you may use markdown inside this string).
 - "facts": Durable context worth remembering across sessions (life situation, goals, standing preferences). Do not duplicate items already listed under "Stored facts" in the prompt. Do not put raw one-off numbers here unless the user asked to remember them. Use an empty array if nothing new.
-- "insights": Analytical observations (trends, comparisons, patterns). Each item MUST include "score" from 1 to 100 where 100 is the most important insight. Do not duplicate items under "Recent insights" in the prompt. Use an empty array if nothing new.
-- "alerts": urgent or time-sensitive items the user should act on or notice (overspending risk, missed payment, unusual jump). Each item MUST include "score" 1–100 (100 = most critical). Do not duplicate "Recent alerts" below. Use an empty array if none.
+- "insights": Analytical observations (trends, comparisons, patterns). Each item MUST include "score" 1–100. Score bands: 1–35 = minor; 36–65 = notable; 66–100 = high-signal. Do not duplicate items under "Recent insights" in the prompt. Use an empty array if nothing new.
+- "alerts": ONLY for items that genuinely need attention soon: clear overspend vs plan, missed or imminent payment deadline, fraud-like or highly unusual activity, or another time-critical risk. Put general tips, education, and non-urgent observations in "response" or "insights" instead—NOT here. Prefer at most 1–2 alerts per reply; use [] when there is nothing truly alert-worthy. Each item MUST include "score" 1–100. Alert score bands: 1–50 = watchlist (rarely needed); 51–74 = address soon; 75–84 = important; 85–100 = urgent/critical only—do not inflate scores. Do not duplicate "Recent alerts" below.
 
 Facts are user-editable persistent memory. Insights and alerts are stored with scores for prioritization.`;
 
@@ -1436,15 +1456,20 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             const transactions: Transaction[] = (extracted.transactions || []).map((t: any) => {
                 const txnAcc = t.accountNumber || extracted.accountNumber || accountNumber;
                 const canonical = canonicalAmountFromExtracted(t);
-                const baseTxn = {
+                const ids = assignTransactionId({
+                    existingId: t.identifier,
+                    externalId: t.identifier,
+                    provider: t.provider || provider,
                     accountNumber: txnAcc,
                     date: t.date,
-                    originalAmount: t.originalAmount ?? t.amount ?? t.chargedAmount ?? canonical,
+                    amount: canonical,
+                    chargedAmount: canonical,
                     description: t.description,
-                };
+                    sourceRef: 'import:ai-document',
+                });
 
                 return {
-                    id: t.identifier || generateTransactionId(baseTxn),
+                    ...ids,
                     date: t.date,
                     processedDate: t.processedDate || t.date,
                     description: t.description,

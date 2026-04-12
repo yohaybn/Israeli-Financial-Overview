@@ -425,13 +425,6 @@ export const demoHandlers = [
         })
     ),
 
-    http.post(apiPath('/ai/chat'), async () =>
-        HttpResponse.json({
-            success: true,
-            data: 'מצב הדגמה: צ׳אט AI אינו מחובר לשרת כאן.',
-        })
-    ),
-
     http.get(apiPath('/logs'), () =>
         HttpResponse.json({
             type: 'server',

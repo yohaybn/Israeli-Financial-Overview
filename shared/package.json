@@ -8,7 +8,11 @@
         "build": "tsc",
         "test": "node --import tsx --test src/insightRules.test.ts src/insightRuleBuilder.test.ts src/backupScopes.test.ts"
     },
+    "dependencies": {
+        "md5": "^2.3.0"
+    },
     "devDependencies": {
+        "@types/md5": "^2.3.5",
         "tsx": "^4.21.0",
         "typescript": "^5.7.3"
     }

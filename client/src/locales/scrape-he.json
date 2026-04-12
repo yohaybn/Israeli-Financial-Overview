@@ -66,7 +66,10 @@
         "kind": "סוג ריצה",
         "run_source": "מקור",
         "actions": "פעולות אחרי סריקה",
-        "select_row": "בחר שורה לשם הקובץ וסטטוס כל פעולה."
+        "select_row": "בחר שורה לשם הקובץ וסטטוס כל פעולה.",
+        "link_ai_logs": "יומן שאילתות AI",
+        "open_result_file": "פתח JSON תוצאה",
+        "ai_calls_for_step": "יומן AI:"
     },
     "scrape_progress": {
         "title": "התקדמות בזמן אמת",

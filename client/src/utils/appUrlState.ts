@@ -20,6 +20,8 @@ export interface AppUrlState {
     configTab: ConfigTabId;
     logType: LogTabId;
     logEntryId: string | null;
+    /** Selected scrape result JSON filename (for view=scrape). Omitted from URL when not on scrape. */
+    resultFile: string | null;
 }
 
 function isConfigTab(s: string): s is ConfigTabId {
@@ -69,11 +71,22 @@ export function parseAppUrlState(search: string, sessionConfigTabOverride: strin
     let logEntryId = entryRaw;
     if (view === 'logs' && logType !== 'ai' && logType !== 'scrape') logEntryId = null;
 
+    const resultParam = p.get('result')?.trim() || null;
+    let resultFile: string | null = null;
+    if (resultParam) {
+        try {
+            resultFile = decodeURIComponent(resultParam);
+        } catch {
+            resultFile = resultParam;
+        }
+    }
+
     return {
         view,
         configTab,
         logType,
         logEntryId,
+        resultFile,
     };
 }
 
@@ -82,6 +95,9 @@ export function buildAppUrlSearch(state: AppUrlState): string {
     if (state.view !== 'dashboard') p.set('view', state.view);
     if (state.view === 'importProfile') {
         return p.toString();
+    }
+    if (state.view === 'scrape' && state.resultFile) {
+        p.set('result', encodeURIComponent(state.resultFile));
     }
     if (state.view === 'configuration') p.set('tab', state.configTab);
     if (state.view === 'logs') {

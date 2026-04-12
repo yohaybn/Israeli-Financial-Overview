@@ -28,17 +28,26 @@ export class ConfigService {
     ];
 
     async getEnv(): Promise<Record<string, string>> {
-        if (!(await fs.pathExists(RUNTIME_SETTINGS_PATH))) {
-            return {};
+        let stored: Record<string, string> = {};
+        if (await fs.pathExists(RUNTIME_SETTINGS_PATH)) {
+            stored = (await fs.readJson(RUNTIME_SETTINGS_PATH)) as Record<string, string>;
         }
 
-        const stored = (await fs.readJson(RUNTIME_SETTINGS_PATH)) as Record<string, string>;
         const env: Record<string, string> = {};
 
         for (const key of this.allowedKeys) {
             const value = stored[key];
-            if (value === undefined) continue;
+            if (value === undefined || String(value).trim() === '') continue;
             env[key] = this.sensitiveKeys.includes(key) ? this.maskValue(value) : value;
+        }
+
+        // Expose keys that exist only in process.env (e.g. Docker / .env at startup) so the UI
+        // can show AI features without duplicating secrets in runtime-settings.json.
+        for (const key of this.allowedKeys) {
+            if (env[key] !== undefined) continue;
+            const fromProcess = process.env[key];
+            if (fromProcess === undefined || String(fromProcess).trim() === '') continue;
+            env[key] = this.sensitiveKeys.includes(key) ? this.maskValue(fromProcess) : fromProcess;
         }
 
         return env;

@@ -148,6 +148,10 @@ export interface GlobalScrapeConfig {
 
 export interface Transaction {
     id: string; // Unique identifier (hash or bank provided)
+    /** Institution-issued stable reference when distinct from id (voucher, אסמכתא, etc.) */
+    externalId?: string;
+    /** Import/scrape provenance — not part of id hashing */
+    sourceRef?: string;
     date: string; // ISO Date string
     processedDate: string; // ISO Date string
     description: string;

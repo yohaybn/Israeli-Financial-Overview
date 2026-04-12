@@ -99,7 +99,7 @@ export function parseLedgerRowsToTransactions(
     profile: TabularImportProfileV1,
     logs: string[],
     defaultAccountNumber: string,
-    createId: () => string
+    finalizeTransactionId: (txn: Transaction) => void
 ): { transactions: Transaction[]; accounts: Account[] } {
     const transactions: Transaction[] = [];
     const hi = profile.headerRowIndex;
@@ -190,7 +190,7 @@ export function parseLedgerRowsToTransactions(
             colCategory !== null ? String(row[colCategory] ?? '').trim() || undefined : undefined;
 
         const txn: Transaction = {
-            id: createId(),
+            id: '',
             date: date.toISOString(),
             processedDate: date.toISOString(),
             description,
@@ -211,6 +211,7 @@ export function parseLedgerRowsToTransactions(
 
         applyOptionalFieldMappings(txn, row, optMaps, headerRow, maxCols, dateFmt);
 
+        finalizeTransactionId(txn);
         transactions.push(txn);
     }
 

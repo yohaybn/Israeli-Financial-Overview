@@ -18,6 +18,7 @@ import { useDashboardConfig } from '../hooks/useDashboardConfig';
 import { useAISettings } from '../hooks/useScraper';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { getCategoryLucideIcon } from '../utils/categoryIcons';
+import { transactionMatchesSearchQuery } from '../utils/transactionSearch';
 
 interface TransactionTableProps {
     transactions: Transaction[];
@@ -148,6 +149,8 @@ export function TransactionTable({
     });
     const [showColumnPicker, setShowColumnPicker] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    /** `provider|accountNumber` from current rows; distinguishes accounts across institutions. */
+    const [selectedAccountKey, setSelectedAccountKey] = useState<string>('all');
     /** Combined type + meta filter (single dropdown with optgroups). */
     const [typeMetaFilterKey, setTypeMetaFilterKey] = useState<string>('all');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -191,14 +194,41 @@ export function TransactionTable({
         };
     }, [viewDownloadOpen]);
 
-    // Available categories in the current set of transactions
+    /** Category filter options: AI/settings list plus any categories present in the current rows. */
     const availableCategories = useMemo(() => {
-        const categories = new Set<string>();
-        transactions.forEach(t => {
-            if (t.category) categories.add(t.category);
+        const set = new Set<string>();
+        for (const c of categories) {
+            if (c) set.add(c);
+        }
+        transactions.forEach((t) => {
+            if (t.category) set.add(t.category);
         });
-        return Array.from(categories).sort();
+        return Array.from(set).sort();
+    }, [transactions, categories]);
+
+    const accountOptions = useMemo(() => {
+        const byKey = new Map<string, { provider: string; accountNumber: string }>();
+        for (const t of transactions) {
+            const key = `${t.provider}|${t.accountNumber ?? ''}`;
+            if (!byKey.has(key)) {
+                byKey.set(key, { provider: t.provider, accountNumber: t.accountNumber ?? '' });
+            }
+        }
+        return Array.from(byKey.entries()).sort((a, b) => {
+            const acctCmp = (a[1].accountNumber || '').localeCompare(b[1].accountNumber || '', undefined, {
+                numeric: true,
+                sensitivity: 'base',
+            });
+            if (acctCmp !== 0) return acctCmp;
+            return a[1].provider.localeCompare(b[1].provider, undefined, { sensitivity: 'base' });
+        });
     }, [transactions]);
+
+    useEffect(() => {
+        if (selectedAccountKey === 'all') return;
+        const valid = accountOptions.some(([k]) => k === selectedAccountKey);
+        if (!valid) setSelectedAccountKey('all');
+    }, [accountOptions, selectedAccountKey]);
 
     // Persist visible columns to localStorage
     useEffect(() => {
@@ -228,21 +258,21 @@ export function TransactionTable({
     const filteredAndSortedTransactions = useMemo(() => {
         let result = [...transactions];
 
-        // Search Filter
+        // Search: text fields + amounts (see transactionSearch)
         if (search) {
-            const lowerSearch = search.toLowerCase();
-            result = result.filter(t =>
-                t.description?.toLowerCase().includes(lowerSearch) ||
-                t.memo?.toLowerCase().includes(lowerSearch) ||
-                t.category?.toLowerCase().includes(lowerSearch) ||
-                t.accountNumber?.toLowerCase().includes(lowerSearch) ||
-                t.provider?.toLowerCase().includes(lowerSearch)
-            );
+            result = result.filter((t) => transactionMatchesSearchQuery(t, search));
         }
 
         // Category Filter
         if (selectedCategory !== 'all') {
             result = result.filter(t => t.category === selectedCategory);
+        }
+
+        // Account (provider + account number)
+        if (selectedAccountKey !== 'all') {
+            result = result.filter(
+                (t) => `${t.provider}|${t.accountNumber ?? ''}` === selectedAccountKey
+            );
         }
 
         // Meta-category filter (fixed / variable / optimization / excluded)
@@ -293,6 +323,7 @@ export function TransactionTable({
         sortOrder,
         search,
         selectedCategory,
+        selectedAccountKey,
         metaCategoryFilter,
         mergedCategoryMeta,
         typeFilter,
@@ -362,7 +393,7 @@ export function TransactionTable({
                 <div className="relative flex-1 w-full sm:max-w-md">
                     <input
                         type="text"
-                        placeholder={t('table.search_placeholder')}
+                        placeholder={t('table.search_placeholder_extended')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className={`w-full ${i18n.language === 'he' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
@@ -406,6 +437,23 @@ export function TransactionTable({
                         {availableCategories.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
+                    </select>
+                    <select
+                        value={selectedAccountKey}
+                        onChange={(e) => setSelectedAccountKey(e.target.value)}
+                        aria-label={t('table.account_filter_label')}
+                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto min-w-[10rem] max-w-[min(100vw-2rem,18rem)] ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
+                    >
+                        <option value="all">{t('table.account_filter_all')}</option>
+                        {accountOptions.map(([key, { provider, accountNumber }]) => {
+                            const providerLabel = getProviderDisplayName(provider, providers, i18n.language);
+                            const acct = accountNumber || '—';
+                            return (
+                                <option key={key} value={key}>
+                                    {acct} — {providerLabel}
+                                </option>
+                            );
+                        })}
                     </select>
                     <div
                         className="relative border-gray-200 border-s ps-2 ms-0"

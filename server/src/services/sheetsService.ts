@@ -3,7 +3,7 @@ import { GoogleAuthService } from './googleAuthService.js';
 import { Transaction } from '@app/shared';
 import { serverLogger } from '../utils/logger.js';
 import * as crypto from 'crypto';
-import { generateTransactionId } from '../utils/idGenerator.js';
+import { assignTransactionId } from '@app/shared';
 import path from 'path';
 import fs from 'fs-extra';
 
@@ -192,8 +192,20 @@ export class SheetsService {
                 // Generate ID if missing
                 let txnId = transaction.id;
                 if (!txnId) {
-                    txnId = generateTransactionId(transaction);
-                    transaction.id = txnId;
+                    const ids = assignTransactionId({
+                        existingId: undefined,
+                        provider: transaction.provider || 'unknown',
+                        accountNumber: transaction.accountNumber,
+                        date: transaction.date,
+                        amount: transaction.amount,
+                        chargedAmount: transaction.chargedAmount,
+                        description: transaction.description,
+                        sourceRef: 'export:google-sheets',
+                    });
+                    txnId = ids.id;
+                    transaction.id = ids.id;
+                    if (ids.externalId) transaction.externalId = ids.externalId;
+                    if (ids.sourceRef) transaction.sourceRef = ids.sourceRef;
                 }
 
                 // Check if transaction exists

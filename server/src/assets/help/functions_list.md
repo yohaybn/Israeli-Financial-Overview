@@ -12,7 +12,7 @@ Here is a comprehensive list of all functionalities available to the user in the
 *   **Subscription Management:** View active subscriptions detected from your statements, and categorize them.
 *   **Monthly Transactions View:** Inspect all transactions for the selected month, with the ability to edit their categories.
 *   **Detailed Analytics:** View visual charts, Category Pie distributions, Monthly Trends, and Top Merchants.
-*   **AI Financial Chat:** Talk with an integrated AI chat box to get insights, query financial data, or ask ad-hoc questions scoped to your transactions.
+*   **AI Financial Chat:** Use the floating **indigo** button (bottom-right) on **any** main tab (Dashboard, Scrape, Logs, Configuration) when Gemini is configured—same analyst chat everywhere, scoped to your transactions.
 *   **Top insights:** View merged high-score cards from the AI analyst and from **insight rules** (badged **AI** vs **Rule**); dismiss removes that card (rule dismissals use rule-fire storage, not AI memory).
 
 ## 2. Scrape Workspace

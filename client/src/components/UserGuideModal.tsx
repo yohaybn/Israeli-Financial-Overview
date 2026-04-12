@@ -64,7 +64,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'explorer',
                     title: 'Results Explorer',
                     icon: '📊',
-                    content: 'View all scrape results in the sidebar. Click files to load them, select multiple for aggregation, filter transactions, and categorize with AI.'
+                    content: 'View all scrape results in the dropdown. Pick one file at a time; the address bar updates with a link you can copy to reopen the same result. Filter transactions, export, and categorize with AI.'
                 },
                 {
                     id: 'dashboard',
@@ -106,7 +106,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'ai',
                     title: 'AI Features',
                     icon: '🤖',
-                    content: 'Gemini categorization and analyst chat: AI does not see your encrypted profile passwords—only transaction text you send for those features. Scraping is separate (israeli-bank-scrapers, no AI). Customize categories in AI Settings.'
+                    content: 'Gemini categorization and analyst chat (indigo FAB on any main tab): AI does not see your encrypted profile passwords—only transaction text you send for those features. Scraping is separate (israeli-bank-scrapers, no AI). Customize categories in AI Settings.'
                 },
                 {
                     id: 'export',
@@ -217,7 +217,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'ai',
                     title: 'תכונות AI',
                     icon: '🤖',
-                    content: 'Gemini לסיווג וצ\'אט: ל-AI אין גישה לסיסמאות פרופיל מוצפנות—רק לטקסט עסקאות לתכונות אלה. הסריקה נפרדת (israeli-bank-scrapers, ללא AI). התאם קטגוריות בהגדרות AI.'
+                    content: 'Gemini לסיווג וצ\'אט אנליסט (כפתור אינדיגו צף בכל לשונית): ל-AI אין גישה לסיסמאות פרופיל מוצפנות—רק לטקסט עסקאות לתכונות אלה. הסריקה נפרדת (israeli-bank-scrapers, ללא AI). התאם קטגוריות בהגדרות AI.'
                 },
                 {
                     id: 'export',

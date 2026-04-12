@@ -6,6 +6,7 @@ import { TransactionModal } from '../TransactionModal';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { CategoryIcon } from '../../utils/categoryIcons';
+import { transactionMatchesSearchQuery } from '../../utils/transactionSearch';
 
 interface DashboardSidebarProps {
     selectedMonth: string; // YYYY-MM
@@ -20,14 +21,7 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
     const filteredTransactions = useMemo(() => {
         return transactions
             .filter(t => t.date.startsWith(selectedMonth))
-            .filter(t => {
-                const lowerSearch = search.toLowerCase();
-                return (
-                    t.description.toLowerCase().includes(lowerSearch) ||
-                    (t.memo?.toLowerCase().includes(lowerSearch) ?? false) ||
-                    (t.category?.toLowerCase().includes(lowerSearch) ?? false)
-                );
-            })
+            .filter((t) => !search.trim() || transactionMatchesSearchQuery(t, search))
             .sort((a, b) => b.date.localeCompare(a.date));
     }, [transactions, selectedMonth, search]);
 
@@ -69,7 +63,7 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                 <div className="relative group">
                     <input
                         type="text"
-                        placeholder={t('dashboard.search_txns')}
+                        placeholder={t('table.search_placeholder_extended')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-xl py-2 px-4 pl-10 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400/50 transition-all outline-none"

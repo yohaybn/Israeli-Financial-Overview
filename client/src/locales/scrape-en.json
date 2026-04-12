@@ -66,7 +66,10 @@
         "kind": "Run type",
         "run_source": "Source",
         "actions": "Post-scrape actions",
-        "select_row": "Select a row to see file name and action statuses."
+        "select_row": "Select a row to see file name and action statuses.",
+        "link_ai_logs": "AI query logs",
+        "open_result_file": "Open result JSON",
+        "ai_calls_for_step": "AI logs:"
     },
     "scrape_progress": {
         "title": "Live Progress",

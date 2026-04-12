@@ -20,6 +20,8 @@ export interface ScrapeRunActionRecord {
   key: string;
   status: ScrapeRunActionStatus;
   detail?: string;
+  /** AI interaction log entry ids (from `data/logs/ai_interactions.log` / AI Logs UI) tied to this step. */
+  aiLogIds?: string[];
 }
 
 export interface ScrapeRunLogEntry {
@@ -44,9 +46,32 @@ export function generateScrapeRunLogId(): string {
   return `scrape-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/**
+ * Called when the HTTP layer saves `data/results/<filename>` for this run.
+ * Sets a pending name for {@link writeScrapeRunLog} if it has not run yet; if the log file
+ * already exists (post-scrape finished before save — common with async write), merges
+ * `savedFilename` into the JSON on disk so the UI always gets a link.
+ */
 export function attachScrapeRunFilename(logId: string, filename: string): void {
   if (!logId || !filename) return;
   pendingFilenames.set(logId, filename);
+  void mergeSavedFilenameIntoExistingLog(logId, filename);
+}
+
+async function mergeSavedFilenameIntoExistingLog(logId: string, filename: string): Promise<void> {
+  try {
+    await ensureDir();
+    const file = path.join(SCRAPE_RUN_LOG_DIR, `${logId}.json`);
+    if (!(await fs.pathExists(file))) return;
+    const data = (await fs.readJson(file)) as ScrapeRunLogEntry;
+    if (!data?.id || data.id !== logId) return;
+    if (data.savedFilename === filename) return;
+    data.savedFilename = filename;
+    await fs.writeJson(file, data, { spaces: 2 });
+    serverLogger.debug(`Scrape run log updated with savedFilename: ${logId}`, { filename });
+  } catch (error) {
+    serverLogger.warn('Failed to merge saved filename into scrape run log', { logId, error });
+  }
 }
 
 function computeOverall(actions: ScrapeRunActionRecord[]): 'ok' | 'partial' | 'failed' {

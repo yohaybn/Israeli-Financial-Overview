@@ -69,7 +69,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
             } finally {
                 setSaving(false);
             }
-        }, 400);
+        }, 1000);
         return () => clearTimeout(timer);
     }, [config, t]);
 

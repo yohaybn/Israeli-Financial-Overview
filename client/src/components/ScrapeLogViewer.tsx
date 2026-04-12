@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { apiClient } from '../lib/api';
+import { apiClient, getApiRoot } from '../lib/api';
 import { format } from 'date-fns';
 import { he, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ interface ScrapeRunActionRecord {
   key: string;
   status: ScrapeRunActionStatus;
   detail?: string;
+  aiLogIds?: string[];
 }
 
 interface ScrapeRunLogEntry {
@@ -32,6 +33,15 @@ interface ScrapeRunLogEntry {
   savedFilenames?: string[];
   actions: ScrapeRunActionRecord[];
   overallPostScrape: 'ok' | 'partial' | 'failed';
+}
+
+function resultJsonHref(filename: string): string {
+  return `${getApiRoot()}/results/${encodeURIComponent(filename)}`;
+}
+
+function shortAiLogId(id: string): string {
+  if (id.length <= 20) return id;
+  return `${id.slice(0, 18)}…`;
 }
 
 function statusBadgeClass(status: ScrapeRunActionStatus): string {
@@ -138,7 +148,16 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({ initialEntryId
   return (
     <div className="space-y-6 p-4 sm:p-6 bg-gray-50 text-left" dir="ltr">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900">{t('scrape_logs.title')}</h2>
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">{t('scrape_logs.title')}</h2>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-ai-logs'))}
+            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            {t('scrape_logs.link_ai_logs')}
+          </button>
+        </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -247,11 +266,36 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({ initialEntryId
                 <dl className="grid grid-cols-1 gap-2 text-gray-700">
                   <div>
                     <dt className="text-xs text-gray-500">{t('scrape_logs.file')}</dt>
-                    <dd className="font-mono text-xs break-all">
-                      {selected.savedFilename ||
-                        (selected.savedFilenames?.length
-                          ? selected.savedFilenames.join(', ')
-                          : '—')}
+                    <dd className="text-xs break-all space-y-1.5">
+                      {selected.savedFilename ? (
+                        <a
+                          href={resultJsonHref(selected.savedFilename)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={t('scrape_logs.open_result_file')}
+                          className="font-mono text-blue-600 hover:text-blue-800 hover:underline inline-block"
+                        >
+                          {selected.savedFilename}
+                        </a>
+                      ) : selected.savedFilenames?.length ? (
+                        <ul className="list-none space-y-2 m-0 p-0">
+                          {selected.savedFilenames.map((fn) => (
+                            <li key={fn}>
+                              <a
+                                href={resultJsonHref(fn)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={t('scrape_logs.open_result_file')}
+                                className="font-mono text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                {fn}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="font-mono text-gray-600">—</span>
+                      )}
                     </dd>
                   </div>
                   <div>
@@ -281,6 +325,28 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({ initialEntryId
                         </span>
                         {a.detail && (
                           <span className="w-full text-xs text-gray-500 break-words">{a.detail}</span>
+                        )}
+                        {a.aiLogIds && a.aiLogIds.length > 0 && (
+                          <div className="w-full flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                            <span className="text-[10px] text-gray-400 shrink-0">
+                              {t('scrape_logs.ai_calls_for_step')}
+                            </span>
+                            {a.aiLogIds.map((logId) => (
+                              <button
+                                key={logId}
+                                type="button"
+                                onClick={() =>
+                                  window.dispatchEvent(
+                                    new CustomEvent('open-ai-log-entry', { detail: { id: logId } })
+                                  )
+                                }
+                                className="text-xs font-mono text-blue-600 hover:text-blue-800 hover:underline"
+                                title={logId}
+                              >
+                                {shortAiLogId(logId)}
+                              </button>
+                            ))}
+                          </div>
                         )}
                       </li>
                     ))}

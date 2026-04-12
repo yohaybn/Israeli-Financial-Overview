@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
 import { List } from 'lucide-react';
@@ -18,6 +18,8 @@ interface MonthlyTransactionsCardProps {
     onClearFilter?: () => void;
     /** Used to exclude internal transfers from header total & count (same rules as dashboard). */
     customCCKeywords?: string[];
+    /** Extra controls next to the collapse chevron (e.g. “Search all”). Use stopPropagation on clicks. */
+    endActions?: ReactNode;
 }
 
 export function MonthlyTransactionsCard({
@@ -31,6 +33,7 @@ export function MonthlyTransactionsCard({
     filterLabel,
     onClearFilter,
     customCCKeywords,
+    endActions,
 }: MonthlyTransactionsCardProps) {
     const { t, i18n } = useTranslation();
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
@@ -62,6 +65,7 @@ export function MonthlyTransactionsCard({
                 onToggle={() => setCollapsed((v) => !v)}
                 icon={<List className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />}
                 iconTileClassName="bg-gradient-to-br from-blue-500 to-cyan-600 shadow-blue-200"
+                endActions={endActions}
                 title={title ?? t('dashboard.transactions')}
                 subtitle={
                     <>

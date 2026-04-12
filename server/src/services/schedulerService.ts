@@ -1,7 +1,6 @@
 import * as cron from 'node-cron';
 import fs from 'fs-extra';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import {
     SchedulerConfig,
     DEFAULT_SCHEDULER_CONFIG,
@@ -23,12 +22,13 @@ import { StorageService } from './storageService.js';
 import { BackupService } from './backupService.js';
 import { postScrapeService } from './postScrapeService.js';
 import { appLockService } from './appLockService.js';
+import { PROJECT_ROOT } from '../runtimeEnv.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
+/** Must match dbService, runtimeEnv, etc. (cwd-based `./data` when unset — not `server/data`). */
+const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SCHEDULER_CONFIG_PATH = path.join(DATA_DIR, 'scheduler_config.json');
+/** Pre-fix location when DATA_DIR was unset (scheduler used `server/data` while DB used `./data`). */
+const LEGACY_SCHEDULER_CONFIG_PATH = path.join(PROJECT_ROOT, 'server', 'data', 'scheduler_config.json');
 
 type SchedulerConfigWithBackup = SchedulerConfig & {
     backupSchedule?: BackupScheduleConfig;
@@ -56,6 +56,7 @@ export class SchedulerService {
     }
 
     private loadConfig(): SchedulerConfigWithBackup {
+        this.migrateLegacySchedulerConfigIfNeeded();
         try {
             if (fs.existsSync(SCHEDULER_CONFIG_PATH)) {
                 const stored = JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'));
@@ -78,8 +79,26 @@ export class SchedulerService {
         }) as SchedulerConfigWithBackup;
     }
 
+    /** Copy from old `server/data` path so settings survive after fixing DATA_DIR resolution. */
+    private migrateLegacySchedulerConfigIfNeeded(): void {
+        if (fs.existsSync(SCHEDULER_CONFIG_PATH) || !fs.existsSync(LEGACY_SCHEDULER_CONFIG_PATH)) {
+            return;
+        }
+        try {
+            fs.ensureDirSync(DATA_DIR);
+            fs.copyFileSync(LEGACY_SCHEDULER_CONFIG_PATH, SCHEDULER_CONFIG_PATH);
+            logger.info('Migrated scheduler_config.json from legacy server/data to DATA_DIR', {
+                DATA_DIR,
+                from: LEGACY_SCHEDULER_CONFIG_PATH
+            });
+        } catch (error) {
+            logger.warn('Could not migrate legacy scheduler_config.json', { error });
+        }
+    }
+
     private saveConfig() {
         try {
+            fs.ensureDirSync(DATA_DIR);
             fs.writeFileSync(SCHEDULER_CONFIG_PATH, JSON.stringify(this.config, null, 2));
         } catch (error) {
             logger.error('Failed to save scheduler config', { error });
@@ -311,7 +330,8 @@ export class SchedulerService {
                         try {
                             const { newTransactionIds, filename } = await this.storageService.saveScrapeResult(
                                 result,
-                                profile.name || profile.companyId
+                                profile.companyId,
+                                profile.name || profile.id
                             );
                             if (filename) batchSavedFilenames.push(filename);
                             allNewTransactionIds.push(...newTransactionIds);

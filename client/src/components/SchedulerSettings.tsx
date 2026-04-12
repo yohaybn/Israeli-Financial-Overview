@@ -154,7 +154,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                     setTimeout(() => setSuccessMessage(false), 3000);
                 }
             });
-        }, 400);
+        }, 1000);
         return () => clearTimeout(t);
     }, [
         config,

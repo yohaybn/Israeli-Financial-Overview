@@ -170,7 +170,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
       } finally {
         setSaving(false);
       }
-    }, 400);
+    }, 1000);
     return () => clearTimeout(timer);
   }, [config, t]);
 

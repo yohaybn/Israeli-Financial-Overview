@@ -196,7 +196,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                     showNotification('error', t('common.save_failed_with_error', { error: errorMsg }));
                 }
             });
-        }, 500);
+        }, 1000);
         return () => clearTimeout(timer);
     }, [clientId, clientSecret, redirectUri, updateSettings, showNotification, t]);
 

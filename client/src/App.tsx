@@ -21,9 +21,9 @@ import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsD
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { TopBarServerStatus } from './components/TopBarServerStatus';
 import { isDemoMode } from './demo/isDemo';
-import { Map, Bot, Sparkles, MessageSquare } from 'lucide-react';
+import { Map, Bot, MessageSquare } from 'lucide-react';
 import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
-import { HelpAssistantChat } from './components/help/HelpAssistantChat';
+import { UnifiedAiChatPanel, type AiPanelTab } from './components/chat/UnifiedAiChatPanel';
 import { FeedbackModal } from './components/FeedbackModal';
 import { TransactionReviewModal } from './components/TransactionReviewModal';
 import { usePersonaSetupWizardVisibility } from './hooks/usePersonaSetupWizardVisibility';
@@ -61,7 +61,7 @@ function App() {
         parseAppUrlState(window.location.search, consumeSessionConfigTab())
     );
     const urlHadViewAtMount = useRef(new URLSearchParams(window.location.search).has('view')).current;
-    const { view, configTab, logType, logEntryId } = nav;
+    const { view, configTab, logType, logEntryId, resultFile } = nav;
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState<string>(() => {
         const now = new Date();
@@ -76,6 +76,8 @@ function App() {
     const [transactionReviewModalOpen, setTransactionReviewModalOpen] = useState(false);
     const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
     const [hasCheckedData, setHasCheckedData] = useState(false);
+    const [aiPanelOpen, setAiPanelOpen] = useState(false);
+    const [aiPanelTab, setAiPanelTab] = useState<AiPanelTab>('analyst');
 
     useEffect(() => {
         replaceAppUrlState(nav);
@@ -127,6 +129,37 @@ function App() {
         return () => window.removeEventListener('open-ai-logs', onOpenAiLogs);
     }, []);
 
+    useEffect(() => {
+        const onOpenAiLogEntry = (e: Event) => {
+            const id = (e as CustomEvent<{ id: string }>).detail?.id?.trim();
+            if (!id) return;
+            setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: id }));
+        };
+        window.addEventListener('open-ai-log-entry', onOpenAiLogEntry);
+        return () => window.removeEventListener('open-ai-log-entry', onOpenAiLogEntry);
+    }, []);
+
+    useEffect(() => {
+        const onOpenAnalyst = () => {
+            setAiPanelTab('analyst');
+            setAiPanelOpen(true);
+        };
+        window.addEventListener('open-ai-analyst-chat', onOpenAnalyst);
+        return () => window.removeEventListener('open-ai-analyst-chat', onOpenAnalyst);
+    }, []);
+
+    useEffect(() => {
+        const onToggleHelp = (e: Event) => {
+            const ce = e as CustomEvent<{ open?: boolean }>;
+            if (ce.detail?.open) {
+                setAiPanelTab('help');
+                setAiPanelOpen(true);
+            }
+        };
+        window.addEventListener('toggle-help-widget', onToggleHelp as EventListener);
+        return () => window.removeEventListener('toggle-help-widget', onToggleHelp as EventListener);
+    }, []);
+
     const setView = (next: AppUrlState['view']) => {
         setNav((prev) => ({
             ...prev,
@@ -161,6 +194,10 @@ function App() {
     const openAiSettingsTab = () => {
         setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
     };
+
+    const handleScrapeResultFileChange = useCallback((filename: string | null) => {
+        setNav((prev) => ({ ...prev, resultFile: filename }));
+    }, []);
 
     return (
         <>
@@ -201,19 +238,6 @@ function App() {
                                             />
                                         </svg>
                                     </button>
-                                    {view === 'dashboard' && (
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                window.dispatchEvent(new CustomEvent('open-ai-analyst-chat'))
-                                            }
-                                            className="h-9 w-9 inline-flex items-center justify-center rounded-full text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                            title={t('dashboard.ai_analyst')}
-                                            aria-label={t('dashboard.open_ai_chat')}
-                                        >
-                                            <Sparkles className="w-5 h-5" strokeWidth={1.75} aria-hidden />
-                                        </button>
-                                    )}
                                     {showAppAssistant && (
                                         <button
                                             type="button"
@@ -457,12 +481,15 @@ function App() {
                             <FinancialCommandCenter
                                 selectedMonth={selectedMonth}
                                 onMonthChange={setSelectedMonth}
-                                onNavigateToLogs={handleNavigateToAILogs}
                                 onUpdateCategory={handleUpdateCategory}
                             />
                         </div>
                         <div className={view === 'scrape' ? 'h-full overflow-y-auto' : 'hidden'}>
-                            <ScrapeWorkspace onOpenImport={() => setIsImportModalOpen(true)} />
+                            <ScrapeWorkspace
+                                onOpenImport={() => setIsImportModalOpen(true)}
+                                resultFile={resultFile}
+                                onResultFileChange={handleScrapeResultFileChange}
+                            />
                         </div>
                         <div className={view === 'importProfile' ? 'h-full overflow-y-auto' : 'hidden'}>
                             <ImportProfilePage
@@ -507,7 +534,43 @@ function App() {
 
             <FeedbackModal isOpen={feedbackModalOpen} onClose={() => setFeedbackModalOpen(false)} />
 
-            {showAppAssistant && <HelpAssistantChat />}
+            {showAppAssistant && (
+                <>
+                    <UnifiedAiChatPanel
+                        isOpen={aiPanelOpen}
+                        onClose={() => setAiPanelOpen(false)}
+                        activeTab={aiPanelTab}
+                        onTabChange={setAiPanelTab}
+                        scope="all"
+                        contextMonth={selectedMonth}
+                        onNavigateToLogs={handleNavigateToAILogs}
+                    />
+
+                    {!aiPanelOpen && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setAiPanelTab('analyst');
+                                setAiPanelOpen(true);
+                            }}
+                            className="fixed bottom-6 right-6 p-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all z-[100] group"
+                            title={t('dashboard.open_ai_chat')}
+                            aria-label={t('dashboard.open_ai_chat')}
+                        >
+                            <span className="absolute inset-0 bg-white/20 rounded-full animate-ping opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                                />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 8h.01" />
+                            </svg>
+                        </button>
+                    )}
+                </>
+            )}
 
             <TransactionReviewModal
                 isOpen={transactionReviewModalOpen}

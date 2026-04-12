@@ -5,7 +5,6 @@
 
 import fs from 'fs-extra';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { BaseNotifier } from './baseNotifier.js';
 import { ConsoleNotifier } from './consoleNotifier.js';
 import {
@@ -16,10 +15,7 @@ import {
 } from './types.js';
 import { serviceLogger as logger } from '../../utils/logger.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../../data');
+const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const NOTIFICATION_CONFIG_PATH = path.join(DATA_DIR, 'notification_config.json');
 
 export class NotificationService {

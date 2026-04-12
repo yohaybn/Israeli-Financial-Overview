@@ -252,7 +252,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         const timer = setTimeout(() => {
             updateConfig({ botToken: trimmed, language: botLanguage });
             lastTokenSaveSnapRef.current = snap;
-        }, 600);
+        }, 1000);
         return () => clearTimeout(timer);
     }, [botToken, botLanguage, isEnabled, updateConfig]);
 

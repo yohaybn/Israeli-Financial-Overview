@@ -21,7 +21,8 @@ This manual describes how to use each major area of the application.
 *   **Main tabs:** **Dashboard**, **Scrape**, **Logs**, **Configuration** — scroll horizontally on small screens.
 *   **Server status:** If the API health check fails, a **server unreachable** indicator appears; ensure the Node server is running and the URL port matches **Configuration → Maintenance** (or `PORT` / `financial-overview.json`).
 *   **Activity chips:** Optional **Scrape** / **AI** indicators while work is running.
-*   **On Dashboard:** An **alerts** control lists items for the **selected month**; the **AI analyst** button opens analyst chat.
+*   **On Dashboard:** An **alerts** control lists items for the **selected month**.
+*   **AI Financial Analyst (chat):** The floating **indigo** button (bottom-right) on **every** main tab opens transaction-scoped analyst chat when Gemini is configured (same control from Dashboard, Scrape, Logs, or Configuration).
 *   **Language:** Toggle English / Hebrew (RTL for Hebrew).
 *   **App Assistant:** Shown when Gemini is configured — contextual help chat.
 *   **Help docs / Feedback:** Open the static guide (`GUIDE.html`) or the feedback dialog (optional log excerpts with consent).
@@ -46,7 +47,7 @@ The Dashboard is your main home screen, providing analytics and summaries based 
 *   **Manage Subscriptions:** Review a panel of active subscriptions detected automatically by the system. You can drill down into each to see transaction history or mark items incorrectly identified as subscriptions. Only active subscriptions with recent transactions are shown.
 *   **View & Edit Transactions:** Browse all transactions for the selected month in a detailed list. You can click on transactions to manually override the AI's selected category.
 *   **View Detailed Analytics:** Analyze the Category Pie chart for distribution mapping, Monthly Trends to compare against previous months, and Top Merchants to see where your money goes.
-*   **Use the AI Financial Chat:** Talk with an integrated Copilot chatter box. You can ask ad-hoc questions scoped specifically to your transactions (e.g., "How much did I spend on groceries this month?").
+*   **Use the AI Financial Chat:** Open it from the floating **indigo** button (bottom-right) on any main tab. You can ask ad-hoc questions scoped to your transactions (e.g., "How much did I spend on groceries this month?").
 *   **Top insights:** Combines **AI memory** insights and **Insight rules** (**Configuration → Insight rules**). Cards are labeled **AI** or **Rule**; dismissing removes items (rules use **insight_rule_fires**, separate from chat insights).
 *   **Header alerts:** The Dashboard alerts menu lists insight/alert items for the selected month.
 
@@ -93,7 +94,7 @@ This is the control center of the app. It holds all automations, rules, AI promp
 *   **Language Selection:** Set the primary language for AI interaction (e.g., English or Hebrew).
 *   **Categories Management:** Add, delete, or rename the custom budget categories you want the AI to use.
 *   **Bulk Recategorization:** A powerful tool with a single button to force the AI to re-evaluate all past transactions and apply your newest custom categories retroactively.
-*   **AI persona (user alignment):** A structured profile—household, housing, technical comfort, cards and charge days, income schedules, goals, savings targets, and how you want analyst answers styled (communication style, reporting depth). You can fill it manually or use onboarding / “extract from narrative” so Gemini proposes fields from free text. Use **Include persona in analyst prompts** to send this profile with dashboard analyst chat, or turn it off to keep transaction-only prompts while still saving your persona for later.
+*   **AI persona (user alignment):** A structured profile—household, housing, technical comfort, cards and charge days, income schedules, goals, savings targets, and how you want analyst answers styled (communication style, reporting depth). You can fill it manually or use onboarding / “extract from narrative” so Gemini proposes fields from free text. Use **Include persona in analyst prompts** to send this profile with **unified** analyst chat (the indigo FAB on any main tab), or turn it off to keep transaction-only prompts while still saving your persona for later.
 
 ### 3.2 AI Memory Settings
 **Location:** `/?view=configuration&tab=ai` (open the **AI memory** section inside **Configuration → AI**; legacy link `tab=memory` opens the same tab)

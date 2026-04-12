@@ -634,7 +634,9 @@ export class PostScrapeService {
       if (runCategorization && transactions.length > 0) {
         logger.info('Post-scrape step: categorization');
         this.refreshAiIfNeeded();
-        const { transactions: categorized, aiError } = await this.ai.categorizeTransactions(transactions as any);
+        const { transactions: categorized, aiError, aiLogIds: catAiLogIds } = await this.ai.categorizeTransactions(
+          transactions as any
+        );
         result.transactions = categorized;
         transactions = categorized;
         if (aiError) {
@@ -646,7 +648,12 @@ export class PostScrapeService {
               logger.warn('Failed to emit categorization:failed socket event', { error: (e as Error).message });
             }
             logger.warn('Post-scrape: AI categorization failed; applied cache where available', { error: aiError });
-            actions.push({ key: 'categorization', status: 'partial', detail: aiError });
+            actions.push({
+              key: 'categorization',
+              status: 'partial',
+              detail: aiError,
+              ...(catAiLogIds?.length ? { aiLogIds: catAiLogIds } : {}),
+            });
           } else {
             logger.info('Post-scrape: category cache only (GEMINI_API_KEY not configured).');
             actions.push({
@@ -657,7 +664,11 @@ export class PostScrapeService {
           }
         } else {
           logger.info('Post-scrape step: categorization completed');
-          actions.push({ key: 'categorization', status: 'ok' });
+          actions.push({
+            key: 'categorization',
+            status: 'ok',
+            ...(catAiLogIds?.length ? { aiLogIds: catAiLogIds } : {}),
+          });
         }
       } else {
         actions.push({
@@ -806,7 +817,7 @@ export class PostScrapeService {
                   const fraudQuery = runContext + previousInstruction + baseQuery;
 
                   const useFraudSplit = scope === 'all' && history.length > 0;
-                  const { text: fraudResult } = await this.ai.analyzeData(
+                  const { text: fraudResult, aiLogIds: fraudAiLogIds } = await this.ai.analyzeData(
                     fraudQuery,
                     useFraudSplit ? [] : (transactionsToAnalyze as any),
                     {
@@ -852,7 +863,11 @@ export class PostScrapeService {
 
                   logger.info('Post-scrape: AI fraud notification sent');
                 }
-                  actions.push({ key: 'fraud-ai', status: 'ok' });
+                  actions.push({
+                    key: 'fraud-ai',
+                    status: 'ok',
+                    ...(fraudAiLogIds?.length ? { aiLogIds: fraudAiLogIds } : {}),
+                  });
                 } catch (err) {
                   await recordStepFailure('fraud-ai', err as Error);
                 }
@@ -906,7 +921,7 @@ export class PostScrapeService {
               const customQuery = runContext + previousInstruction + cfg.customAI.query + langSuffix;
 
               const useCustomSplit = cfg.customAI.scope === 'all' && customHistory.length > 0;
-              const { text: aiResult } = await this.ai.analyzeData(
+              const { text: aiResult, aiLogIds: customAiLogIds } = await this.ai.analyzeData(
                 customQuery,
                 useCustomSplit ? [] : (transactionsToAnalyze as any),
                 {
@@ -950,7 +965,11 @@ export class PostScrapeService {
 
                 logger.info('Post-scrape: custom AI notification sent');
               }
-              actions.push({ key: 'custom-ai', status: 'ok' });
+              actions.push({
+                key: 'custom-ai',
+                status: 'ok',
+                ...(customAiLogIds?.length ? { aiLogIds: customAiLogIds } : {}),
+              });
             }
           }
         } catch (err) {

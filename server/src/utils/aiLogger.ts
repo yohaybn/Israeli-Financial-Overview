@@ -133,9 +133,9 @@ async function ensureLogsDirectory(): Promise<void> {
 }
 
 /**
- * Log an AI interaction
+ * Log an AI interaction. Returns the new log entry id when persisted.
  */
-export async function logAICall(entry: Omit<AILogEntry, 'id' | 'timestamp'>): Promise<void> {
+export async function logAICall(entry: Omit<AILogEntry, 'id' | 'timestamp'>): Promise<string | undefined> {
   try {
     await ensureLogsDirectory();
 
@@ -177,13 +177,15 @@ export async function logAICall(entry: Omit<AILogEntry, 'id' | 'timestamp'>): Pr
       latencyMs: entry.metadata.latencyMs,
       totalTokens: entry.metadata.totalTokens
     });
+    return id;
   } catch (error) {
     serverLogger.error('Failed to log AI call:', { error });
+    return undefined;
   }
 }
 
 /**
- * Log an AI API error
+ * Log an AI API error. Returns the new log entry id when persisted.
  */
 export async function logAIError(
   model: string,
@@ -191,7 +193,7 @@ export async function logAIError(
   userInput: string,
   error: Error,
   metadata?: { latencyMs?: number; systemPrompt?: string }
-): Promise<void> {
+): Promise<string | undefined> {
   try {
     await ensureLogsDirectory();
 
@@ -253,8 +255,10 @@ export async function logAIError(
       errorCode,
       errorMessage
     });
+    return id;
   } catch (err) {
     serverLogger.error('Failed to log AI error:', { error: err });
+    return undefined;
   }
 }
 

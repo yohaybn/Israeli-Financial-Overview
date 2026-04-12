@@ -69,6 +69,16 @@ export {
 } from './financial/anomalyI18n.js';
 export type { DigestLocale } from './financial/anomalyI18n.js';
 export const version = "1.0.0";
+export {
+    assignTransactionId,
+    assignTransactionIdFromTxn,
+    buildContentTransactionKey,
+    buildExternalTransactionKey,
+    hashTransactionId,
+    shouldPreserveScrapedTransactionId,
+    TRANSACTION_ID_HASH_VERSION,
+} from './transactionId.js';
+export type { AssignTransactionIdInput, AssignTransactionIdResult } from './transactionId.js';
 export * from './userPersona.js';
 export {
     INSIGHT_RULES_EXPORT_FORMAT,

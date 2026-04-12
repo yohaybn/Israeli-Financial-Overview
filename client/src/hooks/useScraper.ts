@@ -423,15 +423,6 @@ export function useRecategorizeAll() {
     });
 }
 
-export function useAIChat() {
-    return useMutation({
-        mutationFn: async ({ query, filename }: { query: string; filename: string }) => {
-            const { data } = await api.post<{ success: boolean; data: string }>('/ai/chat', { query, filename });
-            return data.data;
-        },
-    });
-}
-
 export function useAISettings() {
     return useQuery({
         queryKey: ['aiSettings'],

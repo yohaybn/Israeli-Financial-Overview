@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrapeProgress } from '../ScrapeProgress';
 import { ScrapeSettings } from '../ScrapeSettings';
@@ -8,34 +8,40 @@ import { useScrapeResults } from '../../hooks/useScraper';
 
 interface ScrapeWorkspaceProps {
     onOpenImport: () => void;
+    resultFile: string | null;
+    onResultFileChange: (filename: string | null) => void;
 }
 
-export function ScrapeWorkspace({ onOpenImport }: ScrapeWorkspaceProps) {
+export function ScrapeWorkspace({ onOpenImport, resultFile, onResultFileChange }: ScrapeWorkspaceProps) {
     const { t } = useTranslation();
     const [isScrapeSettingsOpen, setIsScrapeSettingsOpen] = useState(false);
     const { data: files } = useScrapeResults();
 
-    // Re-use logic for selected files if we want them to persist or be shared
-    const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
     const [isFormCollapsed, setIsFormCollapsed] = useState(true);
 
-    // Auto-select most recent file if none selected
+    const pickNewestFilename = useCallback(() => {
+        if (!files?.length) return null;
+        const sorted = [...files].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return sorted[0].filename;
+    }, [files]);
+
     useEffect(() => {
-        if (selectedFiles.length === 0 && files && files.length > 0) {
-            const sorted = [...files].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setSelectedFiles([sorted[0].filename]);
+        if (files === undefined) return;
+        if (files.length === 0) {
+            if (resultFile) onResultFileChange(null);
+            return;
         }
-    }, [files, selectedFiles.length]);
+        const names = new Set(files.map((f) => f.filename));
+        if (resultFile && names.has(resultFile)) return;
+        onResultFileChange(pickNewestFilename());
+    }, [files, resultFile, onResultFileChange, pickNewestFilename]);
 
-    const handleFileClick = (file: string) => {
-        if (selectedFiles.includes(file)) {
-            setSelectedFiles(selectedFiles.filter(f => f !== file));
-        } else {
-            setSelectedFiles([...selectedFiles, file]);
-        }
-    };
-
-
+    const handleSelectFile = useCallback(
+        (file: string) => {
+            onResultFileChange(file);
+        },
+        [onResultFileChange]
+    );
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
@@ -62,8 +68,8 @@ export function ScrapeWorkspace({ onOpenImport }: ScrapeWorkspaceProps) {
                     <ResultsExplorer
                         layout="viewer-only"
                         onOpenImport={onOpenImport}
-                        externalSelectedFiles={selectedFiles}
-                        onExternalToggleFile={handleFileClick}
+                        externalSelectedFile={resultFile}
+                        onExternalSelectFile={handleSelectFile}
                     />
                 </div>
             </div>
@@ -77,4 +83,3 @@ export function ScrapeWorkspace({ onOpenImport }: ScrapeWorkspaceProps) {
         </div>
     );
 }
-

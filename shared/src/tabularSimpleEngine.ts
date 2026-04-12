@@ -9,7 +9,7 @@ export function parseSimpleRowsToTransactions(
     profile: TabularImportProfileV1,
     logs: string[],
     defaultAccountNumber: string,
-    createId: () => string
+    finalizeTransactionId: (txn: Transaction) => void
 ): { transactions: Transaction[]; accounts: Account[] } {
     const transactions: Transaction[] = [];
     const hi = profile.headerRowIndex;
@@ -95,7 +95,7 @@ export function parseSimpleRowsToTransactions(
             colCategory !== null ? String(row[colCategory] ?? '').trim() || undefined : undefined;
 
         const txn: Transaction = {
-            id: createId(),
+            id: '',
             date: date.toISOString(),
             processedDate: date.toISOString(),
             description,
@@ -111,6 +111,7 @@ export function parseSimpleRowsToTransactions(
 
         applyOptionalFieldMappings(txn, row, optMaps, headerRow, maxCols, dateFmt);
 
+        finalizeTransactionId(txn);
         transactions.push(txn);
     }
 
@@ -129,10 +130,10 @@ export function parseTabularRows(
     profile: TabularImportProfileV1,
     logs: string[],
     defaultAccountNumber: string,
-    createId: () => string
+    finalizeTransactionId: (txn: Transaction) => void
 ): { transactions: Transaction[]; accounts: Account[] } {
     if (isLedgerStyleColumns(profile.columns)) {
-        return parseLedgerRowsToTransactions(rows, profile, logs, defaultAccountNumber, createId);
+        return parseLedgerRowsToTransactions(rows, profile, logs, defaultAccountNumber, finalizeTransactionId);
     }
-    return parseSimpleRowsToTransactions(rows, profile, logs, defaultAccountNumber, createId);
+    return parseSimpleRowsToTransactions(rows, profile, logs, defaultAccountNumber, finalizeTransactionId);
 }

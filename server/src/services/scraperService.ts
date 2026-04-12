@@ -34,6 +34,9 @@ export interface ScrapeProgress {
 
 let activeScrapeCount = 0;
 
+/** When smart start is on, never scrape fewer than this many days of history (vs day-after-last-txn). */
+const SMART_START_MIN_LOOKBACK_DAYS = 7;
+
 export function getActiveScrapeCount(): number {
     return activeScrapeCount;
 }
@@ -190,7 +193,7 @@ export class ScraperService {
 
         // Set start date - logic:
         // 1. Use explicit startDate from request if provided
-        // 2. Otherwise, if smartStartDate is enabled, use last txn date + 1 day
+        // 2. Otherwise, if smartStartDate is enabled, use min(last txn + 1 day, today - SMART_START_MIN_LOOKBACK_DAYS)
         // 3. Fallback to 30 days ago
         if (request.options.startDate) {
             libOptions.startDate = new Date(request.options.startDate);
@@ -207,8 +210,19 @@ export class ScraperService {
                 if (latestDate) {
                     const nextDay = new Date(latestDate);
                     nextDay.setDate(nextDay.getDate() + 1);
-                    libOptions.startDate = nextDay;
-                    addLog(`Smart start date enabled. Using day after last transaction: ${nextDay.toISOString().split('T')[0]}`);
+                    const minStart = new Date();
+                    minStart.setDate(minStart.getDate() - SMART_START_MIN_LOOKBACK_DAYS);
+                    const useMinLookback = nextDay.getTime() > minStart.getTime();
+                    libOptions.startDate = useMinLookback ? minStart : nextDay;
+                    if (useMinLookback) {
+                        addLog(
+                            `Smart start date enabled. Minimum ${SMART_START_MIN_LOOKBACK_DAYS}-day lookback: ${libOptions.startDate.toISOString().split('T')[0]} (day after last transaction would be ${nextDay.toISOString().split('T')[0]})`
+                        );
+                    } else {
+                        addLog(
+                            `Smart start date enabled. Using day after last transaction: ${libOptions.startDate.toISOString().split('T')[0]}`
+                        );
+                    }
                 } else {
                     const thirtyDaysAgo = new Date();
                     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

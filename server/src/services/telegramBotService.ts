@@ -6,7 +6,6 @@
 import { Telegraf, Context, Markup, Input } from 'telegraf';
 import { Message } from 'telegraf/types';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
 import { serverLogger } from '../utils/logger.js';
 import { AiService, type ConversationTurn } from './aiService.js';
@@ -23,13 +22,19 @@ import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
+const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const TEL_CONFIG_PATH = path.join(DATA_DIR, 'config', 'telegram_config.json');
 const MEMO_REPLY_MAP_PATH = path.join(DATA_DIR, 'telegram_memo_reply_map.json');
 const MEMO_REPLY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Min alert score (1–100) for Telegram push notifications. Default 75. Set env AI_TELEGRAM_ALERT_MIN_SCORE to override (e.g. 85 for fewer pings, 0 for all). */
+function getTelegramAiAlertMinScore(): number {
+  const raw = process.env.AI_TELEGRAM_ALERT_MIN_SCORE;
+  if (raw === undefined || raw === '') return 75;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 75;
+  return Math.max(1, Math.min(100, Math.round(n)));
+}
 
 export interface TelegramConfig {
   botToken: string;
@@ -1700,8 +1705,11 @@ export class TelegramBotService {
     // Persist the scrape result (so DB has transactions for "current" / "all" scope)
     try {
       const storage = this.getStorageService();
-      const provider = (profile && (profile.name || profile.companyId)) || 'telegram';
-      const saved = await storage.saveScrapeResult(result, provider);
+      const saved = await storage.saveScrapeResult(
+        result,
+        profile.companyId,
+        profile.name || profile.id
+      );
       newTransactionIds = saved.newTransactionIds;
       savedFilename = saved.filename;
       serverLogger.info('Saved scrape result from Telegram', { filename: saved.filename, profileId: profile.id });
@@ -2265,6 +2273,15 @@ export class TelegramBotService {
     options?: { includeChatId?: string }
   ): Promise<void> {
     if (!alerts?.length || !this.bot || !this.isRunning) return;
+    const minScore = getTelegramAiAlertMinScore();
+    const filtered = alerts.filter((a) => Math.max(1, Math.min(100, Math.round(a.score))) >= minScore);
+    if (filtered.length === 0) {
+      serverLogger.debug('telegramBot: AI alert notify skipped (below min score)', {
+        minScore,
+        received: alerts.length,
+      });
+      return;
+    }
     const cfg = this.getConfig();
     const chatIds = new Set<string>();
     for (const id of cfg.notificationChatIds || []) {
@@ -2283,12 +2300,12 @@ export class TelegramBotService {
     };
 
     let text: string;
-    if (alerts.length === 1) {
-      const a = alerts[0];
+    if (filtered.length === 1) {
+      const a = filtered[0];
       const body = this.escapeTgHtml((a.text || '').slice(0, 3500));
       text = `${this.t('newAiAlertTitle')}\n<i>${scoreLineHtml(a.score)}</i>\n\n${body}`;
     } else {
-      const blocks = alerts.map((a) => {
+      const blocks = filtered.map((a) => {
         const body = this.escapeTgHtml((a.text || '').slice(0, 1500));
         return `• <i>${scoreLineHtml(a.score)}</i>\n${body}`;
       });

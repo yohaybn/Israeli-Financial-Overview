@@ -104,7 +104,8 @@ export function createScrapeRoutes(
             }
 
             try {
-                let { filename } = await storageService.saveScrapeResult(result, request.companyId);
+                const profileLabel = request.profileName ?? request.profileId ?? 'manual';
+                let { filename } = await storageService.saveScrapeResult(result, request.companyId, profileLabel);
                 const scrapeLogId = (request as any).__scrapeRunLogId as string | undefined;
                 if (scrapeLogId && filename) attachScrapeRunFilename(scrapeLogId, filename);
 
@@ -116,7 +117,7 @@ export function createScrapeRoutes(
 
                         // Update the result object and save it again
                         result.transactions = categorizedTransactions;
-                        ({ filename } = await storageService.saveScrapeResult(result, request.companyId));
+                        ({ filename } = await storageService.saveScrapeResult(result, request.companyId, profileLabel));
                         if (scrapeLogId && filename) attachScrapeRunFilename(scrapeLogId, filename);
                         await storageService.applyCategoryColumnsFromTransactions(categorizedTransactions);
 
@@ -198,7 +199,7 @@ export function createScrapeRoutes(
                         if (result.success) {
                             try {
                                 const provider = result.transactions?.[0]?.provider || 'imported-batch';
-                                const { filename } = await storageService.saveScrapeResult(result, provider);
+                                const { filename } = await storageService.saveScrapeResult(result, provider, 'import-batch');
                                 importResults.push({ originalName: 'Batch AI Import', filename, success: true, count: result.transactions?.length || 0 });
                             } catch (saveError: any) {
                                 importResults.push({ originalName: 'Batch AI Import', success: false, error: saveError.message });
@@ -239,7 +240,13 @@ export function createScrapeRoutes(
                     const result = await importService.importFile(file.path, accountNumberOverride, useAiBool, providerTarget, tabularProfile);
                     if (result.success) {
                         try {
-                            const { filename } = await storageService.saveScrapeResult(result, (result.transactions?.[0]?.provider || 'imported'));
+                            const importProfile =
+                                path.basename(file.originalname, path.extname(file.originalname)) || 'import';
+                            const { filename } = await storageService.saveScrapeResult(
+                                result,
+                                result.transactions?.[0]?.provider || 'imported',
+                                importProfile
+                            );
                             importResults.push({ originalName: file.originalname, filename, success: true, count: result.transactions?.length || 0 });
                         } catch (saveError: any) {
                             // Skip files with empty results
@@ -372,7 +379,8 @@ export function createScrapeRoutes(
                 }
                 try {
                     const provider = result.transactions?.[0]?.provider || 'imported';
-                    const { filename } = await storageService.saveScrapeResult(result, provider);
+                    const importProfile = path.basename(originalName, path.extname(originalName)) || 'import';
+                    const { filename } = await storageService.saveScrapeResult(result, provider, importProfile);
                     importResults.push({
                         originalName,
                         filename,

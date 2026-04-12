@@ -544,7 +544,8 @@ GEMINI_API_KEY=(optional)
                             <ul>
                                 <li><strong>Server status:</strong> If the API health check fails, a <strong>server unreachable</strong> indicator appears—ensure the server process is running and the URL port matches <strong>Configuration → Maintenance</strong> (or <code>PORT</code> / <code>financial-overview.json</code>).</li>
                                 <li><strong>Activity:</strong> While work is running, chips may show <strong>Scrape</strong> or <strong>AI</strong> activity.</li>
-                                <li><strong>On Dashboard:</strong> An <strong>alerts</strong> menu lists insight and alert items for the <strong>selected month</strong>; the <strong>AI analyst</strong> (sparkles) button opens the analyst chat.</li>
+                                <li><strong>On Dashboard:</strong> An <strong>alerts</strong> menu lists insight and alert items for the <strong>selected month</strong>.</li>
+                                <li><strong>AI Financial Analyst:</strong> The floating <strong>indigo</strong> button (bottom-right) on <strong>any</strong> main tab opens the same transaction-scoped analyst chat when Gemini is configured (not limited to Dashboard).</li>
                                 <li><strong>Language:</strong> Toggle English / Hebrew (RTL applies for Hebrew).</li>
                                 <li><strong>App Assistant:</strong> Shown when a Gemini API key is configured—opens the in-app help chat.</li>
                                 <li><strong>Help docs:</strong> Opens this guide in a new tab.</li>
@@ -569,7 +570,7 @@ GEMINI_API_KEY=(optional)
                     "dashboard": {
                         title: "📈 Dashboard & analytics",
                         html: `
-                            <p>The <strong>Dashboard</strong> summarizes the selected month: income progress, expenses, subscriptions, monthly transactions, top insights, analytics, and an optional <strong>AI chat</strong> scoped to your data.</p>
+                            <p>The <strong>Dashboard</strong> summarizes the selected month: income progress, expenses, subscriptions, monthly transactions, top insights, and analytics. Open the <strong>AI analyst</strong> from the floating indigo button (bottom-right) on <strong>any</strong> main tab—it is scoped to your data.</p>
                             <h3>Income in the current month</h3>
                             <p>For the <strong>live calendar month</strong>, a positive <strong>completed</strong> transaction whose <strong>date is after today</strong> counts as <strong>expected inflow</strong> (not yet received), together with pending income and recurring income—so salary or transfers dated later in the month do not inflate “already received.”</p>
                             <h3>Responsive layout</h3>
@@ -656,7 +657,7 @@ GEMINI_API_KEY=(optional)
                     "ai": {
                         title: "🤖 AI-Powered Features",
                         html: `
-                            <p><strong>Google Gemini</strong> drives categorization, the dashboard <strong>AI analyst chat</strong>, and (if enabled) AI-assisted fraud checks. Optional AI runs only on <strong>your</strong> deployment and only for features you turn on.</p>
+                            <p><strong>Google Gemini</strong> drives categorization, the <strong>AI analyst chat</strong> (indigo FAB on any main tab), and (if enabled) AI-assisted fraud checks. Optional AI runs only on <strong>your</strong> deployment and only for features you turn on.</p>
                             <div class="callout info">
                                 <strong>Profiles and bank logins:</strong> AI does <strong>not</strong> have access to your encrypted <strong>profile credentials</strong> or bank login secrets. Scraping itself is separate (see <strong>Scrape</strong>) and does not use AI. Gemini only sees the <strong>transaction text and context</strong> you send it for categorization, chat, or optional AI fraud analysis—not your stored passwords.
                             </div>
@@ -671,7 +672,7 @@ GEMINI_API_KEY=(optional)
                             <h3>AI persona (user alignment)</h3>
                             <p>In <strong>Configuration → AI</strong>, open the <strong>Persona / alignment</strong> card. This is your <strong>structured profile</strong> for the analyst: household status, housing, technical comfort, cards and payment days, income schedules, financial goals, savings targets, and how you want answers styled (e.g. supportive vs. brief bullets, reporting depth).</p>
                             <ul>
-                                <li><strong>Include in prompts:</strong> You can choose whether this JSON profile is sent to Gemini with dashboard analyst chat. Turning it off keeps transactions-only prompts (persona is still saved for next time).</li>
+                                <li><strong>Include in prompts:</strong> You can choose whether this JSON profile is sent to Gemini with analyst chat. Turning it off keeps transactions-only prompts (persona is still saved for next time).</li>
                                 <li><strong>Filling it in:</strong> Edit fields directly, or use onboarding / “extract from narrative” so the model proposes persona fields plus optional summary bullets from your free-text description.</li>
                             </ul>
                             <p>Persona steers <strong>tone and priorities</strong>; stored memory facts steers <strong>long-lived statements</strong> the model should remember. Both can appear in the same analyst prompt when enabled.</p>
@@ -1282,7 +1283,8 @@ GEMINI_API_KEY=(optional)
                             <ul>
                                 <li><strong>המערכת אופליין?</strong> אם השרת נתקע, תראו התראה שהשרת לא זמין. כדאי לבדוק שהוא פועל ברקע ושאתם בכתובת הנכונה (כפי שהוגדרה ב<strong>הגדרות → תחזוקה</strong>).</li>
                                 <li><strong>עובדים מאחורי הקלעים:</strong> כשהמערכת מושכת נתונים או מפעילה את ה-AI, תראו חיווי קטן למעלה שמעדכן אתכם.</li>
-                                <li><strong>בדשבורד:</strong> תפריט הפעמון הקטן למעלה יראה לכם את ה<strong>התראות המיוחדות</strong> של אותו חודש. כפתור הניצוצות הקטן יקפיץ לכם את <strong>צ'אט האנליסט</strong> המבריק שלנו.</li>
+                                <li><strong>בדשבורד:</strong> תפריט הפעמון הקטן למעלה יראה לכם את ה<strong>התראות המיוחדות</strong> של אותו חודש.</li>
+                                <li><strong>אנליסט פיננסי (צ'אט):</strong> הכפתור הצף <strong>האינדיגו</strong> בפינה הימנית-תחתונה זמין ב<strong>כל</strong> לשונית ראשית (דשבורד, סריקה, יומנים, הגדרות) ופותח את אותו צ'אט אנליסט על בסיס העסקאות שלכם כש-Gemini מחובר.</li>
                                 <li><strong>החלפת שפה:</strong> מעבר קליל בין עברית לאנגלית בלחיצת כפתור.</li>
                                 <li><strong>העוזר שלכם:</strong> אם חיברתם את ה-API של Gemini, יופיע לכם רובוט כחול למעלה שמוכן לעזור בכל מה שצריך.</li>
                                 <li><strong>מדריך למשתמש:</strong> לחיצה על סימן השאלה תפתח את העמוד הזה בלשונית חדשה, ליתר ביטחון.</li>
@@ -1390,7 +1392,7 @@ GEMINI_API_KEY=(optional)
                     "ai": {
                         title: "🤖 העוזר החכם (AI)",
                         html: `
-                            <p><strong>Google Gemini</strong> הוא המוח מאחורי הקלעים. הוא זה שממיין לכם עסקאות לקטגוריות, מנהל איתכם שיחות בתור <strong>האנליסט הפיננסי</strong> בדשבורד, ואפילו עוזר לחפש חיובים חשודים (אם ביקשתם ממנו). אם תרצו, אתם שולטים על הכל ואפשר לכבות או להדליק כל תכונה כזאת בנפרד.</p>
+                            <p><strong>Google Gemini</strong> הוא המוח מאחורי הקלעים. הוא זה שממיין לכם עסקאות לקטגוריות, מנהל איתכם שיחות בתור <strong>האנליסט הפיננסי</strong> (כפתור אינדיגו צף בכל לשונית ראשית), ואפילו עוזר לחפש חיובים חשודים (אם ביקשתם ממנו). אם תרצו, אתם שולטים על הכל ואפשר לכבות או להדליק כל תכונה כזאת בנפרד.</p>
                             <div class="callout info">
                                 <strong>הסיסמאות שלכם בטוחות לחלוטין!</strong> ל-AI שלנו <strong>אין שום גישה</strong> לסיסמאות הבנק או לפרופילים שהצפנתם. הסריקה עצמה עובדת בנפרד בלי שום קשר ל-AI. הדבר היחיד שגוגל רואה זה את <strong>טקסט התנועות בלבד</strong> (למשל "שופרסל - 200 שח") שאתם שולחים לו כדי שיעזור למיין או ינתח עבורכם. שום דבר מעבר.
                             </div>
@@ -1405,14 +1407,14 @@ GEMINI_API_KEY=(optional)
                             <h3>פרסונת ה-AI (איך הייתם רוצים שהוא ידבר איתכם?)</h3>
                             <p>תחת <strong>הגדרות → AI</strong>, תמצאו את כרטיסיית <strong>פרסונה ויישור ציפיות</strong>. זה בעצם הפרופיל שלכם מול המערכת: כמה ילדים יש, מתי האשראי יורד, אם אתם חוסכים למשהו מסוים ואיזה סגנון שיחה אתם מעדיפים (נגיד קצר ולעניין, או מפרגן ותומך).</p>
                             <ul>
-                                <li><strong>לצרף לפרומפטים?</strong> אתם מחליטים אם הפרופיל הזה בכלל יישלח ל-Gemini כשאתם מתכתבים איתו בדשבורד. כבוי = הצ'אט יענה לכם נטו לפי המספרים (אבל הפרופיל יישאר שמור לפעם הבאה).</li>
+                                <li><strong>לצרף לפרומפטים?</strong> אתם מחליטים אם הפרופיל הזה בכלל יישלח ל-Gemini בצ'אט האנליסט (הכפתור האינדיגו הצף). כבוי = הצ'אט יענה לכם נטו לפי המספרים (אבל הפרופיל יישאר שמור לפעם הבאה).</li>
                                 <li><strong>איך ממלאים את זה?</strong> אפשר למלא לבד את השדות כמו טופס רגיל, או פשוט לכתוב פסקה חופשית של "מי אני ומה המצב שלי בבנק" ולתת למערכת לתרגם את זה לבד.</li>
                             </ul>
                             <p>ה"פרסונה" היא זו שנותנת למנתח הפיננסי שלכם את ה<strong>אופי</strong> והמיקוד שלו. ה"עובדות" (Facts) הן ה<strong>חוקים</strong> שהוא חייב לזכור תמיד. הכל משתלב יחד בצ'אט.</p>
                             <h3>תובנות מובילות בדשבורד</h3>
                             <p>בדשבורד הראשי תראו את ה"תובנות המובילות" — תמהיל חכם של רעיונות שה-AI רשם לעצמו, יחד עם חוקים ברזל שקבעתם מראש ב<strong>הגדרות → כללי תובנה</strong>. לכל הערה כזאת יש סימון כדי שתדעו ממי היא הגיעה, ותמיד אפשר פשוט לסגור אותן.</p>
                             <h3>לדבר עם האנליסט בכיף שלכם</h3>
-                            <p>לחצו על האייקון של הניצוצות בדשבורד ותתחילו לשאול שאלות על הכסף שלכם כמו שהייתם שואלים חבר. "למה בזבזתי ככה החודש?", "איך אני מצמצם את ההוצאות על אוכל?". כשהזיכרון פעיל, השיחה זורמת ולפעמים הוא ירשום לעצמו תובנות בעקבותיה. רוצים שה-AI יעשה סדר בבלאגן? השתמשו בכפתור 'קטלוג עם AI' בתוך <strong>סייר הנתונים</strong> כדי לתייג המון עסקאות בבת אחת.</p>
+                            <p>לחצו על הכפתור הצף האינדיגו בפינה הימנית-תחתונה (בכל לשונית ראשית) ותתחילו לשאול שאלות על הכסף שלכם כמו שהייתם שואלים חבר. "למה בזבזתי ככה החודש?", "איך אני מצמצם את ההוצאות על אוכל?". כשהזיכרון פעיל, השיחה זורמת ולפעמים הוא ירשום לעצמו תובנות בעקבותיה. רוצים שה-AI יעשה סדר בבלאגן? השתמשו בכפתור 'קטלוג עם AI' בתוך <strong>סייר הנתונים</strong> כדי לתייג המון עסקאות בבת אחת.</p>
                         `
                     },
                     "fraud": {
