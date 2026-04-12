@@ -4,7 +4,7 @@ import {
     ScrapeResult,
     Transaction,
     GlobalScrapeConfig,
-    assignTransactionId,
+    assignBatchContentIdsFromTransactions,
     buildContentTransactionKey,
     hashTransactionId,
 } from '@app/shared';
@@ -87,31 +87,14 @@ export class StorageService {
     }
 
     /**
-     * Fills {@link Transaction.id} (and optional external refs) when missing — same rules as {@link saveScrapeResult}.
-     */
-    private fillMissingTransactionId(txn: any, fallbackProvider: string, fallbackAccount: string): void {
-        if (txn.id) return;
-        const a = assignTransactionId({
-            existingId: undefined,
-            externalId: txn.externalId,
-            provider: txn.provider || fallbackProvider,
-            accountNumber: txn.accountNumber || fallbackAccount,
-            date: txn.date,
-            amount: txn.amount,
-            chargedAmount: txn.chargedAmount,
-            description: txn.description,
-        });
-        txn.id = a.id;
-        if (a.externalId) txn.externalId = a.externalId;
-        if (a.sourceRef) txn.sourceRef = a.sourceRef;
-    }
-
-    /**
-     * Sets {@link Transaction.id} when missing, using the same logic as {@link saveScrapeResult}.
+     * Sets {@link Transaction.id} when missing, using the same logic as {@link saveScrapeResult} (single-row batch ordinal).
      * Post-scrape runs before persist on the normal scrape path; Telegram memo prompts need this id to match the DB row.
      */
     ensureStableTransactionId(txn: Transaction): void {
-        this.fillMissingTransactionId(txn, txn.provider || 'unknown', txn.accountNumber || 'unknown');
+        assignBatchContentIdsFromTransactions([txn], {
+            providerFallback: txn.provider || 'unknown',
+            accountFallback: txn.accountNumber || 'unknown',
+        });
     }
 
     private async migrateLegacyResults() {
@@ -196,28 +179,26 @@ export class StorageService {
             const config = await this.getGlobalScrapeConfig();
             const ignorePending = config.scraperOptions.ignorePendingTransactions !== false;
 
-            const validTransactions = [];
+            const validTransactions: Transaction[] = [];
             const newTransactionIds: string[] = [];
             for (const txn of result.transactions) {
                 if (ignorePending && txn.status === 'pending') {
-                    const txnId =
-                        txn.id ||
-                        assignTransactionId({
-                            existingId: undefined,
-                            externalId: txn.externalId,
-                            provider: txn.provider || provider,
-                            accountNumber: txn.accountNumber || accountNumber,
-                            date: txn.date,
-                            amount: txn.amount,
-                            chargedAmount: txn.chargedAmount,
-                            description: txn.description,
-                        }).id;
-                    this.dbService.deleteTransaction(txnId);
+                    const tmp = { ...txn } as Transaction;
+                    assignBatchContentIdsFromTransactions([tmp], {
+                        providerFallback: provider,
+                        accountFallback: txn.accountNumber || accountNumber,
+                    });
+                    this.dbService.deleteTransaction(tmp.id);
                     continue;
                 }
 
-                this.fillMissingTransactionId(txn, provider, txn.accountNumber || accountNumber);
                 validTransactions.push(txn);
+            }
+            assignBatchContentIdsFromTransactions(validTransactions, {
+                providerFallback: provider,
+                accountFallback: accountNumber,
+            });
+            for (const txn of validTransactions) {
                 if (this.dbService.addTransaction(txn)) {
                     newTransactionIds.push(txn.id);
                 }

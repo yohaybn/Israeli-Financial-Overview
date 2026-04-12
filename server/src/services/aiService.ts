@@ -11,7 +11,9 @@ import {
     normalizePersonaExtractFromAi,
     type PersonaExtractFromNarrativeResult,
     parseInsightRuleDefinition,
-    type InsightRuleDefinitionV1
+    type InsightRuleDefinitionV1,
+    assignBatchContentIdsFromTransactions,
+    shouldPreserveScrapedTransactionId,
 } from '@app/shared';
 import { attachGeminiRateLimitToError } from '../utils/geminiRateLimitCapture.js';
 import { isGeminiRateLimitOrOverloadError } from '../utils/geminiRetryableError.js';
@@ -19,7 +21,6 @@ import fs from 'fs-extra';
 import path from 'path';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { assignTransactionId } from '@app/shared';
 import { serverLogger } from '../utils/logger.js';
 import { maskSensitiveData } from '../utils/masking.js';
 import { logAICall, logAIError, withAILogging, runWithAILoadTracking } from '../utils/aiLogger.js';
@@ -1456,20 +1457,19 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             const transactions: Transaction[] = (extracted.transactions || []).map((t: any) => {
                 const txnAcc = t.accountNumber || extracted.accountNumber || accountNumber;
                 const canonical = canonicalAmountFromExtracted(t);
-                const ids = assignTransactionId({
-                    existingId: t.identifier,
-                    externalId: t.identifier,
-                    provider: t.provider || provider,
-                    accountNumber: txnAcc,
-                    date: t.date,
-                    amount: canonical,
-                    chargedAmount: canonical,
-                    description: t.description,
-                    sourceRef: 'import:ai-document',
-                });
+                let id = '';
+                let externalId: string | undefined;
+                if (t.identifier && shouldPreserveScrapedTransactionId(String(t.identifier))) {
+                    id = String(t.identifier);
+                    externalId = String(t.identifier);
+                } else if (t.identifier) {
+                    externalId = String(t.identifier);
+                }
 
                 return {
-                    ...ids,
+                    id,
+                    externalId,
+                    sourceRef: 'import:ai-document',
                     date: t.date,
                     processedDate: t.processedDate || t.date,
                     description: t.description,
@@ -1484,6 +1484,11 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                     provider: t.provider || provider,
                     accountNumber: txnAcc
                 };
+            });
+
+            assignBatchContentIdsFromTransactions(transactions, {
+                providerFallback: provider,
+                accountFallback: accountNumber,
             });
 
             let accounts: Account[] = extracted.accounts || [];

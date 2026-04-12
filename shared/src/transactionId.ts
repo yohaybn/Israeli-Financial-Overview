@@ -121,6 +121,63 @@ export function assignTransactionId(input: AssignTransactionIdInput): AssignTran
 }
 
 /**
+ * Assigns {@link Transaction.id} for all rows missing one, in **array order** (one ingest batch: one scrape save, one import file, one AI parse, etc.).
+ *
+ * **Content-based rows** (no `externalId` on the txn): the first occurrence of a given content key in this batch uses
+ * `MD5(contentKey)` — same as legacy single-row behavior. Further identical keys in the **same** batch use
+ * `MD5(contentKey|1)`, `MD5(contentKey|2)`, … so two identical charges in one scrape both insert.
+ *
+ * A **later** batch (e.g. import) whose first occurrence matches the same content key still gets `MD5(contentKey)` for
+ * its first row → `INSERT OR IGNORE` dedupes against an earlier scrape row.
+ *
+ * Rows with `txn.id` set (scraper opaque id) are skipped. Rows with `externalId` use {@link assignTransactionId} (no ordinal).
+ */
+export function assignBatchContentIdsFromTransactions(
+    transactions: Transaction[],
+    options?: { providerFallback?: string; accountFallback?: string }
+): void {
+    const seen = new Map<string, number>();
+    for (const txn of transactions) {
+        if (txn.id) continue;
+
+        const prov = txn.provider || options?.providerFallback || 'unknown';
+        const acc = txn.accountNumber || options?.accountFallback || 'unknown';
+
+        const ext = txn.externalId?.trim();
+        if (ext) {
+            const a = assignTransactionId({
+                existingId: undefined,
+                externalId: ext,
+                provider: prov,
+                accountNumber: acc,
+                date: txn.date,
+                amount: txn.amount,
+                chargedAmount: txn.chargedAmount,
+                description: txn.description,
+                sourceRef: txn.sourceRef,
+            });
+            txn.id = a.id;
+            if (a.externalId) txn.externalId = a.externalId;
+            if (a.sourceRef) txn.sourceRef = a.sourceRef;
+            continue;
+        }
+
+        const key = buildContentTransactionKey(
+            {
+                date: txn.date,
+                amount: txn.amount,
+                chargedAmount: txn.chargedAmount,
+                description: txn.description,
+            },
+            acc
+        );
+        const n = seen.get(key) ?? 0;
+        seen.set(key, n + 1);
+        txn.id = n === 0 ? hashTransactionId(key) : hashTransactionId(`${key}|${n}`);
+    }
+}
+
+/**
  * Convenience for a partial transaction during scrape/import (fills id + optional refs).
  */
 export function assignTransactionIdFromTxn(

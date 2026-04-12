@@ -70,6 +70,7 @@ export {
 export type { DigestLocale } from './financial/anomalyI18n.js';
 export const version = "1.0.0";
 export {
+    assignBatchContentIdsFromTransactions,
     assignTransactionId,
     assignTransactionIdFromTxn,
     buildContentTransactionKey,

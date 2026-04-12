@@ -148,8 +148,13 @@ export interface GlobalScrapeConfig {
 
 export interface Transaction {
     id: string; // Unique identifier (hash or bank provided)
-    /** Institution-issued stable reference when distinct from id (voucher, אסמכתא, etc.) */
+    /**
+     * Institution reference used for id hashing only when it is stable across sources (e.g. same value from scrape and import).
+     * Do not use for Isracard שובר if the scraper exposes a different identifier — use {@link voucherNumber} instead.
+     */
     externalId?: string;
+    /** Isracard שובר (voucher) from exports — metadata only; not used for primary id (scrape uses a different id). */
+    voucherNumber?: string;
     /** Import/scrape provenance — not part of id hashing */
     sourceRef?: string;
     date: string; // ISO Date string

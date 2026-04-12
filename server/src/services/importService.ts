@@ -1,13 +1,6 @@
 import * as xlsx from '@e965/xlsx';
 import { PDFParse } from 'pdf-parse';
-import {
-    Transaction,
-    ScrapeResult,
-    Account,
-    assignTransactionId,
-    type AssignTransactionIdInput,
-    type AssignTransactionIdResult,
-} from '@app/shared';
+import { Transaction, ScrapeResult, Account, assignBatchContentIdsFromTransactions } from '@app/shared';
 import type { TabularImportProfileV1 } from '@app/shared';
 import fs from 'fs-extra';
 import path from 'path';
@@ -17,9 +10,6 @@ import { parseTabularSpreadsheet } from './tabularImportParse.js';
 export class ImportService {
     constructor(private aiService?: AiService) { }
 
-    private assignImportId(args: Omit<AssignTransactionIdInput, 'existingId'>): AssignTransactionIdResult {
-        return assignTransactionId({ ...args, existingId: undefined });
-    }
     async importFiles(filePaths: string[]): Promise<ScrapeResult[]> {
         const results: ScrapeResult[] = [];
         for (const filePath of filePaths) {
@@ -400,18 +390,10 @@ export class ImportService {
             const memo = [...tags, memoExtra].filter(Boolean).join(' · ');
             const chargedSigned = -chgAbs;
             const originalSigned = -origAbs;
-            const ids = this.assignImportId({
-                provider: 'isracard',
-                accountNumber,
-                date: date.toISOString(),
-                amount: chargedSigned,
-                chargedAmount: chargedSigned,
-                description: desc,
-                externalId: voucher,
-                sourceRef: 'import:isracard-pdf',
-            });
             return {
-                ...ids,
+                id: '',
+                voucherNumber: voucher,
+                sourceRef: 'import:isracard-pdf',
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description: desc,
@@ -441,18 +423,10 @@ export class ImportService {
             const date = this.parseDate(fr[5]);
             if (!date || chgAbs === 0) return null;
             const memo = tags.length ? tags.join(' · ') : undefined;
-            const ids = this.assignImportId({
-                provider: 'isracard',
-                accountNumber,
-                date: date.toISOString(),
-                amount: -chgAbs,
-                chargedAmount: -chgAbs,
-                description: desc,
-                externalId: voucher,
-                sourceRef: 'import:isracard-pdf',
-            });
             return {
-                ...ids,
+                id: '',
+                voucherNumber: voucher,
+                sourceRef: 'import:isracard-pdf',
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description: desc,
@@ -485,18 +459,10 @@ export class ImportService {
             const memo = tags.length ? tags.join(' · ') : undefined;
             const chargedSigned = -chgAbs;
             const originalSigned = -origAbs;
-            const ids = this.assignImportId({
-                provider: 'isracard',
-                accountNumber,
-                date: date.toISOString(),
-                amount: chargedSigned,
-                chargedAmount: chargedSigned,
-                description: desc,
-                externalId: voucher,
-                sourceRef: 'import:isracard-pdf',
-            });
             return {
-                ...ids,
+                id: '',
+                voucherNumber: voucher,
+                sourceRef: 'import:isracard-pdf',
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description: desc,
@@ -559,6 +525,7 @@ export class ImportService {
         }
 
         logs.push(`Isracard PDF: imported ${transactions.length} transactions`);
+        assignBatchContentIdsFromTransactions(transactions, { accountFallback: accountNumber });
         const accounts: Account[] = transactions.length > 0
             ? [{ accountNumber, provider: 'isracard', currency: 'ILS' }]
             : [];
@@ -608,17 +575,9 @@ export class ImportService {
                     if (amount !== 0) {
                         const description = line.replace(dateStr, '').replace(lastAmount, '').trim();
                         const dateIso = date.toISOString();
-                        const ids = this.assignImportId({
-                            provider,
-                            accountNumber,
-                            date: dateIso,
-                            amount,
-                            chargedAmount: amount,
-                            description,
-                            sourceRef: 'import:generic-pdf-text',
-                        });
                         transactions.push({
-                            ...ids,
+                            id: '',
+                            sourceRef: 'import:generic-pdf-text',
                             date: dateIso,
                             processedDate: dateIso,
                             description,
@@ -636,6 +595,10 @@ export class ImportService {
         }
 
         logs.push(`Parsed ${transactions.length} transactions from PDF`);
+        assignBatchContentIdsFromTransactions(transactions, {
+            providerFallback: provider,
+            accountFallback: accountNumber,
+        });
         const accounts: Account[] = transactions.length > 0 ? [{ accountNumber, provider }] : [];
         return { transactions, accounts };
     }
@@ -775,19 +738,10 @@ export class ImportService {
                 ? { number: parseInt(instMatch[1], 10), total: parseInt(instMatch[2], 10) }
                 : undefined;
 
-            const ids = this.assignImportId({
-                provider: 'isracard',
-                accountNumber,
-                date: date.toISOString(),
-                amount: chargedSigned,
-                chargedAmount: chargedSigned,
-                description,
-                externalId: voucher || undefined,
-                sourceRef: 'import:isracard-xlsx',
-            });
-
             transactions.push({
-                ...ids,
+                id: '',
+                voucherNumber: voucher || undefined,
+                sourceRef: 'import:isracard-xlsx',
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description,
@@ -807,6 +761,10 @@ export class ImportService {
         }
 
         logs.push(`Isracard: imported ${transactions.length} transactions`);
+        assignBatchContentIdsFromTransactions(transactions, {
+            providerFallback: 'isracard',
+            accountFallback: accountNumber,
+        });
         const accounts: Account[] = transactions.length > 0
             ? [{ accountNumber, provider: 'isracard', currency: 'ILS' }]
             : [];
@@ -883,18 +841,10 @@ export class ImportService {
                     refRaw != null && String(refRaw).trim() ? String(refRaw).trim() : undefined;
                 const desc = String(description).trim();
                 const dateIso = date.toISOString();
-                const ids = this.assignImportId({
-                    provider: 'mizrahi',
-                    accountNumber,
-                    date: dateIso,
-                    amount,
-                    chargedAmount: amount,
-                    description: desc,
+                transactions.push({
+                    id: '',
                     externalId: refStr,
                     sourceRef: 'import:mizrahi-xlsx',
-                });
-                transactions.push({
-                    ...ids,
                     date: dateIso,
                     processedDate: dateIso,
                     description: desc,
@@ -910,6 +860,10 @@ export class ImportService {
             }
         }
 
+        assignBatchContentIdsFromTransactions(transactions, {
+            providerFallback: 'mizrahi',
+            accountFallback: accountNumber,
+        });
         return { transactions, accounts: accountNumber !== 'unknown' ? [{ accountNumber, provider: 'mizrahi' }] : [] };
     }
 
@@ -962,17 +916,9 @@ export class ImportService {
 
             const desc = String(row[descIdx] || 'No description').trim();
             const dateIso = date.toISOString();
-            const ids = this.assignImportId({
-                provider: 'imported',
-                accountNumber: defaultAccountNumber,
-                date: dateIso,
-                amount,
-                chargedAmount: amount,
-                description: desc,
-                sourceRef: 'import:generic-spreadsheet',
-            });
             transactions.push({
-                ...ids,
+                id: '',
+                sourceRef: 'import:generic-spreadsheet',
                 date: dateIso,
                 processedDate: dateIso,
                 description: desc,
@@ -986,6 +932,10 @@ export class ImportService {
             });
         }
 
+        assignBatchContentIdsFromTransactions(transactions, {
+            providerFallback: 'imported',
+            accountFallback: defaultAccountNumber,
+        });
         const accounts: Account[] = transactions.length > 0 ? [{ accountNumber: defaultAccountNumber, provider: 'imported', balance: 0, currency: 'ILS' }] : [];
         return { transactions, accounts };
     }
