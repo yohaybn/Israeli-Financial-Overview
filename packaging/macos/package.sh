@@ -80,7 +80,7 @@ if [[ -f "$REPO_ROOT/client/public/favicon.ico" ]]; then
   echo "Copied app icon -> app.ico"
 fi
 
-cp "$SCRIPT_DIR/financial-overview.json" "$STAGE/financial-overview.json"
+cp "$SCRIPT_DIR/financial-overview.defaults.json" "$STAGE/financial-overview.json"
 cp "$SCRIPT_DIR/README_MACOS.txt" "$STAGE/"
 
 ARCH="$(uname -m)"
