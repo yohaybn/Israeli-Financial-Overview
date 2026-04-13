@@ -504,6 +504,9 @@ function App() {
                             <ConfigurationPanel
                                 activeTab={configTab}
                                 onTabChange={(tab) => setNav((prev) => ({ ...prev, configTab: tab }))}
+                                onOpenBudgetExports={() =>
+                                    setNav((prev) => ({ ...prev, configTab: 'budget-exports' }))
+                                }
                             />
                         </div>
                         <div className={view === 'logs' ? 'h-full' : 'hidden'}>

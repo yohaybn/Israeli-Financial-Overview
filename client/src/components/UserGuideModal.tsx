@@ -82,7 +82,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'configuration',
                     title: 'Configuration',
                     icon: '⚙️',
-                    content: 'Configuration: AI (sub-tabs: AI settings for key/models/quota/preferences, AI memory for persona & goals plus facts/insights/alerts), Insight rules (deterministic bilingual rules), Categories, Scheduler (and scheduled backups), Scrape (including fraud & alerts), Google (OAuth, Sheets, Drive), Telegram, and Maintenance (backups, port, data folder). Use deep links ?view=configuration&tab=<id> when needed (e.g. tab=insight-rules).'
+                    content: 'Configuration: AI (sub-tabs: AI settings for key/models/quota/preferences, AI memory for persona & goals plus facts/insights/alerts), Insight rules (deterministic bilingual rules), Categories, Scheduler (and scheduled backups), Scrape (including fraud & alerts), Google (OAuth, Sheets, Drive), Budget exports (Firefly III, YNAB, Lunch Money, Actual Budget after scrape), Telegram, and Maintenance (backups, port, data folder). Use deep links ?view=configuration&tab=<id> when needed (e.g. tab=insight-rules, tab=budget-exports).'
                 },
                 {
                     id: 'telegram',
@@ -193,7 +193,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'configuration',
                     title: 'הגדרות',
                     icon: '⚙️',
-                    content: 'AI וזיכרון, כללי תובנות (כללים דטרמיניסטיים דו-לשוניים), קטגוריות, מתזמן (וגיבויים מתוזמנים), סריקה (כולל הונאה והתראות), גוגל (OAuth, Sheets, Drive), טלגרם, תחזוקה (גיבויים, פורט, תיקיית נתונים). קישורים עמוקים: ?view=configuration&tab=<id> (למשל tab=insight-rules).'
+                    content: 'AI וזיכרון, כללי תובנות (כללים דטרמיניסטיים דו-לשוניים), קטגוריות, מתזמן (וגיבויים מתוזמנים), סריקה (כולל הונאה והתראות), גוגל (OAuth, Sheets, Drive), ייצוא לתוכנות תקציב (Firefly III, YNAB, Lunch Money, Actual לאחר סריקה), טלגרם, תחזוקה (גיבויים, פורט, תיקיית נתונים). קישורים עמוקים: ?view=configuration&tab=<id> (למשל tab=insight-rules, tab=budget-exports).'
                 },
                 {
                     id: 'telegram',

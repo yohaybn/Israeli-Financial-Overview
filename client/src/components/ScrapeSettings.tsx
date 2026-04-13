@@ -8,9 +8,11 @@ interface ScrapeSettingsProps {
     isOpen?: boolean;
     onClose?: () => void;
     isInline?: boolean;
+    /** Jump to Configuration → Budget exports (same panel). */
+    onOpenBudgetExports?: () => void;
 }
 
-export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProps) {
+export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports }: ScrapeSettingsProps) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -305,6 +307,19 @@ export function ScrapeSettings({ isOpen, onClose, isInline }: ScrapeSettingsProp
                                 <span className="text-xs text-gray-500">{t('post_scrape.run_categorization_desc')}</span>
                             </div>
                         </label>
+
+                        {onOpenBudgetExports && (
+                            <div className="p-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 text-sm text-gray-700 flex flex-wrap items-center justify-between gap-3">
+                                <p className="min-w-0">{t('post_scrape.budget_exports_teaser')}</p>
+                                <button
+                                    type="button"
+                                    onClick={onOpenBudgetExports}
+                                    className="shrink-0 rounded-lg bg-emerald-600 text-white text-xs font-bold px-4 py-2 hover:bg-emerald-700"
+                                >
+                                    {t('post_scrape.budget_exports_open')}
+                                </button>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">

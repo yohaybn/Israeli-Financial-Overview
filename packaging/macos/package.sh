@@ -19,32 +19,36 @@ export PUPPETEER_SKIP_DOWNLOAD="${PUPPETEER_SKIP_DOWNLOAD:-true}"
 
 if [[ "${CI:-}" == "true" ]]; then
   echo ""
-  echo "[1/5] npm ci (CI mode) ..."
+  echo "[1/6] npm ci (CI mode) ..."
   npm ci
 else
   echo ""
-  echo "[1/5] npm install ..."
+  echo "[1/6] npm install ..."
   npm install
 fi
+
+echo ""
+echo "[2/6] App icons (512×512 required for macOS Electron) ..."
+npm run icons:generate -w client
 
 export VITE_INSTALL_KIND="${VITE_INSTALL_KIND:-macos}"
 export VITE_APP_BUILD_VERSION="${VITE_APP_BUILD_VERSION:-local}"
 
 echo ""
-echo "[2/5] Build workspaces ..."
+echo "[3/6] Build workspaces ..."
 npm run build -w shared
 npm run build -w client
 npm run build -w server
 
 echo ""
-echo "[3/5] Prune devDependencies ..."
+echo "[4/6] Prune devDependencies ..."
 npm prune --omit=dev || echo "npm prune failed (continuing; package may be larger)."
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
 echo ""
-echo "[4/5] Copy app tree ..."
+echo "[5/6] Copy app tree ..."
 
 cp "$REPO_ROOT/package.json" "$REPO_ROOT/package-lock.json" "$STAGE/"
 
@@ -94,7 +98,7 @@ case "$ARCH" in
 esac
 
 echo ""
-echo "[5/5] Download Node.js v$NODE_VERSION darwin-$NODE_ARCH ..."
+echo "[6/6] Download Node.js v$NODE_VERSION darwin-$NODE_ARCH ..."
 RUNTIME_PARENT="$STAGE/runtime"
 TAR_NAME="node-v${NODE_VERSION}-darwin-${NODE_ARCH}.tar.gz"
 URL="https://nodejs.org/dist/v${NODE_VERSION}/${TAR_NAME}"

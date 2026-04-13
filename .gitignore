@@ -31,4 +31,3 @@ favicon_extractor/package-lock.json
 favicon_extractor/package.json
 client/.env.local
 docs/
-client/scripts/generate-app-icons.mjs

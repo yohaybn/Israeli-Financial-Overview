@@ -10,10 +10,12 @@ import { TelegramSettings } from './TelegramSettings';
 import { CategorySettings } from './CategorySettings';
 import { InsightRulesSettings } from './InsightRulesSettings';
 import type { ConfigTabId } from '../utils/appUrlState';
+import { BudgetExportSettings } from './BudgetExportSettings';
 
 export interface ConfigurationPanelProps {
     activeTab: ConfigTabId;
     onTabChange: (tab: ConfigTabId) => void;
+    onOpenBudgetExports?: () => void;
 }
 
 const CONFIG_SECTIONS: { id: ConfigTabId; beta?: boolean }[] = [
@@ -23,11 +25,12 @@ const CONFIG_SECTIONS: { id: ConfigTabId; beta?: boolean }[] = [
     { id: 'scheduler' },
     { id: 'scrape' },
     { id: 'sheets' },
+    { id: 'budget-exports' },
     { id: 'telegram' },
     { id: 'maintenance' },
 ];
 
-export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPanelProps) {
+export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports }: ConfigurationPanelProps) {
     const { t } = useTranslation();
 
     const sectionLabel = (id: ConfigTabId) => t(`config_tabs.${id}`);
@@ -53,7 +56,7 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
             {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
             {activeTab === 'scrape' && (
                 <div className="space-y-10">
-                    <ScrapeSettings isInline={true} />
+                    <ScrapeSettings isInline={true} onOpenBudgetExports={onOpenBudgetExports} />
                     <div id="fraud-alerts-section">
                         <FraudSettings isInline={true} />
                     </div>
@@ -65,6 +68,7 @@ export function ConfigurationPanel({ activeTab, onTabChange }: ConfigurationPane
                     <GoogleSettings isInline={true} />
                 </div>
             )}
+            {activeTab === 'budget-exports' && <BudgetExportSettings />}
             {activeTab === 'telegram' && <TelegramSettings isInline={true} />}
             {activeTab === 'maintenance' && <MaintenancePanel />}
         </>

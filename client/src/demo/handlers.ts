@@ -261,6 +261,33 @@ export const demoHandlers = [
         HttpResponse.json({ success: true, data: demoGlobalScrapeConfig })
     ),
 
+    http.get(apiPath('/budget-export/status'), () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                firefly: false,
+                lunchMoney: false,
+                ynab: { configured: false, oauthReady: false },
+                actual: false,
+            },
+        })
+    ),
+
+    http.get(apiPath('/budget-export/public-config'), () =>
+        HttpResponse.json({ success: true, data: demoGlobalScrapeConfig.postScrapeConfig.budgetExports || {} })
+    ),
+
+    http.put(apiPath('/budget-export/public-config'), async ({ request }) => {
+        const body = await request.json().catch(() => ({}));
+        return HttpResponse.json({ success: true, data: body });
+    }),
+
+    http.post(apiPath('/budget-export/secrets'), () => HttpResponse.json({ success: true })),
+
+    http.get(apiPath('/budget-export/ynab/authorize-url'), () =>
+        HttpResponse.json({ success: true, data: { url: 'https://app.ynab.com/oauth/authorize?demo=1' } })
+    ),
+
     http.get(apiPath('/filters'), () => HttpResponse.json({ success: true, data: [] })),
 
     http.get(apiPath('/ai/models'), () =>

@@ -29,6 +29,7 @@ import {
   generateScrapeRunLogId,
   writeScrapeRunLog,
 } from '../utils/scrapeRunLogger.js';
+import { runBudgetExports } from './budgetExport/runBudgetExports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -680,6 +681,14 @@ export class PostScrapeService {
 
       for (const t of transactions) {
         this.storageService.ensureStableTransactionId(t);
+      }
+
+      try {
+        logger.info('Post-scrape step: budget exports');
+        const exportActions = await runBudgetExports(cfg, transactions);
+        actions.push(...exportActions);
+      } catch (err) {
+        await recordStepFailure('budget-exports', err as Error);
       }
 
       try {

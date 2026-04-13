@@ -32,7 +32,7 @@ function mergeEnv(secrets: BudgetExportSecrets): BudgetExportSecrets {
   return out;
 }
 
-async function readBudgetExportSecretsFromDisk(): Promise<BudgetExportSecrets> {
+export async function readBudgetExportSecretsFromDisk(): Promise<BudgetExportSecrets> {
   try {
     if (await fs.pathExists(SECRETS_PATH)) {
       return (await fs.readJson(SECRETS_PATH)) as BudgetExportSecrets;
@@ -59,20 +59,6 @@ export async function writeBudgetExportSecretsPatch(patch: BudgetExportSecrets):
   };
   await fs.ensureDir(path.dirname(SECRETS_PATH));
   await fs.writeJson(SECRETS_PATH, merged, { spaces: 2 });
-}
-
-export async function saveYnabTokens(tokens: {
-  refreshToken?: string;
-  accessToken?: string;
-  expiresAt?: number;
-}): Promise<void> {
-  const current = await readBudgetExportSecretsFromDisk();
-  await writeBudgetExportSecretsPatch({
-    ynab: {
-      ...current.ynab,
-      ...tokens,
-    },
-  });
 }
 
 /** Status for UI: which destinations have non-empty secret material (masked). */

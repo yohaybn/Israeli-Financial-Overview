@@ -217,6 +217,7 @@ const postScrape: PostScrapeConfig = {
         notifyOnResult: false,
     },
     notificationChannels: ['console'],
+    budgetExports: {},
 };
 
 export const demoGlobalScrapeConfig: GlobalScrapeConfig = {
