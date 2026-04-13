@@ -271,6 +271,33 @@ export function useToggleFilter() {
     });
 }
 
+export type SavedImportProfileListItem = {
+    filename: string;
+    name?: string;
+    modifiedAt: string;
+};
+
+export function useImportProfilesList(enabled = true) {
+    return useQuery({
+        queryKey: ['importProfiles'],
+        queryFn: async () => {
+            const { data } = await api.get<{ success: boolean; data?: SavedImportProfileListItem[] }>('/import-profiles');
+            if (!data.success) return [];
+            return data.data ?? [];
+        },
+        enabled,
+    });
+}
+
+export async function fetchImportProfileJsonByFilename(filename: string): Promise<string> {
+    const enc = encodeURIComponent(filename);
+    const { data } = await api.get<{ success: boolean; profileJson?: string; error?: string }>(`/import-profiles/${enc}`);
+    if (!data.success || typeof data.profileJson !== 'string') {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Failed to load profile');
+    }
+    return data.profileJson;
+}
+
 export function useUploadFile() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -298,12 +325,14 @@ export function useImportFiles() {
             accountNumberOverride,
             useAi,
             providerTarget,
+            providerNameOverride,
             importProfileJson,
         }: {
             files: File[];
             accountNumberOverride?: string;
             useAi?: boolean;
             providerTarget?: string;
+            providerNameOverride?: string;
             importProfileJson?: string | null;
         }) => {
             const formData = new FormData();
@@ -315,6 +344,10 @@ export function useImportFiles() {
             }
             if (providerTarget) {
                 formData.append('providerTarget', providerTarget);
+            }
+            const trimmedProviderName = providerNameOverride?.trim();
+            if (trimmedProviderName) {
+                formData.append('providerNameOverride', trimmedProviderName);
             }
             if (useAi) {
                 formData.append('useAi', String(useAi));
@@ -343,12 +376,14 @@ export function useImportPreview() {
             accountNumberOverride,
             useAi,
             providerTarget,
+            providerNameOverride,
             importProfileJson,
         }: {
             files: File[];
             accountNumberOverride?: string;
             useAi?: boolean;
             providerTarget?: string;
+            providerNameOverride?: string;
             importProfileJson?: string | null;
         }) => {
             const formData = new FormData();
@@ -360,6 +395,10 @@ export function useImportPreview() {
             }
             if (providerTarget) {
                 formData.append('providerTarget', providerTarget);
+            }
+            const trimmedProviderName = providerNameOverride?.trim();
+            if (trimmedProviderName) {
+                formData.append('providerNameOverride', trimmedProviderName);
             }
             formData.append('useAi', String(useAi ?? false));
             if (importProfileJson) {
@@ -684,6 +723,7 @@ const BACKUP_SCOPES_PLACEHOLDER = [
     'results',
     'config',
     'profiles',
+    'import_profiles',
     'security',
     'post_scrape',
     'runtime_settings',

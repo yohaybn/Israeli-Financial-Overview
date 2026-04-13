@@ -1,8 +1,19 @@
 import type { Account, Transaction } from './types.js';
 import type { TabularImportProfileV1 } from './tabularImportProfile.js';
-import { applyOptionalFieldMappings, parseLedgerRowsToTransactions, resolveColumnIndex } from './tabularLedgerEngine.js';
+import {
+    applyOptionalFieldMappings,
+    finalizeTabularAmounts,
+    maxColumnCountInRows,
+    parseLedgerRowsToTransactions,
+    resolveColumnIndex,
+} from './tabularLedgerEngine.js';
 import { isLedgerStyleColumns } from './tabularImportProfile.js';
-import { parseDateCell, parseNumberCell } from './tabularCells.js';
+import {
+    cellLooksLikeNonNumericAmount,
+    normalizeCellText,
+    parseDateCell,
+    parseNumberCell,
+} from './tabularCells.js';
 
 export function parseSimpleRowsToTransactions(
     rows: any[][],
@@ -19,10 +30,7 @@ export function parseSimpleRowsToTransactions(
     }
 
     const headerRow = rows[hi] || [];
-    const maxCols = Math.max(
-        headerRow.length,
-        ...rows.slice(hi, hi + 50).map((r) => (r ? r.length : 0))
-    );
+    const maxCols = maxColumnCountInRows(rows, hi);
 
     const colDate = resolveColumnIndex(profile.columns.date, headerRow, maxCols);
     const colDesc = resolveColumnIndex(profile.columns.description, headerRow, maxCols);
@@ -69,6 +77,8 @@ export function parseSimpleRowsToTransactions(
     const dateFmt = profile.dateFormat;
     const optMaps = profile.optionalFieldMappings;
 
+    let loggedNonNumericAmount = false;
+
     for (let i = start; i < rows.length; i++) {
         const row = rows[i];
         if (!row || row.length === 0) continue;
@@ -89,7 +99,25 @@ export function parseSimpleRowsToTransactions(
             amount = credit > 0 ? credit : debit > 0 ? -debit : credit - debit;
         }
 
-        if (amount === 0) continue;
+        if (amount === 0) {
+            if (
+                mode === 'single' &&
+                colAmount !== null &&
+                !loggedNonNumericAmount &&
+                cellLooksLikeNonNumericAmount(row[colAmount])
+            ) {
+                const sample = normalizeCellText(row[colAmount]).slice(0, 80);
+                logs.push(
+                    `Tabular profile: expected a number in the amount column, but the cell contains non-numeric text (e.g. "${sample}"). Map that column to the numeric amount field.`
+                );
+                loggedNonNumericAmount = true;
+            }
+            continue;
+        }
+
+        const applyNegate = profile.negateParsedAmounts === true;
+        const fin = finalizeTabularAmounts(amount, amount, amount, profile, applyNegate);
+        if (fin === null) continue;
 
         const category =
             colCategory !== null ? String(row[colCategory] ?? '').trim() || undefined : undefined;
@@ -99,13 +127,14 @@ export function parseSimpleRowsToTransactions(
             date: date.toISOString(),
             processedDate: date.toISOString(),
             description,
-            amount,
-            chargedAmount: amount,
-            originalAmount: amount,
+            amount: fin.amount,
+            chargedAmount: fin.chargedAmount,
+            originalAmount: fin.originalAmount,
             originalCurrency: currency,
             status: 'completed',
             provider,
             accountNumber: defaultAccountNumber,
+            txnType: fin.amount > 0 ? 'income' : 'expense',
             ...(category ? { category } : {}),
         };
 

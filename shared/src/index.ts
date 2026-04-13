@@ -142,6 +142,7 @@ export {
 export type {
     ColumnRef,
     TabularAmountMode,
+    TabularAmountPolarityFilter,
     TabularDateFormat,
     TabularFieldMapping,
     TabularImportProfile,
@@ -149,6 +150,7 @@ export type {
     TabularMappableTxnField,
 } from './tabularImportProfile.js';
 export {
+    cellLooksLikeNonNumericAmount,
     currencySymbolToIso,
     normalizeCellText,
     parseDateCell,
@@ -156,6 +158,8 @@ export {
 } from './tabularCells.js';
 export {
     applyOptionalFieldMappings,
+    finalizeTabularAmounts,
+    maxColumnCountInRows,
     parseLedgerRowsToTransactions,
     resolveColumnIndex,
 } from './tabularLedgerEngine.js';

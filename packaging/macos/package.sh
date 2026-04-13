@@ -29,6 +29,8 @@ fi
 
 echo ""
 echo "[2/6] App icons (512×512 required for macOS Electron) ..."
+# npm ci can leave sharp's optional native addon for the lockfile's host OS; fix for this runner
+npm install --no-save -w client sharp
 npm run icons:generate -w client
 
 export VITE_INSTALL_KIND="${VITE_INSTALL_KIND:-macos}"

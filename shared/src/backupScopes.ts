@@ -4,6 +4,7 @@ export const BACKUP_SCOPE_IDS = [
     'results',
     'config',
     'profiles',
+    'import_profiles',
     'security',
     'post_scrape',
     'runtime_settings',
@@ -35,6 +36,7 @@ export function backupEntryPathToScope(entryPath: string): BackupScopeId | null 
         top === 'results' ||
         top === 'config' ||
         top === 'profiles' ||
+        top === 'import_profiles' ||
         top === 'security' ||
         top === 'post_scrape'
     ) {

@@ -17,12 +17,45 @@ export function currencySymbolToIso(raw: string): string {
     return s.length <= 3 ? s.toUpperCase() : 'ILS';
 }
 
+/**
+ * True when the cell has visible content that parses to 0 as an amount and contains no digits
+ * (e.g. currency symbol only, letters). Use to detect “expected number, got text” mapping mistakes.
+ */
+export function cellLooksLikeNonNumericAmount(val: unknown): boolean {
+    if (val === undefined || val === null) return false;
+    if (typeof val === 'number') return false;
+    const t = normalizeCellText(val);
+    if (!t) return false;
+    if (/\d/.test(t)) return false;
+    const n = parseNumberCell(val);
+    return n === 0;
+}
+
 export function parseNumberCell(val: unknown): number {
     if (val === undefined || val === null || val === '') return 0;
     if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
-    const clean = String(val).replace(/[^\d.-]/g, '');
+    let s = String(val).trim();
+    if (!s) return 0;
+
+    let neg = false;
+    if (/^\(.*\)$/.test(s)) {
+        neg = true;
+        s = s.slice(1, -1).trim();
+    }
+
+    const compact = s.replace(/\s/g, '');
+    // European / IL: 1.234,56 → 1234.56
+    if (/^-?\d{1,3}(\.\d{3})*,\d+$/.test(compact)) {
+        s = compact.replace(/\./g, '').replace(',', '.');
+    } else if (/^-?\d+,\d+$/.test(compact)) {
+        // 12,50 → 12.50
+        s = compact.replace(',', '.');
+    }
+
+    const clean = s.replace(/[^\d.-]/g, '');
     const parsed = parseFloat(clean);
-    return Number.isFinite(parsed) ? parsed : 0;
+    const n = Number.isFinite(parsed) ? parsed : 0;
+    return neg ? -Math.abs(n) : n;
 }
 
 function excelSerialToDate(serial: number): Date | null {
@@ -37,6 +70,10 @@ export function parseDateCell(raw: unknown, format: TabularDateFormat | undefine
     const fmt = format ?? 'dmy_slash';
 
     if (raw === undefined || raw === null || raw === '') return null;
+
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+        return new Date(Date.UTC(raw.getFullYear(), raw.getMonth(), raw.getDate(), 12, 0, 0));
+    }
 
     if (fmt === 'excel_serial' && typeof raw === 'number') {
         return excelSerialToDate(raw);

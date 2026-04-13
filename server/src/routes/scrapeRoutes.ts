@@ -38,6 +38,17 @@ export function createScrapeRoutes(
     const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
     const RESULTS_DIR = path.join(DATA_DIR, 'results');
     const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+    const IMPORT_PROFILES_DIR = path.join(DATA_DIR, 'import_profiles');
+
+    function slugImportProfileFilename(name: string): string {
+        const s = name
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/gi, '_')
+            .replace(/^_+|_+$/g, '')
+            .slice(0, 80);
+        return s || 'tabular_profile';
+    }
 
     // Configure multer for file uploads
     const storage = multer.diskStorage({
@@ -69,6 +80,112 @@ export function createScrapeRoutes(
     // Get all provider definitions (for dynamic form rendering)
     router.get('/definitions', (req, res) => {
         res.json({ success: true, data: PROVIDERS });
+    });
+
+    /** List saved tabular import formats under `data/import_profiles/`. */
+    router.get('/import-profiles', async (_req, res) => {
+        try {
+            await fs.ensureDir(IMPORT_PROFILES_DIR);
+            const names = (await fs.readdir(IMPORT_PROFILES_DIR)).filter((n) => n.endsWith('.json'));
+            const items = await Promise.all(
+                names.map(async (filename) => {
+                    const abs = path.join(IMPORT_PROFILES_DIR, filename);
+                    const st = await fs.stat(abs);
+                    let profileName: string | undefined;
+                    try {
+                        const j = (await fs.readJson(abs)) as { name?: string };
+                        profileName = typeof j?.name === 'string' && j.name.trim() ? j.name.trim() : undefined;
+                    } catch {
+                        profileName = undefined;
+                    }
+                    return {
+                        filename,
+                        name: profileName,
+                        modifiedAt: st.mtime.toISOString(),
+                    };
+                })
+            );
+            items.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+            res.json({ success: true, data: items });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    /** Load one saved tabular import format JSON from `data/import_profiles/`. */
+    router.get('/import-profiles/:filename', async (req, res) => {
+        try {
+            const rawParam = decodeURIComponent(String(req.params.filename || '')).trim();
+            if (
+                !rawParam ||
+                /[\\/]/.test(rawParam) ||
+                rawParam.includes('..') ||
+                !rawParam.toLowerCase().endsWith('.json')
+            ) {
+                return res.status(400).json({ success: false, error: 'Invalid filename' });
+            }
+            await fs.ensureDir(IMPORT_PROFILES_DIR);
+            const abs = path.join(IMPORT_PROFILES_DIR, rawParam);
+            const dirResolved = path.resolve(IMPORT_PROFILES_DIR);
+            const fileResolved = path.resolve(abs);
+            const rel = path.relative(dirResolved, fileResolved);
+            if (rel.startsWith('..') || path.isAbsolute(rel)) {
+                return res.status(400).json({ success: false, error: 'Invalid filename' });
+            }
+            if (!(await fs.pathExists(fileResolved))) {
+                return res.status(404).json({ success: false, error: 'Import format not found' });
+            }
+            const profileJson = await fs.readFile(fileResolved, 'utf8');
+            try {
+                parseTabularImportProfileJson(profileJson);
+            } catch (e: any) {
+                return res.status(422).json({ success: false, error: e?.message || 'Invalid import format file' });
+            }
+            res.json({ success: true, profileJson });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    /** Save a tabular import format JSON into `data/import_profiles/`. */
+    router.post('/import-profiles', async (req, res) => {
+        try {
+            const raw = req.body?.profileJson;
+            if (raw === undefined || raw === null || String(raw).trim() === '') {
+                return res.status(400).json({ success: false, error: 'profileJson is required' });
+            }
+            let profile: TabularImportProfileV1;
+            try {
+                profile = parseTabularImportProfileJson(String(raw));
+            } catch (e: any) {
+                return res.status(400).json({ success: false, error: e?.message || 'Invalid import format JSON' });
+            }
+            const displayName = typeof profile.name === 'string' ? profile.name.trim() : '';
+            if (!displayName) {
+                return res.status(400).json({ success: false, error: 'Format name is required (set the "name" field)' });
+            }
+
+            await fs.ensureDir(IMPORT_PROFILES_DIR);
+            const stamp = Date.now();
+            let filename = `${slugImportProfileFilename(displayName)}_${stamp}.json`;
+            let outPath = path.join(IMPORT_PROFILES_DIR, filename);
+            let n = 0;
+            while (await fs.pathExists(outPath)) {
+                n += 1;
+                filename = `${slugImportProfileFilename(displayName)}_${stamp}_${n}.json`;
+                outPath = path.join(IMPORT_PROFILES_DIR, filename);
+            }
+
+            const toWrite: TabularImportProfileV1 = { ...profile, name: displayName };
+            await fs.writeJson(outPath, toWrite, { spaces: 2 });
+            res.json({
+                success: true,
+                filename,
+                relativePath: path.join('import_profiles', filename).replace(/\\/g, '/'),
+            });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
     });
 
     // Run a scrape with full options
@@ -178,7 +295,9 @@ export function createScrapeRoutes(
             }
 
             const importResults = [];
-            const { accountNumberOverride, useAi, providerTarget } = req.body;
+            const { accountNumberOverride, useAi, providerTarget, providerNameOverride } = req.body;
+            const providerNameOverrideStr =
+                typeof providerNameOverride === 'string' ? providerNameOverride : undefined;
             const useAiBool = useAi === 'true' || useAi === true;
             let tabularProfile: TabularImportProfileV1 | undefined;
             try {
@@ -187,13 +306,18 @@ export function createScrapeRoutes(
                 for (const file of files) {
                     await fs.remove(file.path).catch(() => { });
                 }
-                return res.status(400).json({ success: false, error: e?.message || 'Invalid import profile JSON' });
+                return res.status(400).json({ success: false, error: e?.message || 'Invalid import format JSON' });
             }
 
             if (useAiBool && files.length > 1) {
                 // Batch process multiple files with AI in one call
                 try {
-                    const results = await importService.importFilesBatchWithAi(files.map(f => f.path), accountNumberOverride, providerTarget);
+                    const results = await importService.importFilesBatchWithAi(
+                        files.map(f => f.path),
+                        accountNumberOverride,
+                        providerTarget,
+                        providerNameOverrideStr
+                    );
 
                     for (const result of results) {
                         if (result.success) {
@@ -237,7 +361,14 @@ export function createScrapeRoutes(
 
             for (const file of files) {
                 try {
-                    const result = await importService.importFile(file.path, accountNumberOverride, useAiBool, providerTarget, tabularProfile);
+                    const result = await importService.importFile(
+                        file.path,
+                        accountNumberOverride,
+                        useAiBool,
+                        providerTarget,
+                        tabularProfile,
+                        providerNameOverrideStr
+                    );
                     if (result.success) {
                         try {
                             const importProfile =
@@ -296,7 +427,9 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'No files uploaded' });
             }
 
-            const { accountNumberOverride, useAi, providerTarget } = req.body;
+            const { accountNumberOverride, useAi, providerTarget, providerNameOverride } = req.body;
+            const providerNameOverrideStr =
+                typeof providerNameOverride === 'string' ? providerNameOverride : undefined;
             const useAiBool = useAi === 'true' || useAi === true;
             let tabularProfile: TabularImportProfileV1 | undefined;
             try {
@@ -305,14 +438,19 @@ export function createScrapeRoutes(
                 for (const file of files) {
                     await fs.remove(file.path).catch(() => { });
                 }
-                return res.status(400).json({ success: false, error: e?.message || 'Invalid import profile JSON' });
+                return res.status(400).json({ success: false, error: e?.message || 'Invalid import format JSON' });
             }
 
             const previewResults: { originalName: string; preview: ScrapeResult }[] = [];
 
             if (useAiBool && files.length > 1) {
                 try {
-                    const results = await importService.importFilesBatchWithAi(files.map(f => f.path), accountNumberOverride, providerTarget);
+                    const results = await importService.importFilesBatchWithAi(
+                        files.map(f => f.path),
+                        accountNumberOverride,
+                        providerTarget,
+                        providerNameOverrideStr
+                    );
                     for (const result of results) {
                         previewResults.push({ originalName: 'Batch AI Import', preview: result });
                     }
@@ -339,7 +477,14 @@ export function createScrapeRoutes(
 
             for (const file of files) {
                 try {
-                    const result = await importService.importFile(file.path, accountNumberOverride, useAiBool, providerTarget, tabularProfile);
+                    const result = await importService.importFile(
+                        file.path,
+                        accountNumberOverride,
+                        useAiBool,
+                        providerTarget,
+                        tabularProfile,
+                        providerNameOverrideStr
+                    );
                     previewResults.push({ originalName: file.originalname, preview: result });
                 } finally {
                     await fs.remove(file.path).catch(() => { });

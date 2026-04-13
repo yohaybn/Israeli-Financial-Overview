@@ -80,6 +80,7 @@ export class StorageService {
         await fs.ensureDir(DATA_DIR);
         await fs.ensureDir(CONFIG_DIR);
         await fs.ensureDir(RESULTS_DIR);
+        await fs.ensureDir(path.join(DATA_DIR, 'import_profiles'));
         await this.migrateLegacyResults();
         if (!this.dbSynced) {
             await this.syncFilesToDb();
@@ -719,6 +720,7 @@ export class StorageService {
         await fs.ensureDir(CONFIG_DIR);
         await fs.ensureDir(RESULTS_DIR);
         await fs.ensureDir(path.join(DATA_DIR, 'profiles'));
+        await fs.ensureDir(path.join(DATA_DIR, 'import_profiles'));
         await fs.ensureDir(path.join(DATA_DIR, 'backups'));
         await fs.ensureDir(path.join(DATA_DIR, 'uploads'));
         await fs.ensureDir(path.join(DATA_DIR, 'logs'));

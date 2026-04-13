@@ -352,7 +352,7 @@
                 subtitle: "The complete manual for setting up and using Financial Overview.",
                 nav: [
                     { label: "Setup", items: [{ id: "getting-started", label: "Getting started" }, { id: "windows-install", label: "Windows installation" }, { id: "env-setup", label: "Runtime & secrets" }, { id: "app-lock", label: "App lock" }, { id: "api-guides", label: "API keys" }, { id: "google-setup", label: "Google Drive & Sheets" }, { id: "telegram-guide", label: "Telegram bot" }] },
-                    { label: "Web app", items: [{ id: "main-interface", label: "Main interface" }, { id: "dashboard", label: "Dashboard" }, { id: "scrape", label: "Scrape" }, { id: "profiles", label: "Profiles" }, { id: "results", label: "Results explorer" }, { id: "logs", label: "Logs" }, { id: "configuration", label: "Configuration" }] },
+                    { label: "Web app", items: [{ id: "main-interface", label: "Main interface" }, { id: "dashboard", label: "Dashboard" }, { id: "export-apps", label: "Export to other apps" }, { id: "scrape", label: "Scrape" }, { id: "profiles", label: "Profiles" }, { id: "results", label: "Results explorer" }, { id: "logs", label: "Logs" }, { id: "configuration", label: "Configuration" }] },
                     { label: "Intelligence", items: [{ id: "ai", label: "AI features" }, { id: "fraud", label: "Fraud detection" }, { id: "automation", label: "Scheduler & backups" }] },
                     { label: "Support", items: [{ id: "troubleshooting", label: "Troubleshooting" }, { id: "credits", label: "Credits" }] }
                 ],
@@ -576,9 +576,36 @@ GEMINI_API_KEY=(optional)
                             <h3>Responsive layout</h3>
                             <p>On viewports narrower than <strong>640px</strong> (Tailwind <code>sm</code>), main section cards <strong>start collapsed</strong>; on wider screens they start expanded.</p>
                             <h3>Export</h3>
-                            <p>Use the export menu to download dashboard-oriented data (e.g. CSV/JSON) where available.</p>
+                            <p>Use <strong>Export</strong> for the unified library (selected month or all) as CSV/JSON. See <a href="#export-apps">Export to other applications</a> for the API, Telegram, Google Sheets, and budget-app options.</p>
                             <h3>Alerts and top insights</h3>
                             <p>Use the header <strong>alerts</strong> control on the Dashboard for the selected month. The <strong>Top insights</strong> area mixes <strong>AI</strong> memory insights and <strong>Rule</strong> matches from <strong>Configuration → Insight rules</strong>; labels distinguish the source.</p>
+                        `
+                    },
+                    "export-apps": {
+                        title: "📤 Export to other applications",
+                        html: `
+                            <p>You can move data into spreadsheets, plain files, Google Sheets, and dedicated budget apps. What you choose depends on whether you need the <strong>unified library</strong> (everything merged in the database) or one <strong>scrape result file</strong>, and whether export is <strong>manual</strong> or <strong>automatic after each scrape</strong>.</p>
+                            <h3>Unified library — CSV / JSON</h3>
+                            <p>Scrapes and imports merge into one library. Download it as <strong>CSV</strong> or <strong>JSON</strong> from:</p>
+                            <ul>
+                                <li><strong>Dashboard → Export:</strong> all transactions or the <strong>selected month</strong>. CSV uses a UTF-8 BOM and includes columns such as id, dates, description, memo, amounts, currencies, status, category, provider, and account — good for Excel, Google Sheets, or scripts.</li>
+                                <li><strong>HTTP API:</strong> <code>GET /api/results/export?format=csv</code> or <code>format=json</code> (same host/port as the UI). Optional: <code>month=YYYY-MM</code>, <code>includeIgnored=0</code> to exclude ignored rows.</li>
+                                <li><strong>Telegram bot:</strong> <code>/export csv</code> or <code>/export json</code>, or e.g. <code>/export csv 2026-03</code> for one month — same data scope as the Dashboard export.</li>
+                            </ul>
+                            <h3>Results explorer (one scrape file)</h3>
+                            <p><strong>Scrape → Results explorer:</strong> when a result is selected in the sidebar, <strong>Export</strong> downloads CSV/JSON for <strong>that run only</strong>. The CSV columns are a smaller subset for quick review, not identical to the unified export.</p>
+                            <h3>Google Sheets</h3>
+                            <p><strong>Configuration → Google:</strong> connect with OAuth, pick a source batch and target spreadsheet, then sync. Full Cloud setup: <a href="#google-setup">Google Drive &amp; Sheets (OAuth)</a>.</p>
+                            <h3>Budget apps — push after scrape</h3>
+                            <p><strong>Configuration → Budget exports</strong> (<code>?view=configuration&amp;tab=budget-exports</code>): after <strong>each successful scrape</strong>, send rows from <strong>that run</strong> to <strong>Firefly III</strong>, <strong>Lunch Money</strong>, <strong>YNAB</strong>, or <strong>Actual Budget</strong>. Only <strong>completed</strong> transactions are sent; ignored, pending, and internal-transfer rows are skipped.</p>
+                            <ul>
+                                <li><strong>Account map (JSON):</strong> keys <code>provider:accountNumber</code> (as shown in this app) → values = the destination account id in the external app.</li>
+                                <li><strong>Firefly III:</strong> personal access token + instance base URL; map to Firefly <strong>asset account</strong> ids. Optional expense account name for withdrawals.</li>
+                                <li><strong>Lunch Money:</strong> developer API token; map to Lunch Money <strong>asset_id</strong>.</li>
+                                <li><strong>YNAB:</strong> register an OAuth app whose redirect URI matches your server (path <code>/api/budget-export/ynab/callback</code>, e.g. <code>http://127.0.0.1:3000/...</code> locally), connect in the UI, set <strong>budget id</strong>, map to YNAB account ids.</li>
+                                <li><strong>Actual Budget:</strong> self-hosted server URL, account password, budget <strong>sync id</strong>; map to Actual account ids.</li>
+                            </ul>
+                            <p>Secrets for these integrations are stored in <code>data/config/budget_export_secrets.json</code> under your data directory, not in the regular scrape config JSON.</p>
                         `
                     },
                     "scrape": {
@@ -625,10 +652,15 @@ GEMINI_API_KEY=(optional)
                                 <li><strong>Cloud Sync:</strong> Upload any result directly to your Google Sheet.</li>
                             </ul>
                             <h3>Importing files</h3>
-                            <p>In the <strong>Results explorer</strong>, use <strong>Import</strong> to load <strong>Excel (XLS/XLSX)</strong>, <strong>PDF</strong>, or <strong>JSON</strong> without running the browser scraper.</p>
-                            <p><strong>Typical flow:</strong> Select files, optionally choose <strong>Import as</strong> (a provider and account from your existing transaction history—this helps <strong>format detection</strong> and sets the <strong>account number</strong> on rows), toggle <strong>Use AI for parsing</strong> if you want Gemini to interpret complex layouts, then <strong>Preview import</strong>. Review and edit the table, then <strong>Save to library</strong>. The same preview step is used for both AI and deterministic parsing.</p>
-                            <p><strong>Deterministic parsers (tested):</strong> <strong>Isracard</strong>—Excel in the <strong>פירוט עסקאות</strong> style (Hebrew columns such as תאריך רכישה, שם בית עסק, סכום חיוב) and <strong>PDF</strong> monthly card statements with the standard text layout; filenames like <code>1254_MM_YYYY.xlsx</code> or <code>1254_MM_YYYY.pdf</code> help infer the card’s last four digits. <strong>Mizrahi Tefahot</strong>—Excel exports with the usual Hebrew account-movement layout (מספר חשבון, תאריך, סוג תנועה, זכות / חובה).</p>
-                            <p>Other files use <strong>generic</strong> heuristics; results vary by bank. If import looks wrong, try <strong>Use AI for parsing</strong> (requires a configured Gemini API key) or export <strong>Excel</strong> from your institution when available.</p>
+                            <p>Under <strong>Scrape → Results explorer</strong>, use <strong>Import</strong> to load <strong>Excel (XLS/XLSX)</strong>, <strong>PDF</strong>, or <strong>JSON</strong> without running the browser scraper.</p>
+                            <p><strong>Typical flow:</strong> Choose files → optionally <strong>Import as</strong> (provider + account from your history helps <strong>format detection</strong> and sets the <strong>account number</strong>) → optionally attach a <strong>custom import format</strong> JSON for non-standard spreadsheets → <strong>Preview import</strong> → review and edit the table → <strong>Save to library</strong>.</p>
+                            <div class="callout warning">
+                                <strong>Use AI for parsing — double-check everything:</strong> When <strong>Use AI for parsing</strong> is on, <strong>Gemini</strong> interprets the file. The model can misread columns, dates, amounts, or currencies. <strong>Always verify</strong> the preview against your source file before saving. Prefer built-in deterministic parsers or a <strong>custom import format</strong> when the bank export layout is stable.
+                            </div>
+                            <p><strong>Deterministic parsers (tested):</strong> <strong>Isracard</strong>—Excel in the <strong>פירוט עסקאות</strong> style (Hebrew columns such as תאריך רכישה, שם בית עסק, סכום חיוב) and <strong>PDF</strong> monthly card statements with the standard text layout; filenames like <code>1254_MM_YYYY.xlsx</code> or <code>1254_MM_YYYY.pdf</code> help infer the card’s last four digits. Parsed amounts are then multiplied by <strong>−1</strong> (same as a custom import format with <strong>Flip amount signs</strong> on). <strong>Mizrahi Tefahot</strong>—Excel exports with the usual Hebrew account-movement layout (מספר חשבון, תאריך, סוג תנועה, זכות / חובה).</p>
+                            <p>Other files use <strong>generic</strong> heuristics; quality varies. If import looks wrong, define a <strong>custom import format</strong> or use <strong>Use AI for parsing</strong> only with the warning above.</p>
+                            <h3>Creating a custom import format</h3>
+                            <p>For Excel layouts that are not Isracard/Mizrahi, open the <strong>import format</strong> builder (from <strong>Import</strong> in the results explorer, or URL <code>?view=importProfile</code>). Upload a sample workbook, set the <strong>header row</strong>, map columns to <strong>date</strong>, <strong>description</strong>, amounts and <strong>currencies</strong>, and optional fields (voucher, memo, etc.). Use <strong>Run test</strong> to preview parsed transactions. In <strong>Advanced</strong>, set date format, skip rows, footer stops, and <strong>Flip amount signs</strong> (when checked, each amount is multiplied by −1 to match this app’s convention; when off, signs follow the spreadsheet). <strong>Save</strong> the JSON import format and attach it in <strong>Import</strong> when uploading spreadsheets.</p>
                         `
                     },
                     "logs": {
@@ -1106,7 +1138,7 @@ Bot: 📈 Yes, your spending increased by 12% compared to last month
                 subtitle: "כל מה שצריך לדעת כדי להגדיר ולהפיק את המרב ממבט כלכלי.",
                 nav: [
                     { label: "צעדים ראשונים", items: [{ id: "getting-started", label: "איך מתחילים?" }, { id: "windows-install", label: "התקנה בווינדוס (Windows)" }, { id: "env-setup", label: "הגדרות סביבה מתקדמות" }, { id: "app-lock", label: "נעילת האפליקציה" }, { id: "api-guides", label: "חיבור מפתחות API" }, { id: "google-setup", label: "חיבור לגוגל דרייב ושיטס" }, { id: "telegram-guide", label: "הבוט שלנו בטלגרם" }] },
-                    { label: "הממשק שלנו", items: [{ id: "main-interface", label: "מבט כללי על המערכת" }, { id: "dashboard", label: "לוח הבקרה (דשבורד)" }, { id: "scrape", label: "איך סורקים?" }, { id: "profiles", label: "ניהול פרופילים" }, { id: "results", label: "סייר הנתונים" }, { id: "logs", label: "יומני פעילות (Logs)" }, { id: "configuration", label: "מסך ההגדרות" }] },
+                    { label: "הממשק שלנו", items: [{ id: "main-interface", label: "מבט כללי על המערכת" }, { id: "dashboard", label: "לוח הבקרה (דשבורד)" }, { id: "export-apps", label: "ייצוא לאפליקציות אחרות" }, { id: "scrape", label: "איך סורקים?" }, { id: "profiles", label: "ניהול פרופילים" }, { id: "results", label: "סייר הנתונים" }, { id: "logs", label: "יומני פעילות (Logs)" }, { id: "configuration", label: "מסך ההגדרות" }] },
                     { label: "הכלים החכמים שלנו", items: [{ id: "ai", label: "העוזר החכם (AI)" }, { id: "fraud", label: "הגנה וזיהוי חריגות" }, { id: "automation", label: "אוטומציות וגיבויים" }] },
                     { label: "תמיכה ועזרה", items: [{ id: "troubleshooting", label: "פתרון תקלות נפוצות" }, { id: "credits", label: "תודות וקרדיטים" }] }
                 ],
@@ -1308,9 +1340,36 @@ GEMINI_API_KEY=(optional)
                             <h3>תצוגה שמתאימה את עצמה</h3>
                             <p>אם תפתחו את המערכת בנייד או במסך קטן, חלק מהחלוניות יהיו <strong>מכווצות</strong> כדי לחסוך מקום. במסך גדול? הכל פרוס ופתוח בפניכם.</p>
                             <h3>ייצוא נתונים</h3>
-                            <p>צריכים את הנתונים באקסל? השתמשו בתפריט הייצוא כדי להוריד הכל בפורמט CSV או JSON נקי.</p>
+                            <p>ב<strong>ייצוא</strong> אפשר להוריד את המאגר המאוחד (חודש נבחר או הכול) כ-CSV או JSON. פירוט מלא על API, טלגרם, Google Sheets ותוכנות תקציב — ב<a href="#export-apps">ייצוא לאפליקציות אחרות</a>.</p>
                             <h3>מה קופץ לי ב"תובנות מובילות"?</h3>
                             <p>במקטע התובנות בדשבורד תמצאו מיקס של הערות. חלקן מגיעות ישירות מה<strong>AI</strong> (ששם לב לדברים מעניינים), וחלקן הן <strong>חוקים קבועים</strong> שאתם הגדרתם בעצמכם תחת <strong>הגדרות → כללי תובנה</strong>. כדי שלא תתבלבלו, לכל הודעה יש תגית קטנה שמסבירה מאיפה היא הגיעה.</p>
+                        `
+                    },
+                    "export-apps": {
+                        title: "📤 ייצוא לאפליקציות אחרות",
+                        html: `
+                            <p>אפשר להעביר נתונים לגיליונות, לקבצים, ל-Google Sheets ולתוכנות תקציב ייעודיות. הבחירה תלויה אם צריך את <strong>המאגר המאוחד</strong> (כל העסקאות במסד) או קובץ <strong>תוצאת סריקה אחת</strong>, ואם הייצוא <strong>ידני</strong> או <strong>אוטומטי אחרי כל סריקה</strong>.</p>
+                            <h3>מאגר מאוחד — CSV / JSON</h3>
+                            <p>סריקות וייבוא מתמזגים למאגר אחד. אפשר להוריד CSV או JSON מ:</p>
+                            <ul>
+                                <li><strong>דשבורד → ייצוא:</strong> כל העסקאות או <strong>החודש הנבחר</strong>. ל-CSV יש BOM ב-UTF-8 (נוח לאקסל בעברית) ועמודות עשירות (מזהים, סכומים, מטבעות, קטגוריה, ספק, חשבון, סטטוס וכו').</li>
+                                <li><strong>API:</strong> <code>GET /api/results/export?format=csv</code> או <code>format=json</code> (אותו מארח ופורט כמו הממשק). אופציונלי: <code>month=YYYY-MM</code>, <code>includeIgnored=0</code> כדי להשאיר בחוץ עסקאות מסומנות כהתעלם.</li>
+                                <li><strong>בוט טלגרם:</strong> <code>/export csv</code> או <code>/export json</code>, או למשל <code>/export csv 2026-03</code> לחודש אחד — אותו היקף נתונים כמו בייצוא מהדשבורד.</li>
+                            </ul>
+                            <h3>סייר התוצאות (קובץ סריקה בודד)</h3>
+                            <p><strong>סריקה → סייר התוצאות:</strong> כשקובץ תוצאה נבחר בסרגל הצד, <strong>ייצוא</strong> מוריד CSV/JSON רק ל<strong>אותה ריצה</strong>. עמודות ה-CSV קצרות יותר לעומת הייצוא המאוחד.</p>
+                            <h3>Google Sheets</h3>
+                            <p><strong>הגדרות → גוגל:</strong> OAuth, בחירת קובץ מקור וגיליון יעד וסנכרון. להגדרת ענן מלאה ראו <a href="#google-setup">החיבור לגוגל (Drive ו-Sheets)</a>.</p>
+                            <h3>תוכנות תקציב — דחיפה אחרי סריקה</h3>
+                            <p><strong>הגדרות → ייצוא לתוכנות תקציב</strong> (<code>?view=configuration&amp;tab=budget-exports</code>): אחרי <strong>כל סריקה מוצלחת</strong> השרת שולח את העסקאות מ<strong>אותה ריצה</strong> ל-<strong>Firefly III</strong>, <strong>Lunch Money</strong>, <strong>YNAB</strong> או <strong>Actual Budget</strong> (לפי מה שמופעל). נשלחות רק עסקאות ב<strong>הושלם</strong>; מושבתות, ממתינות והעברות פנימיות מדולגות.</p>
+                            <ul>
+                                <li><strong>מפת חשבונות (JSON):</strong> מפתחות בפורמט <code>provider:accountNumber</code> — הערך הוא מזהה חשבון היעד באפליקציה החיצונית.</li>
+                                <li><strong>Firefly III:</strong> טוקן גישה אישי + כתובת השרת; מיפוי ל-<strong>asset account</strong> ב-Firefly. אופציונלי: שם חשבון הוצאות למשיכות.</li>
+                                <li><strong>Lunch Money:</strong> טוקן API למפתחים; מיפוי ל-<strong>asset_id</strong>.</li>
+                                <li><strong>YNAB:</strong> אפליקציית OAuth עם redirect שתואם לשרת שלכם (נתיב <code>/api/budget-export/ynab/callback</code>, למשל <code>http://127.0.0.1:3000/...</code> במקומי), חיבור בממשק, <strong>מזהה תקציב</strong>, מיפוי למזהי חשבונות ב-YNAB.</li>
+                                <li><strong>Actual Budget:</strong> כתובת שרת (self-hosted), סיסמת חשבון, <strong>sync id</strong> של התקציב; מיפוי למזהי חשבון ב-Actual.</li>
+                            </ul>
+                            <p>סיסמאות וטוקנים לייצוא הזה נשמרים ב-<code>data/config/budget_export_secrets.json</code> בתיקיית הנתונים, בנפרד מהגדרות הסריקה הרגילות.</p>
                         `
                     },
                     "scrape": {
@@ -1356,15 +1415,17 @@ GEMINI_API_KEY=(optional)
                                 <li><strong>לשלוח החוצה:</strong> לייצא את הכל לאקסל (CSV) למחשב.</li>
                                 <li><strong>לענן:</strong> לדחוף את התוצאות הישר ל-Google Sheets שלכם בקליק.</li>
                             </ul>
-                          <h3>ייבוא קבצים בקלות</h3>
-<p>ב<strong>סייר התוצאות</strong> תוכלו להשתמש בכפתור ה<strong>ייבוא</strong> כדי להעלות קבצי <strong>אקסל (XLS/XLSX)</strong>, <strong>PDF</strong> או <strong>JSON</strong> בצורה ישירה, בלי שיהיה צורך להריץ סריקה בדפדפן.</p>
-
-<p><strong>איך זה עובד?</strong> בוחרים את הקבצים הרצויים, ובמידת הצורך משתמשים באפשרות <strong>ייבוא כ־</strong> (בחירת ספק וחשבון מההיסטוריה תעזור למערכת <strong>לזהות את הפורמט</strong> ולהצמיד את <strong>מספר החשבון</strong> הנכון לשורות). אם מדובר בקובץ מורכב, כדאי להפעיל את ה-<strong>AI לפענוח</strong> כדי ש-Gemini יעזור לקרוא את הנתונים בצורה חכמה. לאחר מכן לוחצים על <strong>תצוגה מקדימה</strong>, עוברים על הטבלה, עורכים אם צריך, ולבסוף לוחצים על <strong>שמירה לספרייה</strong>.</p>
-
-<p><strong>פורמטים שנתמכים באופן מיוחד:</strong> 
-המערכת מותאמת לסריקה אופטימלית של קבצי <strong>ישראכרט</strong> (אקסל של פירוט עסקאות או PDF של דוח חודשי סטנדרטי) ושל <strong>בנק מזרחי טפחות</strong> (ייצוא אקסל של תנועות בחשבון). שמות קבצים שכוללים תאריך וארבע ספרות של הכרטיס (כמו <code>1254_MM_YYYY</code>) עוזרים למערכת לשייך את הנתונים אוטומטית לחשבון הנכון.</p>
-
-<p>בשאר סוגי הקבצים, המערכת תנסה לזהות את הנתונים בעצמה. אם התוצאה לא נראית לכם מדויקת, מומלץ להיעזר ב-<strong>AI לפענוח</strong> (דורש מפתח Gemini) או להשתמש בקובץ <strong>אקסל</strong> שהורדתם ישירות מהאתר של הבנק או חברת האשראי.</p>                        `
+                            <h3>ייבוא קבצים</h3>
+                            <p>תחת <strong>סריקה → סייר התוצאות</strong>, השתמשו ב<strong>ייבוא</strong> כדי להעלות <strong>אקסל (XLS/XLSX)</strong>, <strong>PDF</strong> או <strong>JSON</strong> בלי להריץ סריקה בדפדפן.</p>
+                            <p><strong>זרימה טיפוסית:</strong> בחירת קבצים → אופציונלית <strong>ייבוא כ־</strong> (ספק וחשבון מההיסטוריה עוזרים <strong>לזהות פורמט</strong> ולקבוע <strong>מספר חשבון</strong>) → אופציונלית צירוף <strong>פורמט ייבוא מותאם</strong> (JSON) לאקסלים שאינם פורמט מובנה → <strong>תצוגה מקדימה</strong> → בדיקת הטבלה ועריכה → <strong>שמירה לספרייה</strong>.</p>
+                            <div class="callout warning">
+                                <strong>שימוש ב-AI לפענוח — חובה לבדוק:</strong> כאשר <strong>AI לפענוח</strong> מופעל, <strong>Gemini</strong> מפרש את הקובץ. המודל עלול לטעות בעמודות, תאריכים, סכומים או מטבעות. <strong>השוו תמיד</strong> את התצוגה המקדימה לקובץ המקור לפני השמירה. עדיף המפענח הקבוע של המערכת או <strong>פורמט ייבוא מותאם</strong> כשפריסת הייצוא מהבנק יציבה.
+                            </div>
+                            <p><strong>פורמטים עם תמיכה ייעודית:</strong> <strong>ישראכרט</strong> — אקסל בסגנון <strong>פירוט עסקאות</strong> (עמודות בעברית כמו תאריך רכישה, שם בית עסק, סכום חיוב) ו-<strong>PDF</strong> דוח חודשי סטנדרטי; שמות כמו <code>1254_MM_YYYY</code> עוזרים לזהות ארבע ספרות כרטיס. לאחר קריאת הסכומים מהקובץ הם מוכפלים ב<strong>−1</strong> (כמו פורמט ייבוא מותאם עם <strong>היפוך סימן סכומים</strong> מופעל). <strong>מזרחי טפחות</strong> — ייצוא אקסל תנועות חשבון (מספר חשבון, תאריך, זכות / חובה וכו').</p>
+                            <p>שאר הקבצים עוברים <strong>היוריסטיקה כללית</strong>; האיכות משתנה. אם הייבוא לא מדויק — הגדירו <strong>פורמט ייבוא מותאם</strong> או השתמשו ב-<strong>AI לפענוח</strong> רק עם האזהרה לעיל.</p>
+                            <h3>יצירת פורמט ייבוא מותאם</h3>
+                            <p>לאקסלים שאינם ישראכרט/מזרחי: פתחו את בונה <strong>פורמט הייבוא</strong> (מקישור ב<strong>ייבוא</strong> או כתובת <code>?view=importProfile</code>). העלו דוגמה, הגדירו <strong>שורת כותרות</strong>, מפו עמודות ל<strong>תאריך</strong>, <strong>תיאור</strong>, סכומים ו<strong>מטבעות</strong>, ושדות אופציונליים. <strong>הרצת בדיקה</strong> מציגה תצוגה מקדימה של תנועות. ב<strong>מתקדם</strong>: פורמט תאריך, דילוג שורות, עצירה בכותרות סיכום, ו<strong>היפוך סימן סכומים</strong> (מסומן = כפול −1 לכל סכום; כבוי = סימן כמו בגיליון). <strong>שמרו</strong> את קובץ ה-JSON וצרפו אותו ב<strong>ייבוא</strong> בעת העלאת האקסל.</p>
+                        `
                     },
                     "logs": {
                         title: "📋 יומני פעילות (Logs)",
@@ -1697,7 +1758,7 @@ GEMINI_API_KEY=(optional)
             // Render Sections (fixed order so nav and reading order stay logical)
             const sectionOrder = [
                 'getting-started', 'windows-install', 'env-setup', 'app-lock', 'api-guides', 'google-setup', 'telegram-guide',
-                'main-interface', 'dashboard', 'scrape', 'profiles', 'results', 'logs', 'configuration',
+                'main-interface', 'dashboard', 'export-apps', 'scrape', 'profiles', 'results', 'logs', 'configuration',
                 'ai', 'fraud', 'automation', 'troubleshooting', 'credits'
             ];
             let mainHtml = `<header><h1>${data.title}</h1><p>${data.subtitle}</p></header>`;

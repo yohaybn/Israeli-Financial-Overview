@@ -33,17 +33,19 @@ describe('ImportService Isracard PDF', () => {
         const r = parseIsracardPdfTextFixture(svc, PDF_FIXTURE, logs, '1254');
 
         assert.equal(r.transactions.length, 5);
-        assert.equal(r.transactions[0].id, 'isracard-573924222');
+        assert.equal(r.transactions[0].voucherNumber, '573924222');
+        assert.equal(r.transactions[0].externalId, '573924222');
+        assert.ok(/^[a-f0-9]{32}$/.test(r.transactions[0].id));
         assert.equal(r.transactions[0].amount, -8.5);
 
-        const harel = r.transactions.find(t => t.id === 'isracard-559258598');
+        const harel = r.transactions.find(t => t.voucherNumber === '559258598');
         assert.ok(harel?.memo?.includes('קבע הוראת'));
 
-        const ali = r.transactions.find(t => t.id === 'isracard-401728760');
+        const ali = r.transactions.find(t => t.voucherNumber === '401728760');
         assert.equal(ali?.originalCurrency, 'USD');
         assert.equal(ali?.amount, -341.2);
 
-        const inst = r.transactions.find(t => t.id === 'isracard-304076747');
+        const inst = r.transactions.find(t => t.voucherNumber === '304076747');
         assert.equal(inst?.type, 'installments');
         assert.equal(inst?.installments?.total, 12);
         assert.equal(inst?.installments?.number, 9);

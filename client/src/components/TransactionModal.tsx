@@ -176,8 +176,24 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     };
 
     const isIgnored = localIsIgnored;
-    const hasDifferentAmount = transaction.originalAmount !== transaction.chargedAmount;
+    const chargedCurrencyDisplay = (transaction.chargedCurrency?.trim() || 'ILS').toUpperCase();
+    const originalCurrencyDisplay = (transaction.originalCurrency?.trim() || '').toUpperCase();
+    const hasDifferentAmount =
+        transaction.originalAmount !== transaction.chargedAmount ||
+        (originalCurrencyDisplay.length > 0 && chargedCurrencyDisplay !== originalCurrencyDisplay);
     const isForeignCurrency = transaction.originalCurrency && transaction.originalCurrency !== 'ILS';
+    const currenciesDifferForRate =
+        originalCurrencyDisplay.length > 0 &&
+        chargedCurrencyDisplay !== originalCurrencyDisplay &&
+        Math.abs(transaction.originalAmount) > 1e-9;
+    const impliedExchangeRate = currenciesDifferForRate
+        ? Math.abs(transaction.chargedAmount) / Math.abs(transaction.originalAmount)
+        : null;
+    const formatExchangeRateNumber = (rate: number) =>
+        new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 6,
+        }).format(rate);
 
     const providerLabel = getProviderDisplayName(transaction.provider, providers, i18n.language);
 
@@ -330,6 +346,17 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                                 icon={<DollarSign size={16}/>} 
                                 label={t('transaction_modal.original_amount')} 
                                 value={`${formatAmount(transaction.originalAmount, transaction.originalCurrency)} (${transaction.originalCurrency})`} 
+                            />
+                        )}
+                        {impliedExchangeRate != null && (
+                            <InfoItem
+                                icon={<ArrowRightLeft size={16} />}
+                                label={t('transaction_modal.exchange_rate')}
+                                value={t('transaction_modal.exchange_rate_one_unit', {
+                                    originalCurrency: transaction.originalCurrency,
+                                    rate: formatExchangeRateNumber(impliedExchangeRate),
+                                    chargedCurrency: transaction.chargedCurrency?.trim() || 'ILS',
+                                })}
                             />
                         )}
                         <InfoItem icon={<Building2 size={16}/>} label={t('transaction_modal.provider')} value={providerLabel} />

@@ -1,6 +1,12 @@
 import * as xlsx from '@e965/xlsx';
 import { PDFParse } from 'pdf-parse';
-import { Transaction, ScrapeResult, Account, assignBatchContentIdsFromTransactions } from '@app/shared';
+import {
+    Transaction,
+    ScrapeResult,
+    Account,
+    assignBatchContentIdsFromTransactions,
+    parseNumberCell,
+} from '@app/shared';
 import type { TabularImportProfileV1 } from '@app/shared';
 import fs from 'fs-extra';
 import path from 'path';
@@ -9,6 +15,17 @@ import { parseTabularSpreadsheet } from './tabularImportParse.js';
 
 export class ImportService {
     constructor(private aiService?: AiService) { }
+
+    /** When set, replaces `provider` on every transaction and account (e.g. batch labeling). */
+    private applyProviderNameOverride(
+        result: { transactions: Transaction[]; accounts: Account[] },
+        providerNameOverride?: string
+    ): void {
+        const v = providerNameOverride?.trim();
+        if (!v) return;
+        for (const t of result.transactions) t.provider = v;
+        for (const a of result.accounts) a.provider = v;
+    }
 
     async importFiles(filePaths: string[]): Promise<ScrapeResult[]> {
         const results: ScrapeResult[] = [];
@@ -21,7 +38,8 @@ export class ImportService {
     async importFilesBatchWithAi(
         filePaths: string[],
         accountNumberOverride?: string,
-        providerTarget?: string
+        providerTarget?: string,
+        providerNameOverride?: string
     ): Promise<ScrapeResult[]> {
         const startTime = Date.now();
         const logs: string[] = [];
@@ -65,6 +83,7 @@ export class ImportService {
             const provider = providerTarget || 'imported-batch';
             const account = accountNumberOverride || 'imported';
             const result = await this.aiService.parseDocument(combinedText, provider, account);
+            this.applyProviderNameOverride(result, providerNameOverride);
             logs.push(`Batch AI parsing complete. Found ${result.transactions.length} transactions total.`);
 
             // For now, we return a single ScrapeResult wrapping everything as it's a batch result
@@ -94,7 +113,8 @@ export class ImportService {
         accountNumberOverride?: string,
         useAi: boolean = false,
         providerTarget?: string,
-        tabularProfile?: TabularImportProfileV1 | null
+        tabularProfile?: TabularImportProfileV1 | null,
+        providerNameOverride?: string
     ): Promise<ScrapeResult> {
         const startTime = Date.now();
         const logs: string[] = [];
@@ -107,7 +127,7 @@ export class ImportService {
             const buffer = await fs.readFile(filePath);
             logs.push(`Importing file: ${path.basename(filePath)} (${ext})`);
             if (tabularProfile && spreadsheetExt) {
-                logs.push(`Using custom tabular import profile: ${tabularProfile.name || tabularProfile.id || 'unnamed'}`);
+                logs.push(`Using custom tabular import format: ${tabularProfile.name || tabularProfile.id || 'unnamed'}`);
             }
 
             let result: { transactions: Transaction[], accounts: Account[] };
@@ -195,6 +215,8 @@ export class ImportService {
             } else {
                 // xls, xlsx, or other spreadsheet formats supported by xlsx
                 const workbook = xlsx.read(buffer, { type: 'buffer' });
+                /** Tabular imports use formatted cell text so signs match Excel UI; default (raw) keeps Isracard/tests stable. */
+                const sheetRowsOpts = tabularProfile ? ({ header: 1, raw: false } as const) : ({ header: 1 } as const);
 
                 let allTransactions: Transaction[] = [];
                 let allAccounts: Account[] = [];
@@ -205,7 +227,7 @@ export class ImportService {
                 if (!accountNumberOverride) {
                     for (const sheetName of workbook.SheetNames) {
                         const sheet = workbook.Sheets[sheetName];
-                        const rows: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+                        const rows: any[][] = xlsx.utils.sheet_to_json(sheet, sheetRowsOpts);
                         const ir = this.detectIsracardLastFourFromRows(rows);
                         if (ir) {
                             detectedAccountNumber = ir;
@@ -232,7 +254,7 @@ export class ImportService {
 
                 for (const sheetName of workbook.SheetNames) {
                     const sheet = workbook.Sheets[sheetName];
-                    const rows: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+                    const rows: any[][] = xlsx.utils.sheet_to_json(sheet, sheetRowsOpts);
 
                     if (rows.length === 0) continue;
 
@@ -242,7 +264,7 @@ export class ImportService {
                     if (tabularProfile) {
                         const names = tabularProfile.sheetNames;
                         if (names && names.length > 0 && !names.includes(sheetName)) {
-                            logs.push(`Sheet "${sheetName}" skipped (not listed in import profile)`);
+                            logs.push(`Sheet "${sheetName}" skipped (not listed in import format)`);
                             continue;
                         }
                         sheetResult = parseTabularSpreadsheet(rows, tabularProfile, logs, detectedAccountNumber);
@@ -270,6 +292,8 @@ export class ImportService {
                     accounts: allAccounts
                 };
             }
+
+            this.applyProviderNameOverride(result, providerNameOverride);
 
             const executionTimeMs = Date.now() - startTime;
             const success = result.transactions.length > 0;
@@ -357,10 +381,18 @@ export class ImportService {
         );
     }
 
+    /** Strip currency symbols; preserve sign (parentheses, minus) like tabular `parseNumberCell`. */
     private parseIsracardPdfAmountToken(tok: string): number {
-        const clean = tok.replace(/[₪$\s]/g, '').replace(/,/g, '');
-        const n = parseFloat(clean);
-        return Number.isFinite(n) ? Math.abs(n) : 0;
+        const t = tok.replace(/[₪$\s]/g, '').trim();
+        return parseNumberCell(t);
+    }
+
+    /**
+     * Same as tabular ledger import with `negateParsedAmounts: true`: multiply each parsed amount by −1
+     * (matches custom import format “flip amount signs”).
+     */
+    private negateIsracardParsedAmountLikeTabularProfile(parsed: number): number {
+        return -parsed;
     }
 
     private tryParseIsracardPdfTransactionLine(line: string, accountNumber: string): Transaction | null {
@@ -381,17 +413,19 @@ export class ImportService {
             let nTot = parseInt(inst[2], 10);
             if (nPay > nTot && nTot > 0 && nPay <= 36) [nPay, nTot] = [nTot, nPay];
             const voucher = inst[3];
-            const chgAbs = this.parseIsracardPdfAmountToken(inst[4]);
-            const origAbs = this.parseIsracardPdfAmountToken(inst[5]);
+            const chgParsed = this.parseIsracardPdfAmountToken(inst[4]);
+            let origParsed = this.parseIsracardPdfAmountToken(inst[5]);
             const desc = inst[6].trim();
             const date = this.parseDate(inst[7]);
-            if (!date || chgAbs === 0) return null;
+            if (!date || chgParsed === 0) return null;
+            if (origParsed === 0) origParsed = chgParsed;
             const memoExtra = `תשלום ${nPay} מתוך ${nTot}`;
             const memo = [...tags, memoExtra].filter(Boolean).join(' · ');
-            const chargedSigned = -chgAbs;
-            const originalSigned = -origAbs;
+            const chargedSigned = this.negateIsracardParsedAmountLikeTabularProfile(chgParsed);
+            const originalSigned = this.negateIsracardParsedAmountLikeTabularProfile(origParsed);
             return {
                 id: '',
+                externalId: voucher,
                 voucherNumber: voucher,
                 sourceRef: 'import:isracard-pdf',
                 date: date.toISOString(),
@@ -406,7 +440,7 @@ export class ImportService {
                 status: 'completed',
                 provider: 'isracard',
                 accountNumber,
-                txnType: 'expense',
+                txnType: chargedSigned > 0 ? 'income' : 'expense',
                 type: 'installments',
                 installments: { number: nPay, total: nTot },
             };
@@ -417,29 +451,33 @@ export class ImportService {
         const fr = foreignRe.exec(s);
         if (fr) {
             const voucher = fr[1];
-            const chgAbs = this.parseIsracardPdfAmountToken(fr[2]);
-            const origAbs = this.parseIsracardPdfAmountToken(fr[3]);
+            const chgParsed = this.parseIsracardPdfAmountToken(fr[2]);
+            let origParsed = this.parseIsracardPdfAmountToken(fr[3]);
             const desc = fr[4].trim();
             const date = this.parseDate(fr[5]);
-            if (!date || chgAbs === 0) return null;
+            if (!date || chgParsed === 0) return null;
+            if (origParsed === 0) origParsed = chgParsed;
             const memo = tags.length ? tags.join(' · ') : undefined;
+            const chgSigned = this.negateIsracardParsedAmountLikeTabularProfile(chgParsed);
+            const origSigned = this.negateIsracardParsedAmountLikeTabularProfile(origParsed);
             return {
                 id: '',
+                externalId: voucher,
                 voucherNumber: voucher,
                 sourceRef: 'import:isracard-pdf',
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description: desc,
                 memo,
-                amount: -chgAbs,
-                chargedAmount: -chgAbs,
-                originalAmount: -origAbs,
+                amount: chgSigned,
+                chargedAmount: chgSigned,
+                originalAmount: origSigned,
                 originalCurrency: 'USD',
                 chargedCurrency: 'ILS',
                 status: 'completed',
                 provider: 'isracard',
                 accountNumber,
-                txnType: 'expense',
+                txnType: chgSigned > 0 ? 'income' : 'expense',
                 type: 'normal',
             };
         }
@@ -451,16 +489,18 @@ export class ImportService {
             const voucher = il[1];
             const a1 = this.parseIsracardPdfAmountToken(il[2]);
             const a2 = this.parseIsracardPdfAmountToken(il[3]);
-            const chgAbs = a2;
-            const origAbs = a1;
+            let chgParsed = a2;
+            let origParsed = a1;
             const desc = il[4].trim();
             const date = this.parseDate(il[5]);
-            if (!date || chgAbs === 0) return null;
+            if (!date || chgParsed === 0) return null;
+            if (origParsed === 0) origParsed = chgParsed;
             const memo = tags.length ? tags.join(' · ') : undefined;
-            const chargedSigned = -chgAbs;
-            const originalSigned = -origAbs;
+            const chargedSigned = this.negateIsracardParsedAmountLikeTabularProfile(chgParsed);
+            const originalSigned = this.negateIsracardParsedAmountLikeTabularProfile(origParsed);
             return {
                 id: '',
+                externalId: voucher,
                 voucherNumber: voucher,
                 sourceRef: 'import:isracard-pdf',
                 date: date.toISOString(),
@@ -475,7 +515,7 @@ export class ImportService {
                 status: 'completed',
                 provider: 'isracard',
                 accountNumber,
-                txnType: 'expense',
+                txnType: chargedSigned > 0 ? 'income' : 'expense',
                 type: 'normal',
             };
         }
@@ -708,8 +748,8 @@ export class ImportService {
             const description = this.normalizeCellText(row[descCol]);
             if (!description) continue;
 
-            const chargedAbs = Math.abs(this.parseNumber(row[chgAmtCol]));
-            if (chargedAbs === 0) {
+            const chargedParsed = parseNumberCell(row[chgAmtCol]);
+            if (chargedParsed === 0) {
                 continue;
             }
 
@@ -720,18 +760,17 @@ export class ImportService {
                 ? this.currencySymbolToIso(this.normalizeCellText(row[chgCurCol]))
                 : 'ILS';
 
-            let originalAbs = origAmtCol !== -1 ? Math.abs(this.parseNumber(row[origAmtCol])) : chargedAbs;
-            if (originalAbs === 0) {
-                originalAbs = chargedAbs;
+            let originalParsed = origAmtCol !== -1 ? parseNumberCell(row[origAmtCol]) : 0;
+            if (originalParsed === 0) {
+                originalParsed = chargedParsed;
             }
 
             const voucher = vouchCol !== -1 ? this.normalizeCellText(row[vouchCol]) : '';
             const extra = extraCol !== -1 ? this.normalizeCellText(row[extraCol]) : '';
-            const memoParts = [voucher ? `שובר ${voucher}` : '', extra].filter(Boolean);
-            const memo = memoParts.join(' · ');
+            const memo = extra || undefined;
 
-            const chargedSigned = -chargedAbs;
-            const originalSigned = -originalAbs;
+            const chargedSigned = this.negateIsracardParsedAmountLikeTabularProfile(chargedParsed);
+            const originalSigned = this.negateIsracardParsedAmountLikeTabularProfile(originalParsed);
 
             const instMatch = extra.match(/תשלום\s*(\d+)\s*מתוך\s*(\d+)/);
             const installments = instMatch
@@ -740,12 +779,13 @@ export class ImportService {
 
             transactions.push({
                 id: '',
+                externalId: voucher || undefined,
                 voucherNumber: voucher || undefined,
                 sourceRef: 'import:isracard-xlsx',
                 date: date.toISOString(),
                 processedDate: date.toISOString(),
                 description,
-                memo: memo || undefined,
+                memo,
                 amount: chargedSigned,
                 chargedAmount: chargedSigned,
                 originalAmount: originalSigned,
@@ -754,7 +794,7 @@ export class ImportService {
                 status: 'completed',
                 provider: 'isracard',
                 accountNumber,
-                txnType: 'expense',
+                txnType: chargedSigned > 0 ? 'income' : 'expense',
                 type: installments ? 'installments' : 'normal',
                 installments,
             });

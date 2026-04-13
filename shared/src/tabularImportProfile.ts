@@ -32,13 +32,22 @@ export type TabularDateFormat =
 /** How to interpret amount when using separate credit/debit columns. */
 export type TabularAmountMode = 'single' | 'credit_debit';
 
-/** Optional transaction fields that can be mapped from a column (ledger and simple). */
+/** After parsing a row, optionally restrict which signed amounts are imported (uses primary `amount` sign). */
+export type TabularAmountPolarityFilter = 'all' | 'expense_only' | 'income_only';
+
+/**
+ * Optional spreadsheet columns → Transaction fields (everything not covered by required column mapping).
+ * Used by `optionalFieldMappings`. Legacy `extraDetails` + `extraDetailsTargetField` uses the same field names.
+ */
 export const TABULAR_MAPPABLE_TXN_FIELDS = [
     'memo',
+    'externalId',
+    'voucherNumber',
     'category',
     'type',
     'txnType',
     'processedDate',
+    'status',
 ] as const;
 
 export type TabularMappableTxnField = (typeof TABULAR_MAPPABLE_TXN_FIELDS)[number];
@@ -64,8 +73,9 @@ export interface TabularImportProfileV1 {
     /**
      * Column mapping. Two styles:
      * - **Simple:** `amount` (single) or `credit`+`debit`, plus `date`, `description`.
-     * - **Ledger:** `chargedAmount`, `originalAmount`, `chargedCurrency` required; `originalCurrency`
-     *   and `extraDetails` (→ memo) optional. `optionalFieldMappings` adds more txn fields from columns.
+     * - **Ledger:** `chargedAmount` and `originalAmount` required; `chargedCurrency` and `originalCurrency`
+     *   optional (see {@link TabularImportProfileV1.currency} for defaults). Legacy `extraDetails` optional.
+     *   Map any other column via `optionalFieldMappings`.
      */
     columns: {
         date: ColumnRef;
@@ -80,17 +90,20 @@ export interface TabularImportProfileV1 {
         originalCurrency?: ColumnRef;
         /** Ledger: charged amount in ILS (canonical ledger) */
         chargedAmount?: ColumnRef;
-        /** Ledger: charge currency */
+        /** Ledger: charge currency column (optional; default {@link TabularImportProfileV1.currency} or ILS) */
         chargedCurrency?: ColumnRef;
-        /** Ledger: optional extra line → merged into memo (installment text, etc.) */
+        /** @deprecated Prefer `optionalFieldMappings`. Legacy optional column (see `extraDetailsTargetField`). */
         extraDetails?: ColumnRef;
         category?: ColumnRef;
     };
+    /**
+     * When `columns.extraDetails` is set, which Transaction field receives that cell (same names as `optionalFieldMappings`).
+     * If omitted with `extraDetails` present, legacy behavior writes the cell to `memo`.
+     */
+    extraDetailsTargetField?: TabularMappableTxnField;
     dateFormat?: TabularDateFormat;
     amountMode?: TabularAmountMode;
-    /**
-     * Map extra columns to transaction fields (memo, category, type, txnType, processedDate).
-     */
+    /** Map additional columns to transaction fields (see `TABULAR_MAPPABLE_TXN_FIELDS`). */
     optionalFieldMappings?: TabularFieldMapping[];
     /**
      * When true, merge `DEFAULT_LEDGER_FOOTER_STOP_MARKERS` (unless `stopWhenFirstColumnIncludes` is set).
@@ -102,10 +115,23 @@ export interface TabularImportProfileV1 {
     stopWhenFirstColumnIncludes?: string[];
     /** Provider id stored on each transaction (default: imported) */
     provider?: string;
-    /** Default ISO currency when a currency cell is empty (default: ILS) */
+    /**
+     * Default ISO currency when a currency cell is empty, or when the ledger `chargedCurrency` column
+     * is omitted from the profile (default: ILS).
+     */
     currency?: string;
     /** Skip this many data rows immediately after the header row */
     skipDataRows?: number;
+    /**
+     * When `true`, multiply parsed `amount`, `chargedAmount`, and `originalAmount` by -1. When omitted or `false`,
+     * amounts are unchanged after parsing (no `abs`, no other sign rules). Ledger and simple mode behave the same.
+     */
+    negateParsedAmounts?: boolean;
+    /**
+     * Drop rows after sign normalization (including {@link negateParsedAmounts}).
+     * `expense_only` keeps negative amounts; `income_only` keeps positive amounts.
+     */
+    tabularAmountPolarityFilter?: TabularAmountPolarityFilter;
 }
 
 export type TabularImportProfile = TabularImportProfileV1;
@@ -152,7 +178,17 @@ function validateOptionalFieldMappings(mappings: unknown): void {
     }
 }
 
+function validateExtraDetailsTargetField(parsed: TabularImportProfileV1): void {
+    const f = parsed.extraDetailsTargetField;
+    if (f === undefined) return;
+    if (!isTabularMappableTxnField(f)) {
+        throw new Error(`extraDetailsTargetField: invalid value "${String(f)}"`);
+    }
+}
+
 /** Parse and validate JSON text; throws with a short message on failure. */
+const TABULAR_POLARITY_VALUES: TabularAmountPolarityFilter[] = ['all', 'expense_only', 'income_only'];
+
 export function parseTabularImportProfileJson(jsonText: string): TabularImportProfileV1 {
     let parsed: unknown;
     try {
@@ -161,16 +197,16 @@ export function parseTabularImportProfileJson(jsonText: string): TabularImportPr
         throw new Error('Invalid JSON');
     }
     if (!isTabularImportProfile(parsed)) {
-        throw new Error('Not a valid tabular import profile (format/version/columns)');
+        throw new Error('Not a valid tabular import format (format/version/columns)');
     }
     const { columns } = parsed;
     if (isLedgerStyleColumns(columns)) {
-        if (!columns.originalAmount || !columns.chargedAmount || !columns.chargedCurrency) {
-            throw new Error(
-                'Ledger profile requires columns.originalAmount, chargedAmount, and chargedCurrency'
-            );
+        if (!columns.originalAmount || !columns.chargedAmount) {
+            throw new Error('Ledger profile requires columns.originalAmount and chargedAmount');
         }
         validateOptionalFieldMappings(parsed.optionalFieldMappings);
+        validateExtraDetailsTargetField(parsed);
+        normalizeTabularProfileRuntimeFields(parsed);
         return parsed;
     }
     const mode = parsed.amountMode ?? 'single';
@@ -181,5 +217,27 @@ export function parseTabularImportProfileJson(jsonText: string): TabularImportPr
         throw new Error('Profile must include columns.credit and columns.debit when amountMode is credit_debit');
     }
     validateOptionalFieldMappings(parsed.optionalFieldMappings);
+    validateExtraDetailsTargetField(parsed);
+    normalizeTabularProfileRuntimeFields(parsed);
     return parsed;
+}
+
+/** Coerce fields that may arrive as strings from HTTP form bodies. */
+function normalizeTabularProfileRuntimeFields(profile: TabularImportProfileV1): void {
+    const n = profile as unknown as Record<string, unknown>;
+    const neg = n.negateParsedAmounts;
+    if (neg === true || neg === 'true') {
+        profile.negateParsedAmounts = true;
+    } else if (neg === false || neg === 'false') {
+        profile.negateParsedAmounts = false;
+    } else {
+        delete (profile as { negateParsedAmounts?: boolean }).negateParsedAmounts;
+    }
+
+    const pol = n.tabularAmountPolarityFilter;
+    if (typeof pol === 'string' && (TABULAR_POLARITY_VALUES as readonly string[]).includes(pol)) {
+        profile.tabularAmountPolarityFilter = pol as TabularAmountPolarityFilter;
+    } else if (pol !== undefined && pol !== null) {
+        profile.tabularAmountPolarityFilter = 'all';
+    }
 }

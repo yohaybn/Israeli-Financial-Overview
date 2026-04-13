@@ -57,13 +57,17 @@ describe('ImportService Isracard XLSX', () => {
             const t0 = r.transactions![0];
             assert.equal(t0.provider, 'isracard');
             assert.equal(t0.accountNumber, '1254');
-            assert.equal(t0.id, 'isracard-V1');
+            assert.equal(t0.voucherNumber, 'V1');
+            assert.equal(t0.externalId, 'V1');
+            assert.equal(t0.memo, undefined);
+            assert.ok(/^[a-f0-9]{32}$/.test(t0.id));
             assert.equal(t0.amount, -500);
             assert.equal(t0.originalCurrency, 'ILS');
             assert.equal(t0.chargedCurrency, 'ILS');
 
             const t1 = r.transactions![1];
-            assert.equal(t1.id, 'isracard-V2');
+            assert.equal(t1.voucherNumber, 'V2');
+            assert.equal(t1.externalId, 'V2');
             assert.equal(t1.amount, -350);
             assert.equal(t1.originalCurrency, 'USD');
             assert.equal(t1.type, 'installments');
@@ -88,7 +92,7 @@ describe('ImportService Isracard XLSX', () => {
             const r = await svc.importFile(filePath, undefined, false, undefined);
             assert.equal(r.success, true);
             assert.equal(r.transactions?.length, 1);
-            assert.equal(r.transactions![0].id, 'isracard-A1');
+            assert.equal(r.transactions![0].voucherNumber, 'A1');
         } finally {
             await rm(dir, { recursive: true, force: true }).catch(() => undefined);
         }
@@ -128,8 +132,29 @@ describe('ImportService Isracard XLSX', () => {
             const hinted = await svc.importFile(filePath, undefined, false, 'isracard');
             assert.equal(hinted.success, true);
             assert.equal(hinted.transactions?.length, 1);
-            assert.equal(hinted.transactions![0].id, 'isracard-R1');
+            assert.equal(hinted.transactions![0].voucherNumber, 'R1');
             assert.equal(hinted.transactions![0].amount, -10);
+        } finally {
+            await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+        }
+    });
+
+    it('flips negative cells like tabular negateParsedAmounts (×−1 on parsed)', async () => {
+        const rows: any[][] = [
+            headerRow(),
+            ['25.05.25', 'WWW.ALIEXPRESS.COM', '-94.7', '$', '-341.2', '₪', 'AX99', ''],
+        ];
+        const { dir, filePath } = await withTempXlsx('פירוט עסקאות', rows, 'mixed-sign.xlsx');
+        try {
+            const svc = new ImportService();
+            const r = await svc.importFile(filePath, undefined, false, undefined);
+            assert.equal(r.success, true);
+            assert.equal(r.transactions?.length, 1);
+            const t = r.transactions![0];
+            assert.equal(t.amount, 341.2);
+            assert.equal(t.chargedAmount, 341.2);
+            assert.equal(t.originalAmount, 94.7);
+            assert.equal(t.txnType, 'income');
         } finally {
             await rm(dir, { recursive: true, force: true }).catch(() => undefined);
         }

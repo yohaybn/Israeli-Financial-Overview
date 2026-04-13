@@ -36,6 +36,7 @@ const BACKUP_TARGETS = [
     'results',
     'config',
     'profiles',
+    'import_profiles',
     /** App lock + migration marker — required to decrypt password-migrated profiles after restore on another machine */
     'security',
     'post_scrape'
