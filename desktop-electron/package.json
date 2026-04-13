@@ -19,6 +19,7 @@
         "electron-builder": "^25.1.8"
     },
     "build": {
+        "npmRebuild": false,
         "electronVersion": "33.2.1",
         "appId": "com.financialoverview.desktop",
         "productName": "Financial Overview",
