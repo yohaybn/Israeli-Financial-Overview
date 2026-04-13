@@ -1,0 +1,48 @@
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  # Root npm workspaces (client, server, shared, desktop-electron) + standalone favicon tool
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/favicon_extractor"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Jerusalem"
+    open-pull-requests-limit: 8
+    cooldown:
+      # Skip PRs until the published release is at least this old (version updates only; security PRs ignore cooldown)
+      default-days: 7
+      semver-patch-days: 3
+      semver-minor-days: 7
+      semver-major-days: 21
+
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/ha-addon"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+      timezone: "Asia/Jerusalem"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-patch-days: 7
+      semver-minor-days: 7
+      semver-major-days: 30
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Jerusalem"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
