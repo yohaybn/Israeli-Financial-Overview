@@ -4,14 +4,21 @@
  * Run after install so Linux/macOS/Windows CI and Docker get the correct binary.
  */
 import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
 
-const require = createRequire(import.meta.url)
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+/** Repo root — do not rely on process.cwd() (npm postinstall / scripts may run elsewhere). */
+const REPO_ROOT = path.resolve(__dirname, '..')
+
+const require = createRequire(path.join(REPO_ROOT, 'package.json'))
 
 function rollupNativeLoads() {
   const r = spawnSync(process.execPath, ['-e', "require('rollup/dist/native.js')"], {
     encoding: 'utf8',
+    cwd: REPO_ROOT,
   })
   return r.status === 0
 }
@@ -61,11 +68,16 @@ for (const pkg of candidates) {
     'npm',
     // --ignore-scripts: avoid re-entrancy into this postinstall while fixing optional deps
     ['install', '--no-save', '--ignore-scripts', `${pkg}@${rollupVersion}`],
-    { stdio: 'inherit', shell: true, cwd: process.cwd() },
+    { stdio: 'inherit', shell: true, cwd: REPO_ROOT },
   )
   if (r.status === 0 && rollupNativeLoads()) {
     process.exit(0)
   }
+}
+
+if (candidates.length > 0 && !rollupNativeLoads()) {
+  console.error('[ensure-rollup-native] Rollup native binding still missing after install attempts.')
+  process.exit(1)
 }
 
 process.exit(0)

@@ -19,38 +19,42 @@ export PUPPETEER_SKIP_DOWNLOAD="${PUPPETEER_SKIP_DOWNLOAD:-true}"
 
 if [[ "${CI:-}" == "true" ]]; then
   echo ""
-  echo "[1/6] npm ci (CI mode) ..."
+  echo "[1/7] npm ci (CI mode) ..."
   npm ci
 else
   echo ""
-  echo "[1/6] npm install ..."
+  echo "[1/7] npm install ..."
   npm install
 fi
 
 echo ""
-echo "[2/6] App icons (512×512 required for macOS Electron) ..."
-# npm ci can leave sharp's optional native addon for the lockfile's host OS; fix for this runner
+echo "[2/7] Native optional deps for this OS (rollup, sharp; npm/cli#4828 with foreign lockfile) ..."
+npm install --no-save rollup
+node scripts/ensure-rollup-native.mjs
 npm install --no-save -w client sharp
+
+echo ""
+echo "[3/7] App icons (512×512 required for macOS Electron) ..."
 npm run icons:generate -w client
 
 export VITE_INSTALL_KIND="${VITE_INSTALL_KIND:-macos}"
 export VITE_APP_BUILD_VERSION="${VITE_APP_BUILD_VERSION:-local}"
 
 echo ""
-echo "[3/6] Build workspaces ..."
+echo "[4/7] Build workspaces ..."
 npm run build -w shared
 npm run build -w client
 npm run build -w server
 
 echo ""
-echo "[4/6] Prune devDependencies ..."
+echo "[5/7] Prune devDependencies ..."
 npm prune --omit=dev || echo "npm prune failed (continuing; package may be larger)."
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
 echo ""
-echo "[5/6] Copy app tree ..."
+echo "[6/7] Copy app tree ..."
 
 cp "$REPO_ROOT/package.json" "$REPO_ROOT/package-lock.json" "$STAGE/"
 
@@ -100,7 +104,7 @@ case "$ARCH" in
 esac
 
 echo ""
-echo "[6/6] Download Node.js v$NODE_VERSION darwin-$NODE_ARCH ..."
+echo "[7/7] Download Node.js v$NODE_VERSION darwin-$NODE_ARCH ..."
 RUNTIME_PARENT="$STAGE/runtime"
 TAR_NAME="node-v${NODE_VERSION}-darwin-${NODE_ARCH}.tar.gz"
 URL="https://nodejs.org/dist/v${NODE_VERSION}/${TAR_NAME}"
