@@ -29,9 +29,10 @@ fi
 
 echo ""
 echo "[2/7] Native optional deps for this OS (rollup, sharp; npm/cli#4828 with foreign lockfile) ..."
+# sharp first: a later `npm install -w client` can prune/relink and drop @rollup/rollup-* if rollup was fixed first
+npm install --no-save -w client sharp
 npm install --no-save rollup
 node scripts/ensure-rollup-native.mjs
-npm install --no-save -w client sharp
 
 echo ""
 echo "[3/7] App icons (512×512 required for macOS Electron) ..."
@@ -43,6 +44,8 @@ export VITE_APP_BUILD_VERSION="${VITE_APP_BUILD_VERSION:-local}"
 echo ""
 echo "[4/7] Build workspaces ..."
 npm run build -w shared
+# Workspace installs can mutate hoisted optional deps; restore Rollup native binding before Vite
+node scripts/ensure-rollup-native.mjs
 npm run build -w client
 npm run build -w server
 
