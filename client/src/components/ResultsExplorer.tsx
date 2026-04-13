@@ -6,17 +6,12 @@ import { AISettings } from './AISettings';
 import { logClientError } from '../utils/logger';
 
 interface ResultsExplorerProps {
-    onOpenImport?: () => void;
     layout?: 'split' | 'stacked' | 'viewer-only';
     externalSelectedFile?: string | null;
     onExternalSelectFile?: (filename: string) => void;
 }
 
-export function ResultsExplorer({
-    onOpenImport,
-    externalSelectedFile,
-    onExternalSelectFile,
-}: ResultsExplorerProps) {
+export function ResultsExplorer({ externalSelectedFile, onExternalSelectFile }: ResultsExplorerProps) {
     const { t } = useTranslation();
     const { data: files, isLoading: isLoadingList } = useScrapeResults();
     const { data: aiSettings } = useAISettings();
@@ -263,16 +258,6 @@ export function ResultsExplorer({
                                 </div>
                             )}
                         </div>
-
-                        {onOpenImport && (
-                            <button
-                                onClick={onOpenImport}
-                                className="px-4 py-2 bg-white hover:bg-blue-50 text-blue-600 border border-blue-100 rounded-xl transition-all text-sm font-bold flex items-center gap-2 shadow-sm"
-                            >
-                                <span className="text-lg leading-none">+</span>
-                                {t('explorer.import_files')}
-                            </button>
-                        )}
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">

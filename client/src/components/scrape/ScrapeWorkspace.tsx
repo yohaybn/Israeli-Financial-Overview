@@ -46,6 +46,23 @@ export function ScrapeWorkspace({ onOpenImport, resultFile, onResultFileChange }
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <div className="p-4 space-y-4 max-w-[1600px] mx-auto w-full">
+                <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                    <div className="min-w-0">
+                        <h2 className="text-base font-bold text-gray-900">{t('common.scrape')}</h2>
+                        <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">{t('explorer.import_description')}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onOpenImport}
+                        className="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold flex items-center gap-2 shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                    >
+                        <span className="text-lg leading-none" aria-hidden>
+                            +
+                        </span>
+                        {t('explorer.import_files')}
+                    </button>
+                </header>
+
                 {/* Scraper Form Card */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div
@@ -67,7 +84,6 @@ export function ScrapeWorkspace({ onOpenImport, resultFile, onResultFileChange }
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px]">
                     <ResultsExplorer
                         layout="viewer-only"
-                        onOpenImport={onOpenImport}
                         externalSelectedFile={resultFile}
                         onExternalSelectFile={handleSelectFile}
                     />
