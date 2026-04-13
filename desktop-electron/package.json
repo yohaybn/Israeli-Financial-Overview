@@ -57,7 +57,7 @@
                     ]
                 }
             ],
-            "icon": "../client/public/favicon.ico"
+            "icon": "../client/public/pwa-512x512.png"
         },
         "mac": {
             "extraResources": [

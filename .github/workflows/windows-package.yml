@@ -54,6 +54,16 @@ jobs:
           VITE_APP_BUILD_VERSION: ${{ env.APP_VERSION }}@${{ github.sha }}
         run: npm run windows:package
 
+      - name: Ensure app-builder-bin is present (devDependencies pruned during windows package)
+        shell: pwsh
+        run: |
+          $exe = Join-Path (Get-Location) "node_modules/app-builder-bin/win/x64/app-builder.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Host "Missing $exe — restoring devDependencies (npm install)."
+            npm install --no-audit --no-fund
+          }
+          if (-not (Test-Path $exe)) { throw "app-builder.exe still missing. Run npm install after packaging or keep package.ps1 restore step." }
+
       - name: Build Electron desktop shell
         shell: pwsh
         env:

@@ -53,6 +53,24 @@ jobs:
           VITE_APP_BUILD_VERSION: ${{ env.APP_VERSION }}@${{ github.sha }}
         run: npm run macos:package
 
+      - name: Ensure app-builder-bin is present (devDependencies pruned during macOS package)
+        run: |
+          set -euo pipefail
+          ROOT="$(pwd)"
+          if [[ "$(uname -m)" == "arm64" ]]; then
+            BIN="$ROOT/node_modules/app-builder-bin/mac/app-builder_arm64"
+          else
+            BIN="$ROOT/node_modules/app-builder-bin/mac/app-builder_amd64"
+          fi
+          if [[ ! -x "$BIN" ]]; then
+            echo "Missing $BIN — restoring devDependencies (npm install)."
+            npm install --no-audit --no-fund
+          fi
+          if [[ ! -x "$BIN" ]]; then
+            echo "app-builder still missing after npm install."
+            exit 1
+          fi
+
       - name: Build Electron desktop shell (mac)
         env:
           CI: "true"
