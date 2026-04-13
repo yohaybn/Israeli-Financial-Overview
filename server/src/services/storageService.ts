@@ -28,6 +28,28 @@ function filenameTimestamp(): string {
     return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
+/**
+ * Results are stored as a single flat segment under {@link RESULTS_DIR}.
+ * Rejects path traversal and non-canonical paths (e.g. `other/file.json`).
+ */
+function resolveScrapeResultFilePath(filename: string): string {
+    if (!filename || typeof filename !== 'string') {
+        throw new Error('Invalid filename');
+    }
+    const trimmed = filename.trim();
+    const base = path.basename(trimmed);
+    if (!base || base !== trimmed) {
+        throw new Error('Invalid filename');
+    }
+    const resolvedResults = path.resolve(RESULTS_DIR);
+    const resolvedPath = path.resolve(resolvedResults, base);
+    const rel = path.relative(resolvedResults, resolvedPath);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        throw new Error('Invalid filename - security violation');
+    }
+    return resolvedPath;
+}
+
 const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
     scraperOptions: {
         showBrowser: false,
@@ -225,12 +247,7 @@ export class StorageService {
     }
 
     async deleteScrapeResult(filename: string): Promise<boolean> {
-        const filePath = path.join(RESULTS_DIR, filename);
-        const resolvedPath = path.resolve(RESULTS_DIR, filename);
-
-        if (!resolvedPath.startsWith(RESULTS_DIR)) {
-            throw new Error('Invalid filename - security violation');
-        }
+        const resolvedPath = resolveScrapeResultFilePath(filename);
 
         if (await fs.pathExists(resolvedPath)) {
             await fs.remove(resolvedPath);
@@ -242,11 +259,7 @@ export class StorageService {
     }
 
     async updateScrapeResult(filename: string, result: ScrapeResult) {
-        const filePath = path.join(RESULTS_DIR, filename);
-        const resolvedPath = path.resolve(RESULTS_DIR, filename);
-        if (!resolvedPath.startsWith(RESULTS_DIR)) {
-            throw new Error('Invalid filename');
-        }
+        const resolvedPath = resolveScrapeResultFilePath(filename);
 
         // Update file
         const legacyData = this.serializeToLegacyFormat(result);
@@ -288,14 +301,8 @@ export class StorageService {
             throw new Error('Filenames must end with .json');
         }
 
-        const oldPath = path.join(RESULTS_DIR, oldFilename);
-        const newPath = path.join(RESULTS_DIR, newFilename);
-        const resolvedOldPath = path.resolve(oldPath);
-        const resolvedNewPath = path.resolve(newPath);
-
-        if (!resolvedOldPath.startsWith(RESULTS_DIR) || !resolvedNewPath.startsWith(RESULTS_DIR)) {
-            throw new Error('Invalid filename path');
-        }
+        const resolvedOldPath = resolveScrapeResultFilePath(oldFilename);
+        const resolvedNewPath = resolveScrapeResultFilePath(newFilename);
 
         if (!await fs.pathExists(resolvedOldPath)) {
             throw new Error('Source file does not exist');
@@ -310,7 +317,7 @@ export class StorageService {
     }
 
     async getScrapeResult(filename: string): Promise<ScrapeResult | null> {
-        const filePath = path.join(RESULTS_DIR, filename);
+        const filePath = resolveScrapeResultFilePath(filename);
         if (!await fs.pathExists(filePath)) return null;
 
         const rawData = await fs.readJson(filePath);

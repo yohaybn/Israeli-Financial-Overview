@@ -14,6 +14,10 @@ import multer from 'multer';
 import path from 'path';
 import { transactionsToCsv, transactionsToJson } from '@app/shared';
 import { attachScrapeRunFilename } from '../utils/scrapeRunLogger.js';
+import {
+    parseImportAccountNumberOverrideParam,
+    parseImportProviderIdParam,
+} from '../utils/importMultipartParams.js';
 
 export function createScrapeRoutes(
     scraperService: ScraperService,
@@ -48,6 +52,27 @@ export function createScrapeRoutes(
             .replace(/^_+|_+$/g, '')
             .slice(0, 80);
         return s || 'tabular_profile';
+    }
+
+    /**
+     * Allowlist import-profile storage names: a single path segment ending in .json
+     * (matches files created by POST /import-profiles; avoids blacklist-based param checks).
+     */
+    function parseSafeImportProfileFilename(encodedParam: string): string | null {
+        let decoded: string;
+        try {
+            decoded = decodeURIComponent(String(encodedParam || '').trim());
+        } catch {
+            return null;
+        }
+        if (!decoded) return null;
+        const base = path.basename(decoded);
+        if (base !== decoded) return null;
+        if (!base.toLowerCase().endsWith('.json')) return null;
+        const stem = base.slice(0, -5);
+        if (stem.length < 1 || stem.length > 200) return null;
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(stem)) return null;
+        return base;
     }
 
     // Configure multer for file uploads
@@ -115,17 +140,12 @@ export function createScrapeRoutes(
     /** Load one saved tabular import format JSON from `data/import_profiles/`. */
     router.get('/import-profiles/:filename', async (req, res) => {
         try {
-            const rawParam = decodeURIComponent(String(req.params.filename || '')).trim();
-            if (
-                !rawParam ||
-                /[\\/]/.test(rawParam) ||
-                rawParam.includes('..') ||
-                !rawParam.toLowerCase().endsWith('.json')
-            ) {
+            const filename = parseSafeImportProfileFilename(String(req.params.filename || ''));
+            if (!filename) {
                 return res.status(400).json({ success: false, error: 'Invalid filename' });
             }
             await fs.ensureDir(IMPORT_PROFILES_DIR);
-            const abs = path.join(IMPORT_PROFILES_DIR, rawParam);
+            const abs = path.join(IMPORT_PROFILES_DIR, filename);
             const dirResolved = path.resolve(IMPORT_PROFILES_DIR);
             const fileResolved = path.resolve(abs);
             const rel = path.relative(dirResolved, fileResolved);
@@ -295,10 +315,10 @@ export function createScrapeRoutes(
             }
 
             const importResults = [];
-            const { accountNumberOverride, useAi, providerTarget, providerNameOverride } = req.body;
-            const providerNameOverrideStr =
-                typeof providerNameOverride === 'string' ? providerNameOverride : undefined;
-            const useAiBool = useAi === 'true' || useAi === true;
+            const useAiBool = req.body?.useAi === 'true' || req.body?.useAi === true;
+            const accountNumberOverride = parseImportAccountNumberOverrideParam(req.body?.accountNumberOverride);
+            const providerTarget = parseImportProviderIdParam(req.body?.providerTarget);
+            const providerNameOverrideStr = parseImportProviderIdParam(req.body?.providerNameOverride);
             let tabularProfile: TabularImportProfileV1 | undefined;
             try {
                 tabularProfile = tabularProfileFromRequest(req.body as Record<string, unknown>);
@@ -427,10 +447,10 @@ export function createScrapeRoutes(
                 return res.status(400).json({ success: false, error: 'No files uploaded' });
             }
 
-            const { accountNumberOverride, useAi, providerTarget, providerNameOverride } = req.body;
-            const providerNameOverrideStr =
-                typeof providerNameOverride === 'string' ? providerNameOverride : undefined;
-            const useAiBool = useAi === 'true' || useAi === true;
+            const useAiBool = req.body?.useAi === 'true' || req.body?.useAi === true;
+            const accountNumberOverride = parseImportAccountNumberOverrideParam(req.body?.accountNumberOverride);
+            const providerTarget = parseImportProviderIdParam(req.body?.providerTarget);
+            const providerNameOverrideStr = parseImportProviderIdParam(req.body?.providerNameOverride);
             let tabularProfile: TabularImportProfileV1 | undefined;
             try {
                 tabularProfile = tabularProfileFromRequest(req.body as Record<string, unknown>);
@@ -637,6 +657,10 @@ export function createScrapeRoutes(
             }
             res.json({ success: true, data: result });
         } catch (error: any) {
+            const msg = error?.message || String(error);
+            if (/Invalid filename/i.test(msg)) {
+                return res.status(400).json({ success: false, error: 'Invalid filename' });
+            }
             res.status(500).json({ success: false, error: error.message });
         }
     });
@@ -651,6 +675,10 @@ export function createScrapeRoutes(
             }
             res.json({ success: true });
         } catch (error: any) {
+            const msg = error?.message || String(error);
+            if (/Invalid filename/i.test(msg)) {
+                return res.status(400).json({ success: false, error: 'Invalid filename' });
+            }
             res.status(500).json({ success: false, error: error.message });
         }
     });

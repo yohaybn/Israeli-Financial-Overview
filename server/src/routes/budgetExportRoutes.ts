@@ -11,12 +11,16 @@ import {
   consumeYnabOAuthState,
   createYnabOAuthState,
 } from '../services/budgetExport/ynabOAuthStateStore.js';
+import { serverLogger } from '../utils/logger.js';
 
 const storageService = new StorageService();
 
+/** Only http(s) origins — avoids odd schemes if redirect URI in secrets is malformed. */
 function originFromRedirectUri(redirectUri: string): string {
   try {
-    return new URL(redirectUri).origin;
+    const u = new URL(redirectUri);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return u.origin;
   } catch {
     return '';
   }
@@ -146,8 +150,12 @@ export function createBudgetExportRoutes(): Router {
         ? `${origin}/?view=configuration&tab=budget-exports&ynab=connected`
         : '/?view=configuration&tab=budget-exports&ynab=connected';
       res.redirect(302, target);
-    } catch (e: any) {
-      res.status(500).send(e?.message || String(e));
+    } catch (e: unknown) {
+      serverLogger.error('YNAB OAuth callback failed', { error: e });
+      res
+        .status(500)
+        .type('text/plain')
+        .send('YNAB authorization failed. Try again from the app, or check server logs if the problem continues.');
     }
   });
 

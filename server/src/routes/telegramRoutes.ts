@@ -8,6 +8,7 @@ import { telegramBotService } from '../services/telegramBotService.js';
 import { TelegramNotifier } from '../services/notifications/telegramNotifier.js';
 import { notificationService } from '../services/notifications/notificationService.js';
 import { serverLogger } from '../utils/logger.js';
+import { assertSafeTelegramBotFileUrl } from '../utils/safeTelegramBotFileUrl.js';
 
 const router = Router();
 
@@ -178,11 +179,20 @@ router.get('/bot-info', async (req: Request, res: Response) => {
  */
 router.get('/bot-avatar', async (req: Request, res: Response) => {
   try {
+    const token = telegramBotService.getConfig().botToken?.trim();
+    if (!token) {
+      return res.status(404).end();
+    }
     const url = await telegramBotService.getBotAvatarDownloadUrl();
     if (!url) {
       return res.status(404).end();
     }
-    const r = await fetch(url);
+    try {
+      assertSafeTelegramBotFileUrl(url, token);
+    } catch {
+      return res.status(502).end();
+    }
+    const r = await fetch(url, { redirect: 'error' });
     if (!r.ok) {
       return res.status(502).end();
     }

@@ -21,6 +21,7 @@ import { postScrapeService } from './postScrapeService.js';
 import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
+import { isSafeTelegramRelativeFilePath } from '../utils/safeTelegramBotFileUrl.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const TEL_CONFIG_PATH = path.join(DATA_DIR, 'config', 'telegram_config.json');
@@ -769,7 +770,7 @@ export class TelegramBotService {
       const sizes = photos.photos[0];
       const largest = sizes[sizes.length - 1];
       const file = await api.getFile(largest.file_id);
-      if (!file.file_path) return null;
+      if (!file.file_path || !isSafeTelegramRelativeFilePath(file.file_path)) return null;
       return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
     } catch (e: any) {
       serverLogger.warn('getBotAvatarDownloadUrl failed', { error: e?.message || e });
