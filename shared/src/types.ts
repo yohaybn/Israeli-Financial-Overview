@@ -49,6 +49,60 @@ export interface PostScrapeConfig {
         notifyTransfersCategory?: boolean;
         notifyUncategorized?: boolean;
     };
+    /**
+     * Optional push of scraped transactions to external budget apps (non-secret fields only; tokens live in budget_export_secrets.json).
+     */
+    budgetExports?: BudgetExportsConfig;
+}
+
+/** Per-destination export settings stored in scrape_config (no secrets). */
+export interface BudgetExportDestinationConfig {
+    enabled?: boolean;
+    /** Only transactions from the current scrape run (default). */
+    scope?: 'current';
+    /**
+     * Map local account key `provider:accountNumber` → destination account/asset id (string).
+     */
+    accountMap?: Record<string, string>;
+}
+
+export interface BudgetExportsConfig {
+    firefly?: BudgetExportDestinationConfig & {
+        /** Firefly expense account name for withdrawals (optional; falls back to first expense or API default). */
+        expenseAccountName?: string;
+    };
+    lunchMoney?: BudgetExportDestinationConfig;
+    ynab?: BudgetExportDestinationConfig & {
+        /** YNAB budget id (UUID) — required for API pushes once OAuth is configured. */
+        budgetId?: string;
+    };
+    actual?: BudgetExportDestinationConfig;
+}
+
+/** Secrets for budget exporters; persisted under DATA_DIR/config/budget_export_secrets.json (never in scrape_config). */
+export interface BudgetExportSecrets {
+    firefly?: {
+        baseUrl?: string;
+        token?: string;
+    };
+    lunchMoney?: {
+        token?: string;
+    };
+    ynab?: {
+        clientId?: string;
+        clientSecret?: string;
+        redirectUri?: string;
+        refreshToken?: string;
+        accessToken?: string;
+        /** Unix timestamp (ms) when accessToken expires. */
+        expiresAt?: number;
+    };
+    actual?: {
+        serverUrl?: string;
+        password?: string;
+        /** Actual sync id for downloadBudget(). */
+        syncId?: string;
+    };
 }
 
 /** Payload for dashboard / Telegram when new txns need memo or category review */

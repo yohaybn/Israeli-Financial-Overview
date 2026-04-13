@@ -60,6 +60,7 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
             notifyTransfersCategory: true,
             notifyUncategorized: true,
         },
+        budgetExports: {},
     },
 };
 
@@ -756,6 +757,42 @@ export class StorageService {
                     transactionReviewReminder: {
                         ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.transactionReviewReminder,
                         ...loaded.postScrapeConfig?.transactionReviewReminder,
+                    },
+                    budgetExports: {
+                        ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports,
+                        ...loaded.postScrapeConfig?.budgetExports,
+                        firefly: {
+                            ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.firefly,
+                            ...loaded.postScrapeConfig?.budgetExports?.firefly,
+                            accountMap: {
+                                ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.firefly?.accountMap,
+                                ...loaded.postScrapeConfig?.budgetExports?.firefly?.accountMap,
+                            },
+                        },
+                        lunchMoney: {
+                            ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.lunchMoney,
+                            ...loaded.postScrapeConfig?.budgetExports?.lunchMoney,
+                            accountMap: {
+                                ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.lunchMoney?.accountMap,
+                                ...loaded.postScrapeConfig?.budgetExports?.lunchMoney?.accountMap,
+                            },
+                        },
+                        ynab: {
+                            ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.ynab,
+                            ...loaded.postScrapeConfig?.budgetExports?.ynab,
+                            accountMap: {
+                                ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.ynab?.accountMap,
+                                ...loaded.postScrapeConfig?.budgetExports?.ynab?.accountMap,
+                            },
+                        },
+                        actual: {
+                            ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.actual,
+                            ...loaded.postScrapeConfig?.budgetExports?.actual,
+                            accountMap: {
+                                ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports?.actual?.accountMap,
+                                ...loaded.postScrapeConfig?.budgetExports?.actual?.accountMap,
+                            },
+                        },
                     },
                 };
                 if (loaded.postScrapeConfig?.spendingDigestEnabled === undefined) {
