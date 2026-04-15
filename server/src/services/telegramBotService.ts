@@ -13,7 +13,14 @@ import { ScraperService } from './scraperService.js';
 import { profileService, ProfileService } from './profileService.js';
 import { appLockService } from './appLockService.js';
 import { StorageService } from './storageService.js';
-import { Profile, ScrapeRequest, ScrapeResult, type Transaction, type TransactionReviewItem } from '@app/shared';
+import {
+  Profile,
+  ScrapeRequest,
+  ScrapeResult,
+  type Transaction,
+  type TransactionReviewItem,
+  transactionNeedsReview,
+} from '@app/shared';
 import { transactionsToCsv, transactionsToJson, buildCategoryExpenseSlices } from '@app/shared';
 import { ConfigService } from './configService.js';
 import { renderCategorySpendingPiePng } from './categoryPieImageService.js';
@@ -133,7 +140,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Financial Overview Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/review — List transactions that need a memo or category\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -226,6 +233,14 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     /** Merged small slices in Telegram pie (distinct from a literal category named "Other") */
     cardOtherMerged: 'Other (small categories)',
     cardCaption: '📊 {{month}} · Total expenses {{total}}',
+    reviewDisabled:
+      'ℹ️ Transaction review reminders are turned off in Post-scrape settings (web app), or both transfer and uncategorized checks are disabled.',
+    reviewEmpty: '✅ No transactions need a memo or category right now.',
+    reviewHeader:
+      '📝 <b>Transactions to review</b> ({{count}})\n\nUse <code>/memo ID …</code> or reply to a review message. Set category from the dashboard or send the exact category label here.',
+    reviewFooter: 'Same rules as the dashboard: transfers need a memo or a different category; default category (אחר) needs a real category.',
+    reviewReasonTransfers: 'Transfers',
+    reviewReasonUncategorized: 'Uncategorized',
     newAiAlertTitle: '🤖 <b>New AI alert</b>',
     newAiAlertsTitle: '🤖 <b>New AI alerts</b>',
     newAiAlertScoreLine: 'Score: {{score}}/100',
@@ -235,7 +250,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט מבט כלכלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/review — רשימת עסקאות שחסרה הערה או קטגוריה\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -327,6 +342,14 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     cardTitleCategories: 'הוצאות לפי קטגוריה',
     cardOtherMerged: 'אחר (קטנים)',
     cardCaption: '📊 {{month}} · סה״כ הוצאות {{total}}',
+    reviewDisabled:
+      'ℹ️ תזכורות לסקירת עסקאות כבויות בהגדרות אחרי־סריקה (באתר), או ששני סוגי הבדיקה (העברות / לא מסווג) כבויים.',
+    reviewEmpty: '✅ אין עכשיו עסקאות שחסרה להן הערה או קטגוריה.',
+    reviewHeader:
+      '📝 <b>עסקאות לסקירה</b> ({{count}})\n\nהשתמש ב־<code>/memo מזהה …</code> או השב להודעת סקירה. שינוי קטגוריה מהדשבורד או שליחת שם קטגוריה מדויק כאן.',
+    reviewFooter: 'אותם כללים כמו בדשבורד: העברות דורשות הערה או קטגוריה אחרת; קטגוריית ברירת מחדל (אחר) דורשת קטגוריה אמיתית.',
+    reviewReasonTransfers: 'העברות',
+    reviewReasonUncategorized: 'לא מסווג',
     newAiAlertTitle: '🤖 <b>התראת AI חדשה</b>',
     newAiAlertsTitle: '🤖 <b>התראות AI חדשות</b>',
     newAiAlertScoreLine: 'ציון: {{score}}/100',
@@ -511,9 +534,9 @@ export class TelegramBotService {
   private buildCommandKeyboard(oneTime: boolean) {
     const kb = Markup.keyboard([
       ['/chat', '/scrape', '/memo'],
-      ['/export', '/status', '/subscribe'],
-      ['/unsubscribe', '/settings', '/unlock'],
-      ['/help'],
+      ['/export', '/review', '/status'],
+      ['/subscribe', '/settings', '/unlock'],
+      ['/unsubscribe', '/help'],
     ]).resize();
     return oneTime ? kb.oneTime() : kb;
   }
@@ -878,6 +901,10 @@ export class TelegramBotService {
     this.bot.command('card', async (ctx) => {
       await this.handleCardCommand(ctx);
     });
+
+    this.bot.command('review', async (ctx) => {
+      await this.handleReviewCommand(ctx);
+    });
   }
 
   /**
@@ -1003,7 +1030,22 @@ export class TelegramBotService {
 
         // If message looks like an unknown command, show command buttons
         if (rawText.startsWith('/')) {
-          const known = ['/scrape', '/chat', '/memo', '/export', '/settings', '/status', '/subscribe', '/unsubscribe', '/help', '/start', '/done', '/cancel', '/unlock'];
+          const known = [
+            '/scrape',
+            '/chat',
+            '/memo',
+            '/review',
+            '/export',
+            '/settings',
+            '/status',
+            '/subscribe',
+            '/unsubscribe',
+            '/help',
+            '/start',
+            '/done',
+            '/cancel',
+            '/unlock',
+          ];
           const cmd = rawText.split(/\s/)[0].split('@')[0];
           if (!known.includes(cmd)) {
             await ctx.reply(this.t('unknownCommand'), this.buildCommandKeyboard(true));
@@ -1667,6 +1709,7 @@ export class TelegramBotService {
       profileId: profile.id,
       profileName: profile.name,
       options: {
+        ...profile.options,
         showBrowser: false,
         aggregateTelegramNotifications: !isPartOfBatch,
         deferPostScrape: isPartOfBatch,
@@ -2185,6 +2228,62 @@ export class TelegramBotService {
     } catch (err) {
       serverLogger.error('Error in /export command', { error: err });
       await ctx.reply(this.t('exportFailed'));
+    }
+  }
+
+  private async handleReviewCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/review');
+        await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`, {
+          parse_mode: 'HTML',
+        });
+        return;
+      }
+      const cfg = await postScrapeService.getConfig();
+      const rem = cfg.transactionReviewReminder;
+      if (rem?.enabled === false) {
+        await ctx.reply(this.t('reviewDisabled'), { parse_mode: 'HTML' });
+        return;
+      }
+      const transfersOn = rem?.notifyTransfersCategory !== false;
+      const uncategorizedOn = rem?.notifyUncategorized !== false;
+      if (!transfersOn && !uncategorizedOn) {
+        await ctx.reply(this.t('reviewDisabled'), { parse_mode: 'HTML' });
+        return;
+      }
+      const storage = this.getStorageService();
+      let transactions = (await storage.getAllTransactions(true)) as Transaction[];
+      transactions = transactions.filter((t) => t.isInternalTransfer !== true);
+      const lines: string[] = [];
+      for (const t of transactions) {
+        const reason = transactionNeedsReview(t, { transfers: transfersOn, uncategorized: uncategorizedOn });
+        if (!reason) continue;
+        const reasonLabel =
+          reason === 'transfers' ? this.t('reviewReasonTransfers') : this.t('reviewReasonUncategorized');
+        const reasonEsc = this.escapeTgHtml(reasonLabel);
+        const desc = this.escapeTgHtml((t.description || '').slice(0, 80));
+        const idEsc = this.escapeTgHtml(t.id);
+        const dateStr = typeof t.date === 'string' ? t.date.slice(0, 10) : String(t.date);
+        const dateEsc = this.escapeTgHtml(dateStr);
+        const amtEsc = this.escapeTgHtml(this.formatIlsForBot(t.amount ?? t.chargedAmount ?? 0));
+        lines.push(`• <b>${dateEsc}</b> · ${amtEsc} · ${desc}\n  <code>${idEsc}</code> · <i>${reasonEsc}</i>`);
+      }
+      if (lines.length === 0) {
+        await ctx.reply(this.t('reviewEmpty'), { parse_mode: 'HTML' });
+        return;
+      }
+      const header = this.t('reviewHeader').replace(/\{\{count\}\}/g, String(lines.length));
+      const footer = this.t('reviewFooter');
+      const full = `${header}\n\n${lines.join('\n\n')}\n\n${footer}`;
+      const chunks = splitTelegramHtmlChunks(full, getTelegramMaxMessageChars());
+      for (const chunk of chunks) {
+        await ctx.reply(chunk, { parse_mode: 'HTML' });
+      }
+    } catch (err) {
+      serverLogger.error('Error in /review command', { error: err });
+      await ctx.reply(this.t('errorProcessing'));
     }
   }
 

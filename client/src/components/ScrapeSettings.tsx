@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GlobalScrapeConfig, ScraperOptions } from '@app/shared';
+import { GlobalScrapeConfig, ScraperOptions, parseExcludedAccountNumbersInput } from '@app/shared';
 import { api } from '../lib/api';
 import { CollapsibleCard } from './CollapsibleCard';
 
@@ -216,6 +216,26 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                 />
                             </div>
                         </div>
+                    </div>
+
+                    <div className="mt-6">
+                        <label className="block text-sm font-bold text-gray-700 mb-1" htmlFor="globalExcludedAccounts">
+                            {t('scraper.excluded_accounts')}
+                        </label>
+                        <textarea
+                            id="globalExcludedAccounts"
+                            rows={3}
+                            placeholder="12-345-678901"
+                            value={(config.scraperOptions.excludedAccountNumbers || []).join('\n')}
+                            onChange={(e) =>
+                                updateOption(
+                                    'excludedAccountNumbers',
+                                    parseExcludedAccountNumbersInput(e.target.value)
+                                )
+                            }
+                            className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm font-mono"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">{t('scraper.excluded_accounts_hint')}</p>
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-gray-100">

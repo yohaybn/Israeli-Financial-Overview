@@ -1,6 +1,7 @@
 import { useSocket } from '../hooks/useSocket';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
+import { useServerActivity } from '../contexts/ServerActivityContext';
 
 // Map progress types to display-friendly labels and colors
 const PROGRESS_LABELS: Record<string, { labelKey: string; color: string }> = {
@@ -16,6 +17,7 @@ const PROGRESS_LABELS: Record<string, { labelKey: string; color: string }> = {
 
 export function ScrapeProgress() {
     const { t } = useTranslation();
+    const { activity } = useServerActivity();
     const { isConnected, progress, logs, completion, clearProgress } = useSocket();
     const [isVisible, setIsVisible] = useState(true);
 
@@ -26,6 +28,12 @@ export function ScrapeProgress() {
         }
     }, [progress.length]);
 
+    useEffect(() => {
+        const onShowFromTopBar = () => setIsVisible(true);
+        window.addEventListener('show-scrape-progress', onShowFromTopBar);
+        return () => window.removeEventListener('show-scrape-progress', onShowFromTopBar);
+    }, []);
+
     const latestProgress = progress[progress.length - 1];
     const progressInfo = latestProgress
         ? PROGRESS_LABELS[latestProgress.type] || { labelKey: 'scrape_progress.unknown', color: 'bg-gray-400' }
@@ -33,8 +41,9 @@ export function ScrapeProgress() {
 
     const isActive = progress.length > 0 && !completion;
     const hasFinished = !!completion;
+    const waitingForEvents = activity.scrapeActive && progress.length === 0 && !completion;
 
-    if (!isVisible || (!isActive && !hasFinished)) return null;
+    if (!isVisible || (!isActive && !hasFinished && !waitingForEvents)) return null;
 
     return (
         <div className="fixed bottom-6 right-6 w-96 z-50 animate-in slide-in-from-bottom-10 duration-500">
@@ -67,6 +76,9 @@ export function ScrapeProgress() {
                 </div>
 
                 <div className="p-4">
+                    {waitingForEvents && !progressInfo && (
+                        <p className="text-sm text-gray-600 mb-4">{t('scrape_progress.empty')}</p>
+                    )}
                     {/* Current Status */}
                     {progressInfo && (
                         <div className="mb-4">

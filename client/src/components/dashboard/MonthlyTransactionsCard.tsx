@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
 import { List } from 'lucide-react';
@@ -13,6 +13,8 @@ interface MonthlyTransactionsCardProps {
     categories?: string[];
     onUpdateCategory?: (txnId: string, category: string) => void;
     defaultCollapsed?: boolean;
+    /** Increment (e.g. from parent) to expand the card when already mounted. */
+    expandSignal?: number;
     scopeLabel?: string;
     filterLabel?: string;
     onClearFilter?: () => void;
@@ -29,6 +31,7 @@ export function MonthlyTransactionsCard({
     categories,
     onUpdateCategory,
     defaultCollapsed = false,
+    expandSignal = 0,
     scopeLabel: _scopeLabel,
     filterLabel,
     onClearFilter,
@@ -37,6 +40,10 @@ export function MonthlyTransactionsCard({
 }: MonthlyTransactionsCardProps) {
     const { t, i18n } = useTranslation();
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+    useEffect(() => {
+        if (expandSignal > 0) setCollapsed(false);
+    }, [expandSignal]);
 
     const transactionsExcludingInternal = useMemo(
         () => transactions.filter((txn) => !isInternalTransfer(txn, customCCKeywords ?? [])),

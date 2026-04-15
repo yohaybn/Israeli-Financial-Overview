@@ -14,7 +14,11 @@ export function transactionNeedsReview(
     opts: { transfers: boolean; uncategorized: boolean }
 ): TransactionReviewReason | null {
     const key = expenseCategoryKey(txn.category);
-    if (opts.transfers && key === TRANSFERS_CATEGORY_LABEL) return 'transfers';
+    if (opts.transfers && key === TRANSFERS_CATEGORY_LABEL) {
+        const memo = txn.memo?.trim();
+        if (memo) return null;
+        return 'transfers';
+    }
     if (opts.uncategorized && key === DEFAULT_EXPENSE_CATEGORY) return 'uncategorized';
     return null;
 }

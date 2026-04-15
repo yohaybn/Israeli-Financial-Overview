@@ -25,6 +25,8 @@
         "timeout": "Timeout (ms)",
         "navigation_retries": "Retry Count",
         "future_months": "Future Months to Scrape",
+        "excluded_accounts": "Excluded account numbers",
+        "excluded_accounts_hint": "One per line or comma-separated. Transactions from these accounts are not saved after a scrape. Spaces and dashes are ignored when matching.",
         "auto_categorize": "Auto-categorize with AI",
         "start_scrape": "Start Scrape",
         "scraping": "Scraping...",

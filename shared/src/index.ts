@@ -19,6 +19,14 @@ export {
 } from './profileCredentials.js';
 export * from './isInternalTransfer.js';
 export { isTransactionIgnored } from './isTransactionIgnored.js';
+export {
+    countTransactionsForExclusionPattern,
+    isAccountNumberExcluded,
+    mergeExcludedAccountNumberLists,
+    normalizeAccountNumberForExclusionMatch,
+    parseExcludedAccountNumbersInput,
+    stripNestedTxnsFromScrapeAccounts,
+} from './accountExclusion.js';
 export { isLoanExpenseCategory } from './loanCategory.js';
 export {
     buildCategoryExpenseSlices,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { ScraperOptions, isSensitiveCredentialKey } from '@app/shared';
+import { ScraperOptions, isSensitiveCredentialKey, parseExcludedAccountNumbersInput } from '@app/shared';
 import { useProfile, useUpdateProfile } from '../hooks/useProfiles';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { ProviderIcon } from './ProfileManager';
@@ -239,6 +239,27 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                         />
                                         {t('scraper.combine_installments')}
                                     </label>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm text-gray-700" htmlFor="profileExcludedAccounts">
+                                        {t('scraper.excluded_accounts')}
+                                    </label>
+                                    <textarea
+                                        id="profileExcludedAccounts"
+                                        rows={3}
+                                        value={(options.excludedAccountNumbers || []).join('\n')}
+                                        onChange={(e) =>
+                                            setOptions((o) => ({
+                                                ...o,
+                                                excludedAccountNumbers: parseExcludedAccountNumbersInput(
+                                                    e.target.value
+                                                ),
+                                            }))
+                                        }
+                                        disabled={restricted || isPending}
+                                        className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 font-mono"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">{t('scraper.excluded_accounts_hint')}</p>
                                 </div>
                             </div>
 

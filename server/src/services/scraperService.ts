@@ -1,5 +1,12 @@
 import { createScraper, CompanyTypes } from 'israeli-bank-scrapers';
-import { ScrapeResult, ScrapeRequest } from '@app/shared';
+import {
+    ScrapeResult,
+    ScrapeRequest,
+    countTransactionsForExclusionPattern,
+    isAccountNumberExcluded,
+    mergeExcludedAccountNumberLists,
+    stripNestedTxnsFromScrapeAccounts,
+} from '@app/shared';
 import { Server } from 'socket.io';
 import { postScrapeService } from './postScrapeService.js';
 import type { ScrapeRunActionRecord } from '../utils/scrapeRunLogger.js';
@@ -13,6 +20,7 @@ import { StorageService } from './storageService.js';
 import { DbService } from './dbService.js';
 import { profileService } from './profileService.js';
 import { appLockService } from './appLockService.js';
+import { serverLogger } from '../utils/logger.js';
 
 // Progress event types matching the library
 export enum ScraperProgressTypes {
@@ -273,14 +281,44 @@ export class ScraperService {
                 this.emitProgress(ScraperProgressTypes.EndScraping, 'Scrape completed successfully!');
                 addLog(`Scrape successful in ${executionTimeMs}ms.`);
 
-                // Flatten transactions from all accounts
-                const transactions = scrapeResult.accounts?.flatMap((acc: any) =>
+                // Flatten transactions from all accounts; optionally drop excluded account numbers (global + request)
+                let transactions = scrapeResult.accounts?.flatMap((acc: any) =>
                     acc.txns?.map((txn: any) => ({
                         ...txn,
                         provider: request.companyId,
                         accountNumber: acc.accountNumber || 'unknown',
                     })) || []
                 ) || [];
+
+                const excludedList = mergeExcludedAccountNumberLists(
+                    globalConfig.scraperOptions.excludedAccountNumbers,
+                    (request.options.excludedAccountNumbers || []) as string[]
+                );
+                let accountsOut: any[] | undefined = scrapeResult.accounts as any;
+                if (excludedList.length > 0) {
+                    for (const pattern of excludedList) {
+                        const n = countTransactionsForExclusionPattern(transactions, pattern);
+                        if (n > 0) {
+                            const exclusionMsg = `Deleted ${n} transaction(s) due to account ${pattern} exclusion`;
+                            addLog(exclusionMsg);
+                            serverLogger.info(exclusionMsg, {
+                                companyId: request.companyId,
+                                profileName: request.profileName,
+                            });
+                        }
+                    }
+                    transactions = transactions.filter(
+                        (t) => !isAccountNumberExcluded(t.accountNumber || '', excludedList)
+                    );
+                    if (accountsOut?.length) {
+                        accountsOut = accountsOut.filter(
+                            (acc: any) => !isAccountNumberExcluded(acc.accountNumber || '', excludedList)
+                        );
+                    }
+                }
+                if (accountsOut?.length) {
+                    accountsOut = stripNestedTxnsFromScrapeAccounts(accountsOut) as any[];
+                }
 
                 // Emit completion event
                 if (this.io) {
@@ -293,7 +331,7 @@ export class ScraperService {
 
                 const successResult = {
                     success: true,
-                    accounts: scrapeResult.accounts as any,
+                    accounts: accountsOut as any,
                     transactions,
                     logs,
                     executionTimeMs,

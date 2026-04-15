@@ -25,6 +25,8 @@
         "timeout": "פסק זמן (ms)",
         "navigation_retries": "מספר ניסיונות",
         "future_months": "חודשים עתידיים לסריקה",
+        "excluded_accounts": "מספרי חשבונות להחרגה",
+        "excluded_accounts_hint": "שורה לכל חשבון או מופרדים בפסיקים. תנועות מחשבונות אלה לא יישמרו אחרי סריקה. רווחים ומקפים מתעלמים בהתאמה.",
         "auto_categorize": "קטלוג אוטומטי באמצעות AI",
         "start_scrape": "התחל סריקה",
         "scraping": "סורק...",

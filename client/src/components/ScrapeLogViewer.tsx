@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { apiClient, getApiRoot } from '../lib/api';
+import { apiClient } from '../lib/api';
+import { buildAppUrlSearch } from '../utils/appUrlState';
 import { format } from 'date-fns';
 import { he, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +37,14 @@ interface ScrapeRunLogEntry {
 }
 
 function resultJsonHref(filename: string): string {
-  return `${getApiRoot()}/results/${encodeURIComponent(filename)}`;
+  const search = buildAppUrlSearch({
+    view: 'scrape',
+    configTab: 'ai',
+    logType: 'server',
+    logEntryId: null,
+    resultFile: filename,
+  });
+  return `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
 }
 
 function shortAiLogId(id: string): string {

@@ -154,6 +154,11 @@ export interface CategorizeTransactionsOptions {
      * to cache-only mapping if there is no API key or the model call fails.
      */
     skipCache?: boolean;
+    /**
+     * When {@link skipCache} is false: still send these descriptions to the model even if they already have a
+     * categories_cache row (e.g. bulk "recategorize default bucket" where cache and txn both held the default).
+     */
+    alwaysCategorizeDescriptions?: ReadonlySet<string> | readonly string[];
 }
 
 /** Item with importance 1–100 (100 = most important). */
@@ -445,6 +450,13 @@ export class AiService {
     ): Promise<CategorizeTransactionsResult> {
         await this.loadSettings();
         const skipCache = options?.skipCache === true;
+        const alwaysDesc = options?.alwaysCategorizeDescriptions;
+        const alwaysSet =
+            alwaysDesc == null
+                ? null
+                : alwaysDesc instanceof Set
+                  ? alwaysDesc
+                  : new Set(alwaysDesc);
 
         if (!this.genAI) {
             if (skipCache) {
@@ -463,14 +475,14 @@ export class AiService {
 
         serverLogger.info(`Categorizing ${transactions.length} transactions using ${this.settings.categorizationModel}`);
 
-        // Skip descriptions the user locked in the UI; unless skipCache: only uncached descriptions
+        // Skip descriptions the user locked in the UI; unless skipCache: only uncached descriptions (+ optional always list)
         const uncategorized = skipCache
             ? transactions.filter((t) => !this.dbService.descriptionHasUserSetCategory(t.description))
-            : transactions.filter(
-                  (t) =>
-                      !this.dbService.getCategory(t.description) &&
-                      !this.dbService.descriptionHasUserSetCategory(t.description)
-              );
+            : transactions.filter((t) => {
+                  if (this.dbService.descriptionHasUserSetCategory(t.description)) return false;
+                  if (!this.dbService.getCategory(t.description)) return true;
+                  return alwaysSet != null && alwaysSet.has(t.description);
+              });
         if (skipCache) {
             serverLogger.info(`skipCache: sending all ${uncategorized.length} rows to model (cache ignored for this request)`);
         } else {

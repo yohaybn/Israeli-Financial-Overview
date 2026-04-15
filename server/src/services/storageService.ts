@@ -7,6 +7,7 @@ import {
     assignBatchContentIdsFromTransactions,
     buildContentTransactionKey,
     hashTransactionId,
+    stripNestedTxnsFromScrapeAccounts,
 } from '@app/shared';
 import { AiService } from './aiService.js';
 import { closeDbForRestore, DbService } from './dbService.js';
@@ -237,6 +238,10 @@ export class StorageService {
         const filename = `${safeProfile}_${safeProvider}_${filenameTimestamp()}.json`;
         const filePath = path.join(RESULTS_DIR, filename);
 
+        if (result.accounts?.length) {
+            result.accounts = stripNestedTxnsFromScrapeAccounts(result.accounts) as ScrapeResult['accounts'];
+        }
+
         // Save in legacy format (array of accounts) as requested by user for consistency
         const legacyData = this.serializeToLegacyFormat(result);
         await fs.writeJson(filePath, legacyData, { spaces: 2 });
@@ -395,7 +400,7 @@ export class StorageService {
     private serializeToLegacyFormat(result: ScrapeResult): any[] {
         if (!result.accounts) return [];
 
-        return result.accounts.map(acc => {
+        const rows = result.accounts.map(acc => {
             const accTxns = result.transactions?.filter(t => t.accountNumber === acc.accountNumber) || [];
             return {
                 accountNumber: acc.accountNumber,
@@ -420,6 +425,7 @@ export class StorageService {
                 }))
             };
         });
+        return rows.filter((row) => row.txns.length > 0);
     }
 
     async updateTransactionCategory(filename: string, transactionId: string, category: string): Promise<boolean> {
@@ -863,6 +869,8 @@ export class StorageService {
 
         serverLogger.info(`Starting bulk AI categorization for ${transactions.length} transactions (force: ${force})`);
 
+        const defaultTrimmed = (await this.aiService.getSettings()).defaultCategory.trim();
+
         // Group by description to minimize AI calls (skip descriptions the user locked in the UI)
         const uniqueDescriptions = Array.from(new Set(transactions.map((t) => t.description)));
         const notUserLocked = (desc: string) => !this.dbService.descriptionHasUserSetCategory(desc);
@@ -871,13 +879,22 @@ export class StorageService {
         if (force) {
             toCategorize = uniqueDescriptions.filter(notUserLocked);
         } else {
-            toCategorize = uniqueDescriptions.filter(
-                (desc) => notUserLocked(desc) && !this.dbService.getCategory(desc)
-            );
+            const defaultBucketDescs = new Set<string>();
+            for (const txn of transactions) {
+                if (txn.categoryUserSet) continue;
+                if (!notUserLocked(txn.description)) continue;
+                const cat = (txn.category ?? '').trim();
+                if (cat === defaultTrimmed) {
+                    defaultBucketDescs.add(txn.description);
+                }
+            }
+            toCategorize = Array.from(defaultBucketDescs);
         }
 
         if (toCategorize.length === 0) {
-            serverLogger.info('No new descriptions to categorize');
+            serverLogger.info(
+                force ? 'No descriptions to categorize' : 'No transactions in the default category to recategorize'
+            );
             return { success: true, count: 0 };
         }
 
@@ -902,14 +919,13 @@ export class StorageService {
 
         const { aiError, descriptionCategories } = await this.aiService.categorizeTransactions(dummyTransactions, {
             skipCache: force,
+            ...(force ? {} : { alwaysCategorizeDescriptions: new Set(toCategorize) }),
         });
 
         if (force && aiError) {
             serverLogger.warn('Force recategorization aborted (AI required; cache not applied)', { error: aiError });
             return { success: false, count: 0, error: aiError };
         }
-
-        const { defaultCategory } = await this.aiService.getSettings();
 
         // Apply model/cache results to DB rows (never overwrite user-chosen categories)
         let updateCount = 0;
@@ -925,7 +941,7 @@ export class StorageService {
 
             if (force) {
                 // Only overwrite when the model picked a specific category (not the default bucket)
-                if (newCategory === defaultCategory) continue;
+                if (newCategory.trim() === defaultTrimmed) continue;
             }
 
             if (newCategory !== txn.category) {

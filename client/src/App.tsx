@@ -21,13 +21,13 @@ import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsD
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { TopBarServerStatus } from './components/TopBarServerStatus';
 import { isDemoMode } from './demo/isDemo';
-import { Map, Bot, MessageSquare } from 'lucide-react';
+import { Map as MapIcon, Bot, MessageSquare } from 'lucide-react';
 import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
 import { UnifiedAiChatPanel, type AiPanelTab } from './components/chat/UnifiedAiChatPanel';
 import { FeedbackModal } from './components/FeedbackModal';
 import { TransactionReviewModal } from './components/TransactionReviewModal';
 import { usePersonaSetupWizardVisibility } from './hooks/usePersonaSetupWizardVisibility';
-import { transactionsForReviewItems } from '@app/shared';
+import { transactionsForReviewItems, transactionNeedsReview, type TransactionReviewItem } from '@app/shared';
 import { useEnvConfig } from './hooks/useConfig';
 import { isGeminiApiKeyConfigured } from './utils/geminiKeyConfigured';
 
@@ -186,10 +186,33 @@ function App() {
         setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: null }));
     };
 
-    const reviewModalTransactions = useMemo(() => {
-        if (!transactionReviewAlert?.items?.length) return [];
-        return transactionsForReviewItems(transactionReviewAlert.items, unifiedTransactions ?? []);
+    const pendingTransactionReview = useMemo(() => {
+        if (!transactionReviewAlert?.items?.length) {
+            return { count: 0, items: [] as TransactionReviewItem[] };
+        }
+        const byId = new Map((unifiedTransactions ?? []).map((t) => [t.id, t]));
+        const opts = { transfers: true, uncategorized: true };
+        const items = transactionReviewAlert.items.filter((it) => {
+            const txn = byId.get(it.id);
+            const merged = {
+                category: txn?.category ?? it.category,
+                memo: txn?.memo,
+            };
+            return transactionNeedsReview(merged, opts) !== null;
+        });
+        return { count: items.length, items };
     }, [transactionReviewAlert, unifiedTransactions]);
+
+    const reviewModalTransactions = useMemo(() => {
+        if (!pendingTransactionReview.items.length) return [];
+        return transactionsForReviewItems(pendingTransactionReview.items, unifiedTransactions ?? []);
+    }, [pendingTransactionReview.items, unifiedTransactions]);
+
+    useEffect(() => {
+        if (!transactionReviewAlert?.items?.length) return;
+        if (pendingTransactionReview.count > 0) return;
+        clearTransactionReviewAlert();
+    }, [transactionReviewAlert, pendingTransactionReview.count, clearTransactionReviewAlert]);
 
     const openAiSettingsTab = () => {
         setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
@@ -312,7 +335,7 @@ function App() {
                                                     title={t('getting_started.rerun_tour')}
                                                     aria-label={t('getting_started.rerun_tour')}
                                                 >
-                                                    <Map className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                                    <MapIcon className="w-5 h-5" strokeWidth={1.75} aria-hidden />
                                                 </button>
                                             )}
                                         </>
@@ -386,7 +409,7 @@ function App() {
 
                 {gettingStarted.showResumeBanner && <GettingStartedResumeBanner />}
 
-                {transactionReviewAlert && transactionReviewAlert.count > 0 && (
+                {transactionReviewAlert && pendingTransactionReview.count > 0 && (
                     <div
                         className="shrink-0 bg-sky-50 border-b border-sky-200 px-4 py-3 text-sky-950 flex flex-wrap items-center gap-3 justify-between"
                         role="alert"
@@ -398,14 +421,17 @@ function App() {
                         >
                             <p className="font-semibold text-sm">{t('transaction_review.banner_title')}</p>
                             <p className="text-sm text-sky-900/90 break-words">
-                                {t('transaction_review.banner_detail', { count: transactionReviewAlert.count })}
+                                {t('transaction_review.banner_detail', { count: pendingTransactionReview.count })}
                             </p>
                             <p className="text-xs text-sky-800/80 mt-1">{t('transaction_review.banner_open_table')}</p>
                         </button>
                         <div className="flex flex-wrap items-center gap-2 shrink-0">
                             <button
                                 type="button"
-                                onClick={() => setView('dashboard')}
+                                onClick={() => {
+                                    window.dispatchEvent(new CustomEvent('dashboard-focus-transactions'));
+                                    setView('dashboard');
+                                }}
                                 className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium"
                             >
                                 {t('transaction_review.open_dashboard')}

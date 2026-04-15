@@ -16,6 +16,9 @@ import {
   type TransactionReviewItem,
   expenseCategoryKey,
   transactionNeedsReview,
+  isAccountNumberExcluded,
+  mergeExcludedAccountNumberLists,
+  stripNestedTxnsFromScrapeAccounts,
 } from '@app/shared';
 import { telegramBotService } from './telegramBotService.js';
 import { serviceLogger as logger } from '../utils/logger.js';
@@ -40,6 +43,33 @@ const MAX_LAST_SUMMARY_CHARS = 2000;
 
 function sanitizePipelineId(id: string): string {
   return id.replace(/[/\\:]/g, '_');
+}
+
+/** Drop excluded-account rows and nested library `txns` so AI / exports never see them. */
+function applyExcludedAccountsToScrapeResult(
+  result: ScrapeResult,
+  excludedList: string[]
+): void {
+  if (result.transactions?.length && excludedList.length > 0) {
+    const before = result.transactions.length;
+    result.transactions = result.transactions.filter(
+      (t) => !isAccountNumberExcluded(t.accountNumber || '', excludedList)
+    );
+    if (before > result.transactions.length) {
+      logger.info(
+        `Post-scrape: removed ${before - result.transactions.length} transaction(s) matching account exclusion before AI (defense in depth)`
+      );
+    }
+  }
+  if (result.accounts?.length) {
+    let accs = result.accounts as any[];
+    if (excludedList.length > 0) {
+      accs = accs.filter(
+        (a) => !isAccountNumberExcluded(a.accountNumber || '', excludedList)
+      );
+    }
+    result.accounts = stripNestedTxnsFromScrapeAccounts(accs) as any;
+  }
 }
 
 export class PostScrapeService {
@@ -586,6 +616,18 @@ export class PostScrapeService {
 
   async handleResult(result: ScrapeResult, request?: ScrapeRequest): Promise<ScrapeRunActionRecord[]> {
     const pipelineId = request ? (request.profileName || request.companyId || 'unknown') : 'post-scrape';
+
+    try {
+      const globalCfg = await this.storageService.getGlobalScrapeConfig();
+      const excludedList = mergeExcludedAccountNumberLists(
+        globalCfg.scraperOptions.excludedAccountNumbers,
+        (request?.options?.excludedAccountNumbers || []) as string[]
+      );
+      applyExcludedAccountsToScrapeResult(result, excludedList);
+    } catch (e) {
+      logger.warn('Post-scrape: could not apply account exclusions', { error: (e as Error).message });
+    }
+
     let transactions = result.transactions || [];
     const failedSteps: { step: string; error: string }[] = [];
 

@@ -509,6 +509,11 @@ export interface ScraperOptions {
     includeRawTransaction?: boolean;
     navigationRetryCount?: number;
     optInFeatures?: string[];
+    /**
+     * Account numbers to drop after a successful scrape (not sent to storage / post-scrape).
+     * Compared with spaces and dashes ignored; set globally and/or per profile.
+     */
+    excludedAccountNumbers?: string[];
     suppressTelegramNotifications?: boolean;
     aggregateTelegramNotifications?: boolean;
     runSource?: 'telegram_bot' | 'scheduler' | 'manual';

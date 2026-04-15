@@ -45,10 +45,25 @@ export function FinancialCommandCenter({
     const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<string | null>(null);
     const [analyticsDayFilter, setAnalyticsDayFilter] = useState<AnalyticsDayFilter | null>(null);
     const [showAllTransactionsSearch, setShowAllTransactionsSearch] = useState(false);
+    const [transactionsExpandSignal, setTransactionsExpandSignal] = useState(0);
     const [cardsCollapsedOnMobile] = useState(() => getInitialCollapsedOnMobile());
     const [exportingKey, setExportingKey] = useState<'all-csv' | 'all-json' | 'month-csv' | 'month-json' | null>(null);
     const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
     const downloadMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const onFocusTransactions = () => {
+            setTransactionsExpandSignal((s) => s + 1);
+            window.setTimeout(() => {
+                document.getElementById('dashboard-monthly-transactions')?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                });
+            }, 200);
+        };
+        window.addEventListener('dashboard-focus-transactions', onFocusTransactions);
+        return () => window.removeEventListener('dashboard-focus-transactions', onFocusTransactions);
+    }, []);
 
     useEffect(() => {
         if (!downloadMenuOpen) return;
@@ -365,28 +380,31 @@ export function FinancialCommandCenter({
                         monthExpenseTotal={summary.expenses.alreadySpent}
                         defaultCollapsed={cardsCollapsedOnMobile}
                     />
-                    <MonthlyTransactionsCard
-                        transactions={transactionsForTable}
-                        categories={availableCategories}
-                        onUpdateCategory={onUpdateCategory}
-                        scopeLabel={tableScopeLabel}
-                        filterLabel={tableFilterLabel}
-                        onClearFilter={() => setAnalyticsDayFilter(null)}
-                        customCCKeywords={config.customCCKeywords ?? []}
-                        defaultCollapsed={cardsCollapsedOnMobile}
-                        endActions={
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowAllTransactionsSearch(true);
-                                }}
-                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 whitespace-nowrap"
-                            >
-                                {t('dashboard.search_all_transactions')}
-                            </button>
-                        }
-                    />
+                    <div id="dashboard-monthly-transactions" className="scroll-mt-4">
+                        <MonthlyTransactionsCard
+                            transactions={transactionsForTable}
+                            categories={availableCategories}
+                            onUpdateCategory={onUpdateCategory}
+                            scopeLabel={tableScopeLabel}
+                            filterLabel={tableFilterLabel}
+                            onClearFilter={() => setAnalyticsDayFilter(null)}
+                            customCCKeywords={config.customCCKeywords ?? []}
+                            defaultCollapsed={cardsCollapsedOnMobile}
+                            expandSignal={transactionsExpandSignal}
+                            endActions={
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowAllTransactionsSearch(true);
+                                    }}
+                                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 whitespace-nowrap"
+                                >
+                                    {t('dashboard.search_all_transactions')}
+                                </button>
+                            }
+                        />
+                    </div>
                 </div>
             </div>
 

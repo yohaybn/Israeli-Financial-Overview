@@ -2,7 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { ScrapeRequest, ScraperOptions, ScrapeResult, Profile, GlobalScrapeConfig } from '@app/shared';
+import {
+    ScrapeRequest,
+    ScraperOptions,
+    ScrapeResult,
+    Profile,
+    GlobalScrapeConfig,
+    parseExcludedAccountNumbersInput,
+} from '@app/shared';
 import { ProfileManager } from './ProfileManager';
 import { useCreateProfile } from '../hooks/useProfiles';
 import { useAppLockStatus } from '../hooks/useAppLock';
@@ -376,6 +383,24 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
                                             className="w-4 h-4 rounded border-gray-300 text-blue-600"
                                         />
                                         <label htmlFor="includeRaw" className="text-sm text-gray-700 cursor-pointer">{t('scraper.include_raw')}</label>
+                                    </div>
+                                    <div className="pt-2 border-t border-gray-50">
+                                        <label className="block text-[10px] font-bold text-gray-500 mb-1" htmlFor="excludedAccountsScrape">
+                                            {t('scraper.excluded_accounts')}
+                                        </label>
+                                        <textarea
+                                            id="excludedAccountsScrape"
+                                            rows={2}
+                                            value={(options.excludedAccountNumbers || []).join('\n')}
+                                            onChange={(e) =>
+                                                updateOption(
+                                                    'excludedAccountNumbers',
+                                                    parseExcludedAccountNumbersInput(e.target.value)
+                                                )
+                                            }
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs p-2 border font-mono"
+                                        />
+                                        <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{t('scraper.excluded_accounts_hint')}</p>
                                     </div>
                                 </div>
                             </div>
