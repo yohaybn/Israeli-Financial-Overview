@@ -328,6 +328,19 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                             </div>
                         </label>
 
+                        <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-50">
+                            <input
+                                type="checkbox"
+                                checked={config.postScrapeConfig.runInsightRules !== false}
+                                onChange={(e) => updatePostScrape({ runInsightRules: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            />
+                            <div>
+                                <span className="block text-sm font-bold text-gray-700">{t('post_scrape.run_insight_rules')}</span>
+                                <span className="text-xs text-gray-500">{t('post_scrape.run_insight_rules_desc')}</span>
+                            </div>
+                        </label>
+
                         {onOpenBudgetExports && (
                             <div className="p-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 text-sm text-gray-700 flex flex-wrap items-center justify-between gap-3">
                                 <p className="min-w-0">{t('post_scrape.budget_exports_teaser')}</p>

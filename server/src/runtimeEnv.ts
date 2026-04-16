@@ -48,9 +48,21 @@ function loadFinancialOverviewConfig(): void {
 
 loadFinancialOverviewConfig();
 
-const DATA_DIR_RESOLVED = path.resolve(process.env.DATA_DIR || './data');
+/** When unset, use repo `data/` so `runtime-settings.json` path does not depend on process.cwd(). */
+function defaultDataDirForRuntime(): string {
+    const fromEnv = process.env.DATA_DIR;
+    if (typeof fromEnv === 'string' && fromEnv.trim() !== '') {
+        return fromEnv;
+    }
+    return path.join(PROJECT_ROOT, 'data');
+}
+
+const DATA_DIR_RESOLVED = path.resolve(defaultDataDirForRuntime());
 /** Persisted env (API keys, OAuth, etc.) under the data directory so Docker volume mounts keep settings across restarts. */
 export const RUNTIME_SETTINGS_PATH = path.join(DATA_DIR_RESOLVED, 'config', 'runtime-settings.json');
+
+/** Dev layout: some clones keep `runtime-settings.json` under `server/data/` while DATA_DIR defaults to repo `data/`. */
+const LEGACY_DEV_RUNTIME_SETTINGS_PATH = path.join(PROJECT_ROOT, 'server', 'data', 'config', 'runtime-settings.json');
 const LEGACY_RUNTIME_SETTINGS_PATH = path.join(PROJECT_ROOT, 'runtime-settings.json');
 
 const LEGACY_ENV_PATH = path.join(PROJECT_ROOT, '.env');
@@ -126,18 +138,67 @@ function migrateLegacyEnv(): void {
 export function applyRuntimeSettings(): void {
     migrateLegacyRuntimeSettingsFile();
     migrateLegacyEnv();
-    if (!fs.existsSync(RUNTIME_SETTINGS_PATH)) {
+
+    let settings: Record<string, string>;
+    if (fs.existsSync(RUNTIME_SETTINGS_PATH)) {
+        settings = fs.readJsonSync(RUNTIME_SETTINGS_PATH) as Record<string, string>;
+    } else if (fs.existsSync(LEGACY_DEV_RUNTIME_SETTINGS_PATH)) {
+        settings = fs.readJsonSync(LEGACY_DEV_RUNTIME_SETTINGS_PATH) as Record<string, string>;
+    } else {
         return;
     }
-    const settings = fs.readJsonSync(RUNTIME_SETTINGS_PATH) as Record<string, string>;
+
+    const primaryPath = fs.existsSync(RUNTIME_SETTINGS_PATH) ? RUNTIME_SETTINGS_PATH : LEGACY_DEV_RUNTIME_SETTINGS_PATH;
     for (const [key, value] of Object.entries(settings)) {
         if (value === undefined || value === null || value === '') continue;
         if (process.env[key] === undefined) {
             process.env[key] = String(value);
         }
     }
+
+    // Fill any keys still missing (e.g. COMMUNITY_INSIGHT_RULES_SECRET) from legacy dev path.
+    if (
+        fs.existsSync(LEGACY_DEV_RUNTIME_SETTINGS_PATH) &&
+        path.resolve(LEGACY_DEV_RUNTIME_SETTINGS_PATH) !== path.resolve(primaryPath)
+    ) {
+        const extra = fs.readJsonSync(LEGACY_DEV_RUNTIME_SETTINGS_PATH) as Record<string, string>;
+        for (const [key, value] of Object.entries(extra)) {
+            if (value === undefined || value === null || value === '') continue;
+            if (process.env[key] === undefined) {
+                process.env[key] = String(value);
+            }
+        }
+    }
+
     if (process.env.GOOGLE_DRIVE_FOLDER_ID === undefined && process.env.DRIVE_FOLDER_ID) {
         process.env.GOOGLE_DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID;
+    }
+
+    // Docker / Compose almost always set `DATA_DIR=/data` in the image or environment. The UI
+    // persists a user-chosen folder in `runtime-settings.json` (Maintenance). If we never apply
+    // that value when env is already set, restarts keep using `/data` while the previous session
+    // wrote `scheduler_config.json`, `app.db`, etc. under the path from the file — looks like
+    // settings "do not survive" the container reboot.
+    if (process.env.DATA_DIR_STICKY === '1') {
+        return;
+    }
+    const dataDirFromFile = settings.DATA_DIR;
+    if (typeof dataDirFromFile !== 'string' || !dataDirFromFile.trim()) {
+        return;
+    }
+    try {
+        const expanded = expandPathFromConfig(dataDirFromFile.trim());
+        const resolvedFile = path.resolve(expanded);
+        const resolvedEnv = path.resolve(defaultDataDirForRuntime());
+        if (resolvedFile !== resolvedEnv) {
+            const prev = process.env.DATA_DIR;
+            process.env.DATA_DIR = expanded;
+            console.log(
+                `[runtime] DATA_DIR from runtime-settings.json (${expanded}) overrides process.env (${prev ?? '(unset)'})`
+            );
+        }
+    } catch (e) {
+        console.warn('[runtime] Could not apply DATA_DIR from runtime-settings.json:', (e as Error).message);
     }
 }
 

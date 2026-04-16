@@ -53,6 +53,20 @@ jobs:
           VITE_APP_BUILD_VERSION: ${{ env.APP_VERSION }}@${{ github.sha }}
         run: npm run macos:package
 
+      - name: Inject community submit secret for Electron (optional)
+        env:
+          COMMUNITY_INSIGHT_RULES_SECRET: ${{ secrets.COMMUNITY_INSIGHT_RULES_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COMMUNITY_INSIGHT_RULES_SECRET:-}" ]; then
+            echo "COMMUNITY_INSIGHT_RULES_SECRET GitHub secret not set; skipping packaged secrets/community-submit.env."
+            exit 0
+          fi
+          mkdir -p dist/macos-package/secrets
+          umask 077
+          printf 'COMMUNITY_INSIGHT_RULES_SECRET=%s\n' "$COMMUNITY_INSIGHT_RULES_SECRET" > dist/macos-package/secrets/community-submit.env
+          echo "Wrote dist/macos-package/secrets/community-submit.env (secret masked in logs)."
+
       - name: Ensure app-builder-bin is present (devDependencies pruned during macOS package)
         run: |
           set -euo pipefail

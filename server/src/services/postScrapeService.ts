@@ -1060,13 +1060,19 @@ export class PostScrapeService {
       logger.info('Post-scrape finished successfully', { pipelineId });
     }
 
-    try {
-      const allTx = await this.storageService.getAllTransactions(true);
-      refreshInsightRuleFires(allTx, this.dbService);
-      actions.push({ key: 'insight-rules-refresh', status: 'ok' });
-    } catch (e) {
-      logger.warn('Post-scrape: insight rules refresh failed', { error: (e as Error).message });
-      actions.push({ key: 'insight-rules-refresh', status: 'failed', detail: (e as Error).message });
+    const shouldRunInsightRules = cfg.runInsightRules !== false;
+
+    if (shouldRunInsightRules) {
+      try {
+        const allTx = await this.storageService.getAllTransactions(true);
+        refreshInsightRuleFires(allTx, this.dbService);
+        actions.push({ key: 'insight-rules-refresh', status: 'ok' });
+      } catch (e) {
+        logger.warn('Post-scrape: insight rules refresh failed', { error: (e as Error).message });
+        actions.push({ key: 'insight-rules-refresh', status: 'failed', detail: (e as Error).message });
+      }
+    } else {
+      actions.push({ key: 'insight-rules-refresh', status: 'skipped', detail: 'disabled in settings' });
     }
 
     return actions;

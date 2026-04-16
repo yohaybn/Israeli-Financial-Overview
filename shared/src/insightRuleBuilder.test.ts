@@ -53,4 +53,17 @@ describe('insightRuleBuilder', () => {
         const def = builderStateToDefinition(s);
         assert.equal(def.description, 'My strategy');
     });
+
+    it('round-trips share_of_category row', () => {
+        const s0 = defaultBuilderState();
+        s0.rows = [{ rowType: 'share_of_category', category: 'מזון', minSharePercent: 40 }];
+        const def = builderStateToDefinition(s0);
+        const back = definitionToBuilderState(def);
+        assert.ok(back);
+        assert.equal(back!.state.rows[0].rowType, 'share_of_category');
+        if (back!.state.rows[0].rowType === 'share_of_category') {
+            assert.equal(back!.state.rows[0].minSharePercent, 40);
+            assert.equal(back!.state.rows[0].category, 'מזון');
+        }
+    });
 });

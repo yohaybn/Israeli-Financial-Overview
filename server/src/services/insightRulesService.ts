@@ -34,7 +34,10 @@ export function refreshInsightRuleFires(
             continue;
         }
 
-        const { en, he } = applyMessageTemplates(r.definition.output, ev.placeholders);
+        const { en, he } = applyMessageTemplates(r.definition.output, ev.placeholders, {
+            referenceDate: ref,
+            definition: r.definition,
+        });
         const kind = r.definition.output.kind;
         const score = r.definition.output.score;
         db.upsertInsightRuleFire(uuidv4(), r.id, periodKey, kind, score, en, he);

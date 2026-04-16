@@ -5,11 +5,13 @@ import {
     SchedulerConfig,
     DEFAULT_SCHEDULER_CONFIG,
     DEFAULT_BACKUP_SCHEDULE,
+    DEFAULT_INSIGHT_RULES_SCHEDULE,
     BackupScheduleConfig,
     Profile,
     ScrapeResult,
     normalizeSchedulerConfig,
     normalizeBackupSchedule,
+    normalizeInsightRulesSchedule,
     buildSchedulerCronExpression,
     buildCronFromScheduleFields,
     intervalDaysShouldRun,
@@ -24,18 +26,24 @@ import { postScrapeService } from './postScrapeService.js';
 import { appLockService } from './appLockService.js';
 import { PROJECT_ROOT } from '../runtimeEnv.js';
 
-/** Must match dbService, runtimeEnv, etc. (cwd-based `./data` when unset — not `server/data`). */
-const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
-const SCHEDULER_CONFIG_PATH = path.join(DATA_DIR, 'scheduler_config.json');
+/** Resolve each use so `process.env.DATA_DIR` updates (Maintenance) are not stuck on the import-time cwd. */
+function schedulerDataDir(): string {
+    return path.resolve(process.env.DATA_DIR || './data');
+}
+
+function schedulerConfigPath(): string {
+    return path.join(schedulerDataDir(), 'scheduler_config.json');
+}
+
 /** Pre-fix location when DATA_DIR was unset (scheduler used `server/data` while DB used `./data`). */
 const LEGACY_SCHEDULER_CONFIG_PATH = path.join(PROJECT_ROOT, 'server', 'data', 'scheduler_config.json');
 
-type SchedulerConfigWithBackup = SchedulerConfig & {
+type SchedulerConfigStored = SchedulerConfig & {
     backupSchedule?: BackupScheduleConfig;
 };
 
 export class SchedulerService {
-    private config: SchedulerConfigWithBackup;
+    private config: SchedulerConfigStored;
     private scraperService: ScraperService;
     private profileService: ProfileService;
     private storageService: StorageService;
@@ -43,8 +51,10 @@ export class SchedulerService {
 
     private scrapeJob: cron.ScheduledTask | null = null;
     private backupJob: cron.ScheduledTask | null = null;
+    private insightRulesJob: cron.ScheduledTask | null = null;
     private isRunning: boolean = false;
     private backupIsRunning: boolean = false;
+    private insightRulesIsRunning: boolean = false;
 
     constructor(scraperService: ScraperService, profileService: ProfileService, storageService?: StorageService) {
         this.scraperService = scraperService;
@@ -55,40 +65,49 @@ export class SchedulerService {
         this.initialize();
     }
 
-    private loadConfig(): SchedulerConfigWithBackup {
+    private loadConfig(): SchedulerConfigStored {
         this.migrateLegacySchedulerConfigIfNeeded();
+        const cfgPath = schedulerConfigPath();
         try {
-            if (fs.existsSync(SCHEDULER_CONFIG_PATH)) {
-                const stored = JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'));
+            if (fs.existsSync(cfgPath)) {
+                const stored = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
                 const merged = {
-                    ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigWithBackup),
+                    ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigStored),
                     ...stored,
                     backupSchedule: normalizeBackupSchedule({
                         ...DEFAULT_BACKUP_SCHEDULE,
                         ...stored.backupSchedule
+                    }),
+                    insightRulesSchedule: normalizeInsightRulesSchedule({
+                        ...DEFAULT_INSIGHT_RULES_SCHEDULE,
+                        ...stored.insightRulesSchedule
                     })
                 };
-                return normalizeSchedulerConfig(merged) as SchedulerConfigWithBackup;
+                delete (merged as { runInsightRules?: boolean }).runInsightRules;
+                return normalizeSchedulerConfig(merged) as SchedulerConfigStored;
             }
         } catch (error) {
             logger.error('Failed to load scheduler config, using defaults', { error });
         }
         return normalizeSchedulerConfig({
-            ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigWithBackup),
-            backupSchedule: normalizeBackupSchedule({ ...DEFAULT_BACKUP_SCHEDULE })
-        }) as SchedulerConfigWithBackup;
+            ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigStored),
+            backupSchedule: normalizeBackupSchedule({ ...DEFAULT_BACKUP_SCHEDULE }),
+            insightRulesSchedule: normalizeInsightRulesSchedule({ ...DEFAULT_INSIGHT_RULES_SCHEDULE })
+        }) as SchedulerConfigStored;
     }
 
     /** Copy from old `server/data` path so settings survive after fixing DATA_DIR resolution. */
     private migrateLegacySchedulerConfigIfNeeded(): void {
-        if (fs.existsSync(SCHEDULER_CONFIG_PATH) || !fs.existsSync(LEGACY_SCHEDULER_CONFIG_PATH)) {
+        const cfgPath = schedulerConfigPath();
+        const dataDir = schedulerDataDir();
+        if (fs.existsSync(cfgPath) || !fs.existsSync(LEGACY_SCHEDULER_CONFIG_PATH)) {
             return;
         }
         try {
-            fs.ensureDirSync(DATA_DIR);
-            fs.copyFileSync(LEGACY_SCHEDULER_CONFIG_PATH, SCHEDULER_CONFIG_PATH);
+            fs.ensureDirSync(dataDir);
+            fs.copyFileSync(LEGACY_SCHEDULER_CONFIG_PATH, cfgPath);
             logger.info('Migrated scheduler_config.json from legacy server/data to DATA_DIR', {
-                DATA_DIR,
+                DATA_DIR: dataDir,
                 from: LEGACY_SCHEDULER_CONFIG_PATH
             });
         } catch (error) {
@@ -98,8 +117,10 @@ export class SchedulerService {
 
     private saveConfig() {
         try {
-            fs.ensureDirSync(DATA_DIR);
-            fs.writeFileSync(SCHEDULER_CONFIG_PATH, JSON.stringify(this.config, null, 2));
+            const dataDir = schedulerDataDir();
+            const cfgPath = schedulerConfigPath();
+            fs.ensureDirSync(dataDir);
+            fs.writeFileSync(cfgPath, JSON.stringify(this.config, null, 2));
         } catch (error) {
             logger.error('Failed to save scheduler config', { error });
         }
@@ -112,11 +133,17 @@ export class SchedulerService {
         if (this.config.backupSchedule?.enabled) {
             this.startBackupJob();
         }
+        if (this.config.insightRulesSchedule?.enabled) {
+            this.startInsightRulesJob();
+        }
     }
 
     public getConfig(): SchedulerConfig {
         return {
             ...normalizeSchedulerConfig(this.config),
+            insightRulesSchedule: normalizeInsightRulesSchedule(
+                this.config.insightRulesSchedule ?? DEFAULT_INSIGHT_RULES_SCHEDULE
+            ),
             backupSchedule: normalizeBackupSchedule(this.config.backupSchedule ?? DEFAULT_BACKUP_SCHEDULE)
         };
     }
@@ -125,22 +152,31 @@ export class SchedulerService {
     reloadAfterDataWipe(): void {
         this.stopScrapeJob();
         this.stopBackupJob();
+        this.stopInsightRulesJob();
         this.config = this.loadConfig();
         this.initialize();
     }
 
-    public updateConfig(newConfig: Partial<SchedulerConfigWithBackup>) {
+    public updateConfig(newConfig: Partial<SchedulerConfigStored>) {
         const mergedBackup = normalizeBackupSchedule({
             ...DEFAULT_BACKUP_SCHEDULE,
             ...this.config.backupSchedule,
             ...(newConfig.backupSchedule ?? {})
         });
 
+        const mergedInsight = normalizeInsightRulesSchedule({
+            ...DEFAULT_INSIGHT_RULES_SCHEDULE,
+            ...this.config.insightRulesSchedule,
+            ...(newConfig.insightRulesSchedule ?? {})
+        });
+
         this.config = normalizeSchedulerConfig({
             ...this.config,
             ...newConfig,
-            backupSchedule: mergedBackup
-        }) as SchedulerConfigWithBackup;
+            backupSchedule: mergedBackup,
+            insightRulesSchedule: mergedInsight
+        }) as SchedulerConfigStored;
+        delete (this.config as { runInsightRules?: boolean }).runInsightRules;
         this.saveConfig();
 
         if (this.config.enabled) {
@@ -153,6 +189,12 @@ export class SchedulerService {
             this.startBackupJob();
         } else {
             this.stopBackupJob();
+        }
+
+        if (this.config.insightRulesSchedule?.enabled) {
+            this.startInsightRulesJob();
+        } else {
+            this.stopInsightRulesJob();
         }
     }
 
@@ -224,6 +266,79 @@ export class SchedulerService {
             this.backupJob.stop();
             this.backupJob = null;
             logger.info('Backup scheduler stopped');
+        }
+    }
+
+    private startInsightRulesJob() {
+        this.stopInsightRulesJob();
+
+        const s = normalizeInsightRulesSchedule(this.config.insightRulesSchedule ?? DEFAULT_INSIGHT_RULES_SCHEDULE);
+        if (!s.enabled) {
+            return;
+        }
+
+        const expr = buildCronFromScheduleFields(s);
+        if (!cron.validate(expr)) {
+            logger.error('Invalid insight rules cron expression', { expression: expr });
+            return;
+        }
+
+        logger.info(`Starting insight rules scheduler with cron: ${expr}`, { scheduleType: s.scheduleType });
+        this.insightRulesJob = cron.schedule(expr, () => {
+            const current = normalizeInsightRulesSchedule(
+                this.config.insightRulesSchedule ?? DEFAULT_INSIGHT_RULES_SCHEDULE
+            );
+            if (!current.enabled) {
+                return;
+            }
+            if (current.scheduleType === 'interval_days') {
+                const anchor = current.intervalAnchorDate || localDateISO();
+                const n = current.intervalDays ?? 3;
+                if (!intervalDaysShouldRun(anchor, n, new Date())) {
+                    return;
+                }
+            }
+            void this.runScheduledInsightRulesRefresh();
+        });
+    }
+
+    private stopInsightRulesJob() {
+        if (this.insightRulesJob) {
+            this.insightRulesJob.stop();
+            this.insightRulesJob = null;
+            logger.info('Insight rules scheduler stopped');
+        }
+    }
+
+    /**
+     * Timer-only refresh: re-evaluate insight rules against all transactions in the DB (no scrape).
+     */
+    public async runScheduledInsightRulesRefresh() {
+        if (this.insightRulesIsRunning) {
+            logger.warn('Scheduled insight rules refresh skipped - previous run still in progress');
+            return;
+        }
+
+        const s = normalizeInsightRulesSchedule(this.config.insightRulesSchedule ?? DEFAULT_INSIGHT_RULES_SCHEDULE);
+        if (!s.enabled) {
+            return;
+        }
+
+        this.insightRulesIsRunning = true;
+        logger.info('Starting scheduled insight rules refresh...');
+
+        try {
+            const { matched, cleared } = await this.storageService.refreshInsightRuleFiresFromDb();
+            this.config.insightRulesSchedule = {
+                ...s,
+                lastRun: new Date().toISOString()
+            };
+            this.saveConfig();
+            logger.info('Scheduled insight rules refresh completed', { matched, cleared });
+        } catch (err) {
+            logger.error('Scheduled insight rules refresh failed', { error: err });
+        } finally {
+            this.insightRulesIsRunning = false;
         }
     }
 

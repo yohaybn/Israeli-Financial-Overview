@@ -78,28 +78,79 @@ function buildServerEnv(installRoot) {
     return env;
 }
 
+/**
+ * Merge `PORT` and `DATA_DIR` from `<dataDir>/config/runtime-settings.json` (Maintenance tab).
+ * The Node server only applies those keys when `process.env` is unset; Electron always injected
+ * `DATA_DIR` from defaults/financial-overview.json, so a user-chosen data folder in
+ * runtime-settings was ignored on restart — DB/scheduler looked in the wrong directory.
+ */
+/**
+ * Optional packaged secrets for community submit (never commit the real file).
+ * CI copies `secrets/community-submit.env` into `dist/windows-package|electron-mac-package/secrets/`
+ * before electron-builder. Format: KEY=value lines, # comments.
+ */
+function loadCommunitySubmitEnvFromPackagedSecrets(installRoot) {
+    const p = path.join(installRoot, 'secrets', 'community-submit.env');
+    if (!fs.existsSync(p)) {
+        return {};
+    }
+    const out = {};
+    try {
+        const raw = fs.readFileSync(p, 'utf8');
+        for (const line of raw.split(/\n')) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const eq = trimmed.indexOf('=');
+            if (eq === -1) continue;
+            const key = trimmed.slice(0, eq).trim();
+            let value = trimmed.slice(eq + 1).trim();
+            if (
+                (value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))
+            ) {
+                value = value.slice(1, -1);
+            }
+            if (key) out[key] = value;
+        }
+    } catch (_) {
+        /* ignore */
+    }
+    return out;
+}
+
+function resolveServerChildEnv(installRoot) {
+    const env = {
+        ...buildServerEnv(installRoot),
+        ...loadCommunitySubmitEnvFromPackagedSecrets(installRoot),
+    };
+    const dataDir = env.DATA_DIR || defaultDataDir();
+    try {
+        const rs = path.join(path.resolve(dataDir), 'config', 'runtime-settings.json');
+        if (!fs.existsSync(rs)) {
+            return env;
+        }
+        const j = JSON.parse(fs.readFileSync(rs, 'utf8'));
+        if (j.PORT != null && String(j.PORT).trim() !== '') {
+            env.PORT = String(j.PORT).trim();
+        }
+        if (j.DATA_DIR != null && typeof j.DATA_DIR === 'string' && String(j.DATA_DIR).trim() !== '') {
+            env.DATA_DIR = expandHomeInPath(String(j.DATA_DIR).trim());
+        }
+    } catch (_) {
+        /* ignore */
+    }
+    return env;
+}
+
 function getListenPort(serverEnv) {
     const raw = serverEnv.PORT || '3000';
     const n = parseInt(String(raw), 10);
     return Number.isFinite(n) && n > 0 ? n : 3000;
 }
 
-/** Match server: PORT can come from DATA_DIR/config/runtime-settings.json */
+/** Match server: PORT (and DATA_DIR for spawn) from runtime-settings under the active data dir. */
 function getListenPortForWait(installRoot) {
-    const env = { ...buildServerEnv(installRoot) };
-    const dataDir = env.DATA_DIR || defaultDataDir();
-    try {
-        const rs = path.join(path.resolve(dataDir), 'config', 'runtime-settings.json');
-        if (fs.existsSync(rs)) {
-            const j = JSON.parse(fs.readFileSync(rs, 'utf8'));
-            if (j.PORT != null && String(j.PORT).trim() !== '') {
-                env.PORT = String(j.PORT).trim();
-            }
-        }
-    } catch (_) {
-        /* ignore */
-    }
-    return getListenPort(env);
+    return getListenPort(resolveServerChildEnv(installRoot));
 }
 
 function waitForHttp(port, timeoutMs = 120000) {
@@ -233,7 +284,10 @@ function spawnServer(installRoot) {
         throw new Error(`Server build not found: ${serverJs}`);
     }
 
-    const env = { ...buildServerEnv(installRoot), ELECTRON_MANAGED_SERVER: '1' };
+    const env = {
+        ...resolveServerChildEnv(installRoot),
+        ELECTRON_MANAGED_SERVER: '1',
+    };
     const bundled = resolveBundledNodeBinary(installRoot);
     const useExe = bundled || 'node';
 

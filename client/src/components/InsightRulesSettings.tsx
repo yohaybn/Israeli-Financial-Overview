@@ -1,46 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState, type SyntheticEvent } from 'react';
+import { Pencil, Share2, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import {
-    builderStateToDefinition,
-    defaultBuilderState,
-    definitionToBuilderState,
-    isBuilderStateSavable,
+    applyInsightRuleImportTuningSlots,
+    COMMUNITY_INSIGHT_RULE_SUBMISSION_VERSION,
+    extractInsightRuleImportTuningSlots,
+    parseCommunityInsightRuleSubmission,
     parseInsightRuleDefinition,
-    type BuilderState,
-    type InsightRuleDefinitionV1,
+    parseInsightRulesExportDocument,
+    type InsightRulesExportDocument,
 } from '@app/shared';
 import { api } from '../lib/api';
+import { loadCommunityInsightRulesSettings, saveCommunityInsightRulesSettings } from '../lib/communityInsightRulesSettings';
+import { buildDefaultCommunityShareNote } from '../lib/insightRuleShareNote';
 import { CollapsibleCard } from './CollapsibleCard';
-import { InsightRuleEditor } from './insight-rules/InsightRuleEditor';
+import { InsightRuleForm } from './insight-rules/InsightRuleForm';
+import { InsightRuleImportReviewModal } from './insight-rules/InsightRuleImportReviewModal';
+import type { InsightRuleRow } from './insight-rules/insightRuleFormTypes';
+import { CommunityInsightRulesPanel } from './community-insight-rules/CommunityInsightRulesPanel';
 
 export const INSIGHT_RULES_QUERY_KEY = ['insight-rules'] as const;
-
-type InsightRuleRow = {
-    id: string;
-    name: string;
-    enabled: boolean;
-    priority: number;
-    source: 'user' | 'ai';
-    definition: {
-        version: number;
-        scope: string;
-        lastNDays?: number;
-        description?: string;
-        condition: unknown;
-        output: {
-            kind: string;
-            score: number;
-            message: { en: string; he: string };
-        };
-    };
-    createdAt: string;
-    updatedAt: string;
-};
-
-function stringifyDef(def: InsightRuleDefinitionV1) {
-    return JSON.stringify(def, null, 2);
-}
 
 export function InsightRulesSettings({
     isInline = false,
@@ -49,26 +30,106 @@ export function InsightRulesSettings({
     isInline?: boolean;
     standaloneTab?: boolean;
 }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const queryClient = useQueryClient();
     const [editing, setEditing] = useState<InsightRuleRow | null>(null);
     const [creating, setCreating] = useState(false);
-    const [name, setName] = useState('');
-    const [enabled, setEnabled] = useState(true);
-    const [priority, setPriority] = useState(0);
-    const [builderCompatible, setBuilderCompatible] = useState(true);
-    const [builderState, setBuilderState] = useState<BuilderState>(() => defaultBuilderState());
-    const [definitionText, setDefinitionText] = useState(() =>
-        stringifyDef(builderStateToDefinition(defaultBuilderState()))
-    );
-    const [definitionTextDirty, setDefinitionTextDirty] = useState(false);
+    const [createSessionId, setCreateSessionId] = useState(0);
     const [importText, setImportText] = useState('');
     const [mergeImport, setMergeImport] = useState(true);
-    const [jsonError, setJsonError] = useState<string | null>(null);
-    const [aiPrompt, setAiPrompt] = useState('');
-    const [pendingSource, setPendingSource] = useState<'user' | 'ai'>('user');
-    /** After auto-opening create on empty list, do not reopen if the user cancelled (until they have rules again). */
-    const skipAutoOpenEmptyRef = useRef(false);
+    const [importReview, setImportReview] = useState<null | { doc: InsightRulesExportDocument; merge: boolean }>(null);
+    const [importTuningValues, setImportTuningValues] = useState<Record<string, Record<string, string>>>({});
+    const [createPanelOpen, setCreatePanelOpen] = useState(false);
+
+    const [shareOpenForId, setShareOpenForId] = useState<string | null>(null);
+    const [shareAuthor, setShareAuthor] = useState('');
+    const [shareDescription, setShareDescription] = useState('');
+    const [shareBusy, setShareBusy] = useState(false);
+    const [shareFeedback, setShareFeedback] = useState<{ tone: 'ok' | 'err' | 'warn'; text: string } | null>(null);
+
+    const { data: communityConfig } = useQuery({
+        queryKey: ['community-insight-rules-config'],
+        queryFn: async () => {
+            const { data } = await api.get<{ success: boolean; data: { submitViaProxy: boolean } }>(
+                '/community/insight-rules/config'
+            );
+            return data.data;
+        },
+    });
+    const submitViaProxy = communityConfig?.submitViaProxy === true;
+
+    const submitRuleToCommunity = useCallback(
+        async (row: InsightRuleRow) => {
+            const author = shareAuthor.trim();
+            if (!author) {
+                setShareFeedback({ tone: 'err', text: t('insight_rules.community_author_required') });
+                return;
+            }
+            if (!submitViaProxy) {
+                setShareFeedback({ tone: 'warn', text: t('insight_rules.community_proxy_required_hint') });
+                return;
+            }
+            const submission = {
+                version: COMMUNITY_INSIGHT_RULE_SUBMISSION_VERSION,
+                author,
+                description: shareDescription.trim() || undefined,
+                rule: {
+                    id: row.id,
+                    name: row.name,
+                    enabled: row.enabled,
+                    priority: row.priority,
+                    source: row.source,
+                    definition: row.definition,
+                },
+            };
+            const parsed = parseCommunityInsightRuleSubmission(submission);
+            if (!parsed.ok) {
+                setShareFeedback({ tone: 'err', text: parsed.error });
+                return;
+            }
+            const idempotencyKey =
+                typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+            setShareBusy(true);
+            setShareFeedback(null);
+            try {
+                const { data } = await api.post<{
+                    success: boolean;
+                    error?: string;
+                    data?: { ok?: boolean; error?: string };
+                }>('/community/insight-rules/submit', { ...submission, idempotencyKey });
+                if (!data.success) {
+                    setShareFeedback({ tone: 'err', text: data.error || t('insight_rules.community_share_failed') });
+                    return;
+                }
+                const gasBody = data.data;
+                if (gasBody && typeof gasBody === 'object' && gasBody.ok === false) {
+                    setShareFeedback({
+                        tone: 'err',
+                        text:
+                            typeof gasBody.error === 'string'
+                                ? gasBody.error
+                                : t('insight_rules.community_share_failed'),
+                    });
+                    return;
+                }
+                saveCommunityInsightRulesSettings({ lastAuthor: author });
+                setShareFeedback({ tone: 'ok', text: t('insight_rules.community_share_ok') });
+            } catch (e: unknown) {
+                if (axios.isAxiosError(e) && e.response?.data !== undefined) {
+                    const d = e.response.data;
+                    setShareFeedback({
+                        tone: 'err',
+                        text: typeof d === 'string' ? d : JSON.stringify(d),
+                    });
+                    return;
+                }
+                setShareFeedback({ tone: 'err', text: e instanceof Error ? e.message : String(e) });
+            } finally {
+                setShareBusy(false);
+            }
+        },
+        [shareAuthor, shareDescription, submitViaProxy, t]
+    );
 
     const { data: rules, isLoading } = useQuery({
         queryKey: INSIGHT_RULES_QUERY_KEY,
@@ -83,115 +144,17 @@ export function InsightRulesSettings({
         queryClient.invalidateQueries({ queryKey: ['ai-memory-top-insights'] });
     };
 
-    useEffect(() => {
-        if (!builderCompatible) return;
-        if (definitionTextDirty) return;
-        setDefinitionText(stringifyDef(builderStateToDefinition(builderState)));
-    }, [builderState, builderCompatible, definitionTextDirty]);
-
-    const openCreate = useCallback(() => {
-        setCreating(true);
-        setEditing(null);
-        setName('');
-        setEnabled(true);
-        setPriority(0);
-        setPendingSource('user');
-        setBuilderCompatible(true);
-        setBuilderState(defaultBuilderState());
-        setDefinitionText(stringifyDef(builderStateToDefinition(defaultBuilderState())));
-        setDefinitionTextDirty(false);
-        setJsonError(null);
-    }, []);
-
-    /** Show the If/Then builder immediately when there are no rules (first visit or after deleting all). */
-    useEffect(() => {
-        if (isLoading || rules === undefined) return;
-        if (rules.length > 0) {
-            skipAutoOpenEmptyRef.current = false;
-            return;
-        }
-        if (editing || creating) return;
-        if (skipAutoOpenEmptyRef.current) return;
-        skipAutoOpenEmptyRef.current = true;
-        openCreate();
-    }, [isLoading, rules, editing, creating, openCreate]);
-
-    const resolveDefinition = (): { ok: true; value: InsightRuleDefinitionV1 } | { ok: false; error: string } => {
-        if (!builderCompatible) {
-            try {
-                const raw = JSON.parse(definitionText) as unknown;
-                return parseInsightRuleDefinition(raw);
-            } catch {
-                return { ok: false, error: t('insight_rules.invalid_json') };
-            }
-        }
-        if (definitionTextDirty) {
-            try {
-                const raw = JSON.parse(definitionText) as unknown;
-                return parseInsightRuleDefinition(raw);
-            } catch {
-                return { ok: false, error: t('insight_rules.invalid_json') };
-            }
-        }
-        if (!isBuilderStateSavable(builderState)) {
-            return { ok: false, error: t('insight_rules.save_needs_conditions') };
-        }
-        return { ok: true, value: builderStateToDefinition(builderState) };
-    };
-
-    const handleBuilderChange = (next: BuilderState) => {
-        setDefinitionTextDirty(false);
-        setBuilderState(next);
-    };
-
-    const resetFormAfterSave = () => {
-        setDefinitionTextDirty(false);
-        setJsonError(null);
-    };
-
-    const createMutation = useMutation({
-        mutationFn: async () => {
-            const resolved = resolveDefinition();
-            if (!resolved.ok) throw new Error(resolved.error);
-            await api.post('/insight-rules', {
-                name: name.trim(),
-                enabled,
-                priority,
-                source: pendingSource,
-                definition: resolved.value,
-            });
-        },
-        onSuccess: () => {
-            invalidate();
-            setCreating(false);
-            setName('');
-            setBuilderCompatible(true);
-            setBuilderState(defaultBuilderState());
-            setDefinitionText(stringifyDef(builderStateToDefinition(defaultBuilderState())));
-            resetFormAfterSave();
-            setPendingSource('user');
-        },
-        onError: (e: Error) => alert(e.message),
-    });
-
-    const updateMutation = useMutation({
-        mutationFn: async (row: InsightRuleRow) => {
-            const resolved = resolveDefinition();
-            if (!resolved.ok) throw new Error(resolved.error);
-            await api.put(`/insight-rules/${encodeURIComponent(row.id)}`, {
-                name: name.trim(),
-                enabled,
-                priority,
-                definition: resolved.value,
-            });
-        },
-        onSuccess: () => {
-            invalidate();
+    const handleCreatePanelToggle = useCallback((e: SyntheticEvent<HTMLDetailsElement>) => {
+        const nextOpen = e.currentTarget.open;
+        setCreatePanelOpen(nextOpen);
+        if (nextOpen) {
+            setCreating(true);
             setEditing(null);
-            resetFormAfterSave();
-        },
-        onError: (e: Error) => alert(e.message),
-    });
+            setCreateSessionId((n) => n + 1);
+        } else {
+            setCreating(false);
+        }
+    }, []);
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -217,245 +180,86 @@ export function InsightRulesSettings({
         },
     });
 
-    const exportMutation = useMutation({
-        mutationFn: async () => {
-            const res = await api.get('/insight-rules/export', { responseType: 'blob' });
-            const blob = new Blob([res.data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'insight-rules.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        },
-    });
-
     const importMutation = useMutation({
-        mutationFn: async () => {
-            let body: unknown;
-            try {
-                body = JSON.parse(importText);
-            } catch {
-                throw new Error(t('insight_rules.invalid_json'));
-            }
+        mutationFn: async (payload: { doc: InsightRulesExportDocument; merge: boolean }) => {
             await api.post('/insight-rules/import', {
-                ...(typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}),
-                merge: mergeImport,
+                format: payload.doc.format,
+                version: payload.doc.version,
+                exportedAt: payload.doc.exportedAt,
+                rules: payload.doc.rules,
+                merge: payload.merge,
             });
         },
         onSuccess: () => {
             invalidate();
             setImportText('');
+            setImportReview(null);
+            setImportTuningValues({});
         },
         onError: (e: Error) => alert(e.message),
     });
 
-    const refreshMutation = useMutation({
-        mutationFn: async () => {
-            await api.post('/insight-rules/refresh');
-        },
-        onSuccess: () => invalidate(),
-    });
-
-    const applyParsedDefinition = (def: InsightRuleDefinitionV1) => {
-        const b = definitionToBuilderState(def);
-        if (b) {
-            setBuilderCompatible(true);
-            setBuilderState(b.state);
-        } else {
-            setBuilderCompatible(false);
+    const openImportReview = useCallback(() => {
+        let body: unknown;
+        try {
+            body = JSON.parse(importText);
+        } catch {
+            alert(t('insight_rules.invalid_json'));
+            return;
         }
-        setDefinitionText(stringifyDef(def));
-        setDefinitionTextDirty(false);
-    };
+        const parsed = parseInsightRulesExportDocument(body);
+        if (!parsed.ok) {
+            alert(parsed.error);
+            return;
+        }
+        const init: Record<string, Record<string, string>> = {};
+        for (const r of parsed.value.rules) {
+            const slots = extractInsightRuleImportTuningSlots(r.definition);
+            init[r.id] = {};
+            for (const s of slots) {
+                init[r.id][s.id] = s.initialValue;
+            }
+        }
+        setImportTuningValues(init);
+        setImportReview({ doc: parsed.value, merge: mergeImport });
+    }, [importText, mergeImport, t]);
 
-    const aiDraftMutation = useMutation({
-        mutationFn: async () => {
-            const { data } = await api.post<{
-                success: boolean;
-                data: { name: string; definition: unknown; source: string };
-            }>('/insight-rules/ai-draft', { description: aiPrompt.trim() });
-            return data.data;
-        },
-        onSuccess: (d) => {
-            const parsed = parseInsightRuleDefinition(d.definition);
-            if (!parsed.ok) {
-                alert(parsed.error);
+    const handleImportSlotChange = useCallback((ruleId: string, slotId: string, value: string) => {
+        setImportTuningValues((prev) => ({
+            ...prev,
+            [ruleId]: { ...(prev[ruleId] ?? {}), [slotId]: value },
+        }));
+    }, []);
+
+    const confirmImportReview = useCallback(() => {
+        if (!importReview) return;
+        const { doc, merge } = importReview;
+        const nextRules: InsightRulesExportDocument['rules'] = [];
+        for (const r of doc.rules) {
+            const slots = extractInsightRuleImportTuningSlots(r.definition);
+            const applied = applyInsightRuleImportTuningSlots(r.definition, slots, importTuningValues[r.id] ?? {});
+            if (!applied.ok) {
+                alert(`${r.name}: ${applied.error}`);
                 return;
             }
-            setCreating(true);
-            setEditing(null);
-            setName(d.name);
-            setEnabled(false);
-            setPriority(0);
-            setPendingSource('ai');
-            applyParsedDefinition(parsed.value);
-            setAiPrompt('');
-        },
-        onError: (e: Error) => alert(e.message),
-    });
+            const reparse = parseInsightRuleDefinition(applied.value);
+            if (!reparse.ok) {
+                alert(`${r.name}: ${reparse.error}`);
+                return;
+            }
+            nextRules.push({
+                ...r,
+                definition: reparse.value,
+            });
+        }
+        importMutation.mutate({ doc: { ...doc, rules: nextRules }, merge });
+    }, [importReview, importTuningValues, importMutation]);
 
     const openEdit = (row: InsightRuleRow) => {
         setEditing(row);
         setCreating(false);
-        setName(row.name);
-        setEnabled(row.enabled);
-        setPriority(row.priority);
-        setPendingSource(row.source);
-        const parsed = parseInsightRuleDefinition(row.definition);
-        if (!parsed.ok) {
-            setJsonError(parsed.error);
-            setBuilderCompatible(false);
-            setDefinitionText(JSON.stringify(row.definition, null, 2));
-            setDefinitionTextDirty(false);
-            return;
-        }
-        setJsonError(null);
-        applyParsedDefinition(parsed.value);
+        setCreatePanelOpen(false);
     };
-
-    const saveDisabled =
-        !name.trim() ||
-        (builderCompatible && !definitionTextDirty && !isBuilderStateSavable(builderState));
-
-    const form = (creating || editing) && (
-        <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase">{t('insight_rules.name')}</label>
-                    <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"
-                    />
-                </div>
-                <div className="flex gap-4 items-end">
-                    <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-                        {t('common.enabled')}
-                    </label>
-                    <div className="flex-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">{t('insight_rules.priority')}</label>
-                        <input
-                            type="number"
-                            value={priority}
-                            onChange={(e) => setPriority(parseInt(e.target.value, 10) || 0)}
-                            className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {!builderCompatible && (
-                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    {t('insight_rules.builder_incompatible')}
-                </p>
-            )}
-
-            {builderCompatible && (
-                <InsightRuleEditor state={builderState} onChange={handleBuilderChange} showJsonPreview />
-            )}
-
-            {builderCompatible ? (
-                <details className="rounded-xl border border-gray-200 bg-white">
-                    <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-gray-700">
-                        {t('insight_rules.advanced_json')}
-                    </summary>
-                    <div className="border-t border-gray-100 px-4 pb-4 pt-2 space-y-2">
-                        <p className="text-xs text-gray-500">{t('insight_rules.advanced_json_hint')}</p>
-                        <textarea
-                            value={definitionText}
-                            onChange={(e) => {
-                                setDefinitionText(e.target.value);
-                                setDefinitionTextDirty(true);
-                                setJsonError(null);
-                            }}
-                            rows={12}
-                            className="w-full font-mono text-xs rounded-lg border border-gray-200 p-2"
-                            spellCheck={false}
-                        />
-                        {jsonError && <p className="text-red-600 text-xs">{jsonError}</p>}
-                    </div>
-                </details>
-            ) : (
-                <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase">{t('insight_rules.definition_json')}</label>
-                    <textarea
-                        value={definitionText}
-                        onChange={(e) => {
-                            setDefinitionText(e.target.value);
-                            setDefinitionTextDirty(true);
-                            setJsonError(null);
-                        }}
-                        rows={16}
-                        className="mt-1 w-full font-mono text-xs rounded-lg border border-gray-200 p-2"
-                        spellCheck={false}
-                    />
-                    {jsonError && <p className="text-red-600 text-xs mt-1">{jsonError}</p>}
-                </div>
-            )}
-
-            <div className="flex flex-wrap gap-2 items-center">
-                {creating && (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const r = resolveDefinition();
-                            if (!r.ok) {
-                                setJsonError(r.error);
-                                return;
-                            }
-                            setJsonError(null);
-                            createMutation.mutate();
-                        }}
-                        disabled={saveDisabled || createMutation.isPending}
-                        className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium disabled:opacity-50"
-                    >
-                        {t('common.save')}
-                    </button>
-                )}
-                {editing && (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const r = resolveDefinition();
-                                if (!r.ok) {
-                                    setJsonError(r.error);
-                                    return;
-                                }
-                                setJsonError(null);
-                                updateMutation.mutate(editing);
-                            }}
-                            disabled={saveDisabled || updateMutation.isPending}
-                            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium disabled:opacity-50"
-                        >
-                            {t('common.save')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => evaluateMutation.mutate(editing.id)}
-                            disabled={evaluateMutation.isPending}
-                            className="px-4 py-2 rounded-lg border border-indigo-200 text-indigo-800 text-sm font-medium"
-                        >
-                            {t('insight_rules.test')}
-                        </button>
-                    </>
-                )}
-                <button
-                    type="button"
-                    onClick={() => {
-                        setCreating(false);
-                        setEditing(null);
-                        setJsonError(null);
-                    }}
-                    className="px-4 py-2 rounded-lg border border-gray-200 text-sm"
-                >
-                    {t('common.cancel')}
-                </button>
-            </div>
-        </div>
-    );
 
     const inner = (
         <>
@@ -466,101 +270,150 @@ export function InsightRulesSettings({
                 </p>
             )}
 
-            <p className="text-xs text-gray-500">{t('insight_rules.ai_draft_hint')}</p>
-            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
-                <textarea
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    rows={2}
-                    placeholder={t('insight_rules.ai_draft_prompt_placeholder')}
-                    className="flex-1 rounded-lg border border-gray-200 p-2 text-sm"
-                />
-                <button
-                    type="button"
-                    onClick={() => aiDraftMutation.mutate()}
-                    disabled={aiDraftMutation.isPending || !aiPrompt.trim()}
-                    className="px-3 py-2 rounded-lg bg-violet-600 text-white text-sm shrink-0"
-                >
-                    {t('insight_rules.ai_draft_button')}
-                </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => openCreate()} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm">
-                    {t('insight_rules.add_rule')}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => exportMutation.mutate()}
-                    disabled={exportMutation.isPending}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm"
-                >
-                    {t('insight_rules.export')}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => refreshMutation.mutate()}
-                    disabled={refreshMutation.isPending}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm"
-                >
-                    {t('insight_rules.refresh_fires')}
-                </button>
-            </div>
-
-            <div className="rounded-xl border border-dashed border-gray-200 p-3 space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase">{t('insight_rules.import_label')}</label>
-                <textarea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    rows={4}
-                    placeholder={t('insight_rules.import_placeholder')}
-                    className="w-full font-mono text-xs rounded-lg border border-gray-200 p-2"
-                />
-                <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={mergeImport} onChange={(e) => setMergeImport(e.target.checked)} />
-                    {t('insight_rules.merge_import')}
-                </label>
-                <button
-                    type="button"
-                    onClick={() => importMutation.mutate()}
-                    disabled={importMutation.isPending || !importText.trim()}
-                    className="px-3 py-1.5 rounded-lg bg-slate-700 text-white text-sm"
-                >
-                    {t('insight_rules.import')}
-                </button>
-            </div>
-
-            {form}
-
             {isLoading ? (
                 <p className="text-sm text-gray-500">{t('common.loading')}</p>
             ) : (
                 <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100">
                     {(rules ?? []).map((r) => (
-                        <li key={r.id} className="flex flex-wrap items-center gap-2 py-3 px-3 text-sm">
-                            <span className="font-medium flex-1 min-w-[120px]">{r.name}</span>
-                            <span className="text-xs text-gray-500">p{r.priority}</span>
-                            {!r.enabled && <span className="text-xs text-amber-700">{t('common.disabled')}</span>}
-                            {r.source === 'ai' && <span className="text-xs bg-violet-100 text-violet-800 px-1.5 rounded">AI</span>}
-                            <button
-                                type="button"
-                                onClick={() => evaluateMutation.mutate(r.id)}
-                                className="text-indigo-600 text-xs"
-                            >
-                                {t('insight_rules.test')}
-                            </button>
-                            <button type="button" onClick={() => openEdit(r)} className="text-indigo-600 text-xs">
-                                {t('common.edit')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (confirm(t('insight_rules.confirm_delete'))) deleteMutation.mutate(r.id);
-                                }}
-                                className="text-red-600 text-xs"
-                            >
-                                {t('common.delete')}
-                            </button>
+                        <li key={r.id} className="py-3 px-3 text-sm space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+                                    {r.source === 'ai' && (
+                                        <span className="text-xs bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded shrink-0">
+                                            AI
+                                        </span>
+                                    )}
+                                    <span className="font-medium min-w-0 truncate">{r.name}</span>
+                                    <span
+                                        className="text-xs text-gray-500 shrink-0 cursor-help"
+                                        title={t('insight_rules.priority_badge_title', { n: r.priority })}
+                                    >
+                                        p{r.priority}
+                                    </span>
+                                    {!r.enabled && (
+                                        <span className="text-xs text-amber-700 shrink-0">{t('common.disabled')}</span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0 ms-auto">
+                                    <button
+                                        type="button"
+                                        onClick={() => evaluateMutation.mutate(r.id)}
+                                        className="text-indigo-600 text-xs px-1.5 py-1 rounded-lg hover:bg-indigo-50"
+                                    >
+                                        {t('insight_rules.test')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => openEdit(r)}
+                                        className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50"
+                                        aria-label={t('common.edit')}
+                                        title={t('common.edit')}
+                                    >
+                                        <Pencil className="w-4 h-4" strokeWidth={2} aria-hidden />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (shareOpenForId === r.id) {
+                                                setShareOpenForId(null);
+                                                setShareFeedback(null);
+                                            } else {
+                                                setShareOpenForId(r.id);
+                                                setShareFeedback(null);
+                                                const s = loadCommunityInsightRulesSettings();
+                                                setShareAuthor(s.lastAuthor || '');
+                                                const parsedDef = parseInsightRuleDefinition(r.definition);
+                                                setShareDescription(
+                                                    parsedDef.ok
+                                                        ? buildDefaultCommunityShareNote(parsedDef.value, t, i18n.language)
+                                                        : ''
+                                                );
+                                            }
+                                        }}
+                                        className="p-1.5 rounded-lg text-violet-700 hover:bg-violet-50"
+                                        aria-label={
+                                            shareOpenForId === r.id
+                                                ? t('insight_rules.community_share_close')
+                                                : t('insight_rules.community_share_rule')
+                                        }
+                                        title={
+                                            shareOpenForId === r.id
+                                                ? t('insight_rules.community_share_close')
+                                                : t('insight_rules.community_share_rule')
+                                        }
+                                    >
+                                        {shareOpenForId === r.id ? (
+                                            <X className="w-4 h-4" strokeWidth={2} aria-hidden />
+                                        ) : (
+                                            <Share2 className="w-4 h-4" strokeWidth={2} aria-hidden />
+                                        )}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (confirm(t('insight_rules.confirm_delete'))) deleteMutation.mutate(r.id);
+                                        }}
+                                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-50"
+                                        aria-label={t('common.delete')}
+                                        title={t('common.delete')}
+                                    >
+                                        <Trash2 className="w-4 h-4" strokeWidth={2} aria-hidden />
+                                    </button>
+                                </div>
+                            </div>
+                            {shareOpenForId === r.id && (
+                                <div className="rounded-lg border border-violet-200 bg-violet-50/50 p-3 space-y-2 text-xs">
+                                    <p className="font-semibold text-violet-900">
+                                        {t('insight_rules.community_share_form_title', { name: r.name })}
+                                    </p>
+                                    {!submitViaProxy && (
+                                        <p className="text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1 whitespace-pre-line">
+                                            {t('insight_rules.community_proxy_required_hint')}
+                                        </p>
+                                    )}
+                                    <label className="block">
+                                        <span className="text-gray-600">{t('insight_rules.community_author')}</span>
+                                        <input
+                                            className="mt-0.5 w-full max-w-md rounded border border-gray-200 p-1.5 text-sm"
+                                            value={shareAuthor}
+                                            onChange={(e) => setShareAuthor(e.target.value)}
+                                        />
+                                    </label>
+                                    <label className="block">
+                                        <span className="text-gray-600">{t('insight_rules.community_submission_note')}</span>
+                                        <textarea
+                                            className="mt-0.5 w-full max-w-md rounded border border-gray-200 p-1.5 text-sm min-h-[5rem]"
+                                            value={shareDescription}
+                                            onChange={(e) => setShareDescription(e.target.value)}
+                                            rows={5}
+                                        />
+                                    </label>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                        <button
+                                            type="button"
+                                            disabled={shareBusy || !submitViaProxy}
+                                            onClick={() => void submitRuleToCommunity(r)}
+                                            className="px-3 py-1.5 rounded-lg bg-violet-700 text-white text-sm disabled:opacity-50"
+                                        >
+                                            {shareBusy ? t('common.loading') : t('insight_rules.community_share_button')}
+                                        </button>
+                                    </div>
+                                    {shareFeedback && (
+                                        <p
+                                            role="status"
+                                            className={
+                                                shareFeedback.tone === 'ok'
+                                                    ? 'text-emerald-800 bg-emerald-50 border border-emerald-100 rounded px-2 py-1'
+                                                    : shareFeedback.tone === 'warn'
+                                                      ? 'text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1 whitespace-pre-line'
+                                                      : 'text-red-800 bg-red-50 border border-red-100 rounded px-2 py-1 whitespace-pre-wrap break-words'
+                                            }
+                                        >
+                                            {shareFeedback.text}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ul>
@@ -568,6 +421,99 @@ export function InsightRulesSettings({
 
             {rules && rules.length === 0 && !isLoading && (
                 <p className="text-sm text-gray-500">{t('insight_rules.empty')}</p>
+            )}
+
+            {!editing && (
+                <details
+                    className="rounded-xl border border-indigo-100 bg-indigo-50/30 text-sm"
+                    open={createPanelOpen}
+                    onToggle={handleCreatePanelToggle}
+                >
+                    <summary className="cursor-pointer select-none px-3 py-2 font-medium text-indigo-900">
+                        {t('insight_rules.add_rule')}
+                    </summary>
+                    <div className="border-t border-indigo-100 px-3 pb-3 pt-2">
+                        {createPanelOpen && creating && (
+                            <InsightRuleForm
+                                mode="create"
+                                editRule={null}
+                                createSeed={null}
+                                instanceKey={`create-${createSessionId}`}
+                                onCancel={() => {
+                                    setCreating(false);
+                                    setCreatePanelOpen(false);
+                                }}
+                                onSuccess={() => {
+                                    setCreating(false);
+                                    setCreatePanelOpen(false);
+                                }}
+                                onInvalidate={invalidate}
+                            />
+                        )}
+                    </div>
+                </details>
+            )}
+            {editing && (
+                <InsightRuleForm
+                    mode="edit"
+                    editRule={editing}
+                    createSeed={null}
+                    instanceKey={editing.id}
+                    showAiDraftSection={false}
+                    onCancel={() => setEditing(null)}
+                    onSuccess={() => setEditing(null)}
+                    onInvalidate={invalidate}
+                />
+            )}
+
+            <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 text-sm">
+                <summary className="cursor-pointer select-none px-3 py-2 font-medium text-gray-700">
+                    {t('insight_rules.import_collapsed_summary')}
+                </summary>
+                <div className="border-t border-gray-200 p-3 space-y-2">
+                    <label className="block text-xs font-bold text-gray-500 uppercase">{t('insight_rules.import_label')}</label>
+                    <textarea
+                        value={importText}
+                        onChange={(e) => setImportText(e.target.value)}
+                        rows={4}
+                        placeholder={t('insight_rules.import_placeholder')}
+                        className="w-full font-mono text-xs rounded-lg border border-gray-200 p-2 bg-white"
+                    />
+                    <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={mergeImport} onChange={(e) => setMergeImport(e.target.checked)} />
+                        {t('insight_rules.merge_import')}
+                    </label>
+                    <button
+                        type="button"
+                        onClick={() => openImportReview()}
+                        disabled={importMutation.isPending || !importText.trim()}
+                        className="px-3 py-1.5 rounded-lg bg-slate-700 text-white text-sm"
+                    >
+                        {t('insight_rules.import_start_review')}
+                    </button>
+                </div>
+            </details>
+
+            <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 text-sm">
+                <summary className="cursor-pointer select-none px-3 py-2 font-medium text-gray-700">
+                    {t('insight_rules.community_heading')}
+                </summary>
+                <div className="border-t border-gray-200 p-3 space-y-2">
+                    <CommunityInsightRulesPanel onImported={() => invalidate()} />
+                </div>
+            </details>
+
+            {importReview && (
+                <InsightRuleImportReviewModal
+                    doc={importReview.doc}
+                    values={importTuningValues}
+                    onChangeSlot={handleImportSlotChange}
+                    onClose={() => {
+                        if (!importMutation.isPending) setImportReview(null);
+                    }}
+                    onConfirm={confirmImportReview}
+                    busy={importMutation.isPending}
+                />
             )}
         </>
     );

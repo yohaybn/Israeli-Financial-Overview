@@ -212,14 +212,18 @@ router.post('/:id/evaluate', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Not found' });
         }
         const txns = await storageService.getAllTransactions(true);
-        const ev = evaluateInsightRuleDefinition(txns, rule.definition, {});
+        const ref = new Date();
+        const ev = evaluateInsightRuleDefinition(txns, rule.definition, { referenceDate: ref });
         if (!ev.matched) {
             return res.json({
                 success: true,
                 data: { matched: false, placeholders: {}, messageEn: '', messageHe: '' },
             });
         }
-        const { en, he } = applyMessageTemplates(rule.definition.output, ev.placeholders);
+        const { en, he } = applyMessageTemplates(rule.definition.output, ev.placeholders, {
+            referenceDate: ref,
+            definition: rule.definition,
+        });
         res.json({
             success: true,
             data: {

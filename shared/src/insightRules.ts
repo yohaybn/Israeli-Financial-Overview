@@ -6,6 +6,49 @@ import type { DigestLocale } from './financial/anomalyI18n.js';
 export const INSIGHT_RULES_EXPORT_FORMAT = 'financial-overview-insight-rules' as const;
 export const INSIGHT_RULE_DEFINITION_VERSION = 1 as const;
 
+/**
+ * Placeholder names filled when an insight rule matches (`{{name}}` in output.message).
+ * Keep in sync with {@link collectPlaceholders} and {@link applyMessageTemplates} (`period_label`).
+ */
+export const INSIGHT_RULE_MESSAGE_PLACEHOLDER_KEYS = [
+    'sum',
+    'sum_raw',
+    'count',
+    'category',
+    'threshold',
+    'avg_txn',
+    'pct_of_total',
+    'top_memo',
+    'largest_txn_amount',
+    'largest_txn_date',
+    'largest_txn_memo',
+    'dominant_account',
+    'delta_prior',
+    'currency',
+    'preview_3',
+    'period_label',
+] as const;
+
+export type InsightRuleMessagePlaceholderKey = (typeof INSIGHT_RULE_MESSAGE_PLACEHOLDER_KEYS)[number];
+
+/** One `{{key}}` per line for AI prompts and internal docs. */
+export function formatInsightRulePlaceholdersForPrompt(): string {
+    return INSIGHT_RULE_MESSAGE_PLACEHOLDER_KEYS.map((k) => `{{${k}}}`).join('\n');
+}
+
+/** Bullet list of category labels for AI prompts (exact strings for rule JSON). */
+export function formatCategoryLabelsForPrompt(labels: readonly string[]): string {
+    const seen = new Set<string>();
+    const lines: string[] = [];
+    for (const raw of labels) {
+        const c = raw.trim();
+        if (!c || seen.has(c)) continue;
+        seen.add(c);
+        lines.push(`- ${c}`);
+    }
+    return lines.length > 0 ? lines.join('\n') : '(no categories configured)';
+}
+
 export type InsightRuleSource = 'user' | 'ai';
 
 export type InsightRuleScope = 'current_month' | 'all' | 'last_n_days';
@@ -22,7 +65,12 @@ export type TxnCondition =
     | { op: 'ignored'; value: boolean }
     | { op: 'amountAbsGte'; value: number }
     | { op: 'amountAbsLte'; value: number }
-    | { op: 'isExpense' };
+    /** Inclusive range on |amount| (or chargedAmount). */
+    | { op: 'amountAbsBetween'; min: number; max: number }
+    /** 0 = Sunday … 6 = Saturday (local calendar day of transaction date). */
+    | { op: 'dayOfWeekIn'; days: number[] }
+    | { op: 'isExpense' }
+    | { op: 'isIncome' };
 
 export type InsightRuleCondition =
     | { op: 'and'; items: InsightRuleCondition[] }
@@ -31,7 +79,16 @@ export type InsightRuleCondition =
     | { op: 'existsTxn'; where: TxnCondition }
     | { op: 'sumExpensesGte'; amount: number; category?: string }
     | { op: 'sumExpensesLte'; amount: number; category?: string }
-    | { op: 'txnCountGte'; min: number; category?: string };
+    | { op: 'sumExpensesBetween'; minAmount: number; maxAmount: number; category?: string }
+    | { op: 'txnCountGte'; min: number; category?: string }
+    | { op: 'txnCountBetween'; min: number; max: number; category?: string }
+    | { op: 'sumIncomeGte'; amount: number; category?: string }
+    | { op: 'sumIncomeLte'; amount: number; category?: string }
+    | { op: 'maxSingleExpenseGte'; amount: number; category?: string }
+    /** category share of total expenses in scope: catSum / totalSum >= share */
+    | { op: 'shareOfCategoryGte'; category: string; share: number }
+    /** Net savings (income total − expense total) is at or below threshold (can be negative). */
+    | { op: 'netSavingsLte'; amount: number };
 
 export interface InsightRuleOutputV1 {
     kind: 'insight' | 'alert';
@@ -86,6 +143,16 @@ function isExpenseTxn(txn: Transaction): boolean {
     return txnAmount(txn) < 0;
 }
 
+function isIncomeTxn(txn: Transaction): boolean {
+    return txnAmount(txn) > 0;
+}
+
+function txnDayOfWeek(txn: Transaction): number | null {
+    const d = (txn.date || '').slice(0, 10);
+    if (!d) return null;
+    return new Date(`${d}T12:00:00`).getDay();
+}
+
 export function filterTransactionsForRuleScope(
     all: Transaction[],
     scope: InsightRuleScope,
@@ -115,6 +182,46 @@ export function filterTransactionsForRuleScope(
     return all.filter(byDate);
 }
 
+/**
+ * Transactions in the period immediately before the active rule scope (same span rules as {@link filterTransactionsForRuleScope}).
+ * Used for `delta_prior` placeholders. Empty when scope is `all`.
+ */
+export function filterTransactionsForPriorRuleScope(
+    all: Transaction[],
+    scope: InsightRuleScope,
+    options: { referenceDate?: Date; lastNDays?: number }
+): Transaction[] {
+    const ref = options.referenceDate ?? new Date();
+    if (scope === 'all') return [];
+
+    if (scope === 'current_month') {
+        const y = ref.getFullYear();
+        const m = ref.getMonth();
+        let py = y;
+        let pm = m - 1;
+        if (pm < 0) {
+            pm = 11;
+            py -= 1;
+        }
+        const monthPrefix = `${py}-${String(pm + 1).padStart(2, '0')}`;
+        return all.filter((t) => (t.date || '').startsWith(monthPrefix));
+    }
+
+    const n = Math.max(1, Math.min(366, Math.floor(options.lastNDays ?? 30)));
+    const endPrior = new Date(ref);
+    endPrior.setHours(0, 0, 0, 0);
+    endPrior.setDate(endPrior.getDate() - n);
+    const startPrior = new Date(endPrior);
+    startPrior.setDate(startPrior.getDate() - (n - 1));
+
+    return all.filter((t) => {
+        const d = (t.date || '').slice(0, 10);
+        if (!d) return false;
+        const txnDate = new Date(`${d}T12:00:00`);
+        return txnDate >= startPrior && txnDate <= endPrior;
+    });
+}
+
 export function evaluateTxnCondition(txn: Transaction, c: TxnCondition): boolean {
     switch (c.op) {
         case 'and':
@@ -141,8 +248,19 @@ export function evaluateTxnCondition(txn: Transaction, c: TxnCondition): boolean
             return Math.abs(txnAmount(txn)) >= c.value;
         case 'amountAbsLte':
             return Math.abs(txnAmount(txn)) <= c.value;
+        case 'amountAbsBetween': {
+            const a = Math.abs(txnAmount(txn));
+            return a >= c.min && a <= c.max;
+        }
+        case 'dayOfWeekIn': {
+            const dow = txnDayOfWeek(txn);
+            if (dow === null) return false;
+            return c.days.includes(dow);
+        }
         case 'isExpense':
             return isExpenseTxn(txn);
+        case 'isIncome':
+            return isIncomeTxn(txn);
         default:
             return false;
     }
@@ -178,6 +296,52 @@ function countExpenseTxns(txns: Transaction[], category?: string): number {
     return n;
 }
 
+function eligibleForIncomeAggregate(txn: Transaction): boolean {
+    if (isTransactionIgnored(txn)) return false;
+    return isIncomeTxn(txn);
+}
+
+function categoryMatchesOptionalIncome(txn: Transaction, category?: string): boolean {
+    if (category === undefined || category === '') return true;
+    return normCat(txn) === category;
+}
+
+function sumIncome(txns: Transaction[], category?: string): number {
+    let s = 0;
+    for (const t of txns) {
+        if (!eligibleForIncomeAggregate(t)) continue;
+        if (!categoryMatchesOptionalIncome(t, category)) continue;
+        s += txnAmount(t);
+    }
+    return Math.round(s * 100) / 100;
+}
+
+function countIncomeTxns(txns: Transaction[], category?: string): number {
+    let n = 0;
+    for (const t of txns) {
+        if (!eligibleForIncomeAggregate(t)) continue;
+        if (!categoryMatchesOptionalIncome(t, category)) continue;
+        n++;
+    }
+    return n;
+}
+
+function maxSingleExpense(txns: Transaction[], category?: string): number {
+    let m = 0;
+    for (const t of txns) {
+        if (!eligibleForAggregate(t)) continue;
+        if (!categoryMatchesOptional(t, category)) continue;
+        const a = Math.abs(txnAmount(t));
+        if (a > m) m = a;
+    }
+    return Math.round(m * 100) / 100;
+}
+
+/** Income total minus expense total (both as positive magnitudes). */
+function netSavings(txns: Transaction[]): number {
+    return Math.round((sumIncome(txns) - sumExpenses(txns)) * 100) / 100;
+}
+
 export function evaluateInsightRuleCondition(txns: Transaction[], c: InsightRuleCondition): boolean {
     switch (c.op) {
         case 'and':
@@ -192,21 +356,214 @@ export function evaluateInsightRuleCondition(txns: Transaction[], c: InsightRule
             return sumExpenses(txns, c.category) >= c.amount;
         case 'sumExpensesLte':
             return sumExpenses(txns, c.category) <= c.amount;
+        case 'sumExpensesBetween': {
+            const s = sumExpenses(txns, c.category);
+            return s >= c.minAmount && s <= c.maxAmount;
+        }
         case 'txnCountGte':
             return countExpenseTxns(txns, c.category) >= c.min;
+        case 'txnCountBetween': {
+            const n = countExpenseTxns(txns, c.category);
+            return n >= c.min && n <= c.max;
+        }
+        case 'sumIncomeGte':
+            return sumIncome(txns, c.category) >= c.amount;
+        case 'sumIncomeLte':
+            return sumIncome(txns, c.category) <= c.amount;
+        case 'maxSingleExpenseGte':
+            return maxSingleExpense(txns, c.category) >= c.amount;
+        case 'shareOfCategoryGte': {
+            const total = sumExpenses(txns, undefined);
+            if (total <= 0) return false;
+            const catSum = sumExpenses(txns, c.category);
+            return catSum / total >= c.share;
+        }
+        case 'netSavingsLte':
+            return netSavings(txns) <= c.amount;
         default:
             return false;
     }
 }
 
-function collectPlaceholders(txns: Transaction[], def: InsightRuleDefinitionV1): Record<string, string> {
-    const cat = def.condition;
-    let sumCat: string | undefined;
-    if (cat.op === 'sumExpensesGte' || cat.op === 'sumExpensesLte') sumCat = cat.category;
-    else if (cat.op === 'txnCountGte') sumCat = cat.category;
+function extractCategoryFromTxnCondition(c: TxnCondition): string | undefined {
+    switch (c.op) {
+        case 'categoryEquals':
+            return c.value.trim() || undefined;
+        case 'categoryIn':
+            return c.values.length > 0 ? c.values[0] : undefined;
+        case 'and':
+        case 'or':
+            for (const it of c.items) {
+                const f = extractCategoryFromTxnCondition(it);
+                if (f) return f;
+            }
+            return undefined;
+        case 'not':
+            return extractCategoryFromTxnCondition(c.item);
+        default:
+            return undefined;
+    }
+}
 
-    const total = sumExpenses(txns, sumCat).toLocaleString('en-US', { maximumFractionDigits: 2 });
-    const count = String(countExpenseTxns(txns, sumCat));
+function extractOptionalCategoryFromInsightCondition(c: InsightRuleCondition): string | undefined {
+    switch (c.op) {
+        case 'sumExpensesGte':
+        case 'sumExpensesLte':
+        case 'sumExpensesBetween':
+        case 'txnCountGte':
+        case 'txnCountBetween':
+        case 'sumIncomeGte':
+        case 'sumIncomeLte':
+        case 'maxSingleExpenseGte':
+            return typeof c.category === 'string' && c.category.trim() ? c.category : undefined;
+        case 'shareOfCategoryGte':
+            return c.category.trim() || undefined;
+        case 'existsTxn':
+            return extractCategoryFromTxnCondition(c.where);
+        case 'and':
+        case 'or':
+            for (const it of c.items) {
+                const found = extractOptionalCategoryFromInsightCondition(it);
+                if (found !== undefined) return found;
+            }
+            return undefined;
+        case 'not':
+            return extractOptionalCategoryFromInsightCondition(c.item);
+        default:
+            return undefined;
+    }
+}
+
+function extractThresholdFromInsightCondition(c: InsightRuleCondition): string {
+    const visit = (x: InsightRuleCondition): string | undefined => {
+        switch (x.op) {
+            case 'sumExpensesGte':
+            case 'sumExpensesLte':
+            case 'sumIncomeGte':
+            case 'sumIncomeLte':
+            case 'maxSingleExpenseGte':
+            case 'netSavingsLte':
+                return String(x.amount);
+            case 'sumExpensesBetween':
+                return `${x.minAmount}–${x.maxAmount}`;
+            case 'txnCountGte':
+                return String(x.min);
+            case 'txnCountBetween':
+                return `${x.min}–${x.max}`;
+            case 'shareOfCategoryGte':
+                return `${Math.round(x.share * 100)}%`;
+            case 'and':
+            case 'or':
+                for (const it of x.items) {
+                    const v = visit(it);
+                    if (v !== undefined) return v;
+                }
+                return undefined;
+            case 'not':
+                return visit(x.item);
+            default:
+                return undefined;
+        }
+    };
+    return visit(c) ?? '';
+}
+
+function topMemoByExpense(txns: Transaction[], category?: string): string {
+    const map = new Map<string, number>();
+    for (const t of txns) {
+        if (!eligibleForAggregate(t)) continue;
+        if (!categoryMatchesOptional(t, category)) continue;
+        const memo = (t.memo || t.description || '').trim();
+        if (!memo) continue;
+        const key = memo.length > 80 ? `${memo.slice(0, 77)}…` : memo;
+        map.set(key, (map.get(key) || 0) + Math.abs(txnAmount(t)));
+    }
+    let best = '';
+    let bestV = 0;
+    for (const [k, v] of map) {
+        if (v > bestV) {
+            best = k;
+            bestV = v;
+        }
+    }
+    return best;
+}
+
+function dominantAccountByExpense(txns: Transaction[], category?: string): string {
+    const map = new Map<string, number>();
+    for (const t of txns) {
+        if (!eligibleForAggregate(t)) continue;
+        if (!categoryMatchesOptional(t, category)) continue;
+        const acct = (t.accountNumber || '').trim() || '—';
+        map.set(acct, (map.get(acct) || 0) + Math.abs(txnAmount(t)));
+    }
+    let best = '';
+    let bestV = 0;
+    for (const [k, v] of map) {
+        if (v > bestV) {
+            best = k;
+            bestV = v;
+        }
+    }
+    return best;
+}
+
+function largestExpenseTxn(txns: Transaction[], category?: string): Transaction | null {
+    let best: Transaction | null = null;
+    let bestAmt = 0;
+    for (const t of txns) {
+        if (!eligibleForAggregate(t)) continue;
+        if (!categoryMatchesOptional(t, category)) continue;
+        const a = Math.abs(txnAmount(t));
+        if (a > bestAmt) {
+            bestAmt = a;
+            best = t;
+        }
+    }
+    return best;
+}
+
+function previewTopExpenses(txns: Transaction[], category: string | undefined, maxLines: number): string {
+    const rows = txns
+        .filter((t) => eligibleForAggregate(t) && categoryMatchesOptional(t, category))
+        .map((t) => ({ t, a: Math.abs(txnAmount(t)) }))
+        .sort((x, y) => y.a - x.a)
+        .slice(0, maxLines);
+    return rows
+        .map(({ t, a }) => {
+            const d = (t.date || '').slice(0, 10);
+            const m = (t.memo || t.description || '').trim().slice(0, 40);
+            return `${d} ${m} ${a.toFixed(2)}`.trim();
+        })
+        .join('; ');
+}
+
+/** Human-readable label for the rule’s active period (used as `period_label` in messages). */
+export function formatInsightRulePeriodLabel(def: InsightRuleDefinitionV1, ref: Date, locale: DigestLocale): string {
+    const loc = locale === 'he' ? 'he-IL' : 'en-US';
+    if (def.scope === 'all') {
+        return locale === 'he' ? 'כל העסקאות' : 'All transactions';
+    }
+    if (def.scope === 'current_month') {
+        return new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' }).format(ref);
+    }
+    const n = Math.max(1, Math.min(366, Math.floor(def.lastNDays ?? 30)));
+    const end = ref.toLocaleDateString(loc, { year: 'numeric', month: 'short', day: 'numeric' });
+    if (locale === 'he') {
+        return `${n} הימים האחרונים (עד ${end})`;
+    }
+    return `Last ${n} days (through ${end})`;
+}
+
+function collectPlaceholders(
+    txns: Transaction[],
+    def: InsightRuleDefinitionV1,
+    options: { referenceDate: Date; allTransactions: Transaction[] }
+): Record<string, string> {
+    const sumCat = extractOptionalCategoryFromInsightCondition(def.condition);
+    const sumNum = sumExpenses(txns, sumCat);
+    const cnt = countExpenseTxns(txns, sumCat);
+    const totalAll = sumExpenses(txns, undefined);
     const topCat = (() => {
         const map = new Map<string, number>();
         for (const t of txns) {
@@ -225,14 +582,51 @@ function collectPlaceholders(txns: Transaction[], def: InsightRuleDefinitionV1):
         return best;
     })();
 
+    const priorTxns = filterTransactionsForPriorRuleScope(options.allTransactions, def.scope, {
+        referenceDate: options.referenceDate,
+        lastNDays: def.lastNDays,
+    });
+    const priorSum = sumExpenses(priorTxns, sumCat);
+    const deltaRaw = sumNum - priorSum;
+    const deltaStr =
+        priorTxns.length === 0
+            ? ''
+            : `${deltaRaw > 0 ? '+' : ''}${deltaRaw.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+
+    const pct =
+        sumCat && totalAll > 0 ? String(Math.round((sumNum / totalAll) * 1000) / 10) : '';
+
+    const largest = largestExpenseTxn(txns, sumCat);
+    const largestAmt = largest ? Math.abs(txnAmount(largest)) : 0;
+    const largestDate = largest ? (largest.date || '').slice(0, 10) : '';
+    const largestMemo = largest
+        ? ((largest.memo || largest.description || '').trim().slice(0, 120) || '—')
+        : '';
+
+    const avg =
+        cnt > 0 ? (Math.round((sumNum / cnt) * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 }) : '';
+
     return {
-        sum: total,
-        count,
+        sum: sumNum.toLocaleString('en-US', { maximumFractionDigits: 2 }),
+        sum_raw: String(sumNum),
+        count: String(cnt),
         category: sumCat || topCat || '',
+        threshold: extractThresholdFromInsightCondition(def.condition),
+        avg_txn: avg,
+        pct_of_total: pct,
+        top_memo: topMemoByExpense(txns, sumCat),
+        dominant_account: dominantAccountByExpense(txns, sumCat),
+        largest_txn_amount: largestAmt.toLocaleString('en-US', { maximumFractionDigits: 2 }),
+        largest_txn_date: largestDate,
+        largest_txn_memo: largestMemo,
+        delta_prior: deltaStr,
+        currency: '₪',
+        preview_3: previewTopExpenses(txns, sumCat, 3),
     };
 }
 
-const PLACEHOLDER_RE = /\{\{\s*(sum|count|category)\s*\}\}/g;
+/** Placeholders use `{{name}}` with letters, numbers, and underscores. */
+const PLACEHOLDER_RE = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
 
 export function renderInsightRuleMessage(
     template: string,
@@ -259,17 +653,30 @@ export function evaluateInsightRuleDefinition(
     }
     return {
         matched: true,
-        placeholders: collectPlaceholders(scoped, def),
+        placeholders: collectPlaceholders(scoped, def, {
+            referenceDate: ref,
+            allTransactions,
+        }),
     };
 }
 
-export function applyMessageTemplates(output: InsightRuleOutputV1, placeholders: Record<string, string>): {
+export function applyMessageTemplates(
+    output: InsightRuleOutputV1,
+    placeholders: Record<string, string>,
+    options?: { referenceDate?: Date; definition?: InsightRuleDefinitionV1 }
+): {
     en: string;
     he: string;
 } {
+    const ref = options?.referenceDate ?? new Date();
+    const def = options?.definition;
+    const periodEn = def ? formatInsightRulePeriodLabel(def, ref, 'en') : '';
+    const periodHe = def ? formatInsightRulePeriodLabel(def, ref, 'he') : '';
+    const enPh = { ...placeholders, period_label: periodEn };
+    const hePh = { ...placeholders, period_label: periodHe };
     return {
-        en: renderInsightRuleMessage(output.message.en, 'en', placeholders).trim(),
-        he: renderInsightRuleMessage(output.message.he, 'he', placeholders).trim(),
+        en: renderInsightRuleMessage(output.message.en, 'en', enPh).trim(),
+        he: renderInsightRuleMessage(output.message.he, 'he', hePh).trim(),
     };
 }
 
@@ -363,9 +770,40 @@ function validateCondition(c: unknown): string | null {
         if (c.category !== undefined && typeof c.category !== 'string') return 'category must be string';
         return null;
     }
+    if (op === 'sumExpensesBetween') {
+        if (typeof c.minAmount !== 'number' || typeof c.maxAmount !== 'number') return 'minAmount/maxAmount invalid';
+        if (c.minAmount < 0 || c.maxAmount < 0 || c.minAmount > c.maxAmount) return 'sumExpensesBetween range invalid';
+        if (c.category !== undefined && typeof c.category !== 'string') return 'category must be string';
+        return null;
+    }
     if (op === 'txnCountGte') {
         if (typeof c.min !== 'number' || c.min < 0) return 'min invalid';
         if (c.category !== undefined && typeof c.category !== 'string') return 'category must be string';
+        return null;
+    }
+    if (op === 'txnCountBetween') {
+        if (typeof c.min !== 'number' || typeof c.max !== 'number') return 'txnCountBetween min/max invalid';
+        if (c.min < 0 || c.max < 0 || c.min > c.max) return 'txnCountBetween range invalid';
+        if (c.category !== undefined && typeof c.category !== 'string') return 'category must be string';
+        return null;
+    }
+    if (op === 'sumIncomeGte' || op === 'sumIncomeLte') {
+        if (typeof c.amount !== 'number' || c.amount < 0) return 'sumIncome amount invalid';
+        if (c.category !== undefined && typeof c.category !== 'string') return 'category must be string';
+        return null;
+    }
+    if (op === 'maxSingleExpenseGte') {
+        if (typeof c.amount !== 'number' || c.amount < 0) return 'maxSingleExpenseGte amount invalid';
+        if (c.category !== undefined && typeof c.category !== 'string') return 'category must be string';
+        return null;
+    }
+    if (op === 'shareOfCategoryGte') {
+        if (typeof c.category !== 'string' || !c.category.trim()) return 'shareOfCategoryGte.category required';
+        if (typeof c.share !== 'number' || c.share < 0 || c.share > 1) return 'shareOfCategoryGte.share must be 0–1';
+        return null;
+    }
+    if (op === 'netSavingsLte') {
+        if (typeof c.amount !== 'number' || !Number.isFinite(c.amount)) return 'netSavingsLte.amount invalid';
         return null;
     }
     return `unknown condition op: ${String(op)}`;
@@ -390,7 +828,18 @@ function validateTxnCondition(c: unknown): string | null {
     if (op === 'accountEquals') return typeof c.value === 'string' ? null : 'accountEquals';
     if (op === 'ignored') return typeof c.value === 'boolean' ? null : 'ignored';
     if (op === 'amountAbsGte' || op === 'amountAbsLte') return typeof c.value === 'number' ? null : 'amount';
+    if (op === 'amountAbsBetween') {
+        if (typeof c.min !== 'number' || typeof c.max !== 'number') return 'amountAbsBetween min/max';
+        if (c.min < 0 || c.max < 0 || c.min > c.max) return 'amountAbsBetween range';
+        return null;
+    }
+    if (op === 'dayOfWeekIn') {
+        if (!Array.isArray(c.days) || c.days.length === 0) return 'dayOfWeekIn.days required';
+        if (!c.days.every((d: unknown) => typeof d === 'number' && d >= 0 && d <= 6)) return 'dayOfWeekIn days 0–6';
+        return null;
+    }
     if (op === 'isExpense') return null;
+    if (op === 'isIncome') return null;
     return `unknown txn op: ${String(op)}`;
 }
 

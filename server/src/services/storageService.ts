@@ -11,6 +11,7 @@ import {
 } from '@app/shared';
 import { AiService } from './aiService.js';
 import { closeDbForRestore, DbService } from './dbService.js';
+import { refreshInsightRuleFires } from './insightRulesService.js';
 import { serverLogger } from '../utils/logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
@@ -84,6 +85,7 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
             notifyUncategorized: true,
         },
         budgetExports: {},
+        runInsightRules: true,
     },
 };
 
@@ -696,6 +698,13 @@ export class StorageService {
         // Read from DB now!
         await this.initPromise;
         return this.dbService.getAllTransactions(includeIgnored);
+    }
+
+    /** Re-evaluate all enabled insight rules against the full transaction set (same as post-scrape refresh). */
+    async refreshInsightRuleFiresFromDb(): Promise<{ matched: number; cleared: number }> {
+        await this.initPromise;
+        const allTx = await this.getAllTransactions(true);
+        return refreshInsightRuleFires(allTx, this.dbService);
     }
 
     async reloadTransactionsFromFiles() {

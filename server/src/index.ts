@@ -42,6 +42,7 @@ async function startServer() {
   const { appLockRoutes } = await import('./routes/appLockRoutes.js');
   const { helpRoutes } = await import('./routes/helpRoutes.js');
   const { insightRulesRoutes } = await import('./routes/insightRulesRoutes.js');
+  const { communityInsightRulesRoutes } = await import('./routes/communityInsightRulesRoutes.js');
   const { createBudgetExportRoutes } = await import('./routes/budgetExportRoutes.js');
 
   const app = express();
@@ -147,6 +148,7 @@ async function startServer() {
   app.use('/api/fraud', fraudRoutes);
   app.use('/api/help', helpRoutes);
   app.use('/api/insight-rules', insightRulesRoutes);
+  app.use('/api/community/insight-rules', communityInsightRulesRoutes);
   app.use('/api/budget-export', createBudgetExportRoutes());
 
   // Socket.IO connection handling

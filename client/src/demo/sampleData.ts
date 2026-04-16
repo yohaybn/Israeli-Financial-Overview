@@ -204,6 +204,7 @@ export const demoTransactions: Transaction[] = buildTransactions();
 
 const postScrape: PostScrapeConfig = {
     runCategorization: true,
+    runInsightRules: true,
     spendingDigestEnabled: false,
     fraudDetection: {
         enabled: true,

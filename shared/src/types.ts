@@ -53,6 +53,11 @@ export interface PostScrapeConfig {
      * Optional push of scraped transactions to external budget apps (non-secret fields only; tokens live in budget_export_secrets.json).
      */
     budgetExports?: BudgetExportsConfig;
+    /**
+     * After post-scrape, re-evaluate saved insight rules against the full transaction set and update rule fires.
+     * Default true when omitted.
+     */
+    runInsightRules?: boolean;
 }
 
 /** Per-destination export settings stored in scrape_config (no secrets). */
@@ -586,6 +591,8 @@ export interface CronScheduleFields {
 export interface SchedulerConfig extends CronScheduleFields {
     enabled: boolean;
     selectedProfiles: string[]; // List of profile IDs to run
+    /** Independent of scrape schedule; re-runs insight rules on a timer (no scrape). */
+    insightRulesSchedule?: InsightRulesScheduleConfig;
     /** Independent of scrape schedule; uses the same frequency mechanism. */
     backupSchedule?: BackupScheduleConfig;
     lastRun?: string; // ISO timestamp (last scrape)
@@ -599,6 +606,12 @@ export interface BackupScheduleConfig extends CronScheduleFields {
     lastRun?: string; // ISO timestamp (last backup)
 }
 
+/** Timer-only: re-evaluate insight rules against the DB (independent of scrapes). */
+export interface InsightRulesScheduleConfig extends CronScheduleFields {
+    enabled: boolean;
+    lastRun?: string; // ISO timestamp (last refresh)
+}
+
 export const DEFAULT_BACKUP_SCHEDULE: BackupScheduleConfig = {
     enabled: false,
     destination: 'local',
@@ -607,12 +620,20 @@ export const DEFAULT_BACKUP_SCHEDULE: BackupScheduleConfig = {
     cronExpression: '0 9 * * *'
 };
 
+export const DEFAULT_INSIGHT_RULES_SCHEDULE: InsightRulesScheduleConfig = {
+    enabled: false,
+    scheduleType: 'daily',
+    runTime: '10:00',
+    cronExpression: '0 10 * * *'
+};
+
 export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
     enabled: false,
     scheduleType: 'daily',
     runTime: '08:00',
     cronExpression: '0 8 * * *', // Default: Daily at 8:00 AM
     selectedProfiles: [],
+    insightRulesSchedule: { ...DEFAULT_INSIGHT_RULES_SCHEDULE },
     backupSchedule: { ...DEFAULT_BACKUP_SCHEDULE }
 };
 

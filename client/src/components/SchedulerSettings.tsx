@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSchedulerConfig, useUpdateSchedulerConfig } from '../hooks/useScraper';
 import { useProfiles } from '../hooks/useProfiles';
@@ -28,10 +28,13 @@ const emptySchedule = (): ScheduleEditorValue => ({
     customCron: '0 8 * * *'
 });
 
+/** Debounced autosave can miss the last edit if the tab/app closes first; flush on pagehide/unmount. */
+const SCHEDULER_SAVE_DEBOUNCE_MS = 400;
+
 export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) {
     const { t, i18n } = useTranslation();
     const { data: config, isLoading } = useSchedulerConfig();
-    const { mutate: updateConfig, isPending: isUpdating } = useUpdateSchedulerConfig();
+    const { mutateAsync: persistSchedulerConfig, isPending: isUpdating } = useUpdateSchedulerConfig();
     const { data: profiles } = useProfiles();
     const { data: providers } = useProviders();
 
@@ -49,8 +52,21 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
     }));
 
     const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
+
+    const [insightRulesTimerEnabled, setInsightRulesTimerEnabled] = useState(false);
+    const [insightRulesTimerSchedule, setInsightRulesTimerSchedule] = useState<ScheduleEditorValue>(() => ({
+        ...emptySchedule(),
+        runTime: '10:00',
+        customCron: '0 10 * * *'
+    }));
+
     const [successMessage, setSuccessMessage] = useState(false);
     const lastSerializedRef = useRef<string | null>(null);
+    const saveDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const configRef = useRef(config);
+    configRef.current = config;
+    const persistSchedulerRef = useRef(persistSchedulerConfig);
+    persistSchedulerRef.current = persistSchedulerConfig;
 
     const patchScrape = (patch: Partial<ScheduleEditorValue>) => {
         setScrapeSchedule((prev) => ({ ...prev, ...patch }));
@@ -58,6 +74,10 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
 
     const patchBackup = (patch: Partial<ScheduleEditorValue>) => {
         setBackupSchedule((prev) => ({ ...prev, ...patch }));
+    };
+
+    const patchInsightRulesTimer = (patch: Partial<ScheduleEditorValue>) => {
+        setInsightRulesTimerSchedule((prev) => ({ ...prev, ...patch }));
     };
 
     useLayoutEffect(() => {
@@ -95,12 +115,31 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
         });
 
         setSelectedProfiles(config.selectedProfiles || []);
+
+        const ir = config.insightRulesSchedule;
+        setInsightRulesTimerEnabled(ir?.enabled ?? false);
+        const irParts = ir?.cronExpression?.split(' ') || [];
+        const irRunTime =
+            ir?.runTime ??
+            (irParts.length >= 2 ? `${irParts[1].padStart(2, '0')}:${irParts[0].padStart(2, '0')}` : '10:00');
+        setInsightRulesTimerSchedule({
+            scheduleType: ir?.scheduleType ?? 'daily',
+            runTime: irRunTime,
+            weekdays: ir?.weekdays?.length ? [...ir.weekdays].sort((a, b) => a - b) : [1],
+            monthDays: ir?.monthDays?.length ? [...ir.monthDays].sort((a, b) => a - b) : [1],
+            intervalDays: ir?.intervalDays ?? 3,
+            intervalAnchorDate: ir?.intervalAnchorDate ?? todayLocalISO(),
+            customCron: ir?.cronExpression ?? '0 10 * * *'
+        });
+
         lastSerializedRef.current = null;
     }, [config]);
 
-    const buildPayload = () => {
+    const buildPayload = useCallback(() => {
         const sw = scrapeSchedule.weekdays.length ? scrapeSchedule.weekdays : [1];
         const sm = scrapeSchedule.monthDays.length ? scrapeSchedule.monthDays : [1];
+        const iw = insightRulesTimerSchedule.weekdays.length ? insightRulesTimerSchedule.weekdays : [1];
+        const im = insightRulesTimerSchedule.monthDays.length ? insightRulesTimerSchedule.monthDays : [1];
         const bw = backupSchedule.weekdays.length ? backupSchedule.weekdays : [1];
         const bm = backupSchedule.monthDays.length ? backupSchedule.monthDays : [1];
         return {
@@ -117,6 +156,22 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                   }
                 : {}),
             ...(scrapeSchedule.scheduleType === 'custom' ? { cronExpression: scrapeSchedule.customCron.trim() } : {}),
+            insightRulesSchedule: {
+                enabled: insightRulesTimerEnabled,
+                scheduleType: insightRulesTimerSchedule.scheduleType,
+                runTime: insightRulesTimerSchedule.runTime,
+                ...(insightRulesTimerSchedule.scheduleType === 'weekly' ? { weekdays: iw } : {}),
+                ...(insightRulesTimerSchedule.scheduleType === 'monthly' ? { monthDays: im } : {}),
+                ...(insightRulesTimerSchedule.scheduleType === 'interval_days'
+                    ? {
+                          intervalDays: Math.max(1, insightRulesTimerSchedule.intervalDays),
+                          intervalAnchorDate: insightRulesTimerSchedule.intervalAnchorDate
+                      }
+                    : {}),
+                ...(insightRulesTimerSchedule.scheduleType === 'custom'
+                    ? { cronExpression: insightRulesTimerSchedule.customCron.trim() }
+                    : {})
+            },
             backupSchedule: {
                 enabled: backupEnabled,
                 destination: backupDestination,
@@ -133,7 +188,53 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                 ...(backupSchedule.scheduleType === 'custom' ? { cronExpression: backupSchedule.customCron.trim() } : {})
             }
         };
-    };
+    }, [
+        enabled,
+        scrapeSchedule,
+        backupEnabled,
+        backupDestination,
+        backupSchedule,
+        selectedProfiles,
+        insightRulesTimerEnabled,
+        insightRulesTimerSchedule
+    ]);
+
+    const buildPayloadFnRef = useRef(buildPayload);
+    buildPayloadFnRef.current = buildPayload;
+
+    const flushSchedulerIfDirty = useCallback(() => {
+        if (!configRef.current) return;
+        if (saveDebounceTimerRef.current != null) {
+            clearTimeout(saveDebounceTimerRef.current);
+            saveDebounceTimerRef.current = null;
+        }
+        const payload = buildPayloadFnRef.current();
+        const nextJson = JSON.stringify(payload);
+        if (lastSerializedRef.current === nextJson) return;
+        void persistSchedulerRef.current(payload).then(
+            () => {
+                lastSerializedRef.current = nextJson;
+            },
+            () => {
+                /* leave dirty; user can retry */
+            }
+        );
+    }, []);
+
+    useLayoutEffect(() => {
+        return () => {
+            flushSchedulerIfDirty();
+        };
+    }, [flushSchedulerIfDirty]);
+
+    useEffect(() => {
+        window.addEventListener('pagehide', flushSchedulerIfDirty);
+        window.addEventListener('beforeunload', flushSchedulerIfDirty);
+        return () => {
+            window.removeEventListener('pagehide', flushSchedulerIfDirty);
+            window.removeEventListener('beforeunload', flushSchedulerIfDirty);
+        };
+    }, [flushSchedulerIfDirty]);
 
     useEffect(() => {
         if (!config) return;
@@ -143,29 +244,32 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
             return;
         }
         if (lastSerializedRef.current === json) return;
-        const t = setTimeout(() => {
+        if (saveDebounceTimerRef.current != null) {
+            clearTimeout(saveDebounceTimerRef.current);
+        }
+        saveDebounceTimerRef.current = setTimeout(() => {
+            saveDebounceTimerRef.current = null;
             const payload = buildPayload();
             const nextJson = JSON.stringify(payload);
             if (lastSerializedRef.current === nextJson) return;
-            updateConfig(payload, {
-                onSuccess: () => {
+            void persistSchedulerConfig(payload).then(
+                () => {
                     lastSerializedRef.current = nextJson;
                     setSuccessMessage(true);
                     setTimeout(() => setSuccessMessage(false), 3000);
+                },
+                () => {
+                    /* mutation error — leave lastSerializedRef unchanged */
                 }
-            });
-        }, 1000);
-        return () => clearTimeout(t);
-    }, [
-        config,
-        enabled,
-        scrapeSchedule,
-        backupEnabled,
-        backupDestination,
-        backupSchedule,
-        selectedProfiles,
-        updateConfig
-    ]);
+            );
+        }, SCHEDULER_SAVE_DEBOUNCE_MS);
+        return () => {
+            if (saveDebounceTimerRef.current != null) {
+                clearTimeout(saveDebounceTimerRef.current);
+                saveDebounceTimerRef.current = null;
+            }
+        };
+    }, [config, buildPayload, persistSchedulerConfig]);
 
     const toggleProfile = (id: string) => {
         setSelectedProfiles((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
@@ -202,6 +306,30 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
             {t('scheduler.backup_title')}
         </span>
     );
+
+    const insightRulesTimerTitle = (
+        <span className="flex items-center gap-2.5 text-[#1a2b3c]">
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
+                <path
+                    stroke={SCHED_ACCENT}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+            </svg>
+            {t('scheduler.insight_rules_timer_title')}
+        </span>
+    );
+
+    const insightTimerLastRunText =
+        config?.insightRulesSchedule?.lastRun &&
+        t('scheduler.insight_rules_timer_last_run', {
+            time: new Date(config.insightRulesSchedule.lastRun).toLocaleString(i18n.language, {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            })
+        });
 
     return (
         <div className={`space-y-8 ${isInline ? '' : 'max-w-4xl mx-auto'}`}>
@@ -267,6 +395,54 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                         </div>
                     </div>
                 </div>
+            </CollapsibleCard>
+
+            <CollapsibleCard title={insightRulesTimerTitle} defaultOpen bodyClassName="px-6 pb-6 pt-0 space-y-6">
+                <div className="flex items-center justify-end gap-4">
+                    <div className="flex items-center gap-3 shrink-0">
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={insightRulesTimerEnabled}
+                            dir="ltr"
+                            onClick={() => setInsightRulesTimerEnabled(!insightRulesTimerEnabled)}
+                            className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start rounded-full transition-colors ${
+                                insightRulesTimerEnabled ? '' : 'bg-gray-300'
+                            }`}
+                            style={insightRulesTimerEnabled ? { backgroundColor: SCHED_ACCENT } : undefined}
+                        >
+                            <span
+                                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+                                    insightRulesTimerEnabled ? 'translate-x-9' : 'translate-x-1'
+                                }`}
+                            />
+                        </button>
+                        <span className="text-sm font-semibold text-[#1a2b3c] hidden sm:inline">
+                            {insightRulesTimerEnabled ? t('common.enabled') : t('common.disabled')}
+                        </span>
+                    </div>
+                </div>
+
+                <p className="text-xs text-gray-500 leading-relaxed">{t('scheduler.insight_rules_timer_desc')}</p>
+
+                <div
+                    className={`space-y-6 transition-opacity duration-200 ${
+                        insightRulesTimerEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'
+                    }`}
+                >
+                    <ScheduleEditor value={insightRulesTimerSchedule} onChange={patchInsightRulesTimer} />
+                </div>
+
+                {insightTimerLastRunText ? (
+                    <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">{insightTimerLastRunText}</p>
+                ) : null}
+
+                <a
+                    href="?view=configuration&tab=insight-rules"
+                    className="inline-block text-xs font-semibold text-[#006d3c] hover:underline"
+                >
+                    {t('scheduler.insight_rules_configure_link')}
+                </a>
             </CollapsibleCard>
 
             <CollapsibleCard title={backupTitle} defaultOpen bodyClassName="px-6 pb-6 pt-0 space-y-6">

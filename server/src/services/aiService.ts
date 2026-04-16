@@ -11,6 +11,8 @@ import {
     normalizePersonaExtractFromAi,
     type PersonaExtractFromNarrativeResult,
     parseInsightRuleDefinition,
+    formatCategoryLabelsForPrompt,
+    formatInsightRulePlaceholdersForPrompt,
     type InsightRuleDefinitionV1,
     assignBatchContentIdsFromTransactions,
     shouldPreserveScrapedTransactionId,
@@ -215,7 +217,48 @@ export function normalizeScoredItems(raw: unknown, legacyDefaultScore: number = 
 const DEFAULT_SETTINGS: AiSettings = {
     categorizationModel: 'gemini-flash-latest',
     chatModel: 'gemini-flash-latest',
-    categories: ['מזון', 'תחבורה', 'קניות', 'מנויים', 'בריאות', 'מגורים', 'בילויים', 'משכורת', 'העברות', 'חשבונות', 'ביגוד', 'חינוך', 'אחר', 'משכנתא והלוואות'],
+    categories: [
+        'סופרמרקט',
+        'מכולות ופיצוציות',
+        'פארם וטואלטיקה',
+        'מסעדות ובתי קפה',
+        'משלוחי מזון',
+        'אלכוהול וטבק',
+        'דלק וטעינה',
+        'תחבורה ציבורית ומוניות',
+        'אחזקת רכב',
+        'חניה ואגרות',
+        'חשבונות בית',
+        'תקשורת וסטרימינג',
+        'תחזוקת הבית',
+        'ריהוט וציוד לבית',
+        'ביגוד והנעלה',
+        'קניות אונליין',
+        'אלקטרוניקה ומחשוב',
+        'תוכנה ושירותי ענן',
+        'חינוך',
+        'חוגים והעשרה',
+        'ציוד ילדים',
+        'בעלי חיים',
+        'טיפוח וקוסמטיקה',
+        'ספורט וכושר',
+        'פנאי ובידור',
+        'חופשות וטיסות',
+        'אירועים ושמחות',
+        'מתנות',
+        'תרומות',
+        'בריאות',
+        'משכנתא והלוואות',
+        'עמלות וריבית',
+        'קנסות ואגרות',
+        'ביטוחים',
+        'חיסכון והשקעות',
+        'שכר',
+        'קצבאות',
+        'משיכת מזומן',
+        'העברות',
+        'אחר',
+    ],
     defaultCategory: 'אחר',
     memoryInsightRetentionDays: 0,
     memoryAlertRetentionDays: 0,
@@ -1851,6 +1894,10 @@ ${trimmed}
         if (!trimmed) {
             throw new Error('Description required');
         }
+        const placeholdersBlock = formatInsightRulePlaceholdersForPrompt();
+        const categoriesBlock = formatCategoryLabelsForPrompt(this.settings.categories);
+        const defaultCategory = this.settings.defaultCategory.trim() || 'אחר';
+
         const systemInstruction = `You output JSON only for an "insight rule" used by a personal finance app (Israeli bank data).
 Schema of the JSON you return:
 {
@@ -1875,7 +1922,14 @@ InsightRuleCondition (recursive):
 - { "op": "existsTxn", "where": TxnCondition }
 - { "op": "sumExpensesGte", "amount": number, "category": optional string (Hebrew category label e.g. מזון) }
 - { "op": "sumExpensesLte", "amount": number, "category": optional }
+- { "op": "sumExpensesBetween", "minAmount": number, "maxAmount": number, "category": optional }
 - { "op": "txnCountGte", "min": number, "category": optional }
+- { "op": "txnCountBetween", "min": number, "max": number, "category": optional }
+- { "op": "sumIncomeGte", "amount": number, "category": optional }
+- { "op": "sumIncomeLte", "amount": number, "category": optional }
+- { "op": "maxSingleExpenseGte", "amount": number, "category": optional }
+- { "op": "shareOfCategoryGte", "category": string (required), "share": number between 0 and 1 (e.g. 0.35 = 35% of all expenses) }
+- { "op": "netSavingsLte", "amount": number }  // fires when (sum income − sum expenses) ≤ amount
 
 TxnCondition:
 - { "op": "and", "items": [ TxnCondition, ... ] } | { "op": "or", "items": [...] } | { "op": "not", "item": TxnCondition }
@@ -1886,10 +1940,22 @@ TxnCondition:
 - { "op": "ignored", "value": boolean }
 - { "op": "amountAbsGte", "value": number }
 - { "op": "amountAbsLte", "value": number }
+- { "op": "amountAbsBetween", "min": number, "max": number }
+- { "op": "dayOfWeekIn", "days": number[] }  // each 0–6, 0=Sunday
 - { "op": "isExpense" }
+- { "op": "isIncome" }
 
-Message strings may use placeholders {{sum}}, {{count}}, {{category}}.
-Prefer bilingual message.en and message.he.`;
+Message template placeholders: use ONLY the following names inside double braces in output.message.en and output.message.he (the engine substitutes them when the rule matches; any other {{name}} is left empty):
+${placeholdersBlock}
+
+Category strings in JSON (optional category on aggregates, categoryEquals.value, shareOfCategoryGte.category, categoryIn.values, etc.) MUST use EXACT labels from this canonical list — same strings as the app’s AI categorization and transaction data:
+${categoriesBlock}
+
+If the user names something not in the list, pick the closest label from the list or use the default category: "${defaultCategory}".
+
+Prefer bilingual message.en and message.he.
+
+The top-level "name" string must be a short human-readable rule title in the same natural language as the user's request (e.g. Hebrew in → Hebrew title, English in → English title, mixed → follow the dominant language of the request).`;
 
         const userPrompt = `User request:\n---\n${trimmed}\n---`;
 

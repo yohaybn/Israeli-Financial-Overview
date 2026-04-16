@@ -1,6 +1,7 @@
 import type {
     BackupScheduleConfig,
     CronScheduleFields,
+    InsightRulesScheduleConfig,
     SchedulerConfig,
     SchedulerScheduleType
 } from './types.js';
@@ -189,6 +190,28 @@ export function normalizeBackupSchedule<T extends BackupScheduleConfig>(config: 
         ...normalized,
         enabled: config.enabled ?? false,
         destination: config.destination ?? 'local',
+        lastRun: config.lastRun
+    } as T;
+}
+
+export function normalizeInsightRulesSchedule<T extends InsightRulesScheduleConfig>(config: T): T {
+    const normalized = normalizeScheduleFields(
+        {
+            scheduleType: config.scheduleType,
+            runTime: config.runTime,
+            weekdays: config.weekdays,
+            monthDays: config.monthDays,
+            intervalDays: config.intervalDays,
+            intervalAnchorDate: config.intervalAnchorDate,
+            cronExpression: config.cronExpression
+        },
+        '0 10 * * *'
+    );
+
+    return {
+        ...config,
+        ...normalized,
+        enabled: config.enabled ?? false,
         lastRun: config.lastRun
     } as T;
 }

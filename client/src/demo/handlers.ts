@@ -253,6 +253,14 @@ export const demoHandlers = [
         })
     ),
 
+    http.get(apiPath('/community/insight-rules/config'), () =>
+        HttpResponse.json({ success: true, data: { submitViaProxy: true } })
+    ),
+
+    http.post(apiPath('/community/insight-rules/submit'), () =>
+        HttpResponse.json({ success: true, data: { ok: true, data: { rulePath: 'demo' } } })
+    ),
+
     http.get(apiPath('/config'), () =>
         HttpResponse.json({ success: true, data: demoGlobalScrapeConfig })
     ),
@@ -311,7 +319,18 @@ export const demoHandlers = [
     ),
 
     http.get(apiPath('/scheduler/config'), () =>
-        HttpResponse.json({ success: true, data: { enabled: false } })
+        HttpResponse.json({
+            success: true,
+            data: {
+                enabled: false,
+                insightRulesSchedule: {
+                    enabled: false,
+                    scheduleType: 'daily',
+                    runTime: '10:00',
+                    cronExpression: '0 10 * * *'
+                }
+            }
+        })
     ),
 
     http.get(apiPath('/config/env'), () =>

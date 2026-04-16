@@ -4,12 +4,12 @@ export {
     buildSchedulerCronExpression,
     intervalDaysShouldRun,
     normalizeBackupSchedule,
+    normalizeInsightRulesSchedule,
     normalizeSchedulerConfig,
     parseRunTimeFromCron,
     cronPartsFromRunTime,
     localDateISO
 } from './schedulerSchedule.js';
-export { DEFAULT_BACKUP_SCHEDULE, DEFAULT_DASHBOARD_CONFIG, DEFAULT_SCHEDULER_CONFIG } from './types.js';
 export * from './providers.js';
 export {
     getSensitiveCredentialFieldNames,
@@ -92,16 +92,26 @@ export * from './userPersona.js';
 export {
     INSIGHT_RULES_EXPORT_FORMAT,
     INSIGHT_RULE_DEFINITION_VERSION,
+    INSIGHT_RULE_MESSAGE_PLACEHOLDER_KEYS,
     applyMessageTemplates,
     computeRulePeriodKey,
     evaluateInsightRuleCondition,
     evaluateInsightRuleDefinition,
     evaluateTxnCondition,
+    filterTransactionsForPriorRuleScope,
     filterTransactionsForRuleScope,
+    formatCategoryLabelsForPrompt,
+    formatInsightRulePeriodLabel,
+    formatInsightRulePlaceholdersForPrompt,
     parseInsightRuleDefinition,
     parseInsightRulesExportDocument,
     renderInsightRuleMessage,
 } from './insightRules.js';
+export {
+    applyInsightRuleImportTuningSlots,
+    extractInsightRuleImportTuningSlots,
+} from './insightRuleImportTuning.js';
+export type { InsightRuleImportTuningKind, InsightRuleImportTuningSlot } from './insightRuleImportTuning.js';
 export {
     builderStateToDefinition,
     defaultBuilderState,
@@ -123,12 +133,31 @@ export type {
     InsightRuleDefinition,
     InsightRuleDefinitionV1,
     InsightRuleExportRow,
+    InsightRuleMessagePlaceholderKey,
     InsightRuleOutputV1,
     InsightRuleScope,
     InsightRuleSource,
     InsightRulesExportDocument,
     TxnCondition,
 } from './insightRules.js';
+export {
+    COMMUNITY_AUTHOR_MAX_LEN,
+    COMMUNITY_DESCRIPTION_MAX_LEN,
+    COMMUNITY_INSIGHT_RULE_FILE_SCHEMA_VERSION,
+    COMMUNITY_INSIGHT_RULE_SUBMISSION_VERSION,
+    COMMUNITY_RULE_NAME_MAX_LEN,
+    COMMUNITY_RULE_PAYLOAD_MAX_BYTES,
+    parseCommunityInsightRuleRepoFile,
+    parseCommunityInsightRuleSubmission,
+    parseCommunityInsightRulesIndex,
+    sortCommunityIndexEntriesForDisplay,
+} from './communityInsightRules.js';
+export type {
+    CommunityInsightRuleRepoFileV1,
+    CommunityInsightRulesIndex,
+    CommunityInsightRulesIndexEntry,
+    CommunityInsightRuleSubmissionV1,
+} from './communityInsightRules.js';
 export {
     BACKUP_SCOPE_IDS,
     BACKUP_SNAPSHOT_RUNTIME_SETTINGS_PATH,
