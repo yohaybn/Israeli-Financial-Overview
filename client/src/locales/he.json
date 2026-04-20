@@ -1394,6 +1394,8 @@
         "import_label": "הדבקת קוד JSON שיוצא מאפליקציה אחרת",
         "import_placeholder": "{ \"format\": \"financial-overview-insight-rules\", ... }",
         "merge_import": "למזג עם החוקים הקיימים (יעדכן חוקים בעלי שם זהה)",
+        "share_mask_amounts": "הסתרת סכומים ב־JSON של החוק ובתיאור כאן (X)",
+        "copy_mask_amounts": "הסתרת ספים מספריים בהעתקה (X ב־JSON)",
         "test": "בדיקה על נתונים אמיתיים",
         "test_no_match": "הנתונים שלכם לא מפעילים את החוק הזה כרגע.",
         "empty": "עדיין לא הגדרתם חוקים מיוחדים.",
@@ -1547,7 +1549,8 @@
         "community_share_close": "סגירת טופס השיתוף",
         "community_share_form_title": "שיתוף „{{name}}”",
         "community_author": "שם או כינוי",
-        "community_submission_note": "תיאור (אופציונלי)",
+        "community_catalog_description": "תיאור בקטלוג",
+        "community_catalog_description_hint": "מוצג באינדקס הקהילתי. ניתן לערוך; ריקון השדה יחשב מחדש מהחוק.",
         "community_pick_rule_label": "איזה חוק לשתף",
         "community_pick_rule_placeholder": "בחרו חוק…",
         "community_pick_rule": "בחרו חוק לשיתוף.",
@@ -1687,6 +1690,19 @@
         "subscription_interval": "כל כמה זמן זה יורד לכם?",
         "exchange_rate": "שער המרה",
         "exchange_rate_one_unit": "1 {{originalCurrency}} = {{rate}} {{chargedCurrency}}"
+    },
+    "onezero": {
+        "otp": {
+            "section_title": "אסימון OTP ארוך טווח",
+            "section_hint": "קבלו קוד ב-SMS והחליפו אותו באסימון להתחברות אוטומטית. יש לבטל נעילה של האפליקציה תחילה.",
+            "send_sms": "שליחת קוד ב-SMS",
+            "phone_hint": "יש להזין מספר בינלאומי עם + (למשל +972…).",
+            "otp_label": "קוד מה-SMS",
+            "verify": "אימות ומילוי האסימון",
+            "token_filled": "האסימון מולא בשדה למטה.",
+            "locked": "יש לבטל נעילה של האפליקציה כדי ליצור אסימון.",
+            "idle_hint": "הזינו מספר טלפון למעלה ואז לחצו על שליחת קוד ב-SMS."
+        }
     },
     "profiles": {
         "title": "הפרופילים השמורים שלכם",

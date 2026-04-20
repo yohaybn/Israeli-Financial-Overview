@@ -1,0 +1,48 @@
+diff --git a/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js b/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js
+index 1bf8d21..a0dfdd5 100644
+--- a/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js
++++ b/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js
+@@ -114,21 +114,33 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+       pass: credentials.password,
+       pinCode: ''
+     });
+-    const {
+-      resultData: {
+-        idToken
+-      }
+-    } = getIdTokenResponse;
++    const idToken = getIdTokenResponse?.resultData?.idToken;
++    if (!idToken) {
++      let detail = '';
++      try {
++        const r = getIdTokenResponse;
++        if (r && typeof r === 'object') {
++          detail = r.resultHeader?.errorDescription || (Array.isArray(r.errors) ? r.errors[0]?.message : typeof r.errors === 'string' ? r.errors : '') || '';
++        }
++      } catch (e) {}
++      return (0, _errors.createGenericError)(`One Zero getIdToken failed${detail ? `: ${detail}` : ''}. Check email/password and OTP long-term token (generate a new token if it may have expired).`);
++    }
+     debug('Requesting session token');
+     const getSessionTokenResponse = await (0, _fetch.fetchPost)(`${IDENTITY_SERVER_URL}/sessions/token`, {
+       idToken,
+       pass: credentials.password
+     });
+-    const {
+-      resultData: {
+-        accessToken
+-      }
+-    } = getSessionTokenResponse;
++    const accessToken = getSessionTokenResponse?.resultData?.accessToken;
++    if (!accessToken) {
++      let detail = '';
++      try {
++        const r = getSessionTokenResponse;
++        if (r && typeof r === 'object') {
++          detail = r.resultHeader?.errorDescription || '';
++        }
++      } catch (e) {}
++      return (0, _errors.createGenericError)(`One Zero session token failed${detail ? `: ${detail}` : ''}.`);
++    }
+     this.accessToken = accessToken;
+     return {
+       success: true,

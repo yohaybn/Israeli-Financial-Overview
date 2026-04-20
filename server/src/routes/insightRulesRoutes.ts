@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import {
     INSIGHT_RULES_EXPORT_FORMAT,
+    maskInsightRuleDefinitionForExport,
     parseInsightRuleDefinition,
     parseInsightRulesExportDocument,
     evaluateInsightRuleDefinition,
@@ -29,9 +30,10 @@ router.get('/', (_req, res) => {
     }
 });
 
-router.get('/export', (_req, res) => {
+router.get('/export', (req, res) => {
     try {
         const rules = dbService.listInsightRules();
+        const maskAmounts = req.query.maskAmounts !== 'false' && req.query.maskAmounts !== '0';
         const doc = {
             format: INSIGHT_RULES_EXPORT_FORMAT,
             version: 1,
@@ -42,7 +44,7 @@ router.get('/export', (_req, res) => {
                 enabled: r.enabled,
                 priority: r.priority,
                 source: r.source,
-                definition: r.definition,
+                definition: maskAmounts ? maskInsightRuleDefinitionForExport(r.definition) : r.definition,
             })),
         };
         res.setHeader('Content-Type', 'application/json; charset=utf-8');

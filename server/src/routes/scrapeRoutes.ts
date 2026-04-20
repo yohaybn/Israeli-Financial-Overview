@@ -107,6 +107,40 @@ export function createScrapeRoutes(
         res.json({ success: true, data: PROVIDERS });
     });
 
+    /** One Zero: trigger SMS OTP; returns session id for complete step (requires app unlock). */
+    router.post('/scrape/onezero/otp/trigger', async (req, res) => {
+        try {
+            const phoneNumber = req.body?.phoneNumber;
+            const result = await scraperService.oneZeroOtpTrigger(
+                typeof phoneNumber === 'string' ? phoneNumber : ''
+            );
+            if (!result.success) {
+                return res.status(400).json({ success: false, error: result.error });
+            }
+            res.json({ success: true, sessionId: result.sessionId });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error?.message || String(error) });
+        }
+    });
+
+    /** One Zero: verify OTP and return long-term token (requires app unlock). */
+    router.post('/scrape/onezero/otp/complete', async (req, res) => {
+        try {
+            const sessionId = req.body?.sessionId;
+            const otpCode = req.body?.otpCode;
+            const result = await scraperService.oneZeroOtpComplete(
+                typeof sessionId === 'string' ? sessionId : '',
+                typeof otpCode === 'string' ? otpCode : ''
+            );
+            if (!result.success) {
+                return res.status(400).json({ success: false, error: result.error });
+            }
+            res.json({ success: true, otpLongTermToken: result.otpLongTermToken });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error?.message || String(error) });
+        }
+    });
+
     /** List saved tabular import formats under `data/import_profiles/`. */
     router.get('/import-profiles', async (_req, res) => {
         try {

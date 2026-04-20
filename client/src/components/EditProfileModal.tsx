@@ -5,6 +5,7 @@ import { ScraperOptions, isSensitiveCredentialKey, parseExcludedAccountNumbersIn
 import { useProfile, useUpdateProfile } from '../hooks/useProfiles';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { ProviderIcon } from './ProfileManager';
+import { OneZeroLongTermTokenHelper } from './OneZeroLongTermTokenHelper';
 
 export interface EditProfileModalProps {
     profileId: string;
@@ -175,6 +176,16 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                     </div>
                                 ))}
                             </div>
+
+                            {profile.companyId === 'oneZero' && (
+                                <OneZeroLongTermTokenHelper
+                                    phoneNumber={credentials.phoneNumber ?? ''}
+                                    onTokenGenerated={(token) =>
+                                        setCredentials((prev) => ({ ...prev, otpLongTermToken: token }))
+                                    }
+                                    disabled={restricted || isPending}
+                                />
+                            )}
 
                             <div className="border-t border-gray-100 pt-4 space-y-3">
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">

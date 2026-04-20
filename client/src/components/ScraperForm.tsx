@@ -14,6 +14,7 @@ import { ProfileManager } from './ProfileManager';
 import { useCreateProfile } from '../hooks/useProfiles';
 import { useAppLockStatus } from '../hooks/useAppLock';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
+import { OneZeroLongTermTokenHelper } from './OneZeroLongTermTokenHelper';
 
 // Run a scrape with full options
 function useRunScrape() {
@@ -251,6 +252,14 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
                                 </div>
                             ))}
                         </div>
+
+                        {selectedProvider === 'oneZero' && (
+                            <OneZeroLongTermTokenHelper
+                                phoneNumber={credentials.phoneNumber || ''}
+                                onTokenGenerated={(token) => updateCredential('otpLongTermToken', token)}
+                                disabled={restricted}
+                            />
+                        )}
 
                         <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-50">
                             {/* Save Profile Button */}

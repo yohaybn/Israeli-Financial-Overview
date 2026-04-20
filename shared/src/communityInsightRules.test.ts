@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { COMMUNITY_DESCRIPTION_MAX_LEN, parseCommunityInsightRuleSubmission, parseCommunityInsightRulesIndex } from './communityInsightRules.js';
+import {
+    COMMUNITY_DESCRIPTION_MAX_LEN,
+    parseCommunityInsightRuleSubmission,
+    parseCommunityInsightRulesIndex,
+    resolveCommunityCatalogDescription,
+} from './communityInsightRules.js';
 
 describe('parseCommunityInsightRuleSubmission', () => {
     it('accepts a minimal valid submission', () => {
@@ -47,6 +52,33 @@ describe('parseCommunityInsightRuleSubmission', () => {
             },
         });
         assert.equal(r.ok, false);
+    });
+});
+
+describe('resolveCommunityCatalogDescription', () => {
+    it('uses output message when submission and IFTTT description are empty', () => {
+        const sub = parseCommunityInsightRuleSubmission({
+            version: 1,
+            author: 'a',
+            rule: {
+                id: 'id',
+                name: 'n',
+                enabled: true,
+                priority: 0,
+                source: 'user',
+                definition: {
+                    version: 1,
+                    scope: 'all',
+                    condition: { op: 'txnCountGte', min: 1 },
+                    output: { kind: 'insight', score: 50, message: { en: 'Hello {{x}} world', he: 'שלום' } },
+                },
+            },
+        });
+        assert.equal(sub.ok, true);
+        if (sub.ok) {
+            const d = resolveCommunityCatalogDescription(sub.value);
+            assert.equal(d, 'Hello … world');
+        }
     });
 });
 

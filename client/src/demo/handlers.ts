@@ -236,6 +236,15 @@ export const demoHandlers = [
 
     http.get(apiPath('/insight-rules'), () => HttpResponse.json({ success: true, data: [] })),
 
+    http.get(apiPath('/insight-rules/export'), () =>
+        HttpResponse.json({
+            format: 'financial-overview-insight-rules',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            rules: [],
+        })
+    ),
+
     http.post(apiPath('/insight-rules/refresh'), () => emptyOk()),
 
     http.post(apiPath('/insight-rules/import'), () => emptyOk()),
@@ -455,6 +464,20 @@ export const demoHandlers = [
             success: true,
             data: demoScrapeResultFile(),
             filename: DEMO_SAMPLE_FILENAME,
+        })
+    ),
+
+    http.post(apiPath('/scrape/onezero/otp/trigger'), async () =>
+        HttpResponse.json({
+            success: true,
+            sessionId: 'demo-onezero-otp-session',
+        })
+    ),
+
+    http.post(apiPath('/scrape/onezero/otp/complete'), async () =>
+        HttpResponse.json({
+            success: true,
+            otpLongTermToken: 'demo-onezero-long-term-token',
         })
     ),
 

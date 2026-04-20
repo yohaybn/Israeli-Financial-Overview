@@ -1,10 +1,15 @@
 import { Router } from 'express';
-import { parseCommunityInsightRuleSubmission } from '@app/shared';
+import {
+    maskInsightRuleDefinitionForExport,
+    parseCommunityInsightRuleSubmission,
+    resolveCommunityCatalogDescription,
+} from '@app/shared';
 import {
     resolveCommunityInsightRulesGasUrl,
     resolveCommunityInsightRulesSecret,
 } from '../config/communityInsightRulesProxyDefaults.js';
 import { communityInsightSubmitRateLimit } from './communityInsightRulesRateLimit.js';
+import { serverLogger } from '../utils/logger.js';
 
 export const communityInsightRulesRoutes = Router();
 
@@ -33,8 +38,10 @@ communityInsightRulesRoutes.post('/submit', communityInsightSubmitRateLimit, asy
     const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
     const idempotencyKey =
         typeof body.idempotencyKey === 'string' ? body.idempotencyKey : undefined;
+    const maskAmounts = body.maskAmounts !== false && body.maskAmounts !== '0';
     const rest = { ...body };
     delete rest.idempotencyKey;
+    delete rest.maskAmounts;
 
     const parsed = parseCommunityInsightRuleSubmission(rest);
     if (!parsed.ok) {
@@ -43,12 +50,22 @@ communityInsightRulesRoutes.post('/submit', communityInsightSubmitRateLimit, asy
 
     // GAS Web App deployments often omit `Authorization` from `e.postData.headers`; `authSecret`
     // in the JSON body is the reliable path (see gas/community-insight-rules/Code.gs).
+    const ruleForProxy =
+        maskAmounts
+            ? {
+                  ...parsed.value.rule,
+                  definition: maskInsightRuleDefinitionForExport(parsed.value.rule.definition),
+              }
+            : parsed.value.rule;
+
+    const catalogDescription = resolveCommunityCatalogDescription(parsed.value);
+
     const payload = {
         authSecret: secret,
         version: parsed.value.version,
         author: parsed.value.author,
-        description: parsed.value.description,
-        rule: parsed.value.rule,
+        rule: ruleForProxy,
+        ...(catalogDescription ? { description: catalogDescription } : {}),
         ...(idempotencyKey ? { idempotencyKey } : {}),
     };
 
@@ -61,6 +78,14 @@ communityInsightRulesRoutes.post('/submit', communityInsightSubmitRateLimit, asy
         headers['Idempotency-Key'] = idemHeader;
     }
 
+    // Redact the shared secret so the log never leaks it; everything else mirrors the exact JSON that hits GAS.
+    const loggedPayload: Record<string, unknown> = { ...payload, authSecret: '<redacted>' };
+    serverLogger.info('[community-submit] POST → GAS', {
+        url,
+        headers: { ...headers, Authorization: 'Bearer <redacted>' },
+        payload: loggedPayload,
+    });
+
     let gasResponse: globalThis.Response;
     try {
         gasResponse = await fetch(url, {
@@ -70,10 +95,15 @@ communityInsightRulesRoutes.post('/submit', communityInsightSubmitRateLimit, asy
         });
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
+        serverLogger.error('[community-submit] network error', { message: msg });
         return res.status(502).json({ success: false, error: msg });
     }
 
     const text = await gasResponse.text();
+    serverLogger.info('[community-submit] GAS response', {
+        status: gasResponse.status,
+        body: text.length > 4000 ? `${text.slice(0, 4000)}…` : text,
+    });
     let json: unknown;
     try {
         json = JSON.parse(text);

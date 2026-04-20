@@ -1330,6 +1330,8 @@
         "import_label": "Paste export JSON",
         "import_placeholder": "{ \"format\": \"financial-overview-insight-rules\", ... }",
         "merge_import": "Merge with existing (upsert by id)",
+        "share_mask_amounts": "Mask amounts in rule JSON and in this description (“X”)",
+        "copy_mask_amounts": "Mask numeric thresholds when copying (“X” in JSON)",
         "test": "Test rule",
         "test_no_match": "No match for current data.",
         "empty": "No rules yet.",
@@ -1483,7 +1485,8 @@
         "community_share_close": "Close sharing",
         "community_share_form_title": "Share “{{name}}”",
         "community_author": "Your name or handle",
-        "community_submission_note": "Description (optional)",
+        "community_catalog_description": "Catalog description",
+        "community_catalog_description_hint": "Shown in the community index. You can edit the text below; clear it to regenerate from the rule.",
         "community_pick_rule_label": "Rule to share",
         "community_pick_rule_placeholder": "Select a rule…",
         "community_pick_rule": "Select which rule to share.",
@@ -1687,6 +1690,19 @@
         "subscription_interval": "Subscription Interval",
         "exchange_rate": "Exchange rate",
         "exchange_rate_one_unit": "1 {{originalCurrency}} = {{rate}} {{chargedCurrency}}"
+    },
+    "onezero": {
+        "otp": {
+            "section_title": "Long-term OTP token",
+            "section_hint": "Receive an SMS code and exchange it for a token used for automated logins. Unlock the app first.",
+            "send_sms": "Send SMS code",
+            "phone_hint": "Use international format with + (e.g. +972…).",
+            "otp_label": "SMS code",
+            "verify": "Verify and fill token",
+            "token_filled": "Token filled in the field below.",
+            "locked": "Unlock the app to generate a token.",
+            "idle_hint": "Enter your phone number above, then tap Send SMS code."
+        }
     },
     "profiles": {
         "title": "Saved Profiles",

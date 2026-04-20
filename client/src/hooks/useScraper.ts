@@ -83,6 +83,52 @@ export function useRunScrape() {
     });
 }
 
+function scrapeApiErrorMessage(e: unknown, fallback: string): string {
+    const ax = e as { response?: { data?: { error?: string } }; message?: string };
+    return ax?.response?.data?.error ?? ax?.message ?? fallback;
+}
+
+/** One Zero: trigger SMS OTP; returns session id for {@link useOneZeroOtpComplete}. */
+export function useOneZeroOtpTrigger() {
+    return useMutation({
+        mutationFn: async (phoneNumber: string) => {
+            try {
+                const { data } = await api.post<{ success: boolean; sessionId?: string; error?: string }>(
+                    '/scrape/onezero/otp/trigger',
+                    { phoneNumber }
+                );
+                if (!data.success || !data.sessionId) {
+                    throw new Error(data.error || 'Failed to send SMS');
+                }
+                return data.sessionId;
+            } catch (e: unknown) {
+                throw new Error(scrapeApiErrorMessage(e, 'Failed to send SMS'));
+            }
+        },
+    });
+}
+
+/** One Zero: verify SMS code and return long-term token string. */
+export function useOneZeroOtpComplete() {
+    return useMutation({
+        mutationFn: async (payload: { sessionId: string; otpCode: string }) => {
+            try {
+                const { data } = await api.post<{
+                    success: boolean;
+                    otpLongTermToken?: string;
+                    error?: string;
+                }>('/scrape/onezero/otp/complete', payload);
+                if (!data.success || !data.otpLongTermToken) {
+                    throw new Error(data.error || 'Failed to verify OTP');
+                }
+                return data.otpLongTermToken;
+            } catch (e: unknown) {
+                throw new Error(scrapeApiErrorMessage(e, 'Failed to verify OTP'));
+            }
+        },
+    });
+}
+
 export function useUpdateCategory() {
     const queryClient = useQueryClient();
     return useMutation({

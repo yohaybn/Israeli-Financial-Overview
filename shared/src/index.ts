@@ -113,6 +113,11 @@ export {
 } from './insightRuleImportTuning.js';
 export type { InsightRuleImportTuningKind, InsightRuleImportTuningSlot } from './insightRuleImportTuning.js';
 export {
+    INSIGHT_RULE_AMOUNT_PLACEHOLDER,
+    maskInsightRuleDefinitionForExport,
+    stripInsightRuleDefinitionAmountPlaceholders,
+} from './insightRuleExportMask.js';
+export {
     builderStateToDefinition,
     defaultBuilderState,
     defaultBuilderRows,
@@ -150,6 +155,7 @@ export {
     parseCommunityInsightRuleRepoFile,
     parseCommunityInsightRuleSubmission,
     parseCommunityInsightRulesIndex,
+    resolveCommunityCatalogDescription,
     sortCommunityIndexEntriesForDisplay,
 } from './communityInsightRules.js';
 export type {

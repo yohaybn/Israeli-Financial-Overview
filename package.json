@@ -27,7 +27,8 @@
         "node": ">=20"
     },
     "devDependencies": {
-        "concurrently": "^8.2.2"
+        "concurrently": "^8.2.2",
+        "patch-package": "^8.0.1"
     },
     "overrides": {
         "@rollup/plugin-terser": "1.0.0",

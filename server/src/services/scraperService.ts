@@ -21,6 +21,11 @@ import { DbService } from './dbService.js';
 import { profileService } from './profileService.js';
 import { appLockService } from './appLockService.js';
 import { serverLogger } from '../utils/logger.js';
+import {
+    getOneZeroOtpSession,
+    registerOneZeroOtpSession,
+    removeOneZeroOtpSession,
+} from './oneZeroOtpSessionStore.js';
 
 // Progress event types matching the library
 export enum ScraperProgressTypes {
@@ -505,6 +510,100 @@ export class ScraperService {
             return errorResult;
         } finally {
             activeScrapeCount--;
+        }
+    }
+
+    /**
+     * One Zero: send SMS OTP and keep scraper instance for {@link oneZeroOtpComplete}.
+     * Requires app unlock (same as scrape).
+     */
+    async oneZeroOtpTrigger(
+        phoneNumber: string
+    ): Promise<{ success: true; sessionId: string } | { success: false; error: string }> {
+        if (!appLockService.isUnlocked()) {
+            return { success: false, error: 'Application is locked. Unlock in the web UI first.' };
+        }
+        const trimmed = typeof phoneNumber === 'string' ? phoneNumber.trim() : '';
+        if (!trimmed.startsWith('+')) {
+            return {
+                success: false,
+                error: 'Phone number must be a full international number starting with + (e.g. +972...).',
+            };
+        }
+
+        const executablePath = this.getExecutablePath();
+        const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
+        const globalConfig = await this.storageService.getGlobalScrapeConfig();
+        const timeout = globalConfig.scraperOptions?.timeout ?? 120000;
+
+        const libOptions: Record<string, unknown> = {
+            companyId: CompanyTypes.oneZero,
+            startDate: new Date(),
+            combineInstallments: false,
+            showBrowser: false,
+            verbose: true,
+            timeout,
+            defaultTimeout: timeout,
+            args: defaultArgs,
+        };
+        if (executablePath) {
+            libOptions.executablePath = executablePath;
+        }
+
+        const scraper = createScraper(libOptions as any);
+        const triggerResult = await scraper.triggerTwoFactorAuth(trimmed);
+        if (!triggerResult.success) {
+            const err = triggerResult as { errorMessage?: string };
+            return {
+                success: false,
+                error: err.errorMessage || 'Failed to send OTP SMS',
+            };
+        }
+        const sessionId = registerOneZeroOtpSession(scraper);
+        return { success: true, sessionId };
+    }
+
+    /**
+     * One Zero: exchange SMS OTP for long-term token; consumes the session from {@link oneZeroOtpTrigger}.
+     */
+    async oneZeroOtpComplete(
+        sessionId: string,
+        otpCode: string
+    ): Promise<{ success: true; otpLongTermToken: string } | { success: false; error: string }> {
+        if (!appLockService.isUnlocked()) {
+            return { success: false, error: 'Application is locked. Unlock in the web UI first.' };
+        }
+        const code = typeof otpCode === 'string' ? otpCode.trim() : '';
+        if (!code) {
+            return { success: false, error: 'OTP code is required.' };
+        }
+        const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+        if (!sid) {
+            return { success: false, error: 'Session id is required.' };
+        }
+
+        const scraper = getOneZeroOtpSession(sid);
+        if (!scraper) {
+            return {
+                success: false,
+                error: 'Invalid or expired OTP session. Send a new SMS code and try again.',
+            };
+        }
+
+        try {
+            const result = await scraper.getLongTermTwoFactorToken(code);
+            removeOneZeroOtpSession(sid);
+            if (!result.success) {
+                const err = result as { errorMessage?: string };
+                return {
+                    success: false,
+                    error: err.errorMessage || 'Failed to verify OTP',
+                };
+            }
+            return { success: true, otpLongTermToken: result.longTermTwoFactorAuthToken };
+        } catch (e: any) {
+            removeOneZeroOtpSession(sid);
+            return { success: false, error: e?.message || String(e) };
         }
     }
 }

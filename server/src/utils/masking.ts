@@ -25,7 +25,12 @@ export function maskSensitiveData(data: any): any {
 
     const masked: any = {};
     for (const [key, value] of Object.entries(data)) {
-        if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk.toLowerCase()))) {
+        const lower = key.toLowerCase();
+        const isOtpField = lower === 'otpcode' || lower.includes('otp') || lower.includes('twofactor');
+        if (
+            isOtpField ||
+            sensitiveKeys.some((sk) => lower.includes(sk.toLowerCase()))
+        ) {
             masked[key] = '[REDACTED]';
         } else if (typeof value === 'object') {
             masked[key] = maskSensitiveData(value);

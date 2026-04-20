@@ -6,7 +6,7 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc",
-        "test": "node --import tsx --test src/insightRules.test.ts src/insightRuleBuilder.test.ts src/backupScopes.test.ts src/communityInsightRules.test.ts src/insightRuleImportTuning.test.ts"
+        "test": "node --import tsx --test src/insightRules.test.ts src/insightRuleBuilder.test.ts src/backupScopes.test.ts src/communityInsightRules.test.ts src/insightRuleImportTuning.test.ts src/insightRuleExportMask.test.ts"
     },
     "dependencies": {
         "md5": "^2.3.0"

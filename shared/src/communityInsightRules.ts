@@ -1,5 +1,6 @@
 import type { InsightRuleExportRow } from './insightRules.js';
 import { parseInsightRuleDefinition } from './insightRules.js';
+import { stripInsightRuleDefinitionAmountPlaceholders } from './insightRuleExportMask.js';
 
 /** Stored in repo as one file per submission under community/rules/. */
 export const COMMUNITY_INSIGHT_RULE_FILE_SCHEMA_VERSION = 1 as const;
@@ -16,7 +17,10 @@ export const COMMUNITY_RULE_PAYLOAD_MAX_BYTES = 65536;
 export interface CommunityInsightRuleSubmissionV1 {
     version: typeof COMMUNITY_INSIGHT_RULE_SUBMISSION_VERSION;
     author: string;
-    /** Contributor note (not the same as definition.description). */
+    /**
+     * Optional short text for the repo file / GAS index: usually derived from the rule (`definition.description`
+     * or an auto-generated summary from the same definition).
+     */
     description?: string;
     rule: InsightRuleExportRow;
 }
@@ -26,7 +30,7 @@ export interface CommunityInsightRulesIndexEntry {
     id: string;
     name: string;
     author: string;
-    /** Contributor note (same as submission `description` / rule file). */
+    /** Same as submission `description` / rule file (rule-derived blurb). */
     description?: string;
     submittedAt: string;
     /** Repo-relative path, e.g. community/rules/<id>.json */
@@ -75,7 +79,9 @@ export function parseCommunityInsightRuleSubmission(
     if (typeof rule.enabled !== 'boolean') return { ok: false, error: 'rule.enabled required' };
     if (typeof rule.priority !== 'number' || !Number.isFinite(rule.priority)) return { ok: false, error: 'rule.priority required' };
     if (rule.source !== 'user' && rule.source !== 'ai') return { ok: false, error: 'rule.source invalid' };
-    const def = parseInsightRuleDefinition(rule.definition);
+    const stripped = stripInsightRuleDefinitionAmountPlaceholders(rule.definition);
+    if (!stripped.ok) return { ok: false, error: stripped.error };
+    const def = parseInsightRuleDefinition(stripped.normalized);
     if (!def.ok) return { ok: false, error: def.error };
 
     const payloadBytes = new TextEncoder().encode(JSON.stringify({ rule: { ...rule, definition: def.value } })).length;
@@ -166,6 +172,36 @@ export function parseCommunityInsightRuleRepoFile(
 }
 
 /** Featured first, then newest by submittedAt (ISO strings compare lexicographically for same timezone). */
+function stripMessagePlaceholdersForCatalog(s: string): string {
+    return s
+        .replace(/\{\{\s*[^}]+\s*\}\}/g, '…')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Blurb for community index / GAS: submission note, else IFTTT `definition.description`, else `output.message` (placeholders stripped).
+ * Call after {@link parseCommunityInsightRuleSubmission} so `definition` is normalized.
+ */
+export function resolveCommunityCatalogDescription(value: CommunityInsightRuleSubmissionV1): string | undefined {
+    const top = value.description?.trim();
+    if (top) {
+        return top.length > COMMUNITY_DESCRIPTION_MAX_LEN ? top.slice(0, COMMUNITY_DESCRIPTION_MAX_LEN) : top;
+    }
+    const def = value.rule.definition;
+    const fromDef = def.description?.trim();
+    if (fromDef) {
+        return fromDef.length > COMMUNITY_DESCRIPTION_MAX_LEN ? fromDef.slice(0, COMMUNITY_DESCRIPTION_MAX_LEN) : fromDef;
+    }
+    const en = def.output.message.en?.trim() ?? '';
+    const he = def.output.message.he?.trim() ?? '';
+    const raw = en || he;
+    if (!raw) return undefined;
+    const stripped = stripMessagePlaceholdersForCatalog(raw);
+    if (!stripped) return undefined;
+    return stripped.length > COMMUNITY_DESCRIPTION_MAX_LEN ? stripped.slice(0, COMMUNITY_DESCRIPTION_MAX_LEN) : stripped;
+}
+
 export function sortCommunityIndexEntriesForDisplay(entries: CommunityInsightRulesIndexEntry[]): CommunityInsightRulesIndexEntry[] {
     return [...entries].sort((a, b) => {
         const fa = a.featured ? 1 : 0;

@@ -6,7 +6,9 @@ import {
     builderStateToDefinition,
     defaultBuilderState,
     definitionToBuilderState,
+    extractInsightRuleImportTuningSlots,
     isBuilderStateSavable,
+    maskInsightRuleDefinitionForExport,
     parseInsightRuleDefinition,
     type BuilderState,
     type InsightRuleDefinitionV1,
@@ -68,6 +70,7 @@ export function InsightRuleForm({
     const [jsonError, setJsonError] = useState<string | null>(null);
     const [aiPrompt, setAiPrompt] = useState('');
     const [definitionJsonCopyHint, setDefinitionJsonCopyHint] = useState<'idle' | 'ok' | 'err'>('idle');
+    const [copyMaskAmounts, setCopyMaskAmounts] = useState(true);
 
     const applyParsedDefinition = useCallback((def: InsightRuleDefinitionV1) => {
         const b = definitionToBuilderState(def);
@@ -172,13 +175,21 @@ export function InsightRuleForm({
 
     const copyDefinitionJson = useCallback(async () => {
         try {
-            await navigator.clipboard.writeText(definitionText);
+            const resolved = resolveDefinition();
+            let text = definitionText;
+            if (resolved.ok) {
+                const useMask = copyMaskAmounts && extractInsightRuleImportTuningSlots(resolved.value).length > 0;
+                text = useMask
+                    ? JSON.stringify(maskInsightRuleDefinitionForExport(resolved.value), null, 2)
+                    : stringifyDef(resolved.value);
+            }
+            await navigator.clipboard.writeText(text);
             setDefinitionJsonCopyHint('ok');
         } catch {
             setDefinitionJsonCopyHint('err');
         }
         window.setTimeout(() => setDefinitionJsonCopyHint('idle'), 2000);
-    }, [definitionText]);
+    }, [copyMaskAmounts, definitionText, builderCompatible, definitionTextDirty, builderState, t]);
 
     const createMutation = useMutation({
         mutationFn: async () => {
@@ -339,6 +350,14 @@ export function InsightRuleForm({
                         <div className="flex flex-wrap items-start justify-between gap-2">
                             <p className="text-xs text-gray-500 flex-1 min-w-[8rem]">{t('insight_rules.advanced_json_hint')}</p>
                             <div className="flex flex-col items-end gap-1 shrink-0">
+                                <label className="flex items-center gap-2 text-xs text-gray-600">
+                                    <input
+                                        type="checkbox"
+                                        checked={copyMaskAmounts}
+                                        onChange={(e) => setCopyMaskAmounts(e.target.checked)}
+                                    />
+                                    {t('insight_rules.copy_mask_amounts')}
+                                </label>
                                 <button
                                     type="button"
                                     onClick={() => void copyDefinitionJson()}
@@ -373,6 +392,14 @@ export function InsightRuleForm({
                     <div className="flex flex-wrap items-end justify-between gap-2">
                         <label className="text-xs font-bold text-gray-500 uppercase">{t('insight_rules.definition_json')}</label>
                         <div className="flex flex-col items-end gap-1">
+                            <label className="flex items-center gap-2 text-xs text-gray-600">
+                                <input
+                                    type="checkbox"
+                                    checked={copyMaskAmounts}
+                                    onChange={(e) => setCopyMaskAmounts(e.target.checked)}
+                                />
+                                {t('insight_rules.copy_mask_amounts')}
+                            </label>
                             <button
                                 type="button"
                                 onClick={() => void copyDefinitionJson()}

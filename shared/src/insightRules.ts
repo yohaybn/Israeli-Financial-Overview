@@ -2,6 +2,7 @@ import type { Transaction } from './types.js';
 import { isTransactionIgnored } from './isTransactionIgnored.js';
 import { expenseCategoryKey } from './expenseCategory.js';
 import type { DigestLocale } from './financial/anomalyI18n.js';
+import { stripInsightRuleDefinitionAmountPlaceholders } from './insightRuleExportMask.js';
 
 export const INSIGHT_RULES_EXPORT_FORMAT = 'financial-overview-insight-rules' as const;
 export const INSIGHT_RULE_DEFINITION_VERSION = 1 as const;
@@ -116,6 +117,11 @@ export interface InsightRuleExportRow {
     priority: number;
     source: InsightRuleSource;
     definition: InsightRuleDefinition;
+    /**
+     * When the imported JSON used "X" placeholders, tuning slot ids (see {@link extractInsightRuleImportTuningSlots})
+     * so the import UI can pre-fill X until the user enters real numbers.
+     */
+    maskedAmountSlotIds?: string[];
 }
 
 export interface InsightRulesExportDocument {
@@ -858,7 +864,9 @@ export function parseInsightRulesExportDocument(raw: unknown): { ok: true; value
         if (typeof r.enabled !== 'boolean') return { ok: false, error: 'rule.enabled' };
         if (typeof r.priority !== 'number') return { ok: false, error: 'rule.priority' };
         if (r.source !== 'user' && r.source !== 'ai') return { ok: false, error: 'rule.source' };
-        const def = parseInsightRuleDefinition(r.definition);
+        const stripped = stripInsightRuleDefinitionAmountPlaceholders(r.definition);
+        if (!stripped.ok) return { ok: false, error: stripped.error };
+        const def = parseInsightRuleDefinition(stripped.normalized);
         if (!def.ok) return { ok: false, error: def.error };
         parsed.push({
             id: r.id,
@@ -867,6 +875,7 @@ export function parseInsightRulesExportDocument(raw: unknown): { ok: true; value
             priority: r.priority,
             source: r.source,
             definition: def.value,
+            ...(stripped.maskedSlotIds.length > 0 ? { maskedAmountSlotIds: stripped.maskedSlotIds } : {}),
         });
     }
     return {

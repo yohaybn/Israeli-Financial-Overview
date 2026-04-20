@@ -43,7 +43,10 @@ export function InsightRulesSettings({
 
     const [shareOpenForId, setShareOpenForId] = useState<string | null>(null);
     const [shareAuthor, setShareAuthor] = useState('');
+    /** Editable catalog blurb (top-level `description`); pre-filled from the rule, user may override. */
     const [shareDescription, setShareDescription] = useState('');
+    /** When true (default), community proxy and definition JSON use "X" for numeric thresholds. */
+    const [shareMaskAmounts, setShareMaskAmounts] = useState(true);
     const [shareBusy, setShareBusy] = useState(false);
     const [shareFeedback, setShareFeedback] = useState<{ tone: 'ok' | 'err' | 'warn'; text: string } | null>(null);
 
@@ -69,10 +72,18 @@ export function InsightRulesSettings({
                 setShareFeedback({ tone: 'warn', text: t('insight_rules.community_proxy_required_hint') });
                 return;
             }
+            const parsedForShareNote = parseInsightRuleDefinition(row.definition);
+            const generatedNote =
+                parsedForShareNote.ok
+                    ? buildDefaultCommunityShareNote(parsedForShareNote.value, t, i18n.language, {
+                          maskAmounts: shareMaskAmounts,
+                      }).trim()
+                    : '';
+            const submissionNote = (shareDescription.trim() || generatedNote) || undefined;
             const submission = {
                 version: COMMUNITY_INSIGHT_RULE_SUBMISSION_VERSION,
                 author,
-                description: shareDescription.trim() || undefined,
+                description: submissionNote,
                 rule: {
                     id: row.id,
                     name: row.name,
@@ -96,7 +107,11 @@ export function InsightRulesSettings({
                     success: boolean;
                     error?: string;
                     data?: { ok?: boolean; error?: string };
-                }>('/community/insight-rules/submit', { ...submission, idempotencyKey });
+                }>('/community/insight-rules/submit', {
+                    ...submission,
+                    idempotencyKey,
+                    maskAmounts: shareMaskAmounts,
+                });
                 if (!data.success) {
                     setShareFeedback({ tone: 'err', text: data.error || t('insight_rules.community_share_failed') });
                     return;
@@ -128,7 +143,7 @@ export function InsightRulesSettings({
                 setShareBusy(false);
             }
         },
-        [shareAuthor, shareDescription, submitViaProxy, t]
+        [shareAuthor, shareDescription, shareMaskAmounts, submitViaProxy, t, i18n.language]
     );
 
     const { data: rules, isLoading } = useQuery({
@@ -217,7 +232,8 @@ export function InsightRulesSettings({
             const slots = extractInsightRuleImportTuningSlots(r.definition);
             init[r.id] = {};
             for (const s of slots) {
-                init[r.id][s.id] = s.initialValue;
+                const masked = r.maskedAmountSlotIds?.includes(s.id);
+                init[r.id][s.id] = masked ? 'X' : s.initialValue;
             }
         }
         setImportTuningValues(init);
@@ -248,7 +264,11 @@ export function InsightRulesSettings({
                 return;
             }
             nextRules.push({
-                ...r,
+                id: r.id,
+                name: r.name,
+                enabled: r.enabled,
+                priority: r.priority,
+                source: r.source,
                 definition: reparse.value,
             });
         }
@@ -322,10 +342,12 @@ export function InsightRulesSettings({
                                                 setShareFeedback(null);
                                                 const s = loadCommunityInsightRulesSettings();
                                                 setShareAuthor(s.lastAuthor || '');
-                                                const parsedDef = parseInsightRuleDefinition(r.definition);
+                                                const pd = parseInsightRuleDefinition(r.definition);
                                                 setShareDescription(
-                                                    parsedDef.ok
-                                                        ? buildDefaultCommunityShareNote(parsedDef.value, t, i18n.language)
+                                                    pd.ok
+                                                        ? buildDefaultCommunityShareNote(pd.value, t, i18n.language, {
+                                                              maskAmounts: shareMaskAmounts,
+                                                          })
                                                         : ''
                                                 );
                                             }
@@ -380,13 +402,36 @@ export function InsightRulesSettings({
                                         />
                                     </label>
                                     <label className="block">
-                                        <span className="text-gray-600">{t('insight_rules.community_submission_note')}</span>
+                                        <span className="text-gray-600">{t('insight_rules.community_catalog_description')}</span>
+                                        <p className="text-gray-500 font-normal mt-0.5 mb-0.5">
+                                            {t('insight_rules.community_catalog_description_hint')}
+                                        </p>
                                         <textarea
                                             className="mt-0.5 w-full max-w-md rounded border border-gray-200 p-1.5 text-sm min-h-[5rem]"
                                             value={shareDescription}
                                             onChange={(e) => setShareDescription(e.target.value)}
                                             rows={5}
+                                            spellCheck
                                         />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={shareMaskAmounts}
+                                            onChange={(e) => {
+                                                const next = e.target.checked;
+                                                setShareMaskAmounts(next);
+                                                const pd = parseInsightRuleDefinition(r.definition);
+                                                if (pd.ok) {
+                                                    setShareDescription(
+                                                        buildDefaultCommunityShareNote(pd.value, t, i18n.language, {
+                                                            maskAmounts: next,
+                                                        })
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                        {t('insight_rules.share_mask_amounts')}
                                     </label>
                                     <div className="flex flex-wrap gap-2 items-center">
                                         <button

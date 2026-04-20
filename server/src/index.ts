@@ -175,18 +175,60 @@ async function startServer() {
     });
   }
 
-  httpServer.listen(port, () => {
-    serverLogger.info(`Server running on http://localhost:${port}`);
-    serverLogger.info(`WebSocket ready on ws://localhost:${port}`);
-    serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
-    void runAiMemoryRetentionPrune();
-    setInterval(() => void runAiMemoryRetentionPrune(), 24 * 60 * 60 * 1000);
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    serverLogger.error('HTTP server failed to bind or listen', {
+      message: err.message,
+      code: err.code,
+      port,
+      stack: err.stack,
+    });
   });
+
+  try {
+    httpServer.listen(port, () => {
+      serverLogger.info(`Server running on http://localhost:${port}`);
+      serverLogger.info(`WebSocket ready on ws://localhost:${port}`);
+      serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
+      void runAiMemoryRetentionPrune().catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        const stack = e instanceof Error ? e.stack : undefined;
+        serverLogger.warn('AI memory retention prune failed on startup (non-fatal)', { message: msg, stack });
+      });
+      setInterval(
+        () =>
+          void runAiMemoryRetentionPrune().catch((e: unknown) => {
+            const msg = e instanceof Error ? e.message : String(e);
+            serverLogger.warn('AI memory retention prune failed on timer (non-fatal)', { message: msg });
+          }),
+        24 * 60 * 60 * 1000
+      );
+    });
+  } catch (listenErr: unknown) {
+    const msg = listenErr instanceof Error ? listenErr.message : String(listenErr);
+    const stack = listenErr instanceof Error ? listenErr.stack : undefined;
+    serverLogger.error('httpServer.listen threw synchronously', { message: msg, stack });
+    throw listenErr;
+  }
+}
+
+function formatStartupFailure(error: unknown): { message: string; stack?: string } {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+  if (typeof error === 'string') {
+    return { message: error };
+  }
+  try {
+    return { message: JSON.stringify(error) };
+  } catch {
+    return { message: String(error) };
+  }
 }
 
 // Start the server
-startServer().catch((error) => {
-  serverLogger.error('Failed to start server', { error });
+startServer().catch((error: unknown) => {
+  const { message, stack } = formatStartupFailure(error);
+  serverLogger.error('Failed to start server', { message, stack });
   process.exit(1);
 });
