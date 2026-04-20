@@ -54,6 +54,12 @@ export type InsightRuleSource = 'user' | 'ai';
 
 export type InsightRuleScope = 'current_month' | 'all' | 'last_n_days';
 
+/** Anchor for {@link InsightRuleCondition} `refOnOrAfterAnchoredLastWorkingDay`. */
+export type InsightRulePaydayAnchor =
+    | { kind: 'month_end' }
+    /** 1–31; clamped to the number of days in the month. */
+    | { kind: 'day_of_month'; day: number };
+
 /** Single-transaction condition (no nested existsTxn in v1). */
 export type TxnCondition =
     | { op: 'and'; items: TxnCondition[] }
@@ -89,7 +95,17 @@ export type InsightRuleCondition =
     /** category share of total expenses in scope: catSum / totalSum >= share */
     | { op: 'shareOfCategoryGte'; category: string; share: number }
     /** Net savings (income total − expense total) is at or below threshold (can be negative). */
-    | { op: 'netSavingsLte'; amount: number };
+    | { op: 'netSavingsLte'; amount: number }
+    /**
+     * True when `referenceDate` (local calendar) is on or after the last Sun–Thu on or before the anchor day
+     * in the same month (Fri/Sat treated as weekend). `month_end` uses the last calendar day of the month.
+     */
+    | { op: 'refOnOrAfterAnchoredLastWorkingDay'; anchor: InsightRulePaydayAnchor };
+
+/** Optional context for conditions that depend on evaluation date (not transaction rows). */
+export type InsightRuleEvaluationContext = {
+    referenceDate: Date;
+};
 
 export interface InsightRuleOutputV1 {
     kind: 'insight' | 'alert';
@@ -157,6 +173,45 @@ function txnDayOfWeek(txn: Transaction): number | null {
     const d = (txn.date || '').slice(0, 10);
     if (!d) return null;
     return new Date(`${d}T12:00:00`).getDay();
+}
+
+function lastCalendarDayInMonth(year: number, monthIndex0: number): number {
+    return new Date(year, monthIndex0 + 1, 0).getDate();
+}
+
+/** Israeli-style weekend: Friday and Saturday are non-working. */
+function isIsraelStyleWorkingDayLocal(d: Date): boolean {
+    const dow = d.getDay();
+    return dow !== 5 && dow !== 6;
+}
+
+/**
+ * Latest Sun–Thu in the same calendar month with day <= `endDay` (`endDay` already 1…dim).
+ * Returns null only if no weekday exists in that range (e.g. empty range).
+ */
+function lastWorkingDayOnOrBeforeInMonth(year: number, monthIndex0: number, endDay: number): Date | null {
+    const dim = lastCalendarDayInMonth(year, monthIndex0);
+    const cap = Math.min(Math.max(1, Math.floor(endDay)), dim);
+    for (let day = cap; day >= 1; day--) {
+        const d = new Date(year, monthIndex0, day, 12, 0, 0, 0);
+        if (isIsraelStyleWorkingDayLocal(d)) return d;
+    }
+    return null;
+}
+
+function resolveAnchoredLastWorkingDay(ref: Date, anchor: InsightRulePaydayAnchor): Date | null {
+    const y = ref.getFullYear();
+    const m0 = ref.getMonth();
+    const dim = lastCalendarDayInMonth(y, m0);
+    const endDay = anchor.kind === 'month_end' ? dim : Math.min(Math.max(1, Math.floor(anchor.day)), dim);
+    return lastWorkingDayOnOrBeforeInMonth(y, m0, endDay);
+}
+
+function evaluateRefOnOrAfterAnchoredLastWorkingDay(ref: Date, anchor: InsightRulePaydayAnchor): boolean {
+    const payday = resolveAnchoredLastWorkingDay(ref, anchor);
+    if (!payday) return false;
+    const r = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), 12, 0, 0, 0);
+    return r.getTime() >= payday.getTime();
 }
 
 export function filterTransactionsForRuleScope(
@@ -348,14 +403,18 @@ function netSavings(txns: Transaction[]): number {
     return Math.round((sumIncome(txns) - sumExpenses(txns)) * 100) / 100;
 }
 
-export function evaluateInsightRuleCondition(txns: Transaction[], c: InsightRuleCondition): boolean {
+export function evaluateInsightRuleCondition(
+    txns: Transaction[],
+    c: InsightRuleCondition,
+    ctx?: InsightRuleEvaluationContext
+): boolean {
     switch (c.op) {
         case 'and':
-            return c.items.every((x) => evaluateInsightRuleCondition(txns, x));
+            return c.items.every((x) => evaluateInsightRuleCondition(txns, x, ctx));
         case 'or':
-            return c.items.some((x) => evaluateInsightRuleCondition(txns, x));
+            return c.items.some((x) => evaluateInsightRuleCondition(txns, x, ctx));
         case 'not':
-            return !evaluateInsightRuleCondition(txns, c.item);
+            return !evaluateInsightRuleCondition(txns, c.item, ctx);
         case 'existsTxn':
             return txns.some((t) => evaluateTxnCondition(t, c.where));
         case 'sumExpensesGte':
@@ -386,6 +445,10 @@ export function evaluateInsightRuleCondition(txns: Transaction[], c: InsightRule
         }
         case 'netSavingsLte':
             return netSavings(txns) <= c.amount;
+        case 'refOnOrAfterAnchoredLastWorkingDay': {
+            if (!ctx?.referenceDate) return false;
+            return evaluateRefOnOrAfterAnchoredLastWorkingDay(ctx.referenceDate, c.anchor);
+        }
         default:
             return false;
     }
@@ -467,6 +530,8 @@ function extractThresholdFromInsightCondition(c: InsightRuleCondition): string {
                 return undefined;
             case 'not':
                 return visit(x.item);
+            case 'refOnOrAfterAnchoredLastWorkingDay':
+                return x.anchor.kind === 'month_end' ? 'month_end' : `day ${x.anchor.day}`;
             default:
                 return undefined;
         }
@@ -653,7 +718,7 @@ export function evaluateInsightRuleDefinition(
         lastNDays: def.lastNDays,
     });
 
-    const matched = evaluateInsightRuleCondition(scoped, def.condition);
+    const matched = evaluateInsightRuleCondition(scoped, def.condition, { referenceDate: ref });
     if (!matched) {
         return { matched: false, placeholders: {} };
     }
@@ -812,7 +877,24 @@ function validateCondition(c: unknown): string | null {
         if (typeof c.amount !== 'number' || !Number.isFinite(c.amount)) return 'netSavingsLte.amount invalid';
         return null;
     }
+    if (op === 'refOnOrAfterAnchoredLastWorkingDay') {
+        return validatePaydayAnchor(c.anchor);
+    }
     return `unknown condition op: ${String(op)}`;
+}
+
+function validatePaydayAnchor(anchor: unknown): string | null {
+    if (!isObject(anchor)) return 'refOnOrAfterAnchoredLastWorkingDay.anchor required';
+    const kind = anchor.kind;
+    if (kind === 'month_end') return null;
+    if (kind === 'day_of_month') {
+        const day = anchor.day;
+        if (typeof day !== 'number' || !Number.isInteger(day) || day < 1 || day > 31) {
+            return 'anchor.day must be integer 1–31';
+        }
+        return null;
+    }
+    return 'refOnOrAfterAnchoredLastWorkingDay.anchor.kind invalid';
 }
 
 function validateTxnCondition(c: unknown): string | null {

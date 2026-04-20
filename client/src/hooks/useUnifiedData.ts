@@ -7,7 +7,8 @@ interface UnifiedDataResponse {
     transactions: Transaction[];
 }
 
-export function useUnifiedData() {
+export function useUnifiedData(options?: { enabled?: boolean }) {
+    const enabled = options?.enabled ?? true;
     return useQuery({
         queryKey: ['unified-data'],
         queryFn: async () => {
@@ -15,6 +16,7 @@ export function useUnifiedData() {
             return data.transactions;
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
-        refetchOnWindowFocus: false
+        refetchOnWindowFocus: false,
+        enabled,
     });
 }

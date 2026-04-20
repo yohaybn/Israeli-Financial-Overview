@@ -536,17 +536,18 @@ export class AiService {
             return { transactions: this.mapTransactionsWithCategoryCache(transactions) };
         }
 
-        // Prepare prompt
+        // Prepare prompt — list descriptions as a JSON array so the model never has to put raw descriptions
+        // (which may contain " e.g. עו"ש, בע"מ) inside JSON keys, which breaks parsing.
         const descriptions = Array.from(new Set(uncategorized.map((t) => t.description)));
+        const descriptionsJson = JSON.stringify(descriptions);
         const catExtra = this.settings.categorizationPromptExtra?.trim();
         const prompt = `
             Analyze the Objective: You are a professional financial assistant specializing in Israeli banking. 
             Your core task is to categorize the following transaction descriptions into the most appropriate category.
 
             ${skipCache ? 'Re-evaluate every description below from scratch; do not rely on any prior categorization.\n\n' : ''}
-            ---
-            ${descriptions.join('\n')}
-            ---
+            TRANSACTION DESCRIPTIONS (JSON array; index 0 is the first element, then 1, 2, ...):
+            ${descriptionsJson}
 
             Constraints & Output Format:
             AVAILABLE CATEGORIES:
@@ -557,22 +558,20 @@ export class AiService {
 
             ${catExtra ? `Additional instructions:\n${catExtra}\n\n` : ''}
             OUTPUT FORMAT:
-            You MUST return the result as a VALID JSON object where:
-            - The key is the EXACT transaction description. If the description contains quotes or special characters, you MUST properly escape them in the JSON.
-            - The value is the selected category string.
+            You MUST return a single VALID JSON object mapping each array index to a category.
+            - Keys are string indices only: "0", "1", "2", ... matching the JSON array above (inclusive, every index).
+            - Values are the selected category string from AVAILABLE CATEGORIES.
+            - Do NOT put the original Hebrew/English description text in JSON keys or values except as the category name.
 
-            Example:
-            {
-                "AMAZON MKT PLC": "General",
-                "YELLOW": "Transport"
-            }
+            Example (if there were exactly 2 descriptions in the array):
+            {"0":"General","1":"Transport"}
             
             Unless otherwise specified, provide a concise response. Ensure all technical nuances are preserved while maintaining natural flow.
         `;
 
         const primary = this.settings.categorizationModel;
         const categorizationSystemPrompt =
-            `Categorize Israeli bank transactions. Categories: ${this.settings.categories.join(', ')}` +
+            `Categorize Israeli bank transactions. Output JSON object with string keys "0","1",... mapping to category. Categories: ${this.settings.categories.join(', ')}` +
             (this.settings.categorizationSystemInstructionExtra?.trim()
                 ? `\n\n${this.settings.categorizationSystemInstructionExtra.trim()}`
                 : '');
@@ -601,7 +600,11 @@ export class AiService {
 
             let categoriesMap: Record<string, string> = {};
             try {
-                categoriesMap = this.extractJson(text);
+                const parsed = this.extractJson(text);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    throw new Error('Expected a JSON object mapping index strings to categories');
+                }
+                categoriesMap = this.indexMapToDescriptionCategories(parsed as Record<string, unknown>, descriptions);
                 serverLogger.info(`Received ${Object.keys(categoriesMap).length} categories from AI`);
             } catch (parseError: any) {
                 serverLogger.error(`Failed to parse AI response as JSON: ${parseError.message}`, {
@@ -1577,6 +1580,23 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         // await this.saveCache();
         this.dbService.setCategory(description, category);
         serverLogger.info(`Category updated in cache for description: "${description}" -> "${category}"`);
+    }
+
+    /**
+     * Turns `{"0":"Cat",...}` from categorizeTransactions into description -> category for DB/cache updates.
+     */
+    private indexMapToDescriptionCategories(
+        parsed: Record<string, unknown>,
+        descriptions: string[]
+    ): Record<string, string> {
+        const out: Record<string, string> = {};
+        for (const [k, v] of Object.entries(parsed)) {
+            if (!/^\d+$/.test(k)) continue;
+            const i = Number(k);
+            if (!Number.isFinite(i) || i < 0 || i >= descriptions.length) continue;
+            out[descriptions[i]] = String(v);
+        }
+        return out;
     }
 
     /**

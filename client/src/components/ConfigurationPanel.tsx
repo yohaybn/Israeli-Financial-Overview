@@ -18,9 +18,9 @@ export interface ConfigurationPanelProps {
     onOpenBudgetExports?: () => void;
 }
 
-const CONFIG_SECTIONS: { id: ConfigTabId; beta?: boolean }[] = [
+const CONFIG_SECTIONS: { id: ConfigTabId }[] = [
     { id: 'ai' },
-    { id: 'insight-rules', beta: true },
+    { id: 'insight-rules' },
     { id: 'categories' },
     { id: 'scheduler' },
     { id: 'scrape' },
@@ -41,12 +41,7 @@ export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports
             {activeTab === 'insight-rules' && (
                 <div className="space-y-6">
                     <div>
-                        <h2 className="flex flex-wrap items-center gap-2 text-xl font-bold text-gray-900">
-                            {t('config_tabs.insight-rules')}
-                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-amber-100 border-amber-200 text-amber-800">
-                                {t('insight_rules.beta')}
-                            </span>
-                        </h2>
+                        <h2 className="text-xl font-bold text-gray-900">{t('config_tabs.insight-rules')}</h2>
                         <p className="text-gray-500 text-sm mt-1">{t('insight_rules.subtitle')}</p>
                     </div>
                     <InsightRulesSettings isInline standaloneTab />
@@ -88,10 +83,9 @@ export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports
                     className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     aria-label={t('config_sidebar.nav_aria')}
                 >
-                    {CONFIG_SECTIONS.map(({ id, beta }) => (
+                    {CONFIG_SECTIONS.map(({ id }) => (
                         <option key={id} value={id}>
                             {sectionLabel(id)}
-                            {beta ? ` (${t('insight_rules.beta')})` : ''}
                         </option>
                     ))}
                 </select>
@@ -103,7 +97,7 @@ export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports
                     className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3"
                     aria-label={t('config_sidebar.nav_aria')}
                 >
-                    {CONFIG_SECTIONS.map(({ id, beta }) => {
+                    {CONFIG_SECTIONS.map(({ id }) => {
                         const active = activeTab === id;
                         return (
                             <button
@@ -118,17 +112,6 @@ export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports
                                 }`}
                             >
                                 <span className="min-w-0">{sectionLabel(id)}</span>
-                                {beta ? (
-                                    <span
-                                        className={`shrink-0 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${
-                                            active
-                                                ? 'border-emerald-300/80 bg-emerald-100/80 text-emerald-900'
-                                                : 'border-amber-200 bg-amber-50 text-amber-800'
-                                        }`}
-                                    >
-                                        {t('insight_rules.beta')}
-                                    </span>
-                                ) : null}
                             </button>
                         );
                     })}

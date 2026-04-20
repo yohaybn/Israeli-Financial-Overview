@@ -1,6 +1,7 @@
 services:
   app:
     image: ghcr.io/yohaybn/israeli-financial-overview-app:master
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "3000:3000"

@@ -199,4 +199,61 @@ describe('insightRules', () => {
         assert.ok(!en.includes('{{period_label}}'));
         assert.ok(!he.includes('{{period_label}}'));
     });
+
+    it('refOnOrAfterAnchoredLastWorkingDay month_end: Jan 2026 ends Saturday → payday Thu Jan 29', () => {
+        const cond = {
+            op: 'refOnOrAfterAnchoredLastWorkingDay' as const,
+            anchor: { kind: 'month_end' as const },
+        };
+        const ctx = { referenceDate: new Date(2026, 0, 28, 10, 0, 0) };
+        assert.equal(evaluateInsightRuleCondition([], cond, ctx), false);
+        ctx.referenceDate = new Date(2026, 0, 29, 10, 0, 0);
+        assert.equal(evaluateInsightRuleCondition([], cond, ctx), true);
+    });
+
+    it('refOnOrAfterAnchoredLastWorkingDay day_of_month: Apr 25 2026 Saturday → on or before is Thu Apr 23', () => {
+        const cond = {
+            op: 'refOnOrAfterAnchoredLastWorkingDay' as const,
+            anchor: { kind: 'day_of_month' as const, day: 25 },
+        };
+        assert.equal(evaluateInsightRuleCondition([], cond, { referenceDate: new Date(2026, 3, 22) }), false);
+        assert.equal(evaluateInsightRuleCondition([], cond, { referenceDate: new Date(2026, 3, 23) }), true);
+        assert.equal(evaluateInsightRuleCondition([], cond, { referenceDate: new Date(2026, 3, 30) }), true);
+    });
+
+    it('refOnOrAfterAnchoredLastWorkingDay without context is false', () => {
+        const cond = {
+            op: 'refOnOrAfterAnchoredLastWorkingDay' as const,
+            anchor: { kind: 'month_end' as const },
+        };
+        assert.equal(evaluateInsightRuleCondition([], cond), false);
+    });
+
+    it('parseInsightRuleDefinition accepts refOnOrAfterAnchoredLastWorkingDay anchors', () => {
+        const def = {
+            version: 1,
+            scope: 'current_month',
+            condition: {
+                op: 'refOnOrAfterAnchoredLastWorkingDay',
+                anchor: { kind: 'day_of_month', day: 15 },
+            },
+            output: { kind: 'insight', score: 50, message: { en: 'x', he: 'y' } },
+        };
+        const r = parseInsightRuleDefinition(def);
+        assert.equal(r.ok, true);
+    });
+
+    it('parseInsightRuleDefinition rejects invalid anchor.day', () => {
+        const def = {
+            version: 1,
+            scope: 'all',
+            condition: {
+                op: 'refOnOrAfterAnchoredLastWorkingDay',
+                anchor: { kind: 'day_of_month', day: 32 },
+            },
+            output: { kind: 'insight', score: 50, message: { en: 'x', he: 'y' } },
+        };
+        const r = parseInsightRuleDefinition(def);
+        assert.equal(r.ok, false);
+    });
 });

@@ -569,14 +569,7 @@ export function InsightRulesSettings({
 
     return (
         <CollapsibleCard
-            title={
-                <span className="inline-flex items-center gap-2 flex-wrap">
-                    {t('insight_rules.heading')}
-                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-amber-100 border-amber-200 text-amber-800">
-                        {t('insight_rules.beta')}
-                    </span>
-                </span>
-            }
+            title={t('insight_rules.heading')}
             subtitle={t('insight_rules.subtitle')}
             defaultOpen={isInline}
             bodyClassName="px-6 pb-6 pt-0 space-y-4"

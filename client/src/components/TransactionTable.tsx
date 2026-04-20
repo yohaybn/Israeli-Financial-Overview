@@ -10,7 +10,7 @@ import {
     EXPENSE_META_BUCKETS,
     type ExpenseMetaCategory,
 } from '@app/shared';
-import { ArrowRightLeft, EyeOff } from 'lucide-react';
+import { ArrowRightLeft, ChevronDown, Download, EyeOff, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { TransactionModal } from './TransactionModal';
 import { isInternalTransfer } from '../utils/transactionUtils';
@@ -82,26 +82,8 @@ const TYPE_FILTER_OPTIONS: Exclude<TransactionTypeFilter, 'all'>[] = [
     'subscription',
 ];
 
-/** Combined dropdown value: `all` | `type_*` | `meta_*` */
-function parseTypeMetaFilterKey(key: string): {
-    typeFilter: TransactionTypeFilter;
-    metaCategoryFilter: 'all' | ExpenseMetaCategory;
-} {
-    if (key === 'all') return { typeFilter: 'all', metaCategoryFilter: 'all' };
-    if (key.startsWith('meta_')) {
-        const m = key.slice(5) as ExpenseMetaCategory;
-        if ((EXPENSE_META_BUCKETS as readonly string[]).includes(m)) {
-            return { typeFilter: 'all', metaCategoryFilter: m };
-        }
-    }
-    if (key.startsWith('type_')) {
-        const v = key.slice(5) as TransactionTypeFilter;
-        if (v !== 'all' && TYPE_FILTER_OPTIONS.includes(v as Exclude<TransactionTypeFilter, 'all'>)) {
-            return { typeFilter: v, metaCategoryFilter: 'all' };
-        }
-    }
-    return { typeFilter: 'all', metaCategoryFilter: 'all' };
-}
+/** Prefix for meta-category `<option value>` in the category toolbar select (avoids collision with real category names). */
+const CATEGORY_TOOLBAR_META_PREFIX = '__toolbar_meta:';
 
 interface ColumnConfig {
     key: ColumnKey;
@@ -149,10 +131,10 @@ export function TransactionTable({
     });
     const [showColumnPicker, setShowColumnPicker] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [metaCategoryFilter, setMetaCategoryFilter] = useState<'all' | ExpenseMetaCategory>('all');
     /** `provider|accountNumber` from current rows; distinguishes accounts across institutions. */
     const [selectedAccountKey, setSelectedAccountKey] = useState<string>('all');
-    /** Combined type + meta filter (single dropdown with optgroups). */
-    const [typeMetaFilterKey, setTypeMetaFilterKey] = useState<string>('all');
+    const [typeTxnFilter, setTypeTxnFilter] = useState<TransactionTypeFilter>('all');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [exportingView, setExportingView] = useState<'csv' | 'json' | null>(null);
     const [viewDownloadOpen, setViewDownloadOpen] = useState(false);
@@ -169,11 +151,6 @@ export function TransactionTable({
     const mergedCategoryMeta = useMemo(
         () => mergeCategoryMeta(categoryListForMeta, aiSettings?.categoryMeta),
         [categoryListForMeta, aiSettings?.categoryMeta]
-    );
-
-    const { typeFilter, metaCategoryFilter } = useMemo(
-        () => parseTypeMetaFilterKey(typeMetaFilterKey),
-        [typeMetaFilterKey]
     );
 
     useEffect(() => {
@@ -285,8 +262,8 @@ export function TransactionTable({
         }
 
         // Type filter (ignored, installment, internal transfer, expense/income, subscription)
-        if (typeFilter !== 'all') {
-            result = result.filter(t => matchesTransactionTypeFilter(t, typeFilter, customCCKeywords));
+        if (typeTxnFilter !== 'all') {
+            result = result.filter((t) => matchesTransactionTypeFilter(t, typeTxnFilter, customCCKeywords));
         }
 
         // Sort
@@ -326,7 +303,7 @@ export function TransactionTable({
         selectedAccountKey,
         metaCategoryFilter,
         mergedCategoryMeta,
-        typeFilter,
+        typeTxnFilter,
         customCCKeywords,
     ]);
 
@@ -389,76 +366,24 @@ export function TransactionTable({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                <div className="relative flex-1 w-full sm:max-w-md">
-                    <input
-                        type="text"
-                        placeholder={t('table.search_placeholder_extended')}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className={`w-full ${i18n.language === 'he' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                    />
-                    <div className={`absolute ${i18n.language === 'he' ? 'right-3' : 'left-3'} top-2.5 text-gray-400`}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+            <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-md shadow-gray-200/80 border border-gray-100/90 space-y-3">
+                <div className="flex min-w-0 items-center gap-2">
+                    <div className="relative min-w-0 flex-1">
+                        <Search
+                            className="pointer-events-none absolute start-4 top-1/2 h-[1.125rem] w-[1.125rem] -translate-y-1/2 text-gray-400"
+                            strokeWidth={2}
+                            aria-hidden
+                        />
+                        <input
+                            type="search"
+                            enterKeyHint="search"
+                            placeholder={t('table.toolbar_search_placeholder')}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full rounded-full border border-gray-200 bg-white py-2.5 ps-11 pe-4 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition-[box-shadow,border-color] focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                        />
                     </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    <select
-                        value={typeMetaFilterKey}
-                        onChange={(e) => setTypeMetaFilterKey(e.target.value)}
-                        aria-label={t('table.type_meta_filter_label')}
-                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto min-w-[12rem] ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
-                    >
-                        <option value="all">{t('table.type_meta_filter_all')}</option>
-                        <optgroup label={t('table.type_filter_group')}>
-                            {TYPE_FILTER_OPTIONS.map((opt) => (
-                                <option key={opt} value={`type_${opt}`}>
-                                    {t(`table.type_filter_${opt}`)}
-                                </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label={t('table.meta_category_filter_group')}>
-                            {EXPENSE_META_BUCKETS.map((key) => (
-                                <option key={key} value={`meta_${key}`}>
-                                    {t(`ai_settings.meta_${key}`)}
-                                </option>
-                            ))}
-                        </optgroup>
-                    </select>
-                    <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
-                    >
-                        <option value="all">{t('common.all_categories')}</option>
-                        {availableCategories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={selectedAccountKey}
-                        onChange={(e) => setSelectedAccountKey(e.target.value)}
-                        aria-label={t('table.account_filter_label')}
-                        className={`py-2 px-3 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer transition-all w-full sm:w-auto min-w-[10rem] max-w-[min(100vw-2rem,18rem)] ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
-                    >
-                        <option value="all">{t('table.account_filter_all')}</option>
-                        {accountOptions.map(([key, { provider, accountNumber }]) => {
-                            const providerLabel = getProviderDisplayName(provider, providers, i18n.language);
-                            const acct = accountNumber || '—';
-                            return (
-                                <option key={key} value={key}>
-                                    {acct} — {providerLabel}
-                                </option>
-                            );
-                        })}
-                    </select>
-                    <div
-                        className="relative border-gray-200 border-s ps-2 ms-0"
-                        ref={viewDownloadRef}
-                    >
+                    <div className="relative shrink-0" ref={viewDownloadRef}>
                         <button
                             type="button"
                             id="transaction-table-download-trigger"
@@ -467,30 +392,22 @@ export function TransactionTable({
                             aria-controls="transaction-table-download-menu"
                             disabled={exportingView !== null}
                             onClick={() => setViewDownloadOpen((o) => !o)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white py-2 px-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 whitespace-nowrap"
+                            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-slate-700/20 bg-white px-3 sm:px-4 text-sm font-medium text-slate-800 shadow-sm outline-none transition-colors hover:border-slate-700/35 hover:bg-slate-50/80 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-slate-300"
                         >
                             {exportingView !== null ? (
                                 '…'
                             ) : (
                                 <>
-                                    <svg className="w-4 h-4 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                                        />
-                                    </svg>
-                                    {t('dashboard.download')}
-                                    <svg
-                                        className={`w-4 h-4 opacity-70 transition-transform ${viewDownloadOpen ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
+                                    <Download className="h-4 w-4 shrink-0 text-slate-600" strokeWidth={2} aria-hidden />
+                                    <span className="whitespace-nowrap">{t('dashboard.download')}</span>
+                                    <ChevronDown
+                                        className={clsx(
+                                            'h-4 w-4 shrink-0 text-slate-500 transition-transform',
+                                            viewDownloadOpen && 'rotate-180'
+                                        )}
+                                        strokeWidth={2}
                                         aria-hidden
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                    />
                                 </>
                             )}
                         </button>
@@ -499,7 +416,7 @@ export function TransactionTable({
                                 id="transaction-table-download-menu"
                                 role="menu"
                                 aria-labelledby="transaction-table-download-trigger"
-                                className={`absolute top-full z-50 mt-1 min-w-[10rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg ${i18n.language === 'he' ? 'left-0' : 'right-0'}`}
+                                className={`absolute top-full z-50 mt-1.5 min-w-[10.5rem] rounded-xl border border-gray-200 bg-white py-1 shadow-lg ${i18n.language === 'he' ? 'start-0' : 'end-0'}`}
                             >
                                 <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                                     {t('table.export_view_aria')}
@@ -507,7 +424,7 @@ export function TransactionTable({
                                 <button
                                     type="button"
                                     role="menuitem"
-                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-blue-50"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-sky-50"
                                     onClick={() => downloadCurrentView('csv')}
                                 >
                                     {t('table.export_view_csv')}
@@ -515,7 +432,7 @@ export function TransactionTable({
                                 <button
                                     type="button"
                                     role="menuitem"
-                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-blue-50"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-sky-50"
                                     onClick={() => downloadCurrentView('json')}
                                 >
                                     {t('table.export_view_json')}
@@ -525,47 +442,204 @@ export function TransactionTable({
                     </div>
                 </div>
 
-                <div className="relative">
-                    <button
-                        onClick={() => setShowColumnPicker(!showColumnPicker)}
-                        title={t('table.select_columns')}
-                        className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v12m0 0l3-3m-3 3l-3-3m0 0V3m12 0v12m0 0l3-3m-3 3l-3-3m0 0V3" />
-                        </svg>
-                    </button>
-
-                    {showColumnPicker && (
-                        <div className={`absolute ${i18n.language === 'he' ? 'right-0' : 'left-0'} top-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] max-w-sm`}>
-                            <div className="p-3 space-y-2 max-h-[60vh] overflow-y-auto">
-                                {AVAILABLE_COLUMNS.map(col => (
-                                    <label key={col.key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
-                                        <input
-                                            type="checkbox"
-                                            checked={visibleColumns.has(col.key)}
-                                            onChange={() => toggleColumn(col.key)}
-                                            className="rounded border-gray-300"
-                                        />
-                                        <span className="text-sm text-gray-700">{t(col.label)}</span>
-                                    </label>
-                                ))}
-                                <div className="border-t border-gray-200 pt-2 mt-2">
-                                    <button
-                                        onClick={resetToDefaults}
-                                        className={`w-full px-2 py-1 text-sm text-blue-600 hover:bg-gray-50 rounded ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
-                                    >
-                                        {t('table.reset_columns')}
-                                    </button>
-                                </div>
-                            </div>
+                <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-h-9 min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        <div
+                            className={clsx(
+                                'relative inline-flex w-[6.75rem] shrink-0 items-center gap-0.5 rounded-full border text-xs font-medium text-gray-800 transition-colors sm:w-[7.25rem]',
+                                typeTxnFilter !== 'all' ? 'border-sky-200 bg-sky-50/90' : 'border-gray-200/90 bg-gray-100'
+                            )}
+                        >
+                            <span className="shrink-0 ps-2 text-gray-500">{t('table.toolbar_type_prefix')}</span>
+                            <select
+                                value={typeTxnFilter}
+                                onChange={(e) => setTypeTxnFilter(e.target.value as TransactionTypeFilter)}
+                                aria-label={t('table.type_filter_label')}
+                                className={clsx(
+                                    'min-w-0 flex-1 cursor-pointer appearance-none rounded-full border-0 bg-transparent py-1.5 pe-7 text-xs text-gray-900 outline-none focus:ring-0 truncate',
+                                    i18n.language === 'he' ? 'text-right' : 'text-left'
+                                )}
+                            >
+                                <option value="all">{t('common.all')}</option>
+                                <optgroup label={t('table.type_filter_group')}>
+                                    {TYPE_FILTER_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt}>
+                                            {t(`table.type_filter_${opt}`)}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            </select>
+                            <ChevronDown
+                                className="pointer-events-none absolute end-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500"
+                                strokeWidth={2}
+                                aria-hidden
+                            />
                         </div>
-                    )}
+
+                        <div
+                            className={clsx(
+                                'relative inline-flex w-[6.75rem] shrink-0 items-center gap-0.5 rounded-full border text-xs font-medium text-gray-800 transition-colors sm:w-[7.25rem]',
+                                selectedCategory !== 'all' || metaCategoryFilter !== 'all'
+                                    ? 'border-sky-200 bg-sky-50/90'
+                                    : 'border-gray-200/90 bg-gray-100'
+                            )}
+                        >
+                            <span className="shrink-0 ps-2 text-gray-500">{t('table.toolbar_category_prefix')}</span>
+                            <select
+                                value={
+                                    metaCategoryFilter !== 'all'
+                                        ? `${CATEGORY_TOOLBAR_META_PREFIX}${metaCategoryFilter}`
+                                        : selectedCategory
+                                }
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    if (v === 'all') {
+                                        setSelectedCategory('all');
+                                        setMetaCategoryFilter('all');
+                                        return;
+                                    }
+                                    if (v.startsWith(CATEGORY_TOOLBAR_META_PREFIX)) {
+                                        const m = v.slice(
+                                            CATEGORY_TOOLBAR_META_PREFIX.length
+                                        ) as ExpenseMetaCategory;
+                                        if ((EXPENSE_META_BUCKETS as readonly string[]).includes(m)) {
+                                            setMetaCategoryFilter(m);
+                                            setSelectedCategory('all');
+                                        }
+                                        return;
+                                    }
+                                    setSelectedCategory(v);
+                                    setMetaCategoryFilter('all');
+                                }}
+                                aria-label={`${t('table.category')}. ${t('table.meta_category_filter_group')}`}
+                                className={clsx(
+                                    'min-w-0 flex-1 cursor-pointer appearance-none rounded-full border-0 bg-transparent py-1.5 pe-7 text-xs text-gray-900 outline-none focus:ring-0 truncate',
+                                    i18n.language === 'he' ? 'text-right' : 'text-left'
+                                )}
+                            >
+                                <option value="all">{t('common.all')}</option>
+                                <optgroup label={t('table.category')}>
+                                    {availableCategories.map((cat) => (
+                                        <option key={cat} value={cat}>
+                                            {cat}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label={t('table.meta_category_filter_group')}>
+                                    {EXPENSE_META_BUCKETS.map((key) => (
+                                        <option key={key} value={`${CATEGORY_TOOLBAR_META_PREFIX}${key}`}>
+                                            {t(`ai_settings.meta_${key}`)}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            </select>
+                            <ChevronDown
+                                className="pointer-events-none absolute end-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500"
+                                strokeWidth={2}
+                                aria-hidden
+                            />
+                        </div>
+
+                        <div
+                            className={clsx(
+                                'relative inline-flex w-[6.75rem] shrink-0 items-center gap-0.5 rounded-full border text-xs font-medium text-gray-800 transition-colors sm:w-[7.25rem]',
+                                selectedAccountKey !== 'all' ? 'border-sky-200 bg-sky-50/90' : 'border-sky-100/80 bg-sky-50/50'
+                            )}
+                        >
+                            <span className="shrink-0 ps-2 text-gray-500">{t('table.toolbar_account_prefix')}</span>
+                            <select
+                                value={selectedAccountKey}
+                                onChange={(e) => setSelectedAccountKey(e.target.value)}
+                                aria-label={t('table.account_filter_label')}
+                                className={clsx(
+                                    'min-w-0 flex-1 cursor-pointer appearance-none rounded-full border-0 bg-transparent py-1.5 pe-7 text-xs text-gray-900 outline-none focus:ring-0 truncate',
+                                    i18n.language === 'he' ? 'text-right' : 'text-left'
+                                )}
+                            >
+                                <option value="all">{t('common.all')}</option>
+                                {accountOptions.map(([key, { provider, accountNumber }]) => {
+                                    const providerLabel = getProviderDisplayName(provider, providers, i18n.language);
+                                    const acct = accountNumber || '—';
+                                    return (
+                                        <option key={key} value={key}>
+                                            {acct} — {providerLabel}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            <ChevronDown
+                                className="pointer-events-none absolute end-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500"
+                                strokeWidth={2}
+                                aria-hidden
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2 border-s border-gray-100 ps-2">
+                        <p className="hidden max-w-[10rem] truncate text-[11px] leading-tight text-gray-500 sm:block">
+                            {t('table.showing_count', {
+                                showing: filteredAndSortedTransactions.length,
+                                total: transactions.length,
+                            })}
+                        </p>
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowColumnPicker(!showColumnPicker)}
+                                title={t('table.select_columns')}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200/90 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100"
+                            >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M9 3v12m0 0l3-3m-3 3l-3-3m0 0V3m12 0v12m0 0l3-3m-3 3l-3-3m0 0V3"
+                                    />
+                                </svg>
+                            </button>
+
+                            {showColumnPicker && (
+                                <div
+                                    className={`absolute z-50 mt-2 w-[calc(100vw-2rem)] max-w-sm rounded-xl border border-gray-200 bg-white shadow-lg ${i18n.language === 'he' ? 'end-0' : 'start-0'}`}
+                                >
+                                    <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3">
+                                        {AVAILABLE_COLUMNS.map((col) => (
+                                            <label
+                                                key={col.key}
+                                                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 hover:bg-gray-50"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={visibleColumns.has(col.key)}
+                                                    onChange={() => toggleColumn(col.key)}
+                                                    className="rounded border-gray-300"
+                                                />
+                                                <span className="text-sm text-gray-700">{t(col.label)}</span>
+                                            </label>
+                                        ))}
+                                        <div className="mt-2 border-t border-gray-200 pt-2">
+                                            <button
+                                                type="button"
+                                                onClick={resetToDefaults}
+                                                className={`w-full rounded-lg px-2 py-1.5 text-sm text-blue-600 hover:bg-gray-50 ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
+                                            >
+                                                {t('table.reset_columns')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
-                <div className="text-sm text-gray-500 w-full sm:w-auto">
-                    {t('table.showing_count', { showing: filteredAndSortedTransactions.length, total: transactions.length })}
-                </div>
+                <p className="text-[11px] text-gray-500 sm:hidden">
+                    {t('table.showing_count', {
+                        showing: filteredAndSortedTransactions.length,
+                        total: transactions.length,
+                    })}
+                </p>
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">

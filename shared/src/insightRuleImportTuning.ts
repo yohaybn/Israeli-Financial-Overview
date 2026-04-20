@@ -174,6 +174,11 @@ function walkInsightCondition(c: InsightRuleCondition, base: (string | number)[]
             pushCategory(slots, [...base, 'category'], c.category, 'shareOfCategoryGte · category');
             pushPercent(slots, [...base, 'share'], c.share, 'shareOfCategoryGte · share %');
             return;
+        case 'refOnOrAfterAnchoredLastWorkingDay':
+            if (c.anchor.kind === 'day_of_month') {
+                pushCount(slots, [...base, 'anchor', 'day'], c.anchor.day, 'refOnOrAfterAnchoredLastWorkingDay · anchor day');
+            }
+            return;
         default:
             return;
     }
