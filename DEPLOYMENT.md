@@ -17,9 +17,9 @@ The application is configured using Environment Variables. These take precedence
 
 ### Application Structure
 
-The project is structured into two main components:
-- `/app`: The standalone Node.js application.
-- `/ha-addon`: Home Assistant Add-on configuration and startup scripts.
+The project includes:
+- **`Dockerfile.app`**: Multi-stage image for the standalone app (GHCR / docker-style deploy).
+- **`Dockerfile`**, **`config.yaml`**, **`run.sh`**, **`build.yaml`** at the **repository root**: Home Assistant Supervisor builds the add-on from the **full repo** as context (install the entire clone under `/addons/<name>/`).
 
 ## Security & encryption (at rest)
 

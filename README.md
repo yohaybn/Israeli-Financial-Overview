@@ -21,6 +21,7 @@
 - **שפות** — ממשק בעברית ובאנגלית, כולל תמיכה בכיוון כתיבה (ימין־שמאל / שמאל־ימין).
 - **התראות בטלגרם** — אופציונלי, כדי לקבל עדכונים או לבצע פעולות דרך הבוט (לפי ההגדרות שבחרת).
 - **נעילת אפליקציה** — סיסמה שמגנה על הסשן ומסייעת להצפין את פרטי ההתחברות לבנקים שנשמרים אצלך במכשיר (ראו מדריך והערות אבטחה למטה).
+- **תיק השקעות (אופציונלי)** — מעקב אחרי מניות/קרנות עם שערים; אפשר לחבר מפתח API של **EODHD** (הסבר באנגלית ב־README: [מפתח EODHD](#eodhd-api-token), או **הגדרות → השקעות** באפליקציה).
 
 כל זה מיועד ל**שימוש אישי וביתי** — אתה שולט איפה הנתונים נשמרים ואיך ניגשים אליהם.
 
@@ -45,6 +46,7 @@ The idea is straightforward: less juggling spreadsheets and scattered exports, a
 - **Languages** — **English** and **Hebrew** with proper LTR/RTL layout.
 - **Telegram** (optional) — updates and bot commands, depending on how you configure it.
 - **App lock** — a password that protects your session and helps **encrypt saved bank profile credentials** on disk (see the user guide and security notes below).
+- **Investments / portfolio** (optional) — track tickers and holdings; connect an **EODHD** API token under **Configuration → Investments** (see **[#eodhd-api-token](#eodhd-api-token)** below).
 
 This is aimed at **personal / home** use: **you** choose where data lives and how it is accessed.
 
@@ -90,7 +92,7 @@ On **Windows**, the straightforward path is to download the **installer** (a fil
 
 | Area | Highlights |
 |------|------------|
-| **Web UI** | Dashboard (monthly income/expenses, subscriptions, analytics), Scrape with live progress, Results explorer (multi-file, filters, AI categorization), structured **Logs** (server/client/AI/scrape), **Configuration** (AI with **persona** alignment and **AI memory** — stored facts, insights, alerts; scheduler, scrape/fraud, Google, Telegram, maintenance). **AI analyst chat** opens from the floating indigo button on **any** main tab when Gemini is configured. **Insight rules** include import review (tune categories/amounts before apply), optional **share to community catalog**, and **browse/import** from the catalog using the same editor as creating a rule. |
+| **Web UI** | Dashboard (monthly income/expenses, subscriptions, analytics), Scrape with live progress, Results explorer (multi-file, filters, AI categorization), structured **Logs** (server/client/AI/scrape), **Configuration** (AI with **persona** alignment and **AI memory** — stored facts, insights, alerts; scheduler, scrape/fraud, Google, Telegram, **Investments** with optional **EODHD** token, maintenance). **AI analyst chat** opens from the floating indigo button on **any** main tab when Gemini is configured. **Insight rules** include import review (tune categories/amounts before apply), optional **share to community catalog**, and **browse/import** from the catalog using the same editor as creating a rule. |
 | **Languages** | English and Hebrew with LTR/RTL. |
 | **App lock & profiles** | **App lock** (min. 8 characters) protects the session and **encrypts stored profile credentials**. You can use most of the app (dashboard, logs, configuration, exploring results) **without** unlocking; **running scrapes** and **creating/editing saved bank profiles** require the app to be **unlocked** when app lock is enabled. **Forgot password:** encrypted profiles cannot be recovered — you must **delete those profiles** and **re-enter** bank credentials after resetting lock (see **[GUIDE.html](client/public/GUIDE.html)**). |
 | **Integrations** | Google OAuth → Drive/Sheets; **Gemini** for categorization and analyst chat; **Telegram** bot — see **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** (commands, notifications, optional `/unlock` when the UI is locked). |
@@ -125,10 +127,11 @@ Then open the Web UI at **`http://localhost:3000`** (or the port mapped in your 
 
 **Feedback form:** The Google Form link is set in [`client/src/config/feedbackGoogleForm.ts`](client/src/config/feedbackGoogleForm.ts). The in-app dialog opens that URL (no URL prefill); it shows installation and version for reference and can fetch optional **server/client log** excerpts for copy-paste with explicit consent.
 
-At **image build** time you can bake identity strings into the static client (see `ARG` / `ENV` before `npm run build -w client` in the root [`Dockerfile`](Dockerfile)):
+At **image build** time you can bake identity strings into the static client (see `ARG` / `ENV` before `npm run build -w client` in [`Dockerfile.app`](Dockerfile.app)):
 
 ```bash
 docker build \
+  -f Dockerfile.app \
   --build-arg VITE_APP_BUILD_VERSION="$(git rev-parse HEAD)" \
   --build-arg VITE_INSTALL_KIND=docker \
   -t financial-overview .
@@ -141,6 +144,8 @@ CI workflows set `VITE_APP_BUILD_VERSION` and `VITE_INSTALL_KIND` automatically 
 1. Add this repository in **Settings → Add-ons → Add-on Store → Repositories**.
 2. Install **Financial Overview** and configure OAuth/Drive (and other options) in the add-on **Configuration** tab.
 3. Start the add-on and open the Web UI from the sidebar.
+
+The Supervisor build uses the **entire Git repository** as the Docker context (`config.yaml` and `Dockerfile` live at the repo root). If you use **Samba/SSH** to install a local copy, clone or copy the **full project** into `/addons/<folder>/`, not only a `ha-addon` subfolder.
 
 Details: [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -169,6 +174,23 @@ For the **current calendar month**, positive **completed** transactions whose **
 
 On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **start collapsed**; on wider screens they start expanded.
 
+<a id="eodhd-api-token"></a>
+
+### EODHD API token (optional — Investments / market data)
+
+The optional **Investments** feature can use **[EOD Historical Data (EODHD)](https://eodhd.com/)** for delayed quotes, historical prices, and symbol search (US, Tel Aviv, and more). In the app: **Configuration → Investments** — turn the feature on, paste your token, and **Save**.
+
+**How to get an API key**
+
+1. **Register** for a free account at **[eodhd.com/register](https://eodhd.com/register)**.
+2. After you sign in, open your **[user dashboard](https://eodhd.com/c/login/dashboard)** and copy the **API token** (API key) shown there.
+3. In **Financial Overview**: **Configuration → Investments** → enable **Investments & portfolio** if you want the dashboard card → paste the token → **Save**.
+
+**Notes**
+
+- If you set the server environment variable **`EODHD_API_TOKEN`**, it **overrides** the value stored in the app database (useful for Docker or shared hosting).
+- API overview and endpoints: **[EODHD quick start](https://eodhd.com/financial-apis/quick-start-with-our-financial-apis/)** and **[pricing](https://eodhd.com/pricing)**.
+
 ### Documentation in this repo
 
 | Doc | Purpose |
@@ -180,6 +202,7 @@ On **narrow viewports** (below Tailwind `sm`, 640px), main dashboard sections **
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior (English). |
 | **[client/public/guides/TELEGRAM_BOT_GUIDE.he.md](client/public/guides/TELEGRAM_BOT_GUIDE.he.md)** | Hebrew Telegram guide — embedded in **עברית** in [`client/public/GUIDE.html`](client/public/GUIDE.html); regenerate with `npm run guide:embed-telegram`. |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
+| **This README → [#eodhd-api-token](#eodhd-api-token)** | Step-by-step: obtain an **EODHD** API token for optional **Investments** / portfolio (also configurable in-app under **Configuration → Investments**). |
 | **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)** | Who can obtain bank credentials vs. transaction data; shared PC and remote attacker paths. |
 | **[packaging/windows/README.md](packaging/windows/README.md)** | Building the Windows installer and `dist/windows-package`. |
 | **[financial-overview.json.example](financial-overview.json.example)** | Optional install-local JSON (`port`, `dataDir`) read by the server (copy to `financial-overview.json`). |

@@ -17,7 +17,6 @@ data/config/runtime-settings.json
 mizrhai2025.json
 data
 results
-ha-addon/node_modules
 server/node_modules
 client/node_modules
 shared/node_modules

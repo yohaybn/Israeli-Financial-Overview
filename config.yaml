@@ -1,14 +1,10 @@
 name: "Financial Overview"
-version: &addon_version "1.0.0"
+# Must match server/package.json "version". Supervisor passes this as BUILD_VERSION to the Docker build.
+version: "1.0.0"
 slug: "bank_scraper"
 description: "Financial Overview (מבט כלכלי) — scrape Israeli banks and upload to Google Drive"
 url: "https://github.com/yohaybn/Israeli-Financial-Overview"
-# Dockerfile COPY paths assume the repository root; HA defaults to this folder as context.
-build:
-  context: ".."
-  dockerfile: "Dockerfile"
-  args:
-    VITE_APP_BUILD_VERSION: *addon_version
+# Supervisor builds with this folder as context (repo root when the full repository is installed under /addons/<name>/).
 startup: application
 arch:
   - aarch64

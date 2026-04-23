@@ -22,7 +22,6 @@ updates:
   - package-ecosystem: "docker"
     directories:
       - "/"
-      - "/ha-addon"
     schedule:
       interval: "weekly"
       day: "monday"
