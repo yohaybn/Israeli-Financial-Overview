@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/base:3.23
 FROM $BUILD_FROM
 
 # Redefine NODE_ENV to development for the build phase
@@ -43,7 +43,8 @@ RUN npm run build -w server
 ENV NODE_ENV=production
 RUN npm prune --production
 
-RUN npm install --no-save --os=linux --cpu=x64 sharp -w server
+RUN case "$(uname -m)" in aarch64|arm64) cpu=arm64 ;; armv7l|armv6l|armhf) cpu=arm ;; *) cpu=x64 ;; esac \
+    && npm install --no-save --os=linux --cpu="$cpu" sharp -w server
 
 # Link to run.sh
 COPY ha-addon/run.sh /
