@@ -7,6 +7,9 @@ ENV NODE_ENV=development
 
 WORKDIR /usr/src/app
 
+# ghcr.io/home-assistant/base is Alpine and does not ship Node/npm.
+RUN apk add --no-cache nodejs npm python3 make g++ jq
+
 # Copy root configurations
 COPY package.json package-lock.json ./
 
