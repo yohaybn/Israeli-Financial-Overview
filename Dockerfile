@@ -7,8 +7,14 @@ ENV NODE_ENV=development
 
 WORKDIR /usr/src/app
 
-# ghcr.io/home-assistant/base is Alpine and does not ship Node/npm.
-RUN apk add --no-cache nodejs npm python3 make g++ jq
+# Alpine (HA Supervisor): install Node toolchain. Debian (CI BUILD_FROM=*-app:*): Dockerfile.app base already includes Node/npm/jq; only add native-build deps if missing.
+RUN if command -v apk >/dev/null 2>&1; then \
+      apk add --no-cache nodejs npm python3 make g++ jq; \
+    elif command -v apt-get >/dev/null 2>&1; then \
+      apt-get update \
+      && apt-get install -y --no-install-recommends python3 make g++ \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Copy root configurations
 COPY package.json package-lock.json ./
