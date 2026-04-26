@@ -22,9 +22,11 @@ import { profileService } from './profileService.js';
 import { appLockService } from './appLockService.js';
 import { serverLogger } from '../utils/logger.js';
 import {
+    getBoundSessionIdForProfile,
     getOneZeroOtpSession,
     registerOneZeroOtpSession,
     removeOneZeroOtpSession,
+    resolveOneZeroOtpSessionId,
 } from './oneZeroOtpSessionStore.js';
 
 // Progress event types matching the library
@@ -518,7 +520,8 @@ export class ScraperService {
      * Requires app unlock (same as scrape).
      */
     async oneZeroOtpTrigger(
-        phoneNumber: string
+        phoneNumber: string,
+        profileId?: string
     ): Promise<{ success: true; sessionId: string } | { success: false; error: string }> {
         if (!appLockService.isUnlocked()) {
             return { success: false, error: 'Application is locked. Unlock in the web UI first.' };
@@ -559,17 +562,25 @@ export class ScraperService {
                 error: err.errorMessage || 'Failed to send OTP SMS',
             };
         }
-        const sessionId = registerOneZeroOtpSession(scraper);
+        const pid =
+            typeof profileId === 'string' && profileId.trim() !== '' ? profileId.trim() : undefined;
+        const sessionId = registerOneZeroOtpSession(scraper, pid);
         return { success: true, sessionId };
     }
 
     /**
      * One Zero: exchange SMS OTP for long-term token; consumes the session from {@link oneZeroOtpTrigger}.
+     * When {@link saveToProfileId} is set, the token is persisted on the profile and not returned (no token in responses).
      */
     async oneZeroOtpComplete(
-        sessionId: string,
-        otpCode: string
-    ): Promise<{ success: true; otpLongTermToken: string } | { success: false; error: string }> {
+        sessionId: string | undefined,
+        otpCode: string,
+        options?: { saveToProfileId?: string }
+    ): Promise<
+        | { success: true; otpLongTermToken: string; savedToProfile?: false }
+        | { success: true; savedToProfile: true }
+        | { success: false; error: string }
+    > {
         if (!appLockService.isUnlocked()) {
             return { success: false, error: 'Application is locked. Unlock in the web UI first.' };
         }
@@ -577,9 +588,34 @@ export class ScraperService {
         if (!code) {
             return { success: false, error: 'OTP code is required.' };
         }
-        const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+
+        const savePid = typeof options?.saveToProfileId === 'string' ? options.saveToProfileId.trim() : '';
+
+        const sid = resolveOneZeroOtpSessionId({
+            sessionId,
+            profileId: savePid || undefined,
+        });
         if (!sid) {
-            return { success: false, error: 'Session id is required.' };
+            return {
+                success: false,
+                error:
+                    'Invalid or expired OTP session. Send a new SMS code and try again, or use the same profile you used to request the SMS.',
+            };
+        }
+
+        if (savePid) {
+            const bound = getBoundSessionIdForProfile(savePid);
+            if (!bound || bound !== sid) {
+                return {
+                    success: false,
+                    error:
+                        'OTP session does not match this profile. Request SMS again from this profile (web or bot), then enter the code.',
+                };
+            }
+            const profile = await this.profileService.getProfile(savePid);
+            if (!profile || profile.companyId !== CompanyTypes.oneZero) {
+                return { success: false, error: 'Invalid One Zero profile.' };
+            }
         }
 
         const scraper = getOneZeroOtpSession(sid);
@@ -600,7 +636,16 @@ export class ScraperService {
                     error: err.errorMessage || 'Failed to verify OTP',
                 };
             }
-            return { success: true, otpLongTermToken: result.longTermTwoFactorAuthToken };
+            const token = result.longTermTwoFactorAuthToken;
+
+            if (savePid) {
+                await this.profileService.updateProfile(savePid, {
+                    credentials: { otpLongTermToken: token },
+                });
+                return { success: true, savedToProfile: true };
+            }
+
+            return { success: true, otpLongTermToken: token };
         } catch (e: any) {
             removeOneZeroOtpSession(sid);
             return { success: false, error: e?.message || String(e) };

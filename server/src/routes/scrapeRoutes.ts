@@ -18,6 +18,8 @@ import {
     parseImportAccountNumberOverrideParam,
     parseImportProviderIdParam,
 } from '../utils/importMultipartParams.js';
+import { reloadPortfolioSnapshotSchedule } from '../services/portfolioSnapshotScheduler.js';
+import { isInvestmentsFeatureEnabled } from '../constants/marketData.js';
 
 export function createScrapeRoutes(
     scraperService: ScraperService,
@@ -111,8 +113,11 @@ export function createScrapeRoutes(
     router.post('/scrape/onezero/otp/trigger', async (req, res) => {
         try {
             const phoneNumber = req.body?.phoneNumber;
+            const profileId =
+                typeof req.body?.profileId === 'string' ? req.body.profileId : undefined;
             const result = await scraperService.oneZeroOtpTrigger(
-                typeof phoneNumber === 'string' ? phoneNumber : ''
+                typeof phoneNumber === 'string' ? phoneNumber : '',
+                profileId
             );
             if (!result.success) {
                 return res.status(400).json({ success: false, error: result.error });
@@ -126,14 +131,25 @@ export function createScrapeRoutes(
     /** One Zero: verify OTP and return long-term token (requires app unlock). */
     router.post('/scrape/onezero/otp/complete', async (req, res) => {
         try {
-            const sessionId = req.body?.sessionId;
+            const sessionId =
+                typeof req.body?.sessionId === 'string' && req.body.sessionId.trim() !== ''
+                    ? req.body.sessionId
+                    : undefined;
             const otpCode = req.body?.otpCode;
+            const saveToProfileId =
+                typeof req.body?.profileId === 'string' && req.body.profileId.trim() !== ''
+                    ? req.body.profileId.trim()
+                    : undefined;
             const result = await scraperService.oneZeroOtpComplete(
-                typeof sessionId === 'string' ? sessionId : '',
-                typeof otpCode === 'string' ? otpCode : ''
+                sessionId,
+                typeof otpCode === 'string' ? otpCode : '',
+                saveToProfileId ? { saveToProfileId } : undefined
             );
             if (!result.success) {
                 return res.status(400).json({ success: false, error: result.error });
+            }
+            if ('savedToProfile' in result && result.savedToProfile) {
+                return res.json({ success: true, savedToProfile: true });
             }
             res.json({ success: true, otpLongTermToken: result.otpLongTermToken });
         } catch (error: any) {
@@ -825,6 +841,76 @@ export function createScrapeRoutes(
         }
     });
 
+    router.patch('/transactions/:transactionId/investment', async (req, res) => {
+        try {
+            const { transactionId } = req.params;
+            const { isInvestment } = req.body;
+            if (typeof isInvestment !== 'boolean') {
+                return res.status(400).json({ success: false, error: 'isInvestment_boolean_required' });
+            }
+            if (isInvestment === true && !isInvestmentsFeatureEnabled()) {
+                return res.status(403).json({ success: false, error: 'investments_disabled' });
+            }
+            const success = await storageService.updateTransactionInvestmentUnified(transactionId, { isInvestment });
+            if (!success) {
+                return res.status(404).json({ success: false, error: 'Transaction not found' });
+            }
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    router.post('/transactions/:transactionId/investment/create', async (req, res) => {
+        try {
+            if (!isInvestmentsFeatureEnabled()) {
+                return res.status(403).json({ success: false, error: 'investments_disabled' });
+            }
+            const { transactionId } = req.params;
+            const body = req.body ?? {};
+            const { symbol, quantity, use_tel_aviv_listing, useTelAvivListing, position_currency, positionCurrency } =
+                body;
+            const qtyRaw = quantity;
+            const qtyParsed =
+                qtyRaw !== undefined && qtyRaw !== null && String(qtyRaw).trim() !== '' && Number.isFinite(Number(qtyRaw))
+                    ? Number(qtyRaw)
+                    : undefined;
+            const pcRaw = position_currency ?? positionCurrency;
+            const positionCurrencyOpt =
+                typeof pcRaw === 'string' && (pcRaw.trim().toUpperCase() === 'USD' || pcRaw.trim().toUpperCase() === 'ILS')
+                    ? (pcRaw.trim().toUpperCase() as 'USD' | 'ILS')
+                    : undefined;
+            const result = await storageService.createInvestmentFromTransactionUnified(transactionId, {
+                symbol: String(symbol ?? ''),
+                quantity: qtyParsed,
+                useTelAvivListing:
+                    use_tel_aviv_listing !== undefined
+                        ? Boolean(use_tel_aviv_listing)
+                        : useTelAvivListing !== undefined
+                          ? Boolean(useTelAvivListing)
+                          : undefined,
+                positionCurrency: positionCurrencyOpt,
+            });
+            if (!result.ok) {
+                const code = result.error;
+                const status =
+                    code === 'transaction_not_found'
+                        ? 404
+                        : code === 'already_has_investment'
+                          ? 409
+                          : code === 'investments_disabled'
+                            ? 403
+                            : code === 'invalid_symbol' || code === 'invalid_amount' || code === 'fx_unavailable_for_date'
+                              ? 400
+                              : 400;
+                return res.status(status).json({ success: false, error: code });
+            }
+            res.json({ success: true, data: { investmentId: result.investmentId } });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
     // Get all exclusion filters
     router.get('/filters', async (req, res) => {
         try {
@@ -906,6 +992,7 @@ export function createScrapeRoutes(
             await filterService.clearAllFilters();
             await aiService.getSettings();
             schedulerService.reloadAfterDataWipe();
+            reloadPortfolioSnapshotSchedule();
             notificationService.reloadConfigAfterFactoryReset();
             console.log('[API] Factory reset completed successfully');
             res.json({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
@@ -16,6 +16,8 @@ import {
     Hash,
     ChevronDown,
     Repeat,
+    TrendingUp,
+    CheckCircle2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
@@ -29,10 +31,13 @@ import {
     useRemoveFilter,
     useUpdateTransactionMemo,
     useUpdateTransactionSubscription,
+    useUpdateTransactionInvestment,
+    useCreateInvestmentFromTransaction,
 } from '../hooks/useScraper';
 import { SubscriptionInterval } from '@app/shared';
 import { CategoryIcon } from '../utils/categoryIcons';
 import { useUnifiedData } from '../hooks/useUnifiedData';
+import { useInvestmentAppSettings } from '../hooks/useInvestments';
 
 interface TransactionModalProps {
     transaction: Transaction | null;
@@ -70,11 +75,15 @@ const ALL_DETAILS_FIELD_KEYS: (keyof Transaction)[] = [
     'subscriptionInterval',
     'excludeFromSubscriptions',
     'categoryUserSet',
+    'isInvestment',
+    'investmentId',
 ];
 
 export function TransactionModal({ transaction, isOpen, onClose, categories = [] }: TransactionModalProps) {
     const { t, i18n } = useTranslation();
     const { data: unifiedList = [] } = useUnifiedData({ enabled: isOpen && !!transaction });
+    const { data: investmentAppSettings } = useInvestmentAppSettings({ enabled: isOpen });
+    const investmentsFeatureOn = investmentAppSettings?.featureEnabled !== false;
     const resolvedTransaction = useMemo(() => {
         if (!transaction) return null;
         const fresh = unifiedList.find((t) => t.id === transaction.id);
@@ -91,6 +100,9 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const { mutate: removeFilter } = useRemoveFilter();
     const { mutate: updateMemo } = useUpdateTransactionMemo();
     const { mutate: updateSubscription } = useUpdateTransactionSubscription();
+    const { mutate: updateInvestmentFlag } = useUpdateTransactionInvestment();
+    const { mutateAsync: createInvestmentFromTxn, isPending: createInvestmentPending } =
+        useCreateInvestmentFromTransaction();
 
     const [localCategory, setLocalCategory] = useState<string>('');
     const [localMemo, setLocalMemo] = useState<string>('');
@@ -103,6 +115,32 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
     const [localIsIgnored, setLocalIsIgnored] = useState(false);
     const [moreActionsOpen, setMoreActionsOpen] = useState(false);
     const [allDetailsOpen, setAllDetailsOpen] = useState(false);
+    const [localIsInvestment, setLocalIsInvestment] = useState(false);
+    const [invSymbol, setInvSymbol] = useState('');
+    const [invQty, setInvQty] = useState('');
+    const [localTelAvivQuote, setLocalTelAvivQuote] = useState(true);
+    const [invCreateFeedback, setInvCreateFeedback] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+    const invCreateFeedbackTimer = useRef<number | null>(null);
+
+    const clearInvCreateFeedbackTimer = () => {
+        if (invCreateFeedbackTimer.current != null) {
+            window.clearTimeout(invCreateFeedbackTimer.current);
+            invCreateFeedbackTimer.current = null;
+        }
+    };
+
+    const showInvCreateFeedback = (next: { tone: 'ok' | 'err'; text: string }) => {
+        clearInvCreateFeedbackTimer();
+        setInvCreateFeedback(next);
+        invCreateFeedbackTimer.current = window.setTimeout(() => {
+            setInvCreateFeedback(null);
+            invCreateFeedbackTimer.current = null;
+        }, 5000);
+    };
+
+    useEffect(() => {
+        return () => clearInvCreateFeedbackTimer();
+    }, []);
 
     useEffect(() => {
         if (!resolvedTransaction) return;
@@ -118,6 +156,19 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
         setLocalIsIgnored(
             resolvedTransaction.status === 'ignored' || resolvedTransaction.isIgnored === true
         );
+        setLocalIsInvestment(Boolean(resolvedTransaction.isInvestment));
+        setInvSymbol('');
+        setInvQty('');
+        setInvCreateFeedback(null);
+        clearInvCreateFeedbackTimer();
+        const cur = (
+            resolvedTransaction.chargedCurrency ||
+            resolvedTransaction.originalCurrency ||
+            'ILS'
+        )
+            .trim()
+            .toUpperCase();
+        setLocalTelAvivQuote(cur === 'ILS');
     }, [resolvedTransaction, config.customCCKeywords]);
 
     useEffect(() => {
@@ -214,6 +265,39 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                 isSubscription: true,
                 interval: newInterval,
                 excludeFromSubscriptions: false,
+            });
+        }
+    };
+
+    const handleToggleInvestment = () => {
+        const next = !localIsInvestment;
+        setLocalIsInvestment(next);
+        updateInvestmentFlag({ transactionId: txn.id, isInvestment: next });
+    };
+
+    const handleCreateInvestmentFromTxn = async () => {
+        const sym = invSymbol.trim().toUpperCase();
+        if (!sym) return;
+        const qtyTrim = invQty.trim();
+        const qtyParsed = qtyTrim === '' ? undefined : parseFloat(qtyTrim);
+        setInvCreateFeedback(null);
+        clearInvCreateFeedbackTimer();
+        try {
+            await createInvestmentFromTxn({
+                transactionId: txn.id,
+                symbol: sym,
+                quantity:
+                    qtyParsed !== undefined && Number.isFinite(qtyParsed) && qtyParsed > 0 ? qtyParsed : undefined,
+                use_tel_aviv_listing: localTelAvivQuote,
+            });
+            setInvSymbol('');
+            setInvQty('');
+            showInvCreateFeedback({ tone: 'ok', text: t('transaction.investment.created') });
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showInvCreateFeedback({
+                tone: 'err',
+                text: `${t('transaction.investment.create_failed')}: ${msg}`,
             });
         }
     };
@@ -317,6 +401,12 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                             {excludeFromSubscriptions && (
                                 <span className="bg-orange-500/85 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/10">
                                     {t('transaction_modal.excluded_from_subscriptions')}
+                                </span>
+                            )}
+                            {(localIsInvestment || txn.isInvestment || txn.investmentId) && (
+                                <span className="bg-teal-500/85 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/10 flex items-center gap-1">
+                                    <TrendingUp size={10} />
+                                    {t('transaction.investment.badge')}
                                 </span>
                             )}
                         </div>
@@ -508,6 +598,98 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                                 </div>
                             )}
 
+                            {investmentsFeatureOn && (
+                                <div className="border-t border-gray-200/80 pt-4 space-y-3">
+                                    <p className="text-[10px] font-black text-teal-700 uppercase tracking-widest px-1">
+                                        {t('transaction.investment.create_title')}
+                                    </p>
+                                    <CompactToggle
+                                        label={t('transaction.investment.mark_label')}
+                                        on={localIsInvestment}
+                                        onClick={handleToggleInvestment}
+                                        ariaLabel={t('transaction.investment.mark_label')}
+                                        icon={<TrendingUp size={14} />}
+                                        activeClass="bg-teal-600 border-teal-600"
+                                    />
+                                    <p className="text-xs text-gray-500 px-1">{t('transaction.investment.mark_help')}</p>
+                                    {txn.investmentId ? (
+                                        <p className="text-xs text-emerald-700 font-medium px-1">
+                                            {t('transaction.investment.already_linked')}
+                                        </p>
+                                    ) : (
+                                        <div className="flex flex-col gap-2 px-1">
+                                            <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={localTelAvivQuote}
+                                                    onChange={(e) => setLocalTelAvivQuote(e.target.checked)}
+                                                />
+                                                <span>{t('transaction.investment.yahoo_ta_help')}</span>
+                                            </label>
+                                            <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-end">
+                                                <input
+                                                    type="text"
+                                                    value={invSymbol}
+                                                    onChange={(e) => setInvSymbol(e.target.value)}
+                                                    placeholder={t('transaction.investment.symbol_placeholder')}
+                                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-mono uppercase flex-1 min-w-[8rem]"
+                                                    autoCapitalize="characters"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    min={0.0001}
+                                                    step="any"
+                                                    value={invQty}
+                                                    onChange={(e) => setInvQty(e.target.value)}
+                                                    placeholder={t('transaction.investment.auto_qty_placeholder')}
+                                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm w-28"
+                                                    title={t('transaction.investment.quantity')}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={createInvestmentPending || !invSymbol.trim()}
+                                                    onClick={() => void handleCreateInvestmentFromTxn()}
+                                                    className="rounded-xl bg-teal-600 text-white text-sm font-bold px-4 py-2 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                >
+                                                    {t('transaction.investment.submit')}
+                                                </button>
+                                            </div>
+                                            {invCreateFeedback && (
+                                                <div
+                                                    role="status"
+                                                    className={clsx(
+                                                        'flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-medium border',
+                                                        invCreateFeedback.tone === 'ok'
+                                                            ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                                                            : 'bg-rose-50 text-rose-900 border-rose-200'
+                                                    )}
+                                                >
+                                                    {invCreateFeedback.tone === 'ok' ? (
+                                                        <CheckCircle2
+                                                            className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600"
+                                                            aria-hidden
+                                                        />
+                                                    ) : (
+                                                        <AlertCircle
+                                                            className="w-4 h-4 shrink-0 mt-0.5 text-rose-600"
+                                                            aria-hidden
+                                                        />
+                                                    )}
+                                                    <span className="leading-snug break-words">{invCreateFeedback.text}</span>
+                                                </div>
+                                            )}
+                                            <p className="text-[11px] text-gray-500">{t('transaction.investment.auto_qty_hint')}</p>
+                                        </div>
+                                    )}
+                                    <p className="text-[11px] text-gray-500 px-1">{t('transaction.investment.create_hint')}</p>
+                                </div>
+                            )}
+                            {!investmentsFeatureOn && (localIsInvestment || txn.isInvestment || txn.investmentId) && (
+                                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                                    {t('transaction.investment.feature_disabled_hint')}
+                                </p>
+                            )}
+
                             <div className="border-t border-gray-200/80 pt-3">
                                 <button
                                     type="button"
@@ -663,9 +845,10 @@ function CompactToggle({
                 aria-label={ariaLabel}
                 onClick={onClick}
                 className={clsx(
-                    'relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400',
+                    'relative h-7 w-11 shrink-0 overflow-hidden rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400',
                     on ? activeClass : 'bg-gray-200 border-gray-200'
                 )}
+                dir="ltr"
             >
                 <span
                     className={clsx(

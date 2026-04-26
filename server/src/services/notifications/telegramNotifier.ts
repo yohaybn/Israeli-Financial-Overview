@@ -7,6 +7,11 @@ import { BaseNotifier } from './baseNotifier.js';
 import { NotificationPayload, NotifierConfig } from './types.js';
 import axios from 'axios';
 import { serverLogger } from '../../utils/logger.js';
+import {
+  externalOutcomeFromAxiosError,
+  logExternal,
+  TELEGRAM_API_HOST,
+} from '../../utils/externalServiceLog.js';
 import { splitTelegramPlainText } from '../../utils/telegramTextSplit.js';
 
 export interface TelegramNotifierConfig extends Omit<NotifierConfig, 'enabled'> {
@@ -158,6 +163,7 @@ export class TelegramNotifier extends BaseNotifier {
    * @param useParseMode - if false, send as plain text (used for continuation chunks so Telegram doesn't reject them)
    */
   private async sendMessage(chatId: string, message: string, useParseMode: boolean = true): Promise<void> {
+    const t0 = Date.now();
     try {
       const payload: Record<string, unknown> = {
         chat_id: chatId,
@@ -167,12 +173,51 @@ export class TelegramNotifier extends BaseNotifier {
         payload.parse_mode = this.parseMode;
       }
       const response = await axios.post(`${this.telegramApiUrl}/sendMessage`, payload);
+      const durationMs = Date.now() - t0;
 
       if (!response.data.ok) {
-        throw new Error(`Telegram API error: ${response.data.description || 'Unknown error'}`);
+        const desc = response.data.description || 'Unknown error';
+        logExternal({
+          service: 'telegram',
+          operation: 'send_message',
+          host: TELEGRAM_API_HOST,
+          method: 'POST',
+          path: '/bot<token>/sendMessage',
+          outcome: 'error',
+          durationMs,
+          httpStatus: response.status,
+          errorMessage: String(desc),
+          extra: { parseMode: useParseMode },
+        });
+        throw new Error(`Telegram API error: ${desc}`);
       }
+      logExternal({
+        service: 'telegram',
+        operation: 'send_message',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/sendMessage',
+        outcome: 'ok',
+        durationMs,
+        httpStatus: response.status,
+        extra: { parseMode: useParseMode, textChars: message.length },
+      });
     } catch (error) {
+      const durationMs = Date.now() - t0;
       if (axios.isAxiosError(error)) {
+        const { outcome, httpStatus, errorMessage } = externalOutcomeFromAxiosError(error);
+        logExternal({
+          service: 'telegram',
+          operation: 'send_message',
+          host: TELEGRAM_API_HOST,
+          method: 'POST',
+          path: '/bot<token>/sendMessage',
+          outcome,
+          durationMs,
+          httpStatus,
+          errorMessage,
+          extra: { parseMode: useParseMode },
+        });
         throw new Error(`Failed to send Telegram message: ${error.response?.data?.description || error.message}`);
       }
       throw error;

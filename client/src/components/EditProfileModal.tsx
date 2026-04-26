@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { ScraperOptions, isSensitiveCredentialKey, parseExcludedAccountNumbersInput } from '@app/shared';
 import { useProfile, useUpdateProfile } from '../hooks/useProfiles';
@@ -15,6 +16,7 @@ export interface EditProfileModalProps {
 }
 
 export function EditProfileModal({ profileId, onClose, restricted }: EditProfileModalProps) {
+    const queryClient = useQueryClient();
     const { t, i18n } = useTranslation();
     const { data: profile, isLoading, isError } = useProfile(profileId);
     const { data: providers } = useProviders();
@@ -179,10 +181,15 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
 
                             {profile.companyId === 'oneZero' && (
                                 <OneZeroLongTermTokenHelper
+                                    profileId={profile.id}
                                     phoneNumber={credentials.phoneNumber ?? ''}
                                     onTokenGenerated={(token) =>
                                         setCredentials((prev) => ({ ...prev, otpLongTermToken: token }))
                                     }
+                                    onTokenSavedToProfile={() => {
+                                        queryClient.invalidateQueries({ queryKey: ['profile', profileId] });
+                                        queryClient.invalidateQueries({ queryKey: ['profiles'] });
+                                    }}
                                     disabled={restricted || isPending}
                                 />
                             )}

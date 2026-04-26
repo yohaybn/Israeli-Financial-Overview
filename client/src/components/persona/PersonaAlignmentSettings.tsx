@@ -64,7 +64,7 @@ export function PersonaAlignmentSettings() {
                 disabled={isPending}
                 dir="ltr"
                 onClick={() => setInjectionEnabled(!injectEnabled)}
-                className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start rounded-full transition-colors ${
+                className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start overflow-hidden rounded-full transition-colors ${
                     injectEnabled ? 'bg-indigo-600' : 'bg-gray-300'
                 } disabled:opacity-50`}
             >

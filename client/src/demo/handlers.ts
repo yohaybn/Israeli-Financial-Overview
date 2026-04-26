@@ -474,12 +474,16 @@ export const demoHandlers = [
         })
     ),
 
-    http.post(apiPath('/scrape/onezero/otp/complete'), async () =>
-        HttpResponse.json({
+    http.post(apiPath('/scrape/onezero/otp/complete'), async ({ request }) => {
+        const body = (await request.json()) as { profileId?: string };
+        if (body.profileId) {
+            return HttpResponse.json({ success: true, savedToProfile: true });
+        }
+        return HttpResponse.json({
             success: true,
             otpLongTermToken: 'demo-onezero-long-term-token',
-        })
-    ),
+        });
+    }),
 
     http.post(apiPath('/ai/chat/unified'), async () =>
         HttpResponse.json({

@@ -342,7 +342,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                             aria-checked={enabled}
                             dir="ltr"
                             onClick={() => setEnabled(!enabled)}
-                            className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start rounded-full transition-colors ${
+                            className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start overflow-hidden rounded-full transition-colors ${
                                 enabled ? '' : 'bg-gray-300'
                             }`}
                             style={enabled ? { backgroundColor: SCHED_ACCENT } : undefined}
@@ -406,7 +406,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                             aria-checked={insightRulesTimerEnabled}
                             dir="ltr"
                             onClick={() => setInsightRulesTimerEnabled(!insightRulesTimerEnabled)}
-                            className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start rounded-full transition-colors ${
+                            className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start overflow-hidden rounded-full transition-colors ${
                                 insightRulesTimerEnabled ? '' : 'bg-gray-300'
                             }`}
                             style={insightRulesTimerEnabled ? { backgroundColor: SCHED_ACCENT } : undefined}
@@ -454,7 +454,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
                             aria-checked={backupEnabled}
                             dir="ltr"
                             onClick={() => setBackupEnabled(!backupEnabled)}
-                            className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start rounded-full transition-colors ${
+                            className={`relative inline-flex h-8 w-[3.75rem] shrink-0 items-center justify-start overflow-hidden rounded-full transition-colors ${
                                 backupEnabled ? '' : 'bg-gray-300'
                             }`}
                             style={backupEnabled ? { backgroundColor: SCHED_ACCENT } : undefined}

@@ -240,6 +240,10 @@ export interface Transaction {
     isSubscription?: boolean;
     subscriptionInterval?: SubscriptionInterval;
     excludeFromSubscriptions?: boolean;
+    /** User-tagged as related to investments (reporting / organization). */
+    isInvestment?: boolean;
+    /** When a portfolio row was created from this transaction (investments.id). */
+    investmentId?: string;
 }
 
 // Financial dashboard projection types

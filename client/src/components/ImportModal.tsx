@@ -681,7 +681,7 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                                             className="peer sr-only"
                                             disabled={busy || !!importProfileJson}
                                         />
-                                        <div className="relative h-6 w-11 shrink-0 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-200 after:bg-white after:transition-all after:content-[''] peer-checked:bg-emerald-600 peer-checked:after:translate-x-full peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-emerald-200 peer-disabled:opacity-50" />
+                                        <div className="relative h-6 w-11 shrink-0 overflow-hidden rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-200 after:bg-white after:transition-all after:content-[''] peer-checked:bg-emerald-600 peer-checked:after:translate-x-full peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-emerald-200 peer-disabled:opacity-50" />
                                     </label>
                                 </div>
                             </div>

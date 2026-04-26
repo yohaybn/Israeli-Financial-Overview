@@ -8,6 +8,7 @@ import { Message } from 'telegraf/types';
 import path from 'path';
 import fs from 'fs-extra';
 import { serverLogger } from '../utils/logger.js';
+import { logExternal, TELEGRAM_API_HOST } from '../utils/externalServiceLog.js';
 import { AiService, type ConversationTurn } from './aiService.js';
 import { ScraperService } from './scraperService.js';
 import { profileService, ProfileService } from './profileService.js';
@@ -29,6 +30,7 @@ import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
 import { isSafeTelegramRelativeFilePath } from '../utils/safeTelegramBotFileUrl.js';
+import { getBoundSessionIdForProfile } from './oneZeroOtpSessionStore.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const TEL_CONFIG_PATH = path.join(DATA_DIR, 'config', 'telegram_config.json');
@@ -140,7 +142,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Financial Overview Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/review — List transactions that need a memo or category\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>One Zero:</b>\n/onezero_otp - SMS OTP for One Zero (token saved on server only)\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/review — List transactions that need a memo or category\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -244,13 +246,25 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     newAiAlertTitle: '🤖 <b>New AI alert</b>',
     newAiAlertsTitle: '🤖 <b>New AI alerts</b>',
     newAiAlertScoreLine: 'Score: {{score}}/100',
+    onezeroOtpNoProfiles: '❌ No <b>One Zero</b> profiles found. Add one in the web app first.',
+    onezeroOtpSelectTitle: '🏦 <b>One Zero — SMS OTP</b>\n\nChoose the profile (phone must be set with +country code):',
+    onezeroOtpBadPhone:
+      '❌ This profile has no valid international phone in saved credentials.\n\nOpen the profile in the web app and set <b>Phone Number</b> (e.g. +972…).',
+    onezeroOtpSmsSent:
+      '📲 SMS sent. Reply with the <b>verification code</b> as plain digits.\n\n/cancel to abort.',
+    onezeroOtpPendingWeb:
+      '⏳ An OTP session is already active for this profile (SMS may have been requested from the web app).\n\nReply with the <b>verification code</b> from SMS.\n\n/cancel to abort.',
+    onezeroOtpSendCode: 'Send the SMS code as digits only, or /cancel.',
+    onezeroOtpSuccess:
+      '✅ One Zero OTP verified. The long-term token was saved on the server for this profile (not shown here).',
+    onezeroOtpCancelled: 'One Zero OTP flow cancelled.',
   },
   he: {
     accessDenied: '❌ <b>גישה נדחתה</b>\n\nאין לך הרשאה להשתמש בבוט זה עדיין.',
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט מבט כלכלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/review — רשימת עסקאות שחסרה הערה או קטגוריה\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>One Zero:</b>\n/onezero_otp - OTP ב-SMS (האסימון נשמר בשרת בלבד)\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/review — רשימת עסקאות שחסרה הערה או קטגוריה\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -353,6 +367,16 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     newAiAlertTitle: '🤖 <b>התראת AI חדשה</b>',
     newAiAlertsTitle: '🤖 <b>התראות AI חדשות</b>',
     newAiAlertScoreLine: 'ציון: {{score}}/100',
+    onezeroOtpNoProfiles: '❌ לא נמצאו פרופילי <b>One Zero</b>. הוסיפו פרופיל בממשק האינטרנט.',
+    onezeroOtpSelectTitle: '🏦 <b>One Zero — OTP ב-SMS</b>\n\nבחרו פרופיל (חובה מספר טלפון בינלאומי עם +):',
+    onezeroOtpBadPhone:
+      '❌ לפרופיל אין מספר טלפון בינלאומי תקין בשמירה.\n\nפתחו את הפרופיל באתר והגדירו <b>מספר טלפון</b> (למשל +972…).',
+    onezeroOtpSmsSent: '📲 נשלח SMS. שלחו את <b>קוד האימות</b> כספרות בלבד.\n\n/cancel לביטול.',
+    onezeroOtpPendingWeb:
+      '⏳ כבר יש סשן OTP פעיל לפרופיל הזה (אולי ביקשתם SMS מהאתר).\n\nשלחו את <b>קוד האימות</b> מה-SMS.\n\n/cancel לביטול.',
+    onezeroOtpSendCode: 'שלחו את קוד ה-SMS כספרות בלבד, או /cancel.',
+    onezeroOtpSuccess: '✅ האימות הצליח. האסימון לטווח ארוך נשמר בשרת לפרופיל (לא מוצג כאן).',
+    onezeroOtpCancelled: 'תהליך OTP של One Zero בוטל.',
   },
 };
 
@@ -369,6 +393,8 @@ export interface TelegramChatState {
   chatHistory?: ConversationTurn[];
   /** After `/memo <id>` with no text, user sends memo body in the next message */
   pendingMemoTxnId?: string;
+  /** One Zero OTP: profile id whose SMS step was started or is pending (e.g. web trigger) */
+  pendingOneZeroProfileId?: string;
 }
 
 export class TelegramBotService {
@@ -692,9 +718,30 @@ export class TelegramBotService {
 
       // Attempt to get bot info for diagnostics
       try {
+        const tMe = Date.now();
         const me = await this.bot.telegram.getMe();
+        logExternal({
+          service: 'telegram',
+          operation: 'get_me',
+          host: TELEGRAM_API_HOST,
+          method: 'POST',
+          path: '/bot<token>/getMe',
+          outcome: 'ok',
+          durationMs: Date.now() - tMe,
+          extra: { botId: me.id },
+        });
         serverLogger.info('Telegram bot launched and reachable', { bot_username: me.username, bot_id: me.id });
-      } catch (meErr) {
+      } catch (meErr: any) {
+        logExternal({
+          service: 'telegram',
+          operation: 'get_me',
+          host: TELEGRAM_API_HOST,
+          method: 'POST',
+          path: '/bot<token>/getMe',
+          outcome: 'error',
+          errorMessage: meErr?.response?.description || meErr?.message || String(meErr),
+          extra: { telegramErrorCode: meErr?.response?.error_code },
+        });
         serverLogger.warn('Bot launched but getMe() failed', { error: (meErr as any) && (meErr as any).stack ? (meErr as any).stack : meErr });
       }
 
@@ -750,6 +797,7 @@ export class TelegramBotService {
   async fetchBotIdentity(): Promise<TelegramBotIdentity | null> {
     const token = this.config.botToken?.trim();
     if (!token) return null;
+    const t0 = Date.now();
     try {
       const { Telegraf } = await import('telegraf');
       const api = new Telegraf(token).telegram;
@@ -764,6 +812,16 @@ export class TelegramBotService {
       const openTelegramUrl = me.username
         ? `https://t.me/${me.username}`
         : `https://t.me/user?id=${me.id}`;
+      logExternal({
+        service: 'telegram',
+        operation: 'bot_identity',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/getMe+getUserProfilePhotos',
+        outcome: 'ok',
+        durationMs: Date.now() - t0,
+        extra: { hasAvatar, botId: me.id },
+      });
       return {
         id: me.id,
         firstName: me.first_name,
@@ -773,6 +831,17 @@ export class TelegramBotService {
         hasAvatar,
       };
     } catch (e: any) {
+      logExternal({
+        service: 'telegram',
+        operation: 'bot_identity',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/getMe+getUserProfilePhotos',
+        outcome: 'error',
+        durationMs: Date.now() - t0,
+        errorMessage: e?.response?.description || e?.message || String(e),
+        extra: { telegramErrorCode: e?.response?.error_code },
+      });
       serverLogger.warn('fetchBotIdentity failed', { error: e?.message || e });
       return null;
     }
@@ -784,18 +853,64 @@ export class TelegramBotService {
   async getBotAvatarDownloadUrl(): Promise<string | null> {
     const token = this.config.botToken?.trim();
     if (!token) return null;
+    const t0 = Date.now();
     try {
       const { Telegraf } = await import('telegraf');
       const api = new Telegraf(token).telegram;
       const me = await api.getMe();
       const photos = await api.getUserProfilePhotos(me.id, 0, 1);
-      if (!photos.total_count || !photos.photos?.length) return null;
+      if (!photos.total_count || !photos.photos?.length) {
+        logExternal({
+          service: 'telegram',
+          operation: 'bot_avatar_resolve',
+          host: TELEGRAM_API_HOST,
+          method: 'POST',
+          path: '/bot<token>/getMe+getUserProfilePhotos+getFile',
+          outcome: 'ok',
+          durationMs: Date.now() - t0,
+          extra: { resolved: false, reason: 'no_photos' },
+        });
+        return null;
+      }
       const sizes = photos.photos[0];
       const largest = sizes[sizes.length - 1];
       const file = await api.getFile(largest.file_id);
-      if (!file.file_path || !isSafeTelegramRelativeFilePath(file.file_path)) return null;
+      if (!file.file_path || !isSafeTelegramRelativeFilePath(file.file_path)) {
+        logExternal({
+          service: 'telegram',
+          operation: 'bot_avatar_resolve',
+          host: TELEGRAM_API_HOST,
+          method: 'POST',
+          path: '/bot<token>/getMe+getUserProfilePhotos+getFile',
+          outcome: 'ok',
+          durationMs: Date.now() - t0,
+          extra: { resolved: false, reason: 'unsafe_or_missing_path' },
+        });
+        return null;
+      }
+      logExternal({
+        service: 'telegram',
+        operation: 'bot_avatar_resolve',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/getMe+getUserProfilePhotos+getFile',
+        outcome: 'ok',
+        durationMs: Date.now() - t0,
+        extra: { resolved: true },
+      });
       return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
     } catch (e: any) {
+      logExternal({
+        service: 'telegram',
+        operation: 'bot_avatar_resolve',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/getMe+getUserProfilePhotos+getFile',
+        outcome: 'error',
+        durationMs: Date.now() - t0,
+        errorMessage: e?.response?.description || e?.message || String(e),
+        extra: { telegramErrorCode: e?.response?.error_code },
+      });
       serverLogger.warn('getBotAvatarDownloadUrl failed', { error: e?.message || e });
       return null;
     }
@@ -905,6 +1020,10 @@ export class TelegramBotService {
     this.bot.command('review', async (ctx) => {
       await this.handleReviewCommand(ctx);
     });
+
+    this.bot.command('onezero_otp', async (ctx) => {
+      await this.handleOneZeroOtpCommand(ctx);
+    });
   }
 
   /**
@@ -921,6 +1040,16 @@ export class TelegramBotService {
       } catch (error) {
         serverLogger.error('Error handling scrape callback', { error });
         await ctx.answerCbQuery(this.t('errorExecutingScraper'));
+      }
+    });
+
+    this.bot.action(/^onezero_otp_pick_(.+)$/, async (ctx) => {
+      try {
+        const id = ctx.match?.[1] as string;
+        await this.handleOneZeroOtpProfilePick(ctx, id);
+      } catch (error) {
+        serverLogger.error('Error handling One Zero OTP callback', { error });
+        await ctx.answerCbQuery(this.t('errorProcessing'));
       }
     });
 
@@ -1016,6 +1145,25 @@ export class TelegramBotService {
           return;
         }
 
+        if (state?.conversationContext === 'pending_onezero_otp' && state.pendingOneZeroProfileId) {
+          const userId = ctx.from?.id.toString() || '';
+          if (!this.isUserAuthorized(userId)) {
+            this.logUnauthorizedAttempt(ctx, 'pending_onezero_otp');
+            await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>`, { parse_mode: 'HTML' });
+            return;
+          }
+          if (text.startsWith('/')) {
+            if (text.startsWith('/cancel') || text.startsWith('/done')) {
+              await this.handleDoneCommand(ctx);
+              return;
+            }
+            await ctx.reply(this.t('onezeroOtpSendCode'), { parse_mode: 'HTML' });
+            return;
+          }
+          await this.handleOneZeroOtpCodeReply(ctx, text);
+          return;
+        }
+
         // If in chat mode, handle as AI query
         if (state?.conversationContext === 'chat') {
           await this.handleAIChat(ctx, ctx.message.text);
@@ -1045,6 +1193,7 @@ export class TelegramBotService {
             '/done',
             '/cancel',
             '/unlock',
+            '/onezero_otp',
           ];
           const cmd = rawText.split(/\s/)[0].split('@')[0];
           if (!known.includes(cmd)) {
@@ -1923,9 +2072,11 @@ export class TelegramBotService {
       const state = this.chatStates.get(chatId);
       const wasPendingUnlock = state?.conversationContext === 'pending_unlock';
       const wasPendingMemo = state?.conversationContext === 'pending_memo';
+      const wasPendingOneZero = state?.conversationContext === 'pending_onezero_otp';
       if (state) {
         state.conversationContext = undefined;
         state.pendingMemoTxnId = undefined;
+        state.pendingOneZeroProfileId = undefined;
         state.chatHistory = undefined; // Clear so next /chat starts fresh
         this.chatStates.set(chatId, state);
       }
@@ -1934,7 +2085,9 @@ export class TelegramBotService {
         ? this.t('unlockCancelled')
         : wasPendingMemo
           ? this.t('memoCancelled')
-          : this.t('exitedChatMode');
+          : wasPendingOneZero
+            ? this.t('onezeroOtpCancelled')
+            : this.t('exitedChatMode');
       await ctx.reply(msg);
     } catch (error) {
       serverLogger.error('Error handling done command', { error });
@@ -2099,6 +2252,134 @@ export class TelegramBotService {
       serverLogger.error('Error in /memo command', { error: err });
       await ctx.reply(this.t('errorProcessing'));
     }
+  }
+
+  /** List One Zero profiles or start OTP flow (single profile skips list). */
+  private async handleOneZeroOtpCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/onezero_otp');
+        await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`, {
+          parse_mode: 'HTML',
+        });
+        return;
+      }
+      if (await this.replyIfAppLocked(ctx)) return;
+
+      const profiles = (await this.getProfileService().getProfiles()).filter((p) => p.companyId === 'oneZero');
+      if (profiles.length === 0) {
+        await ctx.reply(this.t('onezeroOtpNoProfiles'), { parse_mode: 'HTML' });
+        return;
+      }
+      if (profiles.length === 1) {
+        await this.beginOneZeroOtpForProfile(ctx, profiles[0]);
+        return;
+      }
+
+      const profileButtons = profiles.map((profile: Profile) =>
+        Markup.button.callback(profile.name || profile.id, `onezero_otp_pick_${profile.id}`)
+      );
+      await ctx.reply(this.t('onezeroOtpSelectTitle'), Markup.inlineKeyboard([profileButtons]));
+    } catch (error) {
+      serverLogger.error('Error in /onezero_otp command', { error });
+      await ctx.reply(this.t('errorRetrievingProfiles'));
+    }
+  }
+
+  private async handleOneZeroOtpProfilePick(ctx: Context, profileId: string): Promise<void> {
+    const userId = ctx.from?.id.toString() || '';
+    if (!this.isUserAuthorized(userId)) {
+      this.logUnauthorizedAttempt(ctx, 'onezero_otp_pick');
+      await ctx.answerCbQuery(this.t('unauthorizedNoPermission'), { show_alert: true });
+      return;
+    }
+    if (await this.replyIfAppLockedCallback(ctx)) return;
+
+    await ctx.answerCbQuery();
+    const profile = await this.getProfileService().getProfile(profileId);
+    if (!profile || profile.companyId !== 'oneZero') {
+      await ctx.reply(this.t('profileNotFound'));
+      return;
+    }
+    await this.beginOneZeroOtpForProfile(ctx, profile);
+  }
+
+  /**
+   * Send SMS unless a session is already bound (e.g. user requested SMS from the web); then prompt for OTP only.
+   */
+  private async beginOneZeroOtpForProfile(ctx: Context, profile: Profile): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    const userId = ctx.from?.id.toString() || '';
+    if (!chatId || !userId) return;
+
+    const phone = String(profile.credentials?.phoneNumber ?? '').trim();
+    if (!phone.startsWith('+')) {
+      await ctx.reply(this.t('onezeroOtpBadPhone'), { parse_mode: 'HTML' });
+      return;
+    }
+
+    const state = this.chatStates.get(chatId) || {
+      chatId,
+      userId,
+      isNotificationEnabled: false,
+      isAdmin: this.config.adminChatIds.includes(chatId),
+    };
+    state.pendingOneZeroProfileId = profile.id;
+    state.conversationContext = 'pending_onezero_otp';
+    this.chatStates.set(chatId, state);
+
+    const bound = getBoundSessionIdForProfile(profile.id);
+    if (bound) {
+      await ctx.reply(this.t('onezeroOtpPendingWeb'), { parse_mode: 'HTML' });
+      return;
+    }
+
+    const scraperService = this.getScraperService();
+    const result = await scraperService.oneZeroOtpTrigger(phone, profile.id);
+    if (!result.success) {
+      state.conversationContext = undefined;
+      state.pendingOneZeroProfileId = undefined;
+      this.chatStates.set(chatId, state);
+      await ctx.reply(this.escapeTgHtml(result.error), { parse_mode: 'HTML' });
+      return;
+    }
+
+    await ctx.reply(this.t('onezeroOtpSmsSent'), { parse_mode: 'HTML' });
+  }
+
+  private async handleOneZeroOtpCodeReply(ctx: Context, text: string): Promise<void> {
+    const chatId = ctx.chat?.id?.toString();
+    const userId = ctx.from?.id.toString() || '';
+    if (!chatId || !userId) return;
+
+    const state = this.chatStates.get(chatId);
+    const profileId = state?.pendingOneZeroProfileId;
+    if (!profileId) return;
+
+    if (await this.replyIfAppLocked(ctx)) return;
+
+    const code = text.replace(/\s+/g, '').trim();
+    if (!/^\d{4,12}$/.test(code)) {
+      await ctx.reply(this.t('onezeroOtpSendCode'), { parse_mode: 'HTML' });
+      return;
+    }
+
+    const scraperService = this.getScraperService();
+    const result = await scraperService.oneZeroOtpComplete(undefined, code, { saveToProfileId: profileId });
+
+    if (state) {
+      state.conversationContext = undefined;
+      state.pendingOneZeroProfileId = undefined;
+      this.chatStates.set(chatId, state);
+    }
+
+    if (!result.success) {
+      await ctx.reply(this.escapeTgHtml(result.error), { parse_mode: 'HTML' });
+      return;
+    }
+
+    await ctx.reply(this.t('onezeroOtpSuccess'), { parse_mode: 'HTML' });
   }
 
   private formatIlsForBot(amount: number): string {
@@ -2555,41 +2836,64 @@ export class TelegramBotService {
 
     const errors: string[] = [];
     let sent = 0;
+    const t0 = Date.now();
+    let chunksPerTarget: number | undefined;
 
-    if (count <= 0) {
-      const text = '✅ Test message from Financial Overview. If you see this, notifications are working.';
+    try {
+      if (count <= 0) {
+        const text = '✅ Test message from Financial Overview. If you see this, notifications are working.';
+        chunksPerTarget = 1;
+        for (const id of targetIds) {
+          try {
+            await this.bot.telegram.sendMessage(id, text);
+            sent++;
+          } catch (err: any) {
+            errors.push(`${id}: ${err?.message || err}`);
+          }
+        }
+        return { sent, errors };
+      }
+
+      const payload = this.buildLargeTestTelegramPayload(count, mode);
+      const chunks =
+        mode === 'html'
+          ? splitTelegramHtmlChunks(payload, 4080)
+          : splitTelegramPlainText(payload, getTelegramMaxMessageChars());
+      chunksPerTarget = chunks.length;
+
       for (const id of targetIds) {
         try {
-          await this.bot.telegram.sendMessage(id, text);
+          for (const chunk of chunks) {
+            await this.bot.telegram.sendMessage(
+              id,
+              chunk,
+              mode === 'html' ? { parse_mode: 'HTML' } : {}
+            );
+          }
           sent++;
         } catch (err: any) {
           errors.push(`${id}: ${err?.message || err}`);
         }
       }
       return { sent, errors };
+    } finally {
+      logExternal({
+        service: 'telegram',
+        operation: 'send_test_message',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/sendMessage',
+        outcome: sent === 0 && errors.length > 0 ? 'error' : 'ok',
+        durationMs: Date.now() - t0,
+        extra: {
+          targets: targetIds.length,
+          sent,
+          errorLines: errors.length,
+          largeMessage: count > 0,
+          chunksPerTarget: chunksPerTarget ?? 0,
+        },
+      });
     }
-
-    const payload = this.buildLargeTestTelegramPayload(count, mode);
-    const chunks =
-      mode === 'html'
-        ? splitTelegramHtmlChunks(payload, 4080)
-        : splitTelegramPlainText(payload, getTelegramMaxMessageChars());
-
-    for (const id of targetIds) {
-      try {
-        for (const chunk of chunks) {
-          await this.bot.telegram.sendMessage(
-            id,
-            chunk,
-            mode === 'html' ? { parse_mode: 'HTML' } : {}
-          );
-        }
-        sent++;
-      } catch (err: any) {
-        errors.push(`${id}: ${err?.message || err}`);
-      }
-    }
-    return { sent, errors };
   }
 }
 

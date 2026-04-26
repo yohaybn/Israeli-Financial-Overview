@@ -8,6 +8,7 @@ export const CONFIG_TAB_IDS = [
     'scrape',
     'sheets',
     'budget-exports',
+    'investments',
     'telegram',
     'maintenance',
 ] as const;

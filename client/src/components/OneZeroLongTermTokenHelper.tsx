@@ -4,14 +4,20 @@ import { useOneZeroOtpTrigger, useOneZeroOtpComplete } from '../hooks/useScraper
 
 export interface OneZeroLongTermTokenHelperProps {
     phoneNumber: string;
+    /** When set, SMS + verify are bound to this profile; token is stored on the server and not returned. */
+    profileId?: string;
     onTokenGenerated: (token: string) => void;
+    /** Called when the server saved the token for {@link profileId} (no token in memory). */
+    onTokenSavedToProfile?: () => void;
     /** App lock or form-disabled */
     disabled?: boolean;
 }
 
 export function OneZeroLongTermTokenHelper({
     phoneNumber,
+    profileId,
     onTokenGenerated,
+    onTokenSavedToProfile,
     disabled,
 }: OneZeroLongTermTokenHelperProps) {
     const { t } = useTranslation();
@@ -25,12 +31,18 @@ export function OneZeroLongTermTokenHelper({
 
     const phoneOk = phoneNumber.trim().startsWith('+');
     const busy = isTriggering || isCompleting;
+    const showOtpBlock =
+        !disabled && (Boolean(sessionId) || Boolean(profileId)) && (Boolean(sessionId) || (Boolean(profileId) && phoneOk));
 
     const handleSendSms = async () => {
         setLocalError(null);
         setSuccessFlash(false);
         try {
-            const sid = await triggerOtp(phoneNumber.trim());
+            const sid = await triggerOtp(
+                profileId
+                    ? { phoneNumber: phoneNumber.trim(), profileId }
+                    : phoneNumber.trim()
+            );
             setSessionId(sid);
             setOtpCode('');
         } catch (e: unknown) {
@@ -40,15 +52,28 @@ export function OneZeroLongTermTokenHelper({
     };
 
     const handleVerify = async () => {
-        if (!sessionId) return;
+        const sid = sessionId?.trim();
+        if (!otpCode.trim()) return;
+        if (!sid && !profileId) return;
         setLocalError(null);
         setSuccessFlash(false);
         try {
-            const token = await completeOtp({ sessionId, otpCode: otpCode.trim() });
-            onTokenGenerated(token);
-            setSessionId(null);
-            setOtpCode('');
-            setSuccessFlash(true);
+            const result = await completeOtp({
+                sessionId: sid || undefined,
+                otpCode: otpCode.trim(),
+                profileId,
+            });
+            if (result.savedToProfile) {
+                onTokenSavedToProfile?.();
+                setSessionId(null);
+                setOtpCode('');
+                setSuccessFlash(true);
+            } else {
+                onTokenGenerated(result.otpLongTermToken);
+                setSessionId(null);
+                setOtpCode('');
+                setSuccessFlash(true);
+            }
         } catch (e: unknown) {
             setLocalError(e instanceof Error ? e.message : String(e));
         }
@@ -82,7 +107,7 @@ export function OneZeroLongTermTokenHelper({
                 </button>
             </div>
 
-            {sessionId && !disabled && (
+            {showOtpBlock && (
                 <div className="space-y-2">
                     <label className="block text-xs font-medium text-gray-700">{t('onezero.otp.otp_label')}</label>
                     <div className="flex flex-col sm:flex-row gap-2">
@@ -107,7 +132,7 @@ export function OneZeroLongTermTokenHelper({
                 </div>
             )}
 
-            {!sessionId && phoneOk && !disabled && (
+            {!sessionId && phoneOk && !disabled && !profileId && (
                 <p className="text-xs text-gray-500">{t('onezero.otp.idle_hint')}</p>
             )}
 

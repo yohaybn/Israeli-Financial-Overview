@@ -91,11 +91,15 @@ function scrapeApiErrorMessage(e: unknown, fallback: string): string {
 /** One Zero: trigger SMS OTP; returns session id for {@link useOneZeroOtpComplete}. */
 export function useOneZeroOtpTrigger() {
     return useMutation({
-        mutationFn: async (phoneNumber: string) => {
+        mutationFn: async (payload: string | { phoneNumber: string; profileId?: string }) => {
             try {
+                const body =
+                    typeof payload === 'string'
+                        ? { phoneNumber: payload }
+                        : { phoneNumber: payload.phoneNumber, profileId: payload.profileId };
                 const { data } = await api.post<{ success: boolean; sessionId?: string; error?: string }>(
                     '/scrape/onezero/otp/trigger',
-                    { phoneNumber }
+                    body
                 );
                 if (!data.success || !data.sessionId) {
                     throw new Error(data.error || 'Failed to send SMS');
@@ -108,20 +112,37 @@ export function useOneZeroOtpTrigger() {
     });
 }
 
-/** One Zero: verify SMS code and return long-term token string. */
+/** One Zero: verify SMS — returns token unless profileId saves server-side without returning it. */
 export function useOneZeroOtpComplete() {
     return useMutation({
-        mutationFn: async (payload: { sessionId: string; otpCode: string }) => {
+        mutationFn: async (payload: {
+            sessionId?: string;
+            otpCode: string;
+            /** When set, server stores token on profile and omits otpLongTermToken */
+            profileId?: string;
+        }) => {
             try {
+                const req: Record<string, string | undefined> = {
+                    otpCode: payload.otpCode,
+                    sessionId: payload.sessionId,
+                    profileId: payload.profileId,
+                };
                 const { data } = await api.post<{
                     success: boolean;
                     otpLongTermToken?: string;
+                    savedToProfile?: boolean;
                     error?: string;
-                }>('/scrape/onezero/otp/complete', payload);
-                if (!data.success || !data.otpLongTermToken) {
+                }>('/scrape/onezero/otp/complete', req);
+                if (!data.success) {
                     throw new Error(data.error || 'Failed to verify OTP');
                 }
-                return data.otpLongTermToken;
+                if (data.savedToProfile) {
+                    return { savedToProfile: true as const, otpLongTermToken: undefined as undefined };
+                }
+                if (!data.otpLongTermToken) {
+                    throw new Error(data.error || 'Failed to verify OTP');
+                }
+                return { savedToProfile: false as const, otpLongTermToken: data.otpLongTermToken };
             } catch (e: unknown) {
                 throw new Error(scrapeApiErrorMessage(e, 'Failed to verify OTP'));
             }
@@ -234,6 +255,65 @@ export function useUpdateTransactionSubscription() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['unified-data'] });
             queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+        },
+    });
+}
+
+export function useUpdateTransactionInvestment() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ transactionId, isInvestment }: { transactionId: string; isInvestment: boolean }) => {
+            const encodedTxn = encodeURIComponent(transactionId);
+            const { data } = await api.patch<{ success: boolean }>(`/transactions/${encodedTxn}/investment`, { isInvestment });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+        },
+    });
+}
+
+export function useCreateInvestmentFromTransaction() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({
+            transactionId,
+            symbol,
+            quantity,
+            use_tel_aviv_listing,
+            position_currency,
+        }: {
+            transactionId: string;
+            symbol: string;
+            quantity?: number;
+            use_tel_aviv_listing?: boolean;
+            /** Optional override: `USD` | `ILS` (server defaults from charge + TA checkbox). */
+            position_currency?: 'USD' | 'ILS';
+        }) => {
+            const encodedTxn = encodeURIComponent(transactionId);
+            const body: {
+                symbol: string;
+                quantity?: number;
+                use_tel_aviv_listing?: boolean;
+                position_currency?: 'USD' | 'ILS';
+            } = { symbol };
+            if (quantity !== undefined) body.quantity = quantity;
+            if (use_tel_aviv_listing !== undefined) body.use_tel_aviv_listing = use_tel_aviv_listing;
+            if (position_currency !== undefined) body.position_currency = position_currency;
+            const { data } = await api.post<{ success: boolean; data?: { investmentId: string }; error?: string }>(
+                `/transactions/${encodedTxn}/investment/create`,
+                body
+            );
+            if (!data.success) {
+                throw new Error(data.error || 'create_failed');
+            }
+            return data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
+            queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+            queryClient.invalidateQueries({ queryKey: ['investments'] });
         },
     });
 }

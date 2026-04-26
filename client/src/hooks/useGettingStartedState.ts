@@ -3,8 +3,8 @@ import { isDemoMode } from '../demo/isDemo';
 
 const STORAGE_KEY = 'bank-scraper-getting-started-v1';
 
-/** Steps: intro, profile, first scrape, dashboard, logs, configuration */
-export const GETTING_STARTED_STEP_COUNT = 6;
+/** Steps: intro, profile, first scrape, dashboard, logs, configuration, investments (optional) */
+export const GETTING_STARTED_STEP_COUNT = 7;
 
 type GettingStartedSnapshot = {
     v: 1;

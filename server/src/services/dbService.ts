@@ -205,6 +205,99 @@ function initialize(db: Database.Database) {
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_insight_rule_fires_score ON insight_rule_fires(score DESC)`);
 
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS investments (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            purchase_price_per_unit REAL NOT NULL,
+            currency TEXT NOT NULL,
+            track_from_date TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_investments_user ON investments(user_id)`);
+    try {
+        db.exec('ALTER TABLE investments ADD COLUMN source_transaction_id TEXT');
+    } catch (_) {
+        /* column exists */
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_investments_source_txn ON investments(source_transaction_id)`);
+    try {
+        db.exec('ALTER TABLE investments ADD COLUMN use_tel_aviv_listing INTEGER NOT NULL DEFAULT 1');
+    } catch (_) {
+        /* column exists */
+    }
+    const TASE_DEFAULT_MIGRATION_KEY = 'migrated_investments_tase_default_v1';
+    const taseMigrated = db.prepare(`SELECT 1 FROM db_meta WHERE key = ?`).get(TASE_DEFAULT_MIGRATION_KEY);
+    if (!taseMigrated) {
+        try {
+            db.exec(
+                `UPDATE investments SET use_tel_aviv_listing = CASE WHEN UPPER(currency) = 'ILS' THEN 1 ELSE 0 END`
+            );
+            db.prepare(`INSERT OR IGNORE INTO db_meta (key, value) VALUES (?, '1')`).run(TASE_DEFAULT_MIGRATION_KEY);
+        } catch (_) {
+            /* ignore if investments missing */
+        }
+    }
+    try {
+        db.exec(`ALTER TABLE investments ADD COLUMN value_in_agorot INTEGER NOT NULL DEFAULT 0`);
+    } catch (_) {
+        /* column exists */
+    }
+    try {
+        db.exec(`UPDATE investments SET value_in_agorot = 0 WHERE UPPER(currency) != 'ILS'`);
+    } catch (_) {
+        /* ignore */
+    }
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS portfolio_history (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            total_value REAL NOT NULL,
+            display_currency TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, snapshot_date)
+        )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_portfolio_history_user_date ON portfolio_history(user_id, snapshot_date)`);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS portfolio_snapshot_settings (
+            user_id TEXT PRIMARY KEY,
+            run_time TEXT NOT NULL DEFAULT '22:00',
+            timezone TEXT NOT NULL DEFAULT 'Asia/Jerusalem',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.prepare(
+        `INSERT OR IGNORE INTO portfolio_snapshot_settings (user_id, run_time, timezone, enabled) VALUES ('local', '22:00', 'Asia/Jerusalem', 1)`
+    ).run();
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS investment_app_settings (
+            user_id TEXT PRIMARY KEY,
+            feature_enabled INTEGER NOT NULL DEFAULT 1,
+            eodhd_api_token TEXT,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.prepare(
+        `INSERT OR IGNORE INTO investment_app_settings (user_id, feature_enabled, eodhd_api_token) VALUES ('local', 0, NULL)`
+    ).run();
+    try {
+        db.exec(
+            `ALTER TABLE investment_app_settings ADD COLUMN eodhd_quote_mode TEXT NOT NULL DEFAULT 'realtime'`
+        );
+    } catch (_) {
+        /* column exists */
+    }
+
     serverLogger.info('Database initialized');
 }
 
@@ -282,6 +375,62 @@ export class DbService {
         return !!stmt.get(id);
     }
 
+    private mapRawTransactionRow(row: {
+        raw_data: string;
+        category: string;
+        category_user_set: number;
+        isIgnored: number;
+        isInternalTransfer: number | null;
+        isSubscription: number;
+        subscriptionInterval: string | null;
+        excludeFromSubscriptions: number;
+    }): Transaction {
+        const txn = JSON.parse(row.raw_data) as Transaction;
+        txn.category = row.category;
+        txn.categoryUserSet = Boolean(row.category_user_set);
+        txn.isIgnored = Boolean(row.isIgnored);
+        let isInternalValue: number | null = null;
+        if (txn.isInternalTransfer === true || txn.txnType === 'internal_transfer' || txn.type === 'internal_transfer') {
+            isInternalValue = 1;
+        } else if (txn.isInternalTransfer === false) {
+            isInternalValue = 0;
+        }
+        if (isInternalValue === null) {
+            if (row.isInternalTransfer !== null && row.isInternalTransfer !== undefined) {
+                txn.isInternalTransfer = Boolean(row.isInternalTransfer);
+            } else {
+                txn.isInternalTransfer = undefined;
+            }
+        } else {
+            txn.isInternalTransfer = Boolean(isInternalValue);
+        }
+        txn.isSubscription = Boolean(row.isSubscription);
+        txn.subscriptionInterval = row.subscriptionInterval as Transaction['subscriptionInterval'];
+        txn.excludeFromSubscriptions = Boolean(row.excludeFromSubscriptions);
+        return txn;
+    }
+
+    getTransactionById(id: string): Transaction | undefined {
+        const row = this.db
+            .prepare(
+                `SELECT raw_data, category, category_user_set, isIgnored, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions
+                 FROM transactions WHERE id = ?`
+            )
+            .get(id) as
+            | {
+                  raw_data: string;
+                  category: string;
+                  category_user_set: number;
+                  isIgnored: number;
+                  isInternalTransfer: number | null;
+                  isSubscription: number;
+                  subscriptionInterval: string | null;
+                  excludeFromSubscriptions: number;
+              }
+            | undefined;
+        return row ? this.mapRawTransactionRow(row) : undefined;
+    }
+
     getAllTransactions(includeIgnored = false): Transaction[] {
         let query =
             'SELECT raw_data, category, category_user_set, isIgnored, isInternalTransfer, isSubscription, subscriptionInterval, excludeFromSubscriptions FROM transactions';
@@ -293,34 +442,38 @@ export class DbService {
         const stmt = this.db.prepare(query);
         const rows = stmt.all();
 
-        return rows.map((row: any) => {
-            const txn = JSON.parse(row.raw_data);
-            // Override with DB values if they differ (e.g. category update)
-            txn.category = row.category;
-            txn.categoryUserSet = Boolean(row.category_user_set);
-            txn.isIgnored = Boolean(row.isIgnored);
-            // Same derivation as addTransaction — raw txnType/type must win over a stale isInternalTransfer column
-            // (otherwise explicit false blocks isInternalTransfer() from ever seeing txnType).
-            let isInternalValue: number | null = null;
-            if (txn.isInternalTransfer === true || txn.txnType === 'internal_transfer' || txn.type === 'internal_transfer') {
-                isInternalValue = 1;
-            } else if (txn.isInternalTransfer === false) {
-                isInternalValue = 0;
-            }
-            if (isInternalValue === null) {
-                if (row.isInternalTransfer !== null && row.isInternalTransfer !== undefined) {
-                    txn.isInternalTransfer = Boolean(row.isInternalTransfer);
-                } else {
-                    txn.isInternalTransfer = undefined;
-                }
+        return rows.map((row: any) => this.mapRawTransactionRow(row));
+    }
+
+    updateTransactionInvestmentMetadata(
+        id: string,
+        patch: { isInvestment?: boolean; investmentId?: string | null }
+    ): boolean {
+        const getStmt = this.db.prepare('SELECT raw_data FROM transactions WHERE id = ?');
+        const row = getStmt.get(id) as { raw_data: string } | undefined;
+        if (!row) return false;
+
+        const txn = JSON.parse(row.raw_data) as Transaction;
+        if (patch.isInvestment !== undefined) {
+            txn.isInvestment = patch.isInvestment;
+        }
+        if (patch.investmentId !== undefined) {
+            if (patch.investmentId === null || patch.investmentId === '') {
+                delete txn.investmentId;
             } else {
-                txn.isInternalTransfer = Boolean(isInternalValue);
+                txn.investmentId = patch.investmentId;
             }
-            txn.isSubscription = Boolean(row.isSubscription);
-            txn.subscriptionInterval = row.subscriptionInterval;
-            txn.excludeFromSubscriptions = Boolean(row.excludeFromSubscriptions);
-            return txn;
-        });
+        }
+
+        const updateStmt = this.db.prepare('UPDATE transactions SET raw_data = ? WHERE id = ?');
+        return updateStmt.run(JSON.stringify(txn), id).changes > 0;
+    }
+
+    investmentExistsForSourceTransaction(sourceTransactionId: string): boolean {
+        const row = this.db
+            .prepare(`SELECT COUNT(*) as n FROM investments WHERE source_transaction_id = ?`)
+            .get(sourceTransactionId) as { n: number } | undefined;
+        return Boolean(row && Number(row.n) > 0);
     }
 
     /**
@@ -971,5 +1124,366 @@ export class DbService {
 
     deleteInsightRuleFireByRuleAndPeriod(ruleId: string, periodKey: string): boolean {
         return this.db.prepare(`DELETE FROM insight_rule_fires WHERE rule_id = ? AND period_key = ?`).run(ruleId, periodKey).changes > 0;
+    }
+
+    // --- Investments & portfolio ---
+
+    listInvestments(userId: string): {
+        id: string;
+        userId: string;
+        symbol: string;
+        quantity: number;
+        purchasePricePerUnit: number;
+        currency: string;
+        trackFromDate: string;
+        sourceTransactionId: string | null;
+        useTelAvivListing: boolean;
+        valueInAgorot: boolean;
+        createdAt: string;
+        updatedAt: string;
+    }[] {
+        const rows = this.db
+            .prepare(
+                `SELECT id, user_id, symbol, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at
+                 FROM investments WHERE user_id = ? ORDER BY symbol ASC, created_at ASC`
+            )
+            .all(userId) as {
+            id: string;
+            user_id: string;
+            symbol: string;
+            quantity: number;
+            purchase_price_per_unit: number;
+            currency: string;
+            track_from_date: string;
+            source_transaction_id: string | null;
+            use_tel_aviv_listing: number | null;
+            value_in_agorot: number | null;
+            created_at: string;
+            updated_at: string;
+        }[];
+        return rows.map((r) => ({
+            id: r.id,
+            userId: r.user_id,
+            symbol: r.symbol,
+            quantity: Number(r.quantity),
+            purchasePricePerUnit: Number(r.purchase_price_per_unit),
+            currency: r.currency,
+            trackFromDate: r.track_from_date,
+            sourceTransactionId: r.source_transaction_id ?? null,
+            useTelAvivListing:
+                r.use_tel_aviv_listing == null
+                    ? r.currency?.toUpperCase() === 'ILS'
+                    : Boolean(r.use_tel_aviv_listing),
+            valueInAgorot: Boolean(r.value_in_agorot),
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        }));
+    }
+
+    getInvestment(id: string):
+        | {
+              id: string;
+              userId: string;
+              symbol: string;
+              quantity: number;
+              purchasePricePerUnit: number;
+              currency: string;
+              trackFromDate: string;
+              sourceTransactionId: string | null;
+              useTelAvivListing: boolean;
+              valueInAgorot: boolean;
+              createdAt: string;
+              updatedAt: string;
+          }
+        | undefined {
+        const r = this.db
+            .prepare(
+                `SELECT id, user_id, symbol, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at
+                 FROM investments WHERE id = ?`
+            )
+            .get(id) as
+            | {
+                  id: string;
+                  user_id: string;
+                  symbol: string;
+                  quantity: number;
+                  purchase_price_per_unit: number;
+                  currency: string;
+                  track_from_date: string;
+                  source_transaction_id: string | null;
+                  use_tel_aviv_listing: number | null;
+                  value_in_agorot: number | null;
+                  created_at: string;
+                  updated_at: string;
+              }
+            | undefined;
+        if (!r) return undefined;
+        return {
+            id: r.id,
+            userId: r.user_id,
+            symbol: r.symbol,
+            quantity: Number(r.quantity),
+            purchasePricePerUnit: Number(r.purchase_price_per_unit),
+            currency: r.currency,
+            trackFromDate: r.track_from_date,
+            sourceTransactionId: r.source_transaction_id ?? null,
+            useTelAvivListing:
+                r.use_tel_aviv_listing == null
+                    ? r.currency?.toUpperCase() === 'ILS'
+                    : Boolean(r.use_tel_aviv_listing),
+            valueInAgorot: Boolean(r.value_in_agorot),
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        };
+    }
+
+    insertInvestment(row: {
+        id: string;
+        userId: string;
+        symbol: string;
+        quantity: number;
+        purchasePricePerUnit: number;
+        currency: string;
+        trackFromDate: string;
+        sourceTransactionId?: string | null;
+        useTelAvivListing?: boolean;
+        valueInAgorot?: boolean;
+    }): void {
+        const tel =
+            row.useTelAvivListing === undefined
+                ? row.currency?.toUpperCase() === 'ILS'
+                    ? 1
+                    : 0
+                : row.useTelAvivListing
+                  ? 1
+                  : 0;
+        const ag =
+            row.valueInAgorot && row.currency?.toUpperCase() === 'ILS'
+                ? 1
+                : 0;
+        this.db
+            .prepare(
+                `INSERT INTO investments (id, user_id, symbol, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+            )
+            .run(
+                row.id,
+                row.userId,
+                row.symbol,
+                row.quantity,
+                row.purchasePricePerUnit,
+                row.currency,
+                row.trackFromDate,
+                row.sourceTransactionId ?? null,
+                tel,
+                ag
+            );
+    }
+
+    updateInvestment(
+        id: string,
+        patch: Partial<{
+            symbol: string;
+            quantity: number;
+            purchasePricePerUnit: number;
+            currency: string;
+            trackFromDate: string;
+            useTelAvivListing: boolean;
+            valueInAgorot: boolean;
+        }>
+    ): boolean {
+        const fields: string[] = [];
+        const values: (string | number)[] = [];
+        if (patch.symbol !== undefined) {
+            fields.push('symbol = ?');
+            values.push(patch.symbol);
+        }
+        if (patch.quantity !== undefined) {
+            fields.push('quantity = ?');
+            values.push(patch.quantity);
+        }
+        if (patch.purchasePricePerUnit !== undefined) {
+            fields.push('purchase_price_per_unit = ?');
+            values.push(patch.purchasePricePerUnit);
+        }
+        if (patch.currency !== undefined) {
+            fields.push('currency = ?');
+            values.push(patch.currency);
+        }
+        if (patch.trackFromDate !== undefined) {
+            fields.push('track_from_date = ?');
+            values.push(patch.trackFromDate);
+        }
+        if (patch.useTelAvivListing !== undefined) {
+            fields.push('use_tel_aviv_listing = ?');
+            values.push(patch.useTelAvivListing ? 1 : 0);
+        }
+        if (patch.valueInAgorot !== undefined) {
+            fields.push('value_in_agorot = ?');
+            values.push(patch.valueInAgorot ? 1 : 0);
+        }
+        if (fields.length === 0) return false;
+        fields.push('updated_at = CURRENT_TIMESTAMP');
+        values.push(id);
+        const sql = `UPDATE investments SET ${fields.join(', ')} WHERE id = ?`;
+        return this.db.prepare(sql).run(...values).changes > 0;
+    }
+
+    deleteInvestment(id: string): boolean {
+        return this.db.prepare(`DELETE FROM investments WHERE id = ?`).run(id).changes > 0;
+    }
+
+    listPortfolioHistory(
+        userId: string,
+        opts?: { fromDate?: string; toDate?: string }
+    ): { id: string; snapshotDate: string; totalValue: number; displayCurrency: string }[] {
+        let sql = `SELECT id, snapshot_date, total_value, display_currency FROM portfolio_history WHERE user_id = ?`;
+        const params: string[] = [userId];
+        if (opts?.fromDate) {
+            sql += ` AND snapshot_date >= ?`;
+            params.push(opts.fromDate);
+        }
+        if (opts?.toDate) {
+            sql += ` AND snapshot_date <= ?`;
+            params.push(opts.toDate);
+        }
+        sql += ` ORDER BY snapshot_date ASC`;
+        const rows = this.db.prepare(sql).all(...params) as {
+            id: string;
+            snapshot_date: string;
+            total_value: number;
+            display_currency: string;
+        }[];
+        return rows.map((r) => ({
+            id: r.id,
+            snapshotDate: r.snapshot_date,
+            totalValue: Number(r.total_value),
+            displayCurrency: r.display_currency,
+        }));
+    }
+
+    upsertPortfolioHistorySnapshot(row: {
+        id: string;
+        userId: string;
+        snapshotDate: string;
+        totalValue: number;
+        displayCurrency: string;
+    }): void {
+        this.db
+            .prepare(
+                `INSERT INTO portfolio_history (id, user_id, snapshot_date, total_value, display_currency, created_at)
+                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(user_id, snapshot_date) DO UPDATE SET
+                   total_value = excluded.total_value,
+                   display_currency = excluded.display_currency,
+                   id = excluded.id`
+            )
+            .run(row.id, row.userId, row.snapshotDate, row.totalValue, row.displayCurrency);
+    }
+
+    getPortfolioSnapshotSettings(userId: string): {
+        userId: string;
+        runTime: string;
+        timezone: string;
+        enabled: boolean;
+        updatedAt: string;
+    } {
+        const r = this.db
+            .prepare(`SELECT user_id, run_time, timezone, enabled, updated_at FROM portfolio_snapshot_settings WHERE user_id = ?`)
+            .get(userId) as
+            | {
+                  user_id: string;
+                  run_time: string;
+                  timezone: string;
+                  enabled: number;
+                  updated_at: string;
+              }
+            | undefined;
+        if (!r) {
+            return {
+                userId,
+                runTime: '22:00',
+                timezone: 'Asia/Jerusalem',
+                enabled: true,
+                updatedAt: '',
+            };
+        }
+        return {
+            userId: r.user_id,
+            runTime: r.run_time,
+            timezone: r.timezone,
+            enabled: r.enabled !== 0,
+            updatedAt: r.updated_at,
+        };
+    }
+
+    upsertPortfolioSnapshotSettings(row: {
+        userId: string;
+        runTime: string;
+        timezone: string;
+        enabled: boolean;
+    }): void {
+        this.db
+            .prepare(
+                `INSERT INTO portfolio_snapshot_settings (user_id, run_time, timezone, enabled, updated_at)
+                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(user_id) DO UPDATE SET
+                   run_time = excluded.run_time,
+                   timezone = excluded.timezone,
+                   enabled = excluded.enabled,
+                   updated_at = CURRENT_TIMESTAMP`
+            )
+            .run(row.userId, row.runTime, row.timezone, row.enabled ? 1 : 0);
+    }
+
+    getInvestmentAppSettings(userId: string): {
+        userId: string;
+        featureEnabled: boolean;
+        eodhdApiToken: string | null;
+        eodhdQuoteMode: string;
+        updatedAt: string;
+    } {
+        const r = this.db
+            .prepare(
+                `SELECT user_id, feature_enabled, eodhd_api_token, eodhd_quote_mode, updated_at FROM investment_app_settings WHERE user_id = ?`
+            )
+            .get(userId) as
+            | {
+                  user_id: string;
+                  feature_enabled: number;
+                  eodhd_api_token: string | null;
+                  eodhd_quote_mode: string | null;
+                  updated_at: string;
+              }
+            | undefined;
+        if (!r) {
+            return { userId, featureEnabled: false, eodhdApiToken: null, eodhdQuoteMode: 'realtime', updatedAt: '' };
+        }
+        return {
+            userId: r.user_id,
+            featureEnabled: r.feature_enabled !== 0,
+            eodhdApiToken: r.eodhd_api_token,
+            eodhdQuoteMode: (r.eodhd_quote_mode && String(r.eodhd_quote_mode).trim()) || 'realtime',
+            updatedAt: r.updated_at,
+        };
+    }
+
+    upsertInvestmentAppSettings(row: {
+        userId: string;
+        featureEnabled: boolean;
+        eodhdApiToken: string | null;
+        eodhdQuoteMode: string;
+    }): void {
+        this.db
+            .prepare(
+                `INSERT INTO investment_app_settings (user_id, feature_enabled, eodhd_api_token, eodhd_quote_mode, updated_at)
+                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(user_id) DO UPDATE SET
+                   feature_enabled = excluded.feature_enabled,
+                   eodhd_api_token = excluded.eodhd_api_token,
+                   eodhd_quote_mode = excluded.eodhd_quote_mode,
+                   updated_at = CURRENT_TIMESTAMP`
+            )
+            .run(row.userId, row.featureEnabled ? 1 : 0, row.eodhdApiToken, row.eodhdQuoteMode);
     }
 }

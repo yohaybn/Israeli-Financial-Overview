@@ -11,11 +11,13 @@ import {
     Settings2,
     Sparkles,
     Landmark,
-    X
+    TrendingUp,
+    X,
 } from 'lucide-react';
 import { useGettingStarted } from '../../contexts/GettingStartedContext';
 import type { AppUrlState } from '../../utils/appUrlState';
 import { GETTING_STARTED_STEP_COUNT } from '../../hooks/useGettingStartedState';
+import { GettingStartedInvestmentPanel } from './GettingStartedInvestmentPanel';
 
 const NAV_BY_STEP: (Partial<AppUrlState> | null)[] = [
     null,
@@ -23,7 +25,8 @@ const NAV_BY_STEP: (Partial<AppUrlState> | null)[] = [
     { view: 'scrape' },
     { view: 'dashboard' },
     { view: 'logs', logType: 'server', logEntryId: null },
-    { view: 'configuration', configTab: 'scrape' }
+    { view: 'configuration', configTab: 'scrape' },
+    { view: 'configuration', configTab: 'investments' },
 ];
 
 export interface GettingStartedWizardProps {
@@ -56,6 +59,8 @@ export function GettingStartedWizard({ onNavigate }: GettingStartedWizardProps) 
                 return <ScrollText className={cls} />;
             case 5:
                 return <Settings2 className={cls} />;
+            case 6:
+                return <TrendingUp className={cls} />;
             default:
                 return <Map className={cls} />;
         }
@@ -104,6 +109,7 @@ export function GettingStartedWizard({ onNavigate }: GettingStartedWizardProps) 
                             <p className="text-sm text-slate-600 mt-2 leading-relaxed whitespace-pre-line">
                                 {t(`getting_started.step_${step}_body`)}
                             </p>
+                            {step === 6 && <GettingStartedInvestmentPanel />}
                         </div>
                     </div>
                 </div>

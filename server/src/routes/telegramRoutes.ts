@@ -9,6 +9,7 @@ import { TelegramNotifier } from '../services/notifications/telegramNotifier.js'
 import { notificationService } from '../services/notifications/notificationService.js';
 import { serverLogger } from '../utils/logger.js';
 import { assertSafeTelegramBotFileUrl } from '../utils/safeTelegramBotFileUrl.js';
+import { logExternal, TELEGRAM_API_HOST } from '../utils/externalServiceLog.js';
 
 const router = Router();
 
@@ -192,17 +193,50 @@ router.get('/bot-avatar', async (req: Request, res: Response) => {
     } catch {
       return res.status(502).end();
     }
+    const t0 = Date.now();
     const r = await fetch(url, { redirect: 'error' });
+    const durationMs = Date.now() - t0;
     if (!r.ok) {
+      logExternal({
+        service: 'telegram',
+        operation: 'bot_avatar_download',
+        host: TELEGRAM_API_HOST,
+        method: 'GET',
+        path: '/file/bot<token>/<path>',
+        outcome: 'error',
+        durationMs,
+        httpStatus: r.status,
+        errorMessage: 'non_ok_http',
+      });
       return res.status(502).end();
     }
     const ct = r.headers.get('content-type') || 'image/jpeg';
     res.setHeader('Content-Type', ct);
     res.setHeader('Cache-Control', 'private, max-age=300');
     const buf = Buffer.from(await r.arrayBuffer());
+    logExternal({
+      service: 'telegram',
+      operation: 'bot_avatar_download',
+      host: TELEGRAM_API_HOST,
+      method: 'GET',
+      path: '/file/bot<token>/<path>',
+      outcome: 'ok',
+      durationMs,
+      httpStatus: r.status,
+      extra: { bytes: buf.length },
+    });
     res.send(buf);
   } catch (error: any) {
     serverLogger.error('Error proxying Telegram bot avatar', { error });
+    logExternal({
+      service: 'telegram',
+      operation: 'bot_avatar_download',
+      host: TELEGRAM_API_HOST,
+      method: 'GET',
+      path: '/file/bot<token>/<path>',
+      outcome: 'error',
+      errorMessage: error?.message || String(error),
+    });
     res.status(500).end();
   }
 });
@@ -289,10 +323,35 @@ router.post('/test', async (req: Request, res: Response) => {
     const { Telegraf } = await import('telegraf');
     const testBot = new Telegraf(botToken);
 
-    await testBot.telegram.sendMessage(
-      chatId,
-      'âœ… Telegram bot configuration test successful!'
-    );
+    const t0 = Date.now();
+    try {
+      await testBot.telegram.sendMessage(
+        chatId,
+        'âœ… Telegram bot configuration test successful!'
+      );
+      logExternal({
+        service: 'telegram',
+        operation: 'send_message_config_test',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/sendMessage',
+        outcome: 'ok',
+        durationMs: Date.now() - t0,
+      });
+    } catch (sendErr: any) {
+      logExternal({
+        service: 'telegram',
+        operation: 'send_message_config_test',
+        host: TELEGRAM_API_HOST,
+        method: 'POST',
+        path: '/bot<token>/sendMessage',
+        outcome: 'error',
+        durationMs: Date.now() - t0,
+        errorMessage: sendErr.response?.description || sendErr.message,
+        extra: { telegramErrorCode: sendErr.response?.error_code },
+      });
+      throw sendErr;
+    }
 
     res.json({ success: true, message: 'Test message sent' });
   } catch (error: any) {
@@ -398,6 +457,8 @@ router.post('/user-labels', async (req: Request, res: Response) => {
     const bot = new Telegraf(config.botToken);
     const labels: Record<string, string> = {};
 
+    const t0 = Date.now();
+    let lookupFailures = 0;
     await Promise.all(
       uniqueIds.map(async (id) => {
         try {
@@ -408,10 +469,21 @@ router.post('/user-labels', async (req: Request, res: Response) => {
           const title = (chat as any)?.title || '';
           labels[id] = username || `${firstName} ${lastName}`.trim() || title || id;
         } catch {
+          lookupFailures++;
           labels[id] = id;
         }
       })
     );
+    logExternal({
+      service: 'telegram',
+      operation: 'get_chat_labels',
+      host: TELEGRAM_API_HOST,
+      method: 'POST',
+      path: '/bot<token>/getChat',
+      outcome: lookupFailures === uniqueIds.length ? 'error' : 'ok',
+      durationMs: Date.now() - t0,
+      extra: { chatLookups: uniqueIds.length, lookupFailures },
+    });
 
     res.json({ success: true, data: labels });
   } catch (error: any) {

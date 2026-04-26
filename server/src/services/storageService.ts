@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import {
     ScrapeResult,
     Transaction,
@@ -13,6 +14,41 @@ import { AiService } from './aiService.js';
 import { closeDbForRestore, DbService } from './dbService.js';
 import { refreshInsightRuleFires } from './insightRulesService.js';
 import { serverLogger } from '../utils/logger.js';
+import { DEFAULT_INVESTMENT_USER_ID } from '../constants/investments.js';
+import { fetchUsdIlsRateOnDate, guessShareQuantityFromCostOnDate } from './investmentMarketDataService.js';
+import { isInvestmentsFeatureEnabled } from '../constants/marketData.js';
+
+function inferInvestmentLegFromTransaction(txn: Transaction): {
+    currency: 'USD' | 'ILS';
+    costAbs: number;
+    trackFromDate: string;
+} {
+    const date = txn.date && txn.date.length >= 10 ? txn.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const chargedCur = (txn.chargedCurrency || '').toUpperCase();
+    const origCur = (txn.originalCurrency || '').toUpperCase();
+
+    if (chargedCur === 'USD' || origCur === 'USD') {
+        const fromCharged =
+            chargedCur === 'USD' && txn.chargedAmount != null ? Math.abs(Number(txn.chargedAmount)) : null;
+        const fromOrig =
+            origCur === 'USD' && txn.originalAmount != null ? Math.abs(Number(txn.originalAmount)) : null;
+        const usdAmt = fromCharged ?? fromOrig ?? Math.abs(Number(txn.amount ?? 0));
+        if (usdAmt > 0) {
+            return { currency: 'USD', costAbs: usdAmt, trackFromDate: date };
+        }
+    }
+
+    const ils = Math.abs(Number(txn.chargedAmount ?? txn.amount ?? 0));
+    return { currency: 'ILS', costAbs: ils > 0 ? ils : 0, trackFromDate: date };
+}
+
+function normalizePositionCurrency(raw: unknown): 'USD' | 'ILS' | undefined {
+    const s = String(raw ?? '')
+        .trim()
+        .toUpperCase();
+    if (s === 'USD' || s === 'ILS') return s;
+    return undefined;
+}
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const RESULTS_DIR = path.join(DATA_DIR, 'results');
@@ -564,6 +600,126 @@ export class StorageService {
         });
 
         return true;
+    }
+
+    async updateTransactionInvestmentUnified(
+        transactionId: string,
+        patch: { isInvestment?: boolean; investmentId?: string | null }
+    ): Promise<boolean> {
+        if (patch.isInvestment === true && !isInvestmentsFeatureEnabled()) {
+            return false;
+        }
+        const success = this.dbService.updateTransactionInvestmentMetadata(transactionId, patch);
+        if (!success) return false;
+
+        await this.syncTransactionUpdateToFiles(transactionId, (t) => {
+            if (patch.isInvestment !== undefined) {
+                t.isInvestment = patch.isInvestment;
+            }
+            if (patch.investmentId !== undefined) {
+                if (patch.investmentId == null || patch.investmentId === '') {
+                    delete t.investmentId;
+                } else {
+                    t.investmentId = patch.investmentId;
+                }
+            }
+        });
+
+        return true;
+    }
+
+    async createInvestmentFromTransactionUnified(
+        transactionId: string,
+        opts: {
+            symbol: string;
+            quantity?: number;
+            useTelAvivListing?: boolean;
+            /** `USD` | `ILS` from API, or omit for auto (ILS charge + TA off → USD row with FX on txn date). */
+            positionCurrency?: string;
+        }
+    ): Promise<{ ok: true; investmentId: string } | { ok: false; error: string }> {
+        if (!isInvestmentsFeatureEnabled()) {
+            return { ok: false, error: 'investments_disabled' };
+        }
+        const txn = this.dbService.getTransactionById(transactionId);
+        if (!txn) {
+            return { ok: false, error: 'transaction_not_found' };
+        }
+        if (this.dbService.investmentExistsForSourceTransaction(transactionId)) {
+            return { ok: false, error: 'already_has_investment' };
+        }
+
+        const symbol = String(opts.symbol || '')
+            .trim()
+            .toUpperCase();
+        if (!/^[A-Z0-9.\-]{1,24}$/i.test(symbol)) {
+            return { ok: false, error: 'invalid_symbol' };
+        }
+
+        const inferred = inferInvestmentLegFromTransaction(txn);
+        if (!Number.isFinite(inferred.costAbs) || inferred.costAbs <= 0) {
+            return { ok: false, error: 'invalid_amount' };
+        }
+
+        const useTase =
+            opts.useTelAvivListing !== undefined
+                ? opts.useTelAvivListing
+                : inferred.currency.toUpperCase() === 'ILS';
+
+        const explicitPc = normalizePositionCurrency(opts.positionCurrency);
+        const positionCurrency: 'USD' | 'ILS' =
+            explicitPc ?? (inferred.currency === 'USD' ? 'USD' : useTase ? 'ILS' : 'USD');
+
+        let costForPosition = inferred.costAbs;
+        if (inferred.currency === 'ILS' && positionCurrency === 'USD') {
+            const fx = await fetchUsdIlsRateOnDate(inferred.trackFromDate);
+            if (fx == null || !Number.isFinite(fx) || fx <= 0) {
+                return { ok: false, error: 'fx_unavailable_for_date' };
+            }
+            costForPosition = inferred.costAbs / fx;
+        } else if (inferred.currency === 'USD' && positionCurrency === 'ILS') {
+            const fx = await fetchUsdIlsRateOnDate(inferred.trackFromDate);
+            if (fx == null || !Number.isFinite(fx) || fx <= 0) {
+                return { ok: false, error: 'fx_unavailable_for_date' };
+            }
+            costForPosition = inferred.costAbs * fx;
+        }
+
+        let qty: number;
+        if (opts.quantity != null && Number.isFinite(Number(opts.quantity)) && Number(opts.quantity) > 0) {
+            qty = Number(opts.quantity);
+        } else {
+            const guessed = await guessShareQuantityFromCostOnDate(
+                symbol,
+                positionCurrency,
+                useTase,
+                costForPosition,
+                inferred.trackFromDate
+            );
+            qty = guessed?.quantity ?? 1;
+        }
+
+        const purchasePricePerUnit = costForPosition / qty;
+        const id = uuidv4();
+
+        this.dbService.insertInvestment({
+            id,
+            userId: DEFAULT_INVESTMENT_USER_ID,
+            symbol,
+            quantity: qty,
+            purchasePricePerUnit,
+            currency: positionCurrency,
+            trackFromDate: inferred.trackFromDate,
+            sourceTransactionId: transactionId,
+            useTelAvivListing: useTase,
+        });
+
+        await this.updateTransactionInvestmentUnified(transactionId, {
+            isInvestment: true,
+            investmentId: id,
+        });
+
+        return { ok: true, investmentId: id };
     }
 
     private async syncTransactionUpdateToFiles(transactionId: string, updateFn: (txn: any) => void): Promise<void> {

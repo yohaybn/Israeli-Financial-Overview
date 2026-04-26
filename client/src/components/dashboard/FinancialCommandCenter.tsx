@@ -17,6 +17,8 @@ import { DayTransactionsModal } from './DayTransactionsModal';
 import { AllTransactionsSearchModal } from './AllTransactionsSearchModal';
 import { getInitialCollapsedOnMobile } from '../../hooks/useInitialCollapsedOnMobile';
 import { TopInsightsCard } from './TopInsightsCard';
+import { PortfolioSection } from './PortfolioSection';
+import { useInvestmentAppSettings } from '../../hooks/useInvestments';
 
 function shiftMonth(ym: string, delta: number): string {
     const d = new Date(ym + '-01');
@@ -42,6 +44,8 @@ export function FinancialCommandCenter({
     categories,
 }: FinancialCommandCenterProps) {
     const { t, i18n } = useTranslation();
+    const { data: investmentAppSettings } = useInvestmentAppSettings();
+    const showInvestmentsCard = investmentAppSettings?.featureEnabled !== false;
     const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<string | null>(null);
     const [analyticsDayFilter, setAnalyticsDayFilter] = useState<AnalyticsDayFilter | null>(null);
     const [showAllTransactionsSearch, setShowAllTransactionsSearch] = useState(false);
@@ -197,21 +201,11 @@ export function FinancialCommandCenter({
         );
     }
 
-    if (!transactions || transactions.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full text-gray-300 p-8">
-                <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-                    <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                </div>
-                <p className="text-xl font-light text-gray-400">{t('dashboard.select_data')}</p>
-            </div>
-        );
-    }
+    const showTransactionsEmpty = !transactions || transactions.length === 0;
 
     return (
         <div className="space-y-6 p-1 animate-in fade-in duration-500">
+            {!showTransactionsEmpty && (
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between pb-1">
                 <div className="min-w-0 flex-1">
                     <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
@@ -330,7 +324,25 @@ export function FinancialCommandCenter({
                     <CCPaymentDateSettings />
                 </div>
             </div>
+            )}
 
+            {showTransactionsEmpty && showInvestmentsCard ? (
+                <div className="animate-fade-in-up max-w-6xl mx-auto w-full" style={{ animationDelay: '60ms' }}>
+                    <PortfolioSection />
+                </div>
+            ) : null}
+
+            {showTransactionsEmpty ? (
+                <div className="flex flex-col items-center justify-center text-gray-300 p-8 max-w-6xl mx-auto">
+                    <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                        <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <p className="text-xl font-light text-gray-400">{t('dashboard.select_data')}</p>
+                </div>
+            ) : (
+                <>
             <div className="animate-fade-in-up max-w-6xl mx-auto w-full" style={{ animationDelay: '90ms' }}>
                 <TopInsightsCard />
             </div>
@@ -408,6 +420,12 @@ export function FinancialCommandCenter({
                 </div>
             </div>
 
+            {showInvestmentsCard ? (
+                <div className="animate-fade-in-up max-w-6xl mx-auto w-full pt-6" style={{ animationDelay: '210ms' }}>
+                    <PortfolioSection />
+                </div>
+            ) : null}
+
             {/* Existing Analytics Charts (Category Pie + Monthly Trend + Top Merchants) */}
             <div className="border-t border-gray-200 pt-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -469,6 +487,8 @@ export function FinancialCommandCenter({
                     onUpdateCategory={onUpdateCategory}
                     onClose={() => setShowAllTransactionsSearch(false)}
                 />
+            )}
+                </>
             )}
 
         </div>

@@ -44,6 +44,8 @@ async function startServer() {
   const { insightRulesRoutes } = await import('./routes/insightRulesRoutes.js');
   const { communityInsightRulesRoutes } = await import('./routes/communityInsightRulesRoutes.js');
   const { createBudgetExportRoutes } = await import('./routes/budgetExportRoutes.js');
+  const { investmentRoutes } = await import('./routes/investmentRoutes.js');
+  const { reloadPortfolioSnapshotSchedule } = await import('./services/portfolioSnapshotScheduler.js');
 
   const app = express();
   const rawPort = parseInt(process.env.PORT || '3000', 10);
@@ -81,6 +83,10 @@ async function startServer() {
       url.startsWith('/api/telegram/status') ||
       url.startsWith('/api/telegram/bot-info') ||
       url.startsWith('/api/telegram/bot-avatar') ||
+      url.startsWith('/api/app-lock/status') ||
+      url.startsWith('/api/health ') ||
+      url.startsWith('/icons/providers') ||     
+       url.startsWith('/api/filters') ||
       url.startsWith('/api/app-lock/status') ||
       url.includes('/settings')
     );
@@ -150,6 +156,7 @@ async function startServer() {
   app.use('/api/insight-rules', insightRulesRoutes);
   app.use('/api/community/insight-rules', communityInsightRulesRoutes);
   app.use('/api/budget-export', createBudgetExportRoutes());
+  app.use('/api/investments', investmentRoutes);
 
   // Socket.IO connection handling
   io.on('connection', (socket) => {
@@ -190,6 +197,7 @@ async function startServer() {
       serverLogger.info(`WebSocket ready on ws://localhost:${port}`);
       serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
+      reloadPortfolioSnapshotSchedule();
       void runAiMemoryRetentionPrune().catch((e: unknown) => {
         const msg = e instanceof Error ? e.message : String(e);
         const stack = e instanceof Error ? e.stack : undefined;
