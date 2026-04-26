@@ -155,7 +155,10 @@ export function computeFinancialDigestSnapshot(
 
         if (isCurrentMonth) {
             if (baseline && !baseline.isFixed) {
-                const N = baseline.expectedMonthlyTxnCount || 1;
+                const N =
+                    baseline.avgMonthlyTxnCount ??
+                    baseline.expectedMonthlyTxnCount ??
+                    0;
                 const avgTxnValue = baseline.avgTxnValue || 0;
                 const currentTxns = categoryTxns.get(name)?.length || 0;
                 categoryVariableForecast = computeTxnBaselineVariableForecast({

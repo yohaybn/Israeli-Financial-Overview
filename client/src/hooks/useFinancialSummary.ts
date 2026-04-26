@@ -188,7 +188,10 @@ export function useFinancialSummary(
             let forecastEffectiveTxnCount: number | undefined;
             if (isCurrentMonth) {
                 if (baseline && !baseline.isFixed) {
-                    const N = baseline.expectedMonthlyTxnCount || 1;
+                    const N =
+                        baseline.avgMonthlyTxnCount ??
+                        baseline.expectedMonthlyTxnCount ??
+                        0;
                     const avgTxnValue = baseline.avgTxnValue || 0;
                     const currentTxns = categoryTxns.get(name)?.length || 0;
 
@@ -200,10 +203,11 @@ export function useFinancialSummary(
                         remainingDays,
                     });
                     categoryVariableForecast = amount;
-                    forecastEffectiveTxnCount = Math.round(forecastTxnCount * 100) / 100;
-
-                    forecastRate = 0; // Daily rate is no longer the main driver
-                    forecastMethod = 'transaction_count';
+                    if (N >= 1) {
+                        forecastEffectiveTxnCount = Math.round(forecastTxnCount * 100) / 100;
+                        forecastRate = 0; // Daily rate is no longer the main driver
+                        forecastMethod = 'transaction_count';
+                    }
                 } else if (!baseline && spent > 0) {
                     // If no baseline but we have spend, do a naive extrapolation
                     forecastRate = spent / Math.max(1, daysPassed);

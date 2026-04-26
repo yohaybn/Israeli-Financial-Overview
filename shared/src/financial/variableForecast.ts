@@ -9,7 +9,10 @@ export function computeTxnBaselineVariableForecast(params: {
     daysInMonth: number;
     remainingDays: number;
 }): { amount: number; forecastTxnCount: number } {
-    const N = Math.max(1, params.expectedMonthlyTxnCount);
+    const N = params.expectedMonthlyTxnCount;
+    if (!Number.isFinite(N) || N < 1) {
+        return { amount: 0, forecastTxnCount: 0 };
+    }
     const avgTxnValue = Math.max(0, params.avgTxnValue);
     const current = params.currentMonthTxnCount;
     const daysInMonth = params.daysInMonth;
