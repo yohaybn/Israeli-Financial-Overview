@@ -6,20 +6,24 @@ description: "Financial Overview (מבט כלכלי) — scrape Israeli banks an
 url: "https://github.com/yohaybn/Israeli-Financial-Overview"
 # Supervisor builds with this folder as context (repo root when the full repository is installed under /addons/<name>/).
 startup: application
+# Required for Home Assistant s6 base images: Docker’s init must not wrap /init, or s6 throws "can only run as pid 1".
+init: false
 arch:
   - aarch64
   - amd64
   - armv7
 ingress: true
+# Must match the listen `port` option (below) for sidebar / Ingress to reach the app.
 ingress_port: 3000
 ingress_entry: /
 options:
-  google_client_id: ""
-  google_client_secret: ""
-  drive_folder_id: ""
+  port: 3000
 schema:
-  google_client_id: str
-  google_client_secret: str
-  drive_folder_id: str
+  port: port
+  google_client_id: str?
+  google_client_secret: password?
   google_redirect_uri: str?
-  gemini_api_key: str?
+  drive_folder_id: str?
+  gemini_api_key: password?
+  telegram_bot_token: password?
+  eodhd_api_token: str?

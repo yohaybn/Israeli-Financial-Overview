@@ -18,11 +18,17 @@ if [ -f "$CONFIG_PATH" ]; then
         fi
     }
 
+    if [ -z "$PORT" ]; then
+        export PORT="$(jq -r '.port // 3000' "$CONFIG_PATH")"
+    fi
+
     export_json_key "google_client_id" "GOOGLE_CLIENT_ID"
     export_json_key "google_client_secret" "GOOGLE_CLIENT_SECRET"
     export_json_key "google_redirect_uri" "GOOGLE_REDIRECT_URI"
     export_json_key "drive_folder_id" "DRIVE_FOLDER_ID"
     export_json_key "gemini_api_key" "GEMINI_API_KEY"
+    export_json_key "telegram_bot_token" "TELEGRAM_BOT_TOKEN"
+    export_json_key "eodhd_api_token" "EODHD_API_TOKEN"
     
 fi
 
