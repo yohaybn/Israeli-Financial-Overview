@@ -23,7 +23,7 @@ import {
     type Transaction,
 } from '@app/shared';
 import { TREEMAP_SMALL_MERGED_ID, useAnalytics } from '../hooks/useAnalytics';
-import type { CategoryParentGroupKey } from '../utils/categoryParentGroup';
+import type { CategoryParentGroupKey } from '@app/shared';
 import { isInternalTransfer, isLoanCategory } from '../utils/transactionUtils';
 import {
     ANALYTICS_CHART_TOOLTIP_STYLE,

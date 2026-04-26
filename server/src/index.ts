@@ -45,6 +45,7 @@ async function startServer() {
   const { communityInsightRulesRoutes } = await import('./routes/communityInsightRulesRoutes.js');
   const { createBudgetExportRoutes } = await import('./routes/budgetExportRoutes.js');
   const { investmentRoutes } = await import('./routes/investmentRoutes.js');
+  const { createReportRoutes } = await import('./routes/reportRoutes.js');
   const { reloadPortfolioSnapshotSchedule } = await import('./services/portfolioSnapshotScheduler.js');
 
   const app = express();
@@ -88,6 +89,7 @@ async function startServer() {
       url.startsWith('/icons/providers') ||     
        url.startsWith('/api/filters') ||
       url.startsWith('/api/app-lock/status') ||
+      url.startsWith('/api/reports') ||
       url.includes('/settings')
     );
 
@@ -157,6 +159,7 @@ async function startServer() {
   app.use('/api/community/insight-rules', communityInsightRulesRoutes);
   app.use('/api/budget-export', createBudgetExportRoutes());
   app.use('/api/investments', investmentRoutes);
+  app.use('/api/reports', createReportRoutes(schedulerService));
 
   // Socket.IO connection handling
   io.on('connection', (socket) => {

@@ -5,6 +5,7 @@ export const CONFIG_TAB_IDS = [
     'insight-rules',
     'categories',
     'scheduler',
+    'financial-report',
     'scrape',
     'sheets',
     'budget-exports',

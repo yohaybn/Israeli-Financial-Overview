@@ -100,6 +100,14 @@ function App() {
         return () => window.removeEventListener('open-fraud-settings', onOpenFraud);
     }, []);
 
+    useEffect(() => {
+        const onOpenFinancialReport = () => {
+            setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'financial-report' }));
+        };
+        window.addEventListener('open-financial-report-settings', onOpenFinancialReport);
+        return () => window.removeEventListener('open-financial-report-settings', onOpenFinancialReport);
+    }, []);
+
     // Default to scrape view if no data exists (unless URL already specified a view)
     useEffect(() => {
         if (!hasCheckedData && !isLoadingScrape && !isLoadingUnified && scrapeResults && unifiedTransactions) {

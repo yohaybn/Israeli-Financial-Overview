@@ -4,6 +4,7 @@ export {
     buildSchedulerCronExpression,
     intervalDaysShouldRun,
     normalizeBackupSchedule,
+    normalizeFinancialReportSchedule,
     normalizeInsightRulesSchedule,
     normalizeSchedulerConfig,
     parseRunTimeFromCron,
@@ -37,6 +38,19 @@ export {
     CATEGORY_COLOR_PALETTE,
     getColorForCategory,
 } from './analytics/categoryColors.js';
+export {
+    computeUnifiedAnalytics,
+    filterTransactionsByCalendarMonth,
+    TREEMAP_SMALL_MERGED_ID,
+} from './analytics/unifiedAnalytics.js';
+export type {
+    CategoryTreemapAggregatedPart,
+    CategoryTreemapGroup,
+    CategoryTreemapLeaf,
+    UnifiedAnalyticsData,
+} from './analytics/unifiedAnalytics.js';
+export type { CategoryParentGroupKey } from './analytics/categoryParentGroup.js';
+export { CATEGORY_PARENT_GROUP_ORDER, getCategoryParentGroupKey } from './analytics/categoryParentGroup.js';
 export {
     DEFAULT_EXPENSE_CATEGORY,
     expenseCategoryKey,
@@ -76,6 +90,7 @@ export {
     formatAnomalyDigestLine
 } from './financial/anomalyI18n.js';
 export type { DigestLocale } from './financial/anomalyI18n.js';
+export { resolveFinancialReportMonthYm } from './financialReportMonth.js';
 export const version = "1.0.0";
 export {
     assignBatchContentIdsFromTransactions,

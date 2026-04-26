@@ -1,10 +1,12 @@
 import type {
     BackupScheduleConfig,
     CronScheduleFields,
+    FinancialReportScheduleConfig,
     InsightRulesScheduleConfig,
     SchedulerConfig,
     SchedulerScheduleType
 } from './types.js';
+import { DEFAULT_FINANCIAL_REPORT_SCHEDULE } from './types.js';
 
 export function parseRunTimeFromCron(cronExpression: string): string {
     const parts = cronExpression.trim().split(/\s+/);
@@ -213,6 +215,58 @@ export function normalizeInsightRulesSchedule<T extends InsightRulesScheduleConf
         ...normalized,
         enabled: config.enabled ?? false,
         lastRun: config.lastRun
+    } as T;
+}
+
+function mergeFinancialReportSections(
+    base: FinancialReportScheduleConfig['sections'],
+    patch?: Partial<FinancialReportScheduleConfig['sections']>
+): FinancialReportScheduleConfig['sections'] {
+    return {
+        ...base,
+        ...(patch ?? {}),
+    };
+}
+
+export function normalizeFinancialReportSchedule<T extends FinancialReportScheduleConfig>(config: T): T {
+    const def = DEFAULT_FINANCIAL_REPORT_SCHEDULE;
+    const mergedBase = {
+        ...def,
+        ...config,
+        sections: mergeFinancialReportSections(def.sections, config.sections),
+    };
+    const normalized = normalizeScheduleFields(
+        {
+            scheduleType: mergedBase.scheduleType,
+            runTime: mergedBase.runTime,
+            weekdays: mergedBase.weekdays,
+            monthDays: mergedBase.monthDays,
+            intervalDays: mergedBase.intervalDays,
+            intervalAnchorDate: mergedBase.intervalAnchorDate,
+            cronExpression: mergedBase.cronExpression
+        },
+        def.cronExpression
+    );
+
+    const localeMode =
+        mergedBase.localeMode === 'he' || mergedBase.localeMode === 'en' || mergedBase.localeMode === 'bilingual'
+            ? mergedBase.localeMode
+            : def.localeMode;
+
+    const scheduledMonthRule =
+        mergedBase.scheduledMonthRule === 'current_calendar_month'
+            ? 'current_calendar_month'
+            : 'previous_calendar_month';
+
+    return {
+        ...mergedBase,
+        ...normalized,
+        enabled: mergedBase.enabled ?? false,
+        sendTelegram: Boolean(mergedBase.sendTelegram),
+        localeMode,
+        sections: mergeFinancialReportSections(def.sections, mergedBase.sections),
+        scheduledMonthRule,
+        lastRun: mergedBase.lastRun
     } as T;
 }
 

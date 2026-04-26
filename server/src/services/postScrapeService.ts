@@ -321,6 +321,7 @@ export class PostScrapeService {
   }
 
   private async sendTelegramPayloadForRequest(request: ScrapeRequest | undefined, payload: NotificationPayload): Promise<void> {
+    telegramBotService.syncNotificationNotifierChatIds();
     const tgChatId = (request as any)?.options?.postScrape?.telegramChatId || (request as any)?.options?.telegramChatId;
     if (tgChatId) {
       const tgNotifier = notificationService.getNotifier('telegram') as any;
@@ -348,6 +349,9 @@ export class PostScrapeService {
     payload: NotificationPayload,
     request?: ScrapeRequest
   ): Promise<void> {
+    if (channels.includes('telegram')) {
+      telegramBotService.syncNotificationNotifierChatIds();
+    }
     const buffer = this.getTelegramAggregationBuffer(request);
     if (!buffer) {
       await notificationService.notify(channels, payload);

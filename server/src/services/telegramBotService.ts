@@ -31,6 +31,8 @@ import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unif
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
 import { isSafeTelegramRelativeFilePath } from '../utils/safeTelegramBotFileUrl.js';
 import { getBoundSessionIdForProfile } from './oneZeroOtpSessionStore.js';
+import { notificationService } from './notifications/index.js';
+import { TelegramNotifier } from './notifications/telegramNotifier.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const TEL_CONFIG_PATH = path.join(DATA_DIR, 'config', 'telegram_config.json');
@@ -2784,6 +2786,33 @@ export class TelegramBotService {
   }
 
   /**
+   * Align HTTP TelegramNotifier chat IDs with this service's saved config.
+   * Memo prompts use the bot API + this.config; pipeline notifications use TelegramNotifier — they can drift after startup or disk edits.
+   */
+  syncNotificationNotifierChatIds(): void {
+    try {
+      const notifier = notificationService.getNotifier('telegram') as TelegramNotifier | undefined;
+      if (!notifier?.isEnabled()) return;
+
+      const fileIds = (this.config.notificationChatIds || []).map(String).filter(Boolean);
+      const mapIds = Object.keys(this.config.notificationAccountsByChatId || {}).map(String).filter(Boolean);
+      const existing = notifier.getChatIds().map(String);
+      const merged = [...new Set([...fileIds, ...mapIds, ...existing])];
+      if (merged.length === 0) return;
+
+      const norm = (a: string[]) => [...a].sort().join('\u0001');
+      if (norm(existing) === norm(merged)) return;
+
+      notifier.updateConfig({ chatIds: merged });
+      serverLogger.debug('Telegram notifier chatIds synced from bot Telegram config', {
+        count: merged.length,
+      });
+    } catch (e) {
+      serverLogger.warn('syncNotificationNotifierChatIds failed', { error: (e as Error).message });
+    }
+  }
+
+  /**
    * Check if bot is running
    */
   isActive(): boolean {
@@ -2811,6 +2840,41 @@ export class TelegramBotService {
       n++;
     }
     return s.slice(0, cap);
+  }
+
+  /**
+   * Push a generated financial PDF to notification chats (requires an active bot).
+   */
+  async sendFinancialPdfToChats(
+    pdf: Buffer,
+    filename: string,
+    monthYm: string
+  ): Promise<{ sent: number; errors: string[] }> {
+    if (!this.bot || !this.isRunning) {
+      serverLogger.warn('sendFinancialPdfToChats: bot not running; skipping Telegram delivery');
+      return { sent: 0, errors: ['Telegram bot is not running'] };
+    }
+    const caption =
+      this.config.language === 'he'
+        ? `דוח פיננסי — מבט כלכלי (${monthYm})`
+        : `Financial report — Israeli overview (${monthYm})`;
+    const targets = [...new Set((this.config.notificationChatIds || []).map(String).filter(Boolean))];
+    const errors: string[] = [];
+    let sent = 0;
+    for (const chatId of targets) {
+      try {
+        await this.bot.telegram.sendDocument(chatId, Input.fromBuffer(pdf, filename), { caption });
+        sent++;
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errors.push(`${chatId}: ${msg}`);
+        serverLogger.warn('sendFinancialPdfToChats failed for chat', { chatId, error: msg });
+      }
+    }
+    if (targets.length === 0) {
+      errors.push('No notification chat IDs configured');
+    }
+    return { sent, errors };
   }
 
   /**

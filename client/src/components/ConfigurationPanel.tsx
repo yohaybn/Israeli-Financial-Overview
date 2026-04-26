@@ -12,6 +12,7 @@ import { InsightRulesSettings } from './InsightRulesSettings';
 import type { ConfigTabId } from '../utils/appUrlState';
 import { BudgetExportSettings } from './BudgetExportSettings';
 import { InvestmentSettings } from './InvestmentSettings';
+import { FinancialReportSettings } from './FinancialReportSettings';
 
 export interface ConfigurationPanelProps {
     activeTab: ConfigTabId;
@@ -24,6 +25,7 @@ const CONFIG_SECTIONS: { id: ConfigTabId }[] = [
     { id: 'insight-rules' },
     { id: 'categories' },
     { id: 'scheduler' },
+    { id: 'financial-report' },
     { id: 'scrape' },
     { id: 'sheets' },
     { id: 'budget-exports' },
@@ -51,6 +53,7 @@ export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports
             )}
             {activeTab === 'categories' && <CategorySettings />}
             {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
+            {activeTab === 'financial-report' && <FinancialReportSettings />}
             {activeTab === 'scrape' && (
                 <div className="space-y-10">
                     <ScrapeSettings isInline={true} onOpenBudgetExports={onOpenBudgetExports} />

@@ -744,6 +744,36 @@ export function useUpdateSchedulerConfig() {
     });
 }
 
+export function useFinancialReportSettings() {
+    return useQuery({
+        queryKey: ['reportSettings'],
+        queryFn: async () => {
+            const { data } = await api.get<{
+                success: boolean;
+                data: { financialReportSchedule: Record<string, unknown> };
+            }>('/reports/settings');
+            return data.data.financialReportSchedule;
+        },
+    });
+}
+
+export function useUpdateFinancialReportSettings() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (patch: Record<string, unknown>) => {
+            const { data } = await api.patch<{
+                success: boolean;
+                data: { financialReportSchedule: Record<string, unknown> };
+            }>('/reports/settings', patch);
+            return data.data.financialReportSchedule;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['reportSettings'] });
+            queryClient.invalidateQueries({ queryKey: ['schedulerConfig'] });
+        },
+    });
+}
+
 export function useRunSchedulerNow() {
     return useMutation({
         mutationFn: async () => {

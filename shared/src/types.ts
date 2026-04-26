@@ -599,6 +599,8 @@ export interface SchedulerConfig extends CronScheduleFields {
     insightRulesSchedule?: InsightRulesScheduleConfig;
     /** Independent of scrape schedule; uses the same frequency mechanism. */
     backupSchedule?: BackupScheduleConfig;
+    /** Financial overview PDF on a timer (optional Telegram). */
+    financialReportSchedule?: FinancialReportScheduleConfig;
     lastRun?: string; // ISO timestamp (last scrape)
     nextRun?: string; // ISO timestamp
 }
@@ -615,6 +617,53 @@ export interface InsightRulesScheduleConfig extends CronScheduleFields {
     enabled: boolean;
     lastRun?: string; // ISO timestamp (last refresh)
 }
+
+export type FinancialReportLocaleMode = 'he' | 'en' | 'bilingual';
+
+/** Which blocks appear in the financial PDF. */
+export interface FinancialReportSections {
+    kpis: boolean;
+    categoryBreakdown: boolean;
+    topMerchants: boolean;
+    executiveSummary: boolean;
+    insights: boolean;
+    metaSpend: boolean;
+}
+
+export const DEFAULT_FINANCIAL_REPORT_SECTIONS: FinancialReportSections = {
+    kpis: true,
+    categoryBreakdown: true,
+    topMerchants: true,
+    executiveSummary: true,
+    insights: true,
+    metaSpend: false,
+};
+
+/**
+ * Scheduled financial PDF (independent of scrapes).
+ * Defaults: weekly Monday 07:00 server local time.
+ */
+export interface FinancialReportScheduleConfig extends CronScheduleFields {
+    enabled: boolean;
+    sendTelegram: boolean;
+    localeMode: FinancialReportLocaleMode;
+    sections: FinancialReportSections;
+    /** When the cron fires, which calendar month YYYY-MM to aggregate. */
+    scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
+    lastRun?: string;
+}
+
+export const DEFAULT_FINANCIAL_REPORT_SCHEDULE: FinancialReportScheduleConfig = {
+    enabled: false,
+    sendTelegram: false,
+    localeMode: 'bilingual',
+    sections: { ...DEFAULT_FINANCIAL_REPORT_SECTIONS },
+    scheduledMonthRule: 'previous_calendar_month',
+    scheduleType: 'weekly',
+    runTime: '07:00',
+    weekdays: [1],
+    cronExpression: '0 7 * * 1',
+};
 
 export const DEFAULT_BACKUP_SCHEDULE: BackupScheduleConfig = {
     enabled: false,
@@ -638,7 +687,8 @@ export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
     cronExpression: '0 8 * * *', // Default: Daily at 8:00 AM
     selectedProfiles: [],
     insightRulesSchedule: { ...DEFAULT_INSIGHT_RULES_SCHEDULE },
-    backupSchedule: { ...DEFAULT_BACKUP_SCHEDULE }
+    backupSchedule: { ...DEFAULT_BACKUP_SCHEDULE },
+    financialReportSchedule: { ...DEFAULT_FINANCIAL_REPORT_SCHEDULE },
 };
 
 /** Structured AI persona / alignment (onboarding survey + editable under Configuration → AI). */

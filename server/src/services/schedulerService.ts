@@ -6,16 +6,19 @@ import {
     DEFAULT_SCHEDULER_CONFIG,
     DEFAULT_BACKUP_SCHEDULE,
     DEFAULT_INSIGHT_RULES_SCHEDULE,
+    DEFAULT_FINANCIAL_REPORT_SCHEDULE,
     BackupScheduleConfig,
     Profile,
     ScrapeResult,
     normalizeSchedulerConfig,
     normalizeBackupSchedule,
     normalizeInsightRulesSchedule,
+    normalizeFinancialReportSchedule,
     buildSchedulerCronExpression,
     buildCronFromScheduleFields,
     intervalDaysShouldRun,
-    localDateISO
+    localDateISO,
+    resolveFinancialReportMonthYm,
 } from '@app/shared';
 import { serviceLogger as logger } from '../utils/logger.js';
 import { ScraperService } from './scraperService.js';
@@ -25,6 +28,10 @@ import { BackupService } from './backupService.js';
 import { postScrapeService } from './postScrapeService.js';
 import { appLockService } from './appLockService.js';
 import { PROJECT_ROOT } from '../runtimeEnv.js';
+import { generateFinancialPdfBuffer } from './financialPdfReportService.js';
+import { ConfigService } from './configService.js';
+import { AiService } from './aiService.js';
+import { telegramBotService } from './telegramBotService.js';
 
 /** Resolve each use so `process.env.DATA_DIR` updates (Maintenance) are not stuck on the import-time cwd. */
 function schedulerDataDir(): string {
@@ -52,9 +59,11 @@ export class SchedulerService {
     private scrapeJob: cron.ScheduledTask | null = null;
     private backupJob: cron.ScheduledTask | null = null;
     private insightRulesJob: cron.ScheduledTask | null = null;
+    private financialReportJob: cron.ScheduledTask | null = null;
     private isRunning: boolean = false;
     private backupIsRunning: boolean = false;
     private insightRulesIsRunning: boolean = false;
+    private financialReportIsRunning: boolean = false;
 
     constructor(scraperService: ScraperService, profileService: ProfileService, storageService?: StorageService) {
         this.scraperService = scraperService;
@@ -81,6 +90,10 @@ export class SchedulerService {
                     insightRulesSchedule: normalizeInsightRulesSchedule({
                         ...DEFAULT_INSIGHT_RULES_SCHEDULE,
                         ...stored.insightRulesSchedule
+                    }),
+                    financialReportSchedule: normalizeFinancialReportSchedule({
+                        ...DEFAULT_FINANCIAL_REPORT_SCHEDULE,
+                        ...stored.financialReportSchedule
                     })
                 };
                 delete (merged as { runInsightRules?: boolean }).runInsightRules;
@@ -92,7 +105,8 @@ export class SchedulerService {
         return normalizeSchedulerConfig({
             ...(DEFAULT_SCHEDULER_CONFIG as SchedulerConfigStored),
             backupSchedule: normalizeBackupSchedule({ ...DEFAULT_BACKUP_SCHEDULE }),
-            insightRulesSchedule: normalizeInsightRulesSchedule({ ...DEFAULT_INSIGHT_RULES_SCHEDULE })
+            insightRulesSchedule: normalizeInsightRulesSchedule({ ...DEFAULT_INSIGHT_RULES_SCHEDULE }),
+            financialReportSchedule: normalizeFinancialReportSchedule({ ...DEFAULT_FINANCIAL_REPORT_SCHEDULE })
         }) as SchedulerConfigStored;
     }
 
@@ -136,6 +150,9 @@ export class SchedulerService {
         if (this.config.insightRulesSchedule?.enabled) {
             this.startInsightRulesJob();
         }
+        if (this.config.financialReportSchedule?.enabled) {
+            this.startFinancialReportJob();
+        }
     }
 
     public getConfig(): SchedulerConfig {
@@ -144,7 +161,10 @@ export class SchedulerService {
             insightRulesSchedule: normalizeInsightRulesSchedule(
                 this.config.insightRulesSchedule ?? DEFAULT_INSIGHT_RULES_SCHEDULE
             ),
-            backupSchedule: normalizeBackupSchedule(this.config.backupSchedule ?? DEFAULT_BACKUP_SCHEDULE)
+            backupSchedule: normalizeBackupSchedule(this.config.backupSchedule ?? DEFAULT_BACKUP_SCHEDULE),
+            financialReportSchedule: normalizeFinancialReportSchedule(
+                this.config.financialReportSchedule ?? DEFAULT_FINANCIAL_REPORT_SCHEDULE
+            )
         };
     }
 
@@ -153,6 +173,7 @@ export class SchedulerService {
         this.stopScrapeJob();
         this.stopBackupJob();
         this.stopInsightRulesJob();
+        this.stopFinancialReportJob();
         this.config = this.loadConfig();
         this.initialize();
     }
@@ -170,11 +191,18 @@ export class SchedulerService {
             ...(newConfig.insightRulesSchedule ?? {})
         });
 
+        const mergedFinancial = normalizeFinancialReportSchedule({
+            ...DEFAULT_FINANCIAL_REPORT_SCHEDULE,
+            ...this.config.financialReportSchedule,
+            ...(newConfig.financialReportSchedule ?? {})
+        });
+
         this.config = normalizeSchedulerConfig({
             ...this.config,
             ...newConfig,
             backupSchedule: mergedBackup,
-            insightRulesSchedule: mergedInsight
+            insightRulesSchedule: mergedInsight,
+            financialReportSchedule: mergedFinancial
         }) as SchedulerConfigStored;
         delete (this.config as { runInsightRules?: boolean }).runInsightRules;
         this.saveConfig();
@@ -195,6 +223,12 @@ export class SchedulerService {
             this.startInsightRulesJob();
         } else {
             this.stopInsightRulesJob();
+        }
+
+        if (this.config.financialReportSchedule?.enabled) {
+            this.startFinancialReportJob();
+        } else {
+            this.stopFinancialReportJob();
         }
     }
 
@@ -479,6 +513,92 @@ export class SchedulerService {
             logger.error('Scheduled scrape job failed', { error });
         } finally {
             this.isRunning = false;
+        }
+    }
+
+    private startFinancialReportJob() {
+        this.stopFinancialReportJob();
+
+        const s = normalizeFinancialReportSchedule(
+            this.config.financialReportSchedule ?? DEFAULT_FINANCIAL_REPORT_SCHEDULE
+        );
+        if (!s.enabled) {
+            return;
+        }
+
+        const expr = buildCronFromScheduleFields(s);
+        if (!cron.validate(expr)) {
+            logger.error('Invalid financial report cron expression', { expression: expr });
+            return;
+        }
+
+        logger.info(`Starting financial PDF scheduler with cron: ${expr}`, { scheduleType: s.scheduleType });
+        this.financialReportJob = cron.schedule(expr, () => {
+            const current = normalizeFinancialReportSchedule(
+                this.config.financialReportSchedule ?? DEFAULT_FINANCIAL_REPORT_SCHEDULE
+            );
+            if (!current.enabled) {
+                return;
+            }
+            if (current.scheduleType === 'interval_days') {
+                const anchor = current.intervalAnchorDate || localDateISO();
+                const n = current.intervalDays ?? 3;
+                if (!intervalDaysShouldRun(anchor, n, new Date())) {
+                    return;
+                }
+            }
+            void this.runScheduledFinancialPdfReport();
+        });
+    }
+
+    private stopFinancialReportJob() {
+        if (this.financialReportJob) {
+            this.financialReportJob.stop();
+            this.financialReportJob = null;
+            logger.info('Financial PDF scheduler stopped');
+        }
+    }
+
+    private async runScheduledFinancialPdfReport() {
+        if (this.financialReportIsRunning) {
+            logger.warn('Scheduled financial PDF skipped — previous run still in progress');
+            return;
+        }
+
+        const s = normalizeFinancialReportSchedule(
+            this.config.financialReportSchedule ?? DEFAULT_FINANCIAL_REPORT_SCHEDULE
+        );
+        if (!s.enabled) {
+            return;
+        }
+
+        this.financialReportIsRunning = true;
+        const monthYm = resolveFinancialReportMonthYm(s.scheduledMonthRule);
+        logger.info('Scheduled financial PDF starting', { monthYm });
+
+        try {
+            const storageService = new StorageService();
+            const configService = new ConfigService();
+            const aiService = new AiService();
+            const pdf = await generateFinancialPdfBuffer(storageService, configService, aiService, {
+                monthYm,
+                localeMode: s.localeMode,
+                sections: s.sections,
+            });
+            if (s.sendTelegram) {
+                telegramBotService.syncNotificationNotifierChatIds();
+                await telegramBotService.sendFinancialPdfToChats(pdf, `financial-report-${monthYm}.pdf`, monthYm);
+            }
+            this.config.financialReportSchedule = {
+                ...s,
+                lastRun: new Date().toISOString(),
+            };
+            this.saveConfig();
+            logger.info('Scheduled financial PDF completed', { monthYm });
+        } catch (err) {
+            logger.error('Scheduled financial PDF failed', { error: err });
+        } finally {
+            this.financialReportIsRunning = false;
         }
     }
 }

@@ -13,7 +13,6 @@ export type CategoryParentGroupKey =
     | 'other';
 
 const EXACT: Record<string, CategoryParentGroupKey> = {
-    // Housing
     Housing: 'housing',
     דיור: 'housing',
     מגורים: 'housing',
@@ -21,7 +20,6 @@ const EXACT: Record<string, CategoryParentGroupKey> = {
     'Mortgage and Loans': 'housing',
     משכנתא: 'housing',
     'משכנתא והלוואות': 'housing',
-    // Lifestyle
     'Food & Dining': 'lifestyle',
     מזון: 'lifestyle',
     Entertainment: 'lifestyle',
@@ -31,32 +29,26 @@ const EXACT: Record<string, CategoryParentGroupKey> = {
     קניות: 'lifestyle',
     Gifts: 'lifestyle',
     מתנות: 'lifestyle',
-    // Mobility
     Transport: 'mobility',
     תחבורה: 'mobility',
     Travel: 'mobility',
     'חופשות וטיולים': 'mobility',
-    // Wellbeing
     Health: 'wellbeing',
     בריאות: 'wellbeing',
     Insurance: 'wellbeing',
     ביטוח: 'wellbeing',
-    // Education
     Education: 'education',
     חינוך: 'education',
-    // Essentials & bills
     Utilities: 'essentials',
     חשבונות: 'essentials',
     Subscriptions: 'essentials',
     מנויים: 'essentials',
-    // Finance-related labels (rare in expense-only views)
     Income: 'finance',
     הכנסה: 'finance',
     Salary: 'finance',
     משכורת: 'finance',
     Investments: 'finance',
     השקעות: 'finance',
-    // Other
     Other: 'other',
     אחר: 'other',
     'ללא קטגוריה': 'other',

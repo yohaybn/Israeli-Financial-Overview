@@ -16,6 +16,8 @@ import {
     type InsightRuleDefinitionV1,
     assignBatchContentIdsFromTransactions,
     shouldPreserveScrapedTransactionId,
+    sliceTransactionsForAnalyst,
+    type FinancialReportLocaleMode,
 } from '@app/shared';
 import { attachGeminiRateLimitToError } from '../utils/geminiRateLimitCapture.js';
 import { isGeminiRateLimitOrOverloadError } from '../utils/geminiRetryableError.js';
@@ -168,6 +170,24 @@ export interface ScoredMemoryItem {
     text: string;
     /** Clamped 1–100 when persisting */
     score: number;
+}
+
+export interface FinancialReportBilingualBlock {
+    he: string;
+    en: string;
+}
+
+export interface FinancialReportInsightNarrative {
+    title: FinancialReportBilingualBlock;
+    detail: FinancialReportBilingualBlock;
+    action: FinancialReportBilingualBlock;
+    tags?: string[];
+}
+
+/** Gemini JSON output for the financial PDF narrative sections. */
+export interface FinancialReportNarrative {
+    executiveSummary: FinancialReportBilingualBlock;
+    insights: FinancialReportInsightNarrative[];
 }
 
 /** Unified AI chat: model returns user-facing text plus facts, scored insights, and scored alerts. */
@@ -1427,6 +1447,150 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                     serverLogger.warn('Failed to delete uploaded Gemini file', { name, error: (delErr as Error).message });
                 }
             }
+        }
+    }
+
+    private personaContextForFinancialReport(): string {
+        if (this.settings.personaInjectionEnabled === false) return '';
+        const ctx = this.settings.userContext;
+        if (!ctx || isUserPersonaEmpty(ctx)) return '';
+        try {
+            return `\nHousehold context (respect privacy; do not contradict; use only to tune tone and priorities):\n${JSON.stringify(ctx).slice(0, 4000)}\n`;
+        } catch {
+            return '';
+        }
+    }
+
+    private normalizeBilingualBlock(raw: unknown): FinancialReportBilingualBlock {
+        if (raw && typeof raw === 'object') {
+            const o = raw as Record<string, unknown>;
+            const he = typeof o.he === 'string' ? o.he : typeof o.textHe === 'string' ? o.textHe : '';
+            const en = typeof o.en === 'string' ? o.en : typeof o.textEn === 'string' ? o.textEn : '';
+            return { he: he.trim(), en: en.trim() };
+        }
+        if (typeof raw === 'string') {
+            return { he: raw.trim(), en: raw.trim() };
+        }
+        return { he: '', en: '' };
+    }
+
+    /**
+     * JSON narrative for financial PDF (executive summary + 3–5 insights). Returns null if no API key or on failure.
+     */
+    async generateFinancialReportNarrative(params: {
+        monthYm: string;
+        localeMode: FinancialReportLocaleMode;
+        aggregatesSummary: string;
+        transactions: Transaction[];
+    }): Promise<FinancialReportNarrative | null> {
+        if (!this.genAI) return null;
+        await this.loadSettings();
+        const maxRows = this.settings.analystMaxTransactionRows ?? 0;
+        let txns = sliceTransactionsForAnalyst(params.transactions, maxRows);
+        const primaryChat = this.settings.chatModel;
+        const langRule =
+            params.localeMode === 'he'
+                ? 'All user-visible strings in JSON must be Hebrew only (use he field; en may be empty string).'
+                : params.localeMode === 'en'
+                  ? 'All user-visible strings in JSON must be English only (use en field; he may be empty string).'
+                  : 'Provide both he and en for every text field (bilingual report).';
+
+        const systemInstruction =
+            'You are a financial analyst for Israeli household bank and card transactions (ILS). ' +
+            'Output ONLY valid JSON matching the schema. Do not invent merchants or amounts. ' +
+            'Use only the provided aggregates and transaction sample. Not professional investment advice. ' +
+            'Produce 3–5 actionable insights (subscriptions, spikes, savings tips, anomalies). ' +
+            'Executive summary: 2–4 sentences. No markdown in strings. ' +
+            langRule;
+
+        const userText =
+            `Reporting month: ${params.monthYm}\n` +
+            `${this.categoryMetaContextForPrompt()}` +
+            `${this.personaContextForFinancialReport()}` +
+            `Aggregates and tables (trusted):\n${params.aggregatesSummary}\n\n` +
+            `Transaction sample (newest first, CSV columns per app):\n${this.formatTransactionsForAI(txns)}\n\n` +
+            'Respond with JSON exactly in this shape:\n' +
+            '{"executiveSummary":{"he":"...","en":"..."},"insights":[' +
+            '{"title":{"he":"...","en":"..."},"detail":{"he":"...","en":"..."},"action":{"he":"...","en":"..."},"tags":["saving_tip"]}' +
+            ']}\n';
+
+        const generationConfig = {
+            ...this.analyticsGenerationConfigStructured({ temperature: 0.35 }),
+        };
+
+        const runGeneration = async (chatModelName: string) => {
+            const m = this.genAI!.getGenerativeModel({ model: chatModelName, systemInstruction });
+            const genStart = Date.now();
+            const result = await runWithAILoadTracking(() =>
+                m.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: userText }] }],
+                    generationConfig,
+                })
+            );
+            const response = await result.response;
+            const text = response.text();
+            const latencyMs = Date.now() - genStart;
+            return { text, response, latencyMs, chatModelName };
+        };
+
+        try {
+            let outcome: Awaited<ReturnType<typeof runGeneration>>;
+            try {
+                outcome = await runGeneration(primaryChat);
+            } catch (e1: any) {
+                const fb = this.effectiveFallbackModel(primaryChat);
+                if (!fb || !isGeminiRateLimitOrOverloadError(e1)) throw e1;
+                outcome = await runGeneration(fb);
+            }
+
+            const { text, response, latencyMs, chatModelName } = outcome;
+            const usageMetadata = response.usageMetadata;
+            await logAICall({
+                model: chatModelName,
+                provider: 'gemini',
+                requestInfo: {
+                    systemPrompt: systemInstruction,
+                    userInput: userText.slice(0, 8000),
+                    inputLength: userText.length,
+                },
+                responseInfo: {
+                    rawOutput: text,
+                    finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                    success: true,
+                },
+                metadata: {
+                    promptTokens: usageMetadata?.promptTokenCount,
+                    completionTokens: usageMetadata?.candidatesTokenCount,
+                    totalTokens: usageMetadata?.totalTokenCount,
+                    latencyMs,
+                },
+            });
+
+            let parsed: any;
+            try {
+                parsed = this.extractJson(text);
+            } catch {
+                return null;
+            }
+            const executiveSummary = this.normalizeBilingualBlock(parsed?.executiveSummary);
+            const rawInsights = Array.isArray(parsed?.insights) ? parsed.insights : [];
+            const insights: FinancialReportInsightNarrative[] = rawInsights.slice(0, 6).map((row: unknown) => {
+                const r = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+                return {
+                    title: this.normalizeBilingualBlock(r.title),
+                    detail: this.normalizeBilingualBlock(r.detail),
+                    action: this.normalizeBilingualBlock(r.action),
+                    tags: Array.isArray(r.tags) ? r.tags.filter((x: unknown) => typeof x === 'string') : undefined,
+                };
+            });
+            return { executiveSummary, insights };
+        } catch (e: any) {
+            serverLogger.warn('generateFinancialReportNarrative failed', { error: e?.message || String(e) });
+            await logAIError(primaryChat, 'gemini', 'financial-report-narrative', e, {
+                latencyMs: 0,
+                systemPrompt: systemInstruction,
+            });
+            return null;
         }
     }
 
