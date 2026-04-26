@@ -122,4 +122,6 @@ In the Add-on "Configuration" tab, fill in your Google OAuth details and Drive f
 - `google_redirect_uri` (optional)
 - `gemini_api_key` (optional; for AI features)
 
+**Internal HTTP port (add-on only):** **9203** — set in `config.yaml` as `ingress_port` and in the add-on `Dockerfile` as `ENV PORT=9203` (must match for Ingress; different from the default 3000 used by `Dockerfile.app` / vanilla Docker).
+
 Start the add-on and open the Web UI from the sidebar.

@@ -115,7 +115,7 @@ npm run setup
 npm run dev
 ```
 
-This runs the API and the Vite dev client together (see root `package.json`). The UI is typically served on **`http://127.0.0.1:5173`** with the API proxied; for Docker/Home Assistant the app is often exposed on **port 3000** (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+This runs the API and the Vite dev client together (see root `package.json`). The UI is typically served on **`http://127.0.0.1:5173`** with the API proxied; for normal Docker/Compose the app is often on **port 3000**; the **Home Assistant** add-on uses **9203** internally to match `ingress_port` (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 ### Docker
 
@@ -144,6 +144,8 @@ CI workflows set `VITE_APP_BUILD_VERSION` and `VITE_INSTALL_KIND` automatically 
 1. Add this repository in **Settings → Add-ons → Add-on Store → Repositories**.
 2. Install **Financial Overview** and configure OAuth/Drive (and other options) in the add-on **Configuration** tab.
 3. Start the add-on and open the Web UI from the sidebar.
+
+**Port / Ingress:** Home Assistant’s sidebar proxy (Ingress) always uses the **internal** port defined in the add-on’s `config.yaml` (currently **9203**). There is no separate **port** option, because the Supervisor would still connect to that static port — changing a “port” in the UI would break Ingress. To use another **internal** port, only a fork that changes `ingress_port` in `config.yaml` and `PORT` in the `Dockerfile` is supported.
 
 The Supervisor build uses the **entire Git repository** as the Docker context (`config.yaml` and `Dockerfile` live at the repo root). If you use **Samba/SSH** to install a local copy, clone or copy the **full project** into `/addons/<folder>/`, not only a `ha-addon` subfolder.
 

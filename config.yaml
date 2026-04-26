@@ -1,6 +1,6 @@
 name: "Financial Overview"
 # Must match server/package.json "version". Supervisor passes this as BUILD_VERSION to the Docker build.
-version: "1.0.0"
+version: "1.0.2"
 slug: "bank_scraper"
 description: "Financial Overview (מבט כלכלי) — scrape Israeli banks and upload to Google Drive"
 url: "https://github.com/yohaybn/Israeli-Financial-Overview"
@@ -13,13 +13,12 @@ arch:
   - amd64
   - armv7
 ingress: true
-# Must match the listen `port` option (below) for sidebar / Ingress to reach the app.
-ingress_port: 3000
+# Sidebar / Ingress proxy: Supervisor uses ONLY this static value (it does not read a user "port" from options).
+# The app must listen on the same port: ENV PORT=9203 in the Dockerfile, not configurable per install.
+ingress_port: 9203
 ingress_entry: /
-options:
-  port: 3000
+options: {}
 schema:
-  port: port
   google_client_id: str?
   google_client_secret: password?
   google_redirect_uri: str?

@@ -1,6 +1,6 @@
 {
     "name": "server",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "type": "module",
     "description": "",
     "main": "dist/index.js",
@@ -35,7 +35,8 @@
         "socket.io": "^4.8.1",
         "telegraf": "^4.16.3",
         "uuid": "^13.0.0",
-        "winston": "^3.17.0"
+        "winston": "^3.17.0",
+        "yahoo-finance2": "^2.14.0"
     },
     "devDependencies": {
         "@types/better-sqlite3": "^7.6.13",
