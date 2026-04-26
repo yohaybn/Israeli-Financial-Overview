@@ -28,6 +28,12 @@ if [ -f "$CONFIG_PATH" ]; then
     
 fi
 
+# Home Assistant: Supervisor proxies Ingress to `ingress_port` in config.yaml (default 9203). The
+# app must listen on that port. Force here so a data volume with runtime-settings (PORT=3000 from
+# a plain Docker run) or a base image with PORT=3000 cannot make the add-on UI unreachable.
+export PORT=9203
+export NODE_ENV=production
+
 # Start the application
 # DATA_DIR is /data by default in Dockerfile, which is the HA persistent partition
 # Exit 42 = graceful restart (see ConfigService.restart); loop so the add-on does not exit.
