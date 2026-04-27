@@ -6,6 +6,8 @@ import path from 'path'
 
 function normalizeBase(raw: string): string {
     if (!raw || raw === '/') return '/'
+    // Home Assistant Ingress: relative base so built assets load under /hassio/ingress/<slug>/...
+    if (raw === '.' || raw === './') return './'
     return raw.endsWith('/') ? raw : `${raw}/`
 }
 

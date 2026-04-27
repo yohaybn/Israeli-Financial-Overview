@@ -45,6 +45,8 @@ ARG BUILD_VERSION=1.0.2
 ARG VITE_APP_BUILD_VERSION=
 ARG VITE_INSTALL_KIND=docker
 ENV VITE_INSTALL_KIND=docker
+# Relative Vite base so JS/CSS load under Home Assistant Ingress (/hassio/ingress/<slug>/), not from site root.
+ENV VITE_BASE=./
 RUN export VITE_APP_BUILD_VERSION="${VITE_APP_BUILD_VERSION:-$BUILD_VERSION}" \
     && npm run build -w client
 RUN npm run build -w server

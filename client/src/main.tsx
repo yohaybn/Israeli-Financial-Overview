@@ -8,6 +8,7 @@ import { OnboardingProvider } from './contexts/OnboardingContext';
 import { GettingStartedProvider } from './contexts/GettingStartedContext';
 import { ServerActivityProvider } from './contexts/ServerActivityContext';
 import { isDemoMode } from './demo/isDemo';
+import { getResolvedPublicBase } from './utils/publicBase';
 
 async function bootstrap() {
     if (isDemoMode()) {
@@ -15,8 +16,7 @@ async function bootstrap() {
         await worker.start({
             onUnhandledRequest: 'bypass',
             serviceWorker: {
-                // BASE_URL is a path (/ or /repo/); URL() needs an absolute base.
-                url: new URL('mockServiceWorker.js', `${window.location.origin}${import.meta.env.BASE_URL}`).href,
+                url: new URL('mockServiceWorker.js', getResolvedPublicBase()).href,
             },
         });
     }

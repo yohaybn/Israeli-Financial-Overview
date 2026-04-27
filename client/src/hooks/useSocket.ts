@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { TransactionReviewItem } from '@app/shared';
 import { api } from '../lib/api';
+import { getSocketIoPath } from '../utils/publicBase';
 import { isDemoMode } from '../demo/isDemo';
 
 export interface ScrapeProgress {
@@ -30,8 +31,6 @@ export interface TransactionReviewNeededEvent {
     count: number;
     items: TransactionReviewItem[];
 }
-
-const SOCKET_URL = '';
 
 export function useSocket() {
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -63,7 +62,8 @@ export function useSocket() {
 
     useEffect(() => {
         if (isDemoMode()) return;
-        const socketInstance = io(SOCKET_URL, {
+        const socketInstance = io('', {
+            path: getSocketIoPath(),
             transports: ['websocket', 'polling'],
         }) as any;
 

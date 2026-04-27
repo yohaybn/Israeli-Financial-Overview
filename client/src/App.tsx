@@ -30,6 +30,7 @@ import { usePersonaSetupWizardVisibility } from './hooks/usePersonaSetupWizardVi
 import { transactionsForReviewItems, transactionNeedsReview, type TransactionReviewItem } from '@app/shared';
 import { useEnvConfig } from './hooks/useConfig';
 import { isGeminiApiKeyConfigured } from './utils/geminiKeyConfigured';
+import { publicAssetUrl } from './utils/publicBase';
 
 function consumeSessionConfigTab(): string | null {
     try {
@@ -286,7 +287,7 @@ function App() {
                                     )}
                                     <button
                                         type="button"
-                                        onClick={() => window.open(`${import.meta.env.BASE_URL}GUIDE.html`, '_blank')}
+                                        onClick={() => window.open(publicAssetUrl('GUIDE.html'), '_blank')}
                                         className="h-9 w-9 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                         title={t('common.help_docs', 'Help Docs')}
                                         aria-label={t('common.help_docs', 'Help Docs')}

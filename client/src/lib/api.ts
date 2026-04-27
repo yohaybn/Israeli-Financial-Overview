@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getResolvedPublicBase } from '../utils/publicBase';
 
 /**
  * Root URL for the REST API (no trailing slash). In production, respects Vite `BASE_URL` (GitHub Pages project sites).
@@ -14,7 +15,7 @@ export function getApiRoot(): string {
 
 /** Google OAuth redirect URI shown in UI and used with the real backend. */
 export function getGoogleOAuthCallbackUrl(): string {
-    return new URL('api/auth/google/callback', window.location.origin + import.meta.env.BASE_URL).href;
+    return new URL('api/auth/google/callback', getResolvedPublicBase()).href;
 }
 
 const getAxiosBaseUrl = () => getApiRoot();
