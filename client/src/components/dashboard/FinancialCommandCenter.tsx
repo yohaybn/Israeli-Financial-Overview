@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Transaction, DEFAULT_FINANCIAL_REPORT_SECTIONS, type FinancialReportLocaleMode } from '@app/shared';
-import { FileText } from 'lucide-react';
 import { getApiRoot } from '../../lib/api';
 import { useFinancialSummary } from '../../hooks/useFinancialSummary';
 import { useUnifiedData } from '../../hooks/useUnifiedData';
@@ -52,7 +51,7 @@ export function FinancialCommandCenter({
     const [transactionsExpandSignal, setTransactionsExpandSignal] = useState(0);
     const [cardsCollapsedOnMobile] = useState(() => getInitialCollapsedOnMobile());
     const [exportingKey, setExportingKey] = useState<'all-csv' | 'all-json' | 'month-csv' | 'month-json' | null>(null);
-    const [pdfBusy, setPdfBusy] = useState(false);
+    const [pdfBusy, setPdfBusy] = useState<'month' | 'all' | null>(null);
     const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
     const downloadMenuRef = useRef<HTMLDivElement>(null);
 
@@ -149,8 +148,13 @@ export function FinancialCommandCenter({
         void downloadExport(scope, format);
     };
 
-    const downloadFinancialPdf = async () => {
-        setPdfBusy(true);
+    const runPdfDownload = (scope: 'month' | 'all') => {
+        setDownloadMenuOpen(false);
+        void downloadFinancialPdf(scope);
+    };
+
+    const downloadFinancialPdf = async (scope: 'month' | 'all') => {
+        setPdfBusy(scope);
         try {
             const fr = financialReportSchedule as
                 | { sections?: typeof DEFAULT_FINANCIAL_REPORT_SECTIONS; localeMode?: FinancialReportLocaleMode }
@@ -158,10 +162,14 @@ export function FinancialCommandCenter({
             const sections = fr?.sections ? { ...DEFAULT_FINANCIAL_REPORT_SECTIONS, ...fr.sections } : { ...DEFAULT_FINANCIAL_REPORT_SECTIONS };
             const localeMode: FinancialReportLocaleMode =
                 fr?.localeMode === 'he' || fr?.localeMode === 'en' || fr?.localeMode === 'bilingual' ? fr.localeMode : 'bilingual';
+            const body =
+                scope === 'all'
+                    ? { scope: 'all' as const, localeMode, sections }
+                    : { month: selectedMonth, localeMode, sections };
             const res = await fetch(`${getApiRoot()}/reports/financial-pdf`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ month: selectedMonth, localeMode, sections }),
+                body: JSON.stringify(body),
             });
             if (!res.ok) {
                 const j = await res.json().catch(() => ({}));
@@ -169,7 +177,7 @@ export function FinancialCommandCenter({
             }
             const blob = await res.blob();
             const disp = res.headers.get('Content-Disposition');
-            let filename = `financial-report-${selectedMonth}.pdf`;
+            let filename = scope === 'all' ? 'financial-report-all-time.pdf' : `financial-report-${selectedMonth}.pdf`;
             const m = disp && /filename="([^"]+)"/.exec(disp);
             if (m) filename = m[1];
             const a = document.createElement('a');
@@ -180,7 +188,7 @@ export function FinancialCommandCenter({
         } catch {
             window.alert(t('report.preview_failed'));
         } finally {
-            setPdfBusy(false);
+            setPdfBusy(null);
         }
     };
 
@@ -280,11 +288,11 @@ export function FinancialCommandCenter({
                             aria-haspopup="menu"
                             aria-expanded={downloadMenuOpen}
                             aria-controls="dashboard-export-download-menu"
-                            disabled={exportingKey !== null}
+                            disabled={exportingKey !== null || pdfBusy !== null}
                             onClick={() => setDownloadMenuOpen((o) => !o)}
                             className="inline-flex items-center gap-1.5 rounded-full bg-gray-100/90 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-800 border border-gray-200/60 shadow-inner hover:bg-white hover:text-emerald-800 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 whitespace-nowrap"
                         >
-                            {exportingKey !== null ? (
+                            {exportingKey !== null || pdfBusy !== null ? (
                                 '…'
                             ) : (
                                 <>
@@ -309,7 +317,7 @@ export function FinancialCommandCenter({
                                 </>
                             )}
                         </button>
-                        {downloadMenuOpen && exportingKey === null && (
+                        {downloadMenuOpen && exportingKey === null && pdfBusy === null && (
                             <div
                                 id="dashboard-export-download-menu"
                                 role="menu"
@@ -325,7 +333,7 @@ export function FinancialCommandCenter({
                                     className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
                                     onClick={() => runDownload('all', 'csv')}
                                 >
-                                    {t('dashboard.download_all_csv')}
+                                    {t('dashboard.download_option_transactions_csv')}
                                 </button>
                                 <button
                                     type="button"
@@ -333,7 +341,15 @@ export function FinancialCommandCenter({
                                     className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
                                     onClick={() => runDownload('all', 'json')}
                                 >
-                                    {t('dashboard.download_all_json')}
+                                    {t('dashboard.download_option_transactions_json')}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
+                                    onClick={() => runPdfDownload('all')}
+                                >
+                                    {t('dashboard.download_option_report_pdf')}
                                 </button>
                                 <div className="my-1 border-t border-gray-100" />
                                 <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
@@ -345,7 +361,7 @@ export function FinancialCommandCenter({
                                     className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
                                     onClick={() => runDownload('month', 'csv')}
                                 >
-                                    {t('dashboard.download_month_csv')}
+                                    {t('dashboard.download_option_transactions_csv')}
                                 </button>
                                 <button
                                     type="button"
@@ -353,27 +369,19 @@ export function FinancialCommandCenter({
                                     className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
                                     onClick={() => runDownload('month', 'json')}
                                 >
-                                    {t('dashboard.download_month_json')}
+                                    {t('dashboard.download_option_transactions_json')}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-3 py-2 text-start text-sm text-gray-800 hover:bg-emerald-50"
+                                    onClick={() => runPdfDownload('month')}
+                                >
+                                    {t('dashboard.download_option_report_pdf')}
                                 </button>
                             </div>
                         )}
                     </div>
-                    <button
-                        type="button"
-                        disabled={pdfBusy}
-                        onClick={() => void downloadFinancialPdf()}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50/90 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-emerald-900 border border-emerald-200/80 shadow-inner hover:bg-white transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 whitespace-nowrap"
-                    >
-                        <FileText className="w-4 h-4 opacity-80 shrink-0" aria-hidden />
-                        {pdfBusy ? t('report.dashboard_pdf_generating') : t('report.dashboard_pdf')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-financial-report-settings'))}
-                        className="text-xs sm:text-sm font-medium text-emerald-700 hover:text-emerald-900 underline-offset-2 hover:underline whitespace-nowrap"
-                    >
-                        {t('report.dashboard_pdf_settings')}
-                    </button>
                     <CCPaymentDateSettings />
                 </div>
             </div>

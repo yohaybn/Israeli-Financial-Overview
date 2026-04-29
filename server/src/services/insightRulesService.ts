@@ -103,3 +103,29 @@ export function mergeTopInsights(
     merged.sort((a, b) => b.score - a.score || (a.createdAt < b.createdAt ? 1 : -1));
     return merged.slice(0, limit);
 }
+
+/** Max rule-fire rows included in the financial PDF when `insightRulesTop` is enabled. */
+export const FINANCIAL_PDF_TOP_RULE_INSIGHTS = 10;
+
+/**
+ * Rule fires to show in the PDF: for a month report, only fires for that calendar month (`m:YYYY-MM`)
+ * plus all-scope rules (`a:all`). For an all-time report, the highest-scoring fires across all periods.
+ */
+export function getInsightRuleFiresForFinancialPdf(
+    db: DbService,
+    options: { pdfScope: 'month' | 'all'; monthYm: string }
+): { kind: 'insight' | 'alert'; score: number; messageEn: string; messageHe: string }[] {
+    const pool = db.listInsightRuleFires(500);
+    let rows =
+        options.pdfScope === 'month'
+            ? pool.filter((f) => f.periodKey === `m:${options.monthYm}` || f.periodKey === 'a:all')
+            : [...pool];
+    rows.sort((a, b) => b.score - a.score || (a.updatedAt < b.updatedAt ? 1 : -1));
+    rows = rows.slice(0, FINANCIAL_PDF_TOP_RULE_INSIGHTS);
+    return rows.map((f) => ({
+        kind: f.kind,
+        score: f.score,
+        messageEn: f.messageEn,
+        messageHe: f.messageHe,
+    }));
+}

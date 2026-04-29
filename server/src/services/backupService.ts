@@ -240,6 +240,7 @@ export class BackupService {
             enabled: typeof fromFile.enabled === 'boolean' ? fromFile.enabled : false,
             adminChatIds: Array.isArray(fromFile.adminChatIds) ? fromFile.adminChatIds : [],
             notificationChatIds: Array.isArray(fromFile.notificationChatIds) ? fromFile.notificationChatIds : [],
+            reportChatIds: Array.isArray(fromFile.reportChatIds) ? fromFile.reportChatIds : [],
             allowedUsers: Array.isArray(fromFile.allowedUsers) ? fromFile.allowedUsers : [],
             language: fromFile.language === 'he' || fromFile.language === 'en' ? fromFile.language : 'en',
         };

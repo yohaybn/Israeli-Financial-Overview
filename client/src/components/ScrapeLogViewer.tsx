@@ -43,6 +43,7 @@ function resultJsonHref(filename: string): string {
     logType: 'server',
     logEntryId: null,
     resultFile: filename,
+    insightRuleId: null,
   });
   return `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
 }

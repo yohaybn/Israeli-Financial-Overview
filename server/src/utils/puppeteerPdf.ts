@@ -23,6 +23,7 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer> {
     try {
         const page = await browser.newPage();
         await page.setContent(html, { waitUntil: 'domcontentloaded' });
+        await page.evaluate(() => document.fonts.ready);
         const pdf = await page.pdf({
             format: 'A4',
             printBackground: true,

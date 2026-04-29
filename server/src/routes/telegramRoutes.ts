@@ -49,6 +49,7 @@ router.post('/config', async (req: Request, res: Response) => {
       enabled,
       adminChatIds,
       notificationChatIds,
+      reportChatIds,
       notificationAccountsByChatId,
       allowedUsers,
       language,
@@ -59,6 +60,7 @@ router.post('/config', async (req: Request, res: Response) => {
       enabled === undefined &&
       !adminChatIds &&
       !notificationChatIds &&
+      reportChatIds === undefined &&
       notificationAccountsByChatId === undefined &&
       allowedUsers === undefined &&
       !language
@@ -71,6 +73,7 @@ router.post('/config', async (req: Request, res: Response) => {
     if (enabled !== undefined) config.enabled = enabled;
     if (adminChatIds) config.adminChatIds = adminChatIds;
     if (notificationChatIds) config.notificationChatIds = notificationChatIds;
+    if (reportChatIds !== undefined) config.reportChatIds = reportChatIds;
     if (notificationAccountsByChatId !== undefined) {
       config.notificationAccountsByChatId = notificationAccountsByChatId;
     }
@@ -263,6 +266,7 @@ router.get('/status', async (req: Request, res: Response) => {
         hasToken: !!config.botToken,
         adminChats: config.adminChatIds.length,
         notificationChats: notificationChatIds.length,
+        reportChats: (config.reportChatIds || []).length,
         usersConfigured: telegramBotService.isAllowedUsersConfigured(),
         lastStartError: telegramBotService.getLastStartError(),
       },
@@ -417,6 +421,63 @@ router.post('/notification-chat/remove', async (req: Request, res: Response) => 
     res.json({ success: true, message: 'Chat removed from notifications' });
   } catch (error: any) {
     serverLogger.error('Error removing notification chat', { error });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/report-chats', async (req: Request, res: Response) => {
+  try {
+    const reportChatIds = telegramBotService.getReportChatIds();
+    res.json({ success: true, data: reportChatIds });
+  } catch (error: any) {
+    serverLogger.error('Error getting report chats', { error });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/telegram/report-chat/add
+ */
+router.post('/report-chat/add', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ success: false, error: 'chatId is required' });
+    }
+
+    const config = telegramBotService.getConfig();
+    const next = [...(config.reportChatIds || [])];
+    if (!next.includes(chatId)) {
+      next.push(chatId);
+      telegramBotService.updateConfig({ reportChatIds: next });
+    }
+
+    res.json({ success: true, message: 'Chat added to PDF report list' });
+  } catch (error: any) {
+    serverLogger.error('Error adding report chat', { error });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/telegram/report-chat/remove
+ */
+router.post('/report-chat/remove', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ success: false, error: 'chatId is required' });
+    }
+
+    const config = telegramBotService.getConfig();
+    const next = (config.reportChatIds || []).filter((id) => id !== chatId);
+    telegramBotService.updateConfig({ reportChatIds: next });
+
+    res.json({ success: true, message: 'Chat removed from PDF report list' });
+  } catch (error: any) {
+    serverLogger.error('Error removing report chat', { error });
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { TransactionReviewItem } from '@app/shared';
 import { api } from '../lib/api';
-import { getSocketIoPath } from '../utils/publicBase';
+import { getSocketIoPath, isIngressRelativeBase } from '../utils/publicBase';
 import { isDemoMode } from '../demo/isDemo';
 
 export interface ScrapeProgress {
@@ -62,9 +62,14 @@ export function useSocket() {
 
     useEffect(() => {
         if (isDemoMode()) return;
+        // Ingress: try polling first — Supervisor’s WS proxy can throw aiohttp errors; Engine.IO works over HTTP long-poll.
+        const transports =
+            import.meta.env.DEV || !isIngressRelativeBase()
+                ? (['websocket', 'polling'] as const)
+                : (['polling', 'websocket'] as const);
         const socketInstance = io('', {
             path: getSocketIoPath(),
-            transports: ['websocket', 'polling'],
+            transports: [...transports],
         }) as any;
 
         socketInstance.on('connect', () => {

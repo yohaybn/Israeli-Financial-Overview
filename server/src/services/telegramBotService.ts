@@ -53,6 +53,8 @@ export interface TelegramConfig {
   enabled: boolean;
   adminChatIds: string[];
   notificationChatIds: string[];
+  /** Chats that receive scheduled financial PDFs (separate from scrape/digest notifications). */
+  reportChatIds: string[];
   /** Per chat: account numbers (or *) for memo/review Telegram prompts; see resolveMemoPromptChatIds */
   notificationAccountsByChatId?: Record<string, string[]>;
   allowedUsers?: string[]; // Empty = allow all
@@ -150,12 +152,14 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
     settingsMenu: '⚙️ Settings Menu:',
     settingsBtnNotif: '📬 Notifications',
+    settingsBtnReport: '📄 PDF report',
     settingsBtnProfile: '👤 Profile',
     botStatus: '🤖 Bot Status:',
     botOnline: '✅ Online',
     botOffline: '❌ Offline',
     configuredFeatures: 'Configured Features:',
     notifChats: 'Notifications',
+    reportChats: 'PDF report chats',
     adminChats: 'Admin Chats',
     token: 'Token',
     subscribed: '✅ You are now subscribed to notifications',
@@ -272,12 +276,14 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
     settingsMenu: '⚙️ תפריט הגדרות:',
     settingsBtnNotif: '📬 התראות',
+    settingsBtnReport: '📄 דוח PDF',
     settingsBtnProfile: '👤 פרופיל',
     botStatus: '🤖 סטטוס הבוט:',
     botOnline: '✅ פעיל',
     botOffline: '❌ לא פעיל',
     configuredFeatures: 'פיצ׳רים מוגדרים:',
     notifChats: 'התראות',
+    reportChats: 'דוחות PDF',
     adminChats: 'צ׳אטים של מנהלים',
     token: 'טוקן',
     subscribed: '✅ נרשמת להתראות',
@@ -605,6 +611,7 @@ export class TelegramBotService {
       enabled: false,
       adminChatIds: [],
       notificationChatIds: [],
+      reportChatIds: [],
       notificationAccountsByChatId: {},
       allowedUsers: [],
       language: 'en',
@@ -613,8 +620,18 @@ export class TelegramBotService {
       if (fs.existsSync(TEL_CONFIG_PATH)) {
         const file = fs.readJsonSync(TEL_CONFIG_PATH) as Partial<TelegramConfig> & { spendingDigestEnabled?: boolean };
         const { spendingDigestEnabled: _removed, ...rest } = file as Record<string, unknown>;
+        const hadReportKey = Object.prototype.hasOwnProperty.call(rest, 'reportChatIds');
         serverLogger.info('Loaded Telegram config from file');
-        return { ...defaults, ...rest } as TelegramConfig;
+        const merged = { ...defaults, ...rest } as TelegramConfig;
+        if (!Array.isArray(merged.reportChatIds)) merged.reportChatIds = [];
+        if (
+          !hadReportKey &&
+          Array.isArray(merged.notificationChatIds) &&
+          merged.notificationChatIds.length > 0
+        ) {
+          merged.reportChatIds = [...merged.notificationChatIds];
+        }
+        return merged;
       }
     } catch (error) {
       serverLogger.warn('Failed to load Telegram config, using defaults', { error });
@@ -1060,6 +1077,14 @@ export class TelegramBotService {
         await this.handleSettingsNotifications(ctx);
       } catch (error) {
         serverLogger.error('Error handling settings', { error });
+      }
+    });
+
+    this.bot.action('settings_report_pdf', async (ctx) => {
+      try {
+        await this.handleSettingsReportPdf(ctx);
+      } catch (error) {
+        serverLogger.error('Error handling report PDF settings', { error });
       }
     });
 
@@ -1546,16 +1571,15 @@ export class TelegramBotService {
       return;
     }
 
-    const state = this.chatStates.get(chatId);
-
     const buttons = [
-      Markup.button.callback(this.t('settingsBtnNotif'), 'settings_notifications'),
-      Markup.button.callback(this.t('settingsBtnProfile'), 'settings_profile'),
+      [Markup.button.callback(this.t('settingsBtnNotif'), 'settings_notifications')],
+      [Markup.button.callback(this.t('settingsBtnReport'), 'settings_report_pdf')],
+      [Markup.button.callback(this.t('settingsBtnProfile'), 'settings_profile')],
     ];
 
     await ctx.reply(
       this.t('settingsMenu'),
-      Markup.inlineKeyboard([buttons])
+      Markup.inlineKeyboard(buttons)
     );
   }
 
@@ -1564,7 +1588,7 @@ export class TelegramBotService {
    */
   private async handleStatus(ctx: Context): Promise<void> {
     const statusStr = this.isRunning ? this.t('botOnline') : this.t('botOffline');
-    const message = `${this.t('botStatus')} ${statusStr}\n\n${this.t('configuredFeatures')}\n• ${this.t('notifChats')}: ${this.config.notificationChatIds.length}\n• ${this.t('adminChats')}: ${this.config.adminChatIds.length}\n• ${this.t('token')}: ${this.config.botToken ? '✅' : '❌'}`;
+    const message = `${this.t('botStatus')} ${statusStr}\n\n${this.t('configuredFeatures')}\n• ${this.t('notifChats')}: ${this.config.notificationChatIds.length}\n• ${this.t('reportChats')}: ${(this.config.reportChatIds || []).length}\n• ${this.t('adminChats')}: ${this.config.adminChatIds.length}\n• ${this.t('token')}: ${this.config.botToken ? '✅' : '❌'}`;
     await ctx.reply(message);
   }
 
@@ -1941,26 +1965,28 @@ export class TelegramBotService {
         return;
       }
 
-
       const chatId = ctx.chat?.id?.toString();
       if (!chatId) return;
-      const state = this.chatStates.get(chatId);
 
+      let state = this.chatStates.get(chatId);
       if (!state) {
-        await ctx.answerCbQuery();
-        await ctx.reply(this.t('errorProcessing'));
-        return;
+        state = {
+          chatId,
+          userId,
+          isNotificationEnabled: this.config.notificationChatIds.includes(chatId),
+          isAdmin: this.config.adminChatIds.includes(chatId),
+        };
+        this.chatStates.set(chatId, state);
       }
 
       const currentState = !state.isNotificationEnabled;
       state.isNotificationEnabled = currentState;
       this.chatStates.set(chatId, state);
 
-      // Update config
       if (currentState && !this.config.notificationChatIds.includes(chatId)) {
         this.config.notificationChatIds.push(chatId);
       } else if (!currentState) {
-        this.config.notificationChatIds = this.config.notificationChatIds.filter(id => id !== chatId);
+        this.config.notificationChatIds = this.config.notificationChatIds.filter((id) => id !== chatId);
       }
       this.saveConfig();
 
@@ -1969,6 +1995,40 @@ export class TelegramBotService {
       await ctx.editMessageText(`📬 ${this.t('settingsBtnNotif')} ${status}`);
     } catch (error) {
       serverLogger.error('Error handling notification settings', { error });
+      await ctx.answerCbQuery(this.t('errorUpdatingSettings'));
+    }
+  }
+
+  /**
+   * Toggle scheduled financial PDF delivery for this chat.
+   */
+  private async handleSettingsReportPdf(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id?.toString() || '';
+
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, 'settings_report_pdf_callback');
+        await ctx.answerCbQuery(this.t('unauthorizedNoPermission'), { show_alert: true });
+        return;
+      }
+
+      const chatId = ctx.chat?.id?.toString();
+      if (!chatId) return;
+
+      const reportIds = this.config.reportChatIds || [];
+      const wasOn = reportIds.includes(chatId);
+      if (wasOn) {
+        this.config.reportChatIds = reportIds.filter((id) => id !== chatId);
+      } else {
+        this.config.reportChatIds = [...reportIds, chatId];
+      }
+      this.saveConfig();
+
+      const status = wasOn ? this.t('notifDisabled') : this.t('notifEnabled');
+      await ctx.answerCbQuery(status);
+      await ctx.editMessageText(`📄 ${this.t('settingsBtnReport')} ${status}`);
+    } catch (error) {
+      serverLogger.error('Error handling report PDF settings', { error });
       await ctx.answerCbQuery(this.t('errorUpdatingSettings'));
     }
   }
@@ -2785,6 +2845,10 @@ export class TelegramBotService {
     return [...this.config.notificationChatIds];
   }
 
+  getReportChatIds(): string[] {
+    return [...(this.config.reportChatIds || [])];
+  }
+
   /**
    * Align HTTP TelegramNotifier chat IDs with this service's saved config.
    * Memo prompts use the bot API + this.config; pipeline notifications use TelegramNotifier — they can drift after startup or disk edits.
@@ -2858,7 +2922,7 @@ export class TelegramBotService {
       this.config.language === 'he'
         ? `דוח פיננסי — מבט כלכלי (${monthYm})`
         : `Financial report — Israeli overview (${monthYm})`;
-    const targets = [...new Set((this.config.notificationChatIds || []).map(String).filter(Boolean))];
+    const targets = [...new Set(this.getReportChatIds().map(String).filter(Boolean))];
     const errors: string[] = [];
     let sent = 0;
     for (const chatId of targets) {
@@ -2872,7 +2936,7 @@ export class TelegramBotService {
       }
     }
     if (targets.length === 0) {
-      errors.push('No notification chat IDs configured');
+      errors.push('No PDF report chat IDs configured (use Telegram settings → PDF report column or /settings in the bot)');
     }
     return { sent, errors };
   }

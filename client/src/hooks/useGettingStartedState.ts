@@ -3,18 +3,19 @@ import { isDemoMode } from '../demo/isDemo';
 
 const STORAGE_KEY = 'bank-scraper-getting-started-v1';
 
-/** Steps: intro, profile, first scrape, dashboard, logs, configuration, investments (optional) */
-export const GETTING_STARTED_STEP_COUNT = 7;
+/** Steps: intro, profile, first scrape, import files, dashboard, logs, configuration, investments (optional) */
+export const GETTING_STARTED_STEP_COUNT = 8;
 
 type GettingStartedSnapshot = {
-    v: 1;
+    /** Tour content version: 2 = 8 steps (import step at index 3). */
+    v: 1 | 2;
     completed: boolean;
     step: number;
     minimized: boolean;
 };
 
 const defaultSnapshot = (): GettingStartedSnapshot => ({
-    v: 1,
+    v: 2,
     completed: false,
     step: 0,
     minimized: false
@@ -25,11 +26,28 @@ function readSnapshot(): GettingStartedSnapshot {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return defaultSnapshot();
         const parsed = JSON.parse(raw) as Partial<GettingStartedSnapshot>;
-        return {
+        const completed = Boolean(parsed.completed);
+        let step = typeof parsed.step === 'number' ? parsed.step : 0;
+        step = Math.max(0, Math.min(step, GETTING_STARTED_STEP_COUNT - 1));
+        const tourSchema = typeof parsed.v === 'number' ? parsed.v : 1;
+        /** v1 had 7 steps; v2 inserted "import files" at step 3 — shift saved progress at dashboard+ */
+        const needsTourMigrate =
+            tourSchema < 2 && !completed && step >= 3 && step <= 6;
+        if (needsTourMigrate) {
+            step = Math.min(step + 1, GETTING_STARTED_STEP_COUNT - 1);
+        }
+        const next: GettingStartedSnapshot = {
             ...defaultSnapshot(),
             ...parsed,
-            v: 1
+            v: 2,
+            completed,
+            step,
+            minimized: Boolean(parsed.minimized)
         };
+        if (needsTourMigrate) {
+            writeSnapshot(next);
+        }
+        return next;
     } catch {
         return defaultSnapshot();
     }
@@ -44,7 +62,7 @@ export function useGettingStartedState() {
 
     const persist = useCallback((patch: Partial<GettingStartedSnapshot>) => {
         setSnapshot((prev) => {
-            const next: GettingStartedSnapshot = { ...prev, ...patch, v: 1 };
+            const next: GettingStartedSnapshot = { ...prev, ...patch, v: 2 };
             writeSnapshot(next);
             return next;
         });
@@ -60,7 +78,7 @@ export function useGettingStartedState() {
     const nextStep = useCallback(() => {
         setSnapshot((prev) => {
             const nextStep = Math.min(prev.step + 1, GETTING_STARTED_STEP_COUNT - 1);
-            const next: GettingStartedSnapshot = { ...prev, step: nextStep, v: 1 };
+            const next: GettingStartedSnapshot = { ...prev, step: nextStep, v: 2 };
             writeSnapshot(next);
             return next;
         });
@@ -69,7 +87,7 @@ export function useGettingStartedState() {
     const prevStep = useCallback(() => {
         setSnapshot((prev) => {
             const nextStep = Math.max(prev.step - 1, 0);
-            const next: GettingStartedSnapshot = { ...prev, step: nextStep, v: 1 };
+            const next: GettingStartedSnapshot = { ...prev, step: nextStep, v: 2 };
             writeSnapshot(next);
             return next;
         });

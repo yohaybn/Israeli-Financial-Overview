@@ -1479,6 +1479,8 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
      */
     async generateFinancialReportNarrative(params: {
         monthYm: string;
+        /** Overrides the default "Reporting month: YYYY-MM" line (e.g. all-time PDF). */
+        reportPeriodDescription?: string;
         localeMode: FinancialReportLocaleMode;
         aggregatesSummary: string;
         transactions: Transaction[];
@@ -1503,8 +1505,9 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             'Executive summary: 2–4 sentences. No markdown in strings. ' +
             langRule;
 
+        const periodLine = params.reportPeriodDescription ?? `Reporting month: ${params.monthYm}`;
         const userText =
-            `Reporting month: ${params.monthYm}\n` +
+            `${periodLine}\n` +
             `${this.categoryMetaContextForPrompt()}` +
             `${this.personaContextForFinancialReport()}` +
             `Aggregates and tables (trusted):\n${params.aggregatesSummary}\n\n` +

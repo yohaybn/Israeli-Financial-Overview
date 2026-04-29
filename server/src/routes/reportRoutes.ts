@@ -24,6 +24,14 @@ function coerceSections(raw: unknown): FinancialReportSections {
         executiveSummary: o.executiveSummary !== false,
         insights: o.insights !== false,
         metaSpend: o.metaSpend === true,
+        chartCategoryTreemap: o.chartCategoryTreemap === true,
+        chartMonthlyTrend: o.chartMonthlyTrend === true,
+        chartSpendingByWeekday: o.chartSpendingByWeekday === true,
+        chartSpendingByMonthDay: o.chartSpendingByMonthDay === true,
+        chartMetaSpendPie: o.chartMetaSpendPie === true,
+        investmentSummary: o.investmentSummary === true,
+        customCharts: o.customCharts === true,
+        insightRulesTop: o.insightRulesTop === true,
     };
 }
 
@@ -83,10 +91,14 @@ export function createReportRoutes(schedulerService: SchedulerService) {
     router.post('/financial-pdf', async (req, res) => {
         try {
             const body = req.body || {};
-            const monthYm = typeof body.month === 'string' && /^\d{4}-\d{2}$/.test(body.month) ? body.month : null;
-            if (!monthYm) {
+            const scopeRaw = body.scope ?? body.pdfScope;
+            const pdfScope = scopeRaw === 'all' ? 'all' : 'month';
+            const monthYm =
+                typeof body.month === 'string' && /^\d{4}-\d{2}$/.test(body.month) ? body.month : null;
+            if (pdfScope === 'month' && !monthYm) {
                 return res.status(400).json({ success: false, error: 'Invalid or missing month (YYYY-MM)' });
             }
+            const monthYmForParams = monthYm ?? new Date().toISOString().slice(0, 7);
             const cfg = schedulerService.getConfig();
             const saved = normalizeFinancialReportSchedule(
                 cfg.financialReportSchedule ?? { ...DEFAULT_FINANCIAL_REPORT_SCHEDULE }
@@ -96,11 +108,13 @@ export function createReportRoutes(schedulerService: SchedulerService) {
 
             const aiService = new AiService();
             const pdf = await generateFinancialPdfBuffer(storageService, configService, aiService, {
-                monthYm,
+                monthYm: monthYmForParams,
+                pdfScope,
                 localeMode,
                 sections,
             });
-            const filename = `financial-report-${monthYm}.pdf`;
+            const filename =
+                pdfScope === 'all' ? 'financial-report-all-time.pdf' : `financial-report-${monthYmForParams}.pdf`;
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
             res.send(pdf);

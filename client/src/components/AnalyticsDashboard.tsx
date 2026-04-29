@@ -11,6 +11,8 @@ import {
     Treemap,
     PieChart,
     Pie,
+    ComposedChart,
+    Line,
 } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +23,7 @@ import {
     isTransactionIgnored,
     type ExpenseMetaCategory,
     type Transaction,
+    computeMonthlyNetFlowProjection,
 } from '@app/shared';
 import { TREEMAP_SMALL_MERGED_ID, useAnalytics } from '../hooks/useAnalytics';
 import type { CategoryParentGroupKey } from '@app/shared';
@@ -97,6 +100,11 @@ export function AnalyticsDashboard({
 
     const displayTransactions = viewRange === 'all' && allTransactions ? allTransactions : monthTransactions;
     const analytics = useAnalytics(displayTransactions, customCCKeywords);
+
+    const monthlyNetProjection = useMemo(
+        () => computeMonthlyNetFlowProjection(analytics.byMonth, { horizonMonths: 6, lookbackMonths: 6 }),
+        [analytics.byMonth]
+    );
 
     const ucc = useUserCustomChartsEmbedded();
 
@@ -647,16 +655,64 @@ export function AnalyticsDashboard({
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">
                     <h3 className="text-sm font-bold text-gray-700 mb-4">{t('analytics.monthly_spending_trend')}</h3>
                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={analytics.byMonth}>
+                        <ComposedChart data={analytics.byMonth}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
-                            <Tooltip contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE} formatter={(value) => formatCurrency(Number(value))} />
+                            <YAxis
+                                yAxisId="left"
+                                tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`}
+                            />
+                            <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                tick={{ fontSize: 10, fill: '#64748b' }}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`}
+                            />
+                            <Tooltip
+                                contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
+                                formatter={(value, name) => [formatCurrency(Number(value)), String(name)]}
+                            />
                             <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
-                            <Bar dataKey="income" name={t('analytics.income')} fill="#10ac84" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="expenses" name={t('analytics.expenses')} fill="#ee5253" radius={[4, 4, 0, 0]} />
-                        </BarChart>
+                            <Bar yAxisId="left" dataKey="income" name={t('analytics.income')} fill="#10ac84" radius={[4, 4, 0, 0]} />
+                            <Bar yAxisId="left" dataKey="expenses" name={t('analytics.expenses')} fill="#ee5253" radius={[4, 4, 0, 0]} />
+                            <Line
+                                yAxisId="right"
+                                type="monotone"
+                                dataKey="net"
+                                name={t('analytics.net')}
+                                stroke="#0f172a"
+                                strokeWidth={2}
+                                dot={{ r: 3, fill: '#0f172a' }}
+                                activeDot={{ r: 4 }}
+                            />
+                        </ComposedChart>
                     </ResponsiveContainer>
+                    {analytics.byMonth.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2 text-xs text-gray-600 space-y-1">
+                            {monthlyNetProjection.showProjection &&
+                            monthlyNetProjection.averageNet != null &&
+                            monthlyNetProjection.cumulativeIfAverageContinues != null ? (
+                                <>
+                                    <p className="leading-relaxed">
+                                        {t('analytics.monthly_net_projection', {
+                                            lookback: monthlyNetProjection.lookbackUsed,
+                                            horizon: monthlyNetProjection.horizonMonths,
+                                            avg: formatCurrency(monthlyNetProjection.averageNet),
+                                            cumulative: formatCurrency(monthlyNetProjection.cumulativeIfAverageContinues),
+                                        })}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500">{t('analytics.monthly_net_projection_disclaimer')}</p>
+                                </>
+                            ) : (
+                                <p className="leading-relaxed text-gray-500">{t('analytics.monthly_net_projection_need_history')}</p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col min-h-0">

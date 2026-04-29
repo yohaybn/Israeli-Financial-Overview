@@ -68,6 +68,22 @@ async function startServer() {
 
   const schedulerService = new SchedulerService(scraperService, profileService);
 
+  // Supervisor / some proxies forward paths like `//assets/...`, which breaks express.static and routing.
+  app.use((req, _res, next) => {
+    const collapse = (raw: string) => {
+      if (!raw.startsWith('//')) return raw;
+      const q = raw.indexOf('?');
+      const pathOnly = q === -1 ? raw : raw.slice(0, q);
+      const query = q === -1 ? '' : raw.slice(q);
+      return pathOnly.replace(/^\/+/, '/') + query;
+    };
+    req.url = collapse(req.url || '');
+    if (typeof req.originalUrl === 'string') {
+      req.originalUrl = collapse(req.originalUrl);
+    }
+    next();
+  });
+
   app.use(cors());
   app.use(express.json());
 

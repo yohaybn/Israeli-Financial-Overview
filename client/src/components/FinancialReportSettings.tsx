@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     DEFAULT_FINANCIAL_REPORT_SCHEDULE,
@@ -8,6 +8,7 @@ import {
 } from '@app/shared';
 import { ScheduleEditor, type ScheduleEditorValue } from './ScheduleEditor';
 import { useFinancialReportSettings, useUpdateFinancialReportSettings } from '../hooks/useScraper';
+import { useInvestmentAppSettings } from '../hooks/useInvestments';
 import { getApiRoot } from '../lib/api';
 
 function todayLocalISO(): string {
@@ -28,10 +29,81 @@ const emptyFrSchedule = (): ScheduleEditorValue => ({
     customCron: '0 7 * * 1',
 });
 
+function parseFinancialReportFromApi(fr: Record<string, unknown>): {
+    enabled: boolean;
+    sendTelegram: boolean;
+    localeMode: FinancialReportLocaleMode;
+    scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
+    sections: FinancialReportSections;
+    editor: ScheduleEditorValue;
+} {
+    const lm = fr.localeMode;
+    const localeMode: FinancialReportLocaleMode =
+        lm === 'he' || lm === 'en' || lm === 'bilingual' ? lm : 'bilingual';
+    const parts = String(fr.cronExpression ?? '').split(' ') || [];
+    const runTime =
+        typeof fr.runTime === 'string' && fr.runTime
+            ? fr.runTime
+            : parts.length >= 2
+              ? `${parts[1].padStart(2, '0')}:${parts[0].padStart(2, '0')}`
+              : '07:00';
+    const editor: ScheduleEditorValue = {
+        scheduleType: (fr.scheduleType as ScheduleEditorValue['scheduleType']) ?? 'weekly',
+        runTime,
+        weekdays: Array.isArray(fr.weekdays) && fr.weekdays.length ? [...(fr.weekdays as number[])].sort((a, b) => a - b) : [1],
+        monthDays: Array.isArray(fr.monthDays) && fr.monthDays.length ? [...(fr.monthDays as number[])].sort((a, b) => a - b) : [1],
+        intervalDays: typeof fr.intervalDays === 'number' ? fr.intervalDays : 3,
+        intervalAnchorDate: typeof fr.intervalAnchorDate === 'string' ? fr.intervalAnchorDate : todayLocalISO(),
+        customCron: typeof fr.cronExpression === 'string' ? fr.cronExpression : '0 7 * * 1',
+    };
+    return {
+        enabled: Boolean(fr.enabled),
+        sendTelegram: Boolean(fr.sendTelegram),
+        localeMode,
+        scheduledMonthRule:
+            fr.scheduledMonthRule === 'current_calendar_month' ? 'current_calendar_month' : 'previous_calendar_month',
+        sections: {
+            ...DEFAULT_FINANCIAL_REPORT_SECTIONS,
+            ...(typeof fr.sections === 'object' && fr.sections ? (fr.sections as FinancialReportSections) : {}),
+        },
+        editor,
+    };
+}
+
+function buildFinancialReportPatch(p: {
+    enabled: boolean;
+    sendTelegram: boolean;
+    localeMode: FinancialReportLocaleMode;
+    scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
+    sections: FinancialReportSections;
+    editor: ScheduleEditorValue;
+}): Record<string, unknown> {
+    const sw = p.editor.weekdays.length ? p.editor.weekdays : [1];
+    const sm = p.editor.monthDays.length ? p.editor.monthDays : [1];
+    return {
+        enabled: p.enabled,
+        sendTelegram: p.sendTelegram,
+        localeMode: p.localeMode,
+        scheduledMonthRule: p.scheduledMonthRule,
+        sections: p.sections,
+        scheduleType: p.editor.scheduleType,
+        runTime: p.editor.runTime,
+        weekdays: sw,
+        monthDays: sm,
+        intervalDays: p.editor.intervalDays,
+        intervalAnchorDate: p.editor.intervalAnchorDate,
+        cronExpression: p.editor.scheduleType === 'custom' ? p.editor.customCron : undefined,
+    };
+}
+
 export function FinancialReportSettings() {
     const { t } = useTranslation();
-    const { data, isLoading, refetch } = useFinancialReportSettings();
+    const { data: investmentAppSettings } = useInvestmentAppSettings();
+    const investmentsFeatureDisabled = investmentAppSettings?.featureEnabled === false;
+    const { data, isLoading } = useFinancialReportSettings();
     const { mutateAsync: save, isPending } = useUpdateFinancialReportSettings();
+
+    const lastSavedKeyRef = useRef<string | null>(null);
 
     const [enabled, setEnabled] = useState(false);
     const [sendTelegram, setSendTelegram] = useState(false);
@@ -42,73 +114,64 @@ export function FinancialReportSettings() {
     const [sections, setSections] = useState<FinancialReportSections>({ ...DEFAULT_FINANCIAL_REPORT_SECTIONS });
     const [editor, setEditor] = useState<ScheduleEditorValue>(emptyFrSchedule);
     const [message, setMessage] = useState<string | null>(null);
-    const [previewBusy, setPreviewBusy] = useState(false);
+    const [previewBusy, setPreviewBusy] = useState<'month' | 'all' | null>(null);
+    const [syncedFromServer, setSyncedFromServer] = useState(false);
 
     useEffect(() => {
-        if (!data) return;
-        const fr = data as Record<string, unknown>;
-        setEnabled(Boolean(fr.enabled));
-        setSendTelegram(Boolean(fr.sendTelegram));
-        const lm = fr.localeMode;
-        setLocaleMode(lm === 'he' || lm === 'en' || lm === 'bilingual' ? lm : 'bilingual');
-        setScheduledMonthRule(
-            fr.scheduledMonthRule === 'current_calendar_month' ? 'current_calendar_month' : 'previous_calendar_month'
-        );
-        setSections({
-            ...DEFAULT_FINANCIAL_REPORT_SECTIONS,
-            ...(typeof fr.sections === 'object' && fr.sections ? (fr.sections as FinancialReportSections) : {}),
-        });
-        const parts = String(fr.cronExpression ?? '').split(' ') || [];
-        const runTime =
-            typeof fr.runTime === 'string' && fr.runTime
-                ? fr.runTime
-                : parts.length >= 2
-                  ? `${parts[1].padStart(2, '0')}:${parts[0].padStart(2, '0')}`
-                  : '07:00';
-        setEditor({
-            scheduleType: (fr.scheduleType as ScheduleEditorValue['scheduleType']) ?? 'weekly',
-            runTime,
-            weekdays: Array.isArray(fr.weekdays) && fr.weekdays.length ? [...(fr.weekdays as number[])].sort((a, b) => a - b) : [1],
-            monthDays: Array.isArray(fr.monthDays) && fr.monthDays.length ? [...(fr.monthDays as number[])].sort((a, b) => a - b) : [1],
-            intervalDays: typeof fr.intervalDays === 'number' ? fr.intervalDays : 3,
-            intervalAnchorDate: typeof fr.intervalAnchorDate === 'string' ? fr.intervalAnchorDate : todayLocalISO(),
-            customCron: typeof fr.cronExpression === 'string' ? fr.cronExpression : '0 7 * * 1',
-        });
+        if (!data) {
+            setSyncedFromServer(false);
+            lastSavedKeyRef.current = null;
+            return;
+        }
+        const parsed = parseFinancialReportFromApi(data as Record<string, unknown>);
+        setEnabled(parsed.enabled);
+        setSendTelegram(parsed.sendTelegram);
+        setLocaleMode(parsed.localeMode);
+        setScheduledMonthRule(parsed.scheduledMonthRule);
+        setSections(parsed.sections);
+        setEditor(parsed.editor);
+        lastSavedKeyRef.current = JSON.stringify(buildFinancialReportPatch(parsed));
+        setSyncedFromServer(true);
     }, [data]);
 
     const patchEditor = useCallback((patch: Partial<ScheduleEditorValue>) => {
         setEditor((prev) => ({ ...prev, ...patch }));
     }, []);
 
-    const buildPayload = useCallback(() => {
-        const sw = editor.weekdays.length ? editor.weekdays : [1];
-        const sm = editor.monthDays.length ? editor.monthDays : [1];
-        return {
-            enabled,
-            sendTelegram,
-            localeMode,
-            scheduledMonthRule,
-            sections,
-            scheduleType: editor.scheduleType,
-            runTime: editor.runTime,
-            weekdays: sw,
-            monthDays: sm,
-            intervalDays: editor.intervalDays,
-            intervalAnchorDate: editor.intervalAnchorDate,
-            cronExpression: editor.scheduleType === 'custom' ? editor.customCron : undefined,
-        };
-    }, [enabled, sendTelegram, localeMode, scheduledMonthRule, sections, editor]);
+    const buildPayload = useCallback(
+        () =>
+            buildFinancialReportPatch({
+                enabled,
+                sendTelegram,
+                localeMode,
+                scheduledMonthRule,
+                sections,
+                editor,
+            }),
+        [enabled, sendTelegram, localeMode, scheduledMonthRule, sections, editor]
+    );
 
-    const onSave = async () => {
-        setMessage(null);
-        try {
-            await save(buildPayload());
-            setMessage(t('report.save_ok'));
-            void refetch();
-        } catch {
-            setMessage(t('report.save_failed'));
-        }
-    };
+    useEffect(() => {
+        if (!data || !syncedFromServer) return;
+        const patch = buildPayload();
+        const key = JSON.stringify(patch);
+        if (lastSavedKeyRef.current === key) return;
+        const timer = window.setTimeout(() => {
+            const next = buildPayload();
+            const nextKey = JSON.stringify(next);
+            if (lastSavedKeyRef.current === nextKey) return;
+            void (async () => {
+                try {
+                    await save(next);
+                    lastSavedKeyRef.current = nextKey;
+                    setMessage(t('report.save_ok'));
+                } catch {
+                    setMessage(t('report.save_failed'));
+                }
+            })();
+        }, 500);
+        return () => window.clearTimeout(timer);
+    }, [data, syncedFromServer, buildPayload, save, t]);
 
     const onResetDefaults = () => {
         const d = DEFAULT_FINANCIAL_REPORT_SCHEDULE;
@@ -135,18 +198,18 @@ export function FinancialReportSettings() {
         return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
     };
 
-    const onPreviewPdf = async () => {
-        setPreviewBusy(true);
+    const onPreviewPdf = async (scope: 'month' | 'all') => {
+        setPreviewBusy(scope);
         setMessage(null);
         try {
+            const body =
+                scope === 'all'
+                    ? { scope: 'all' as const, localeMode, sections }
+                    : { month: previewMonth(), localeMode, sections };
             const res = await fetch(`${getApiRoot()}/reports/financial-pdf`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    month: previewMonth(),
-                    localeMode,
-                    sections,
-                }),
+                body: JSON.stringify(body),
             });
             if (!res.ok) {
                 const j = await res.json().catch(() => ({}));
@@ -154,7 +217,8 @@ export function FinancialReportSettings() {
             }
             const blob = await res.blob();
             const disp = res.headers.get('Content-Disposition');
-            let filename = `financial-report-${previewMonth()}.pdf`;
+            let filename =
+                scope === 'all' ? 'financial-report-all-time.pdf' : `financial-report-${previewMonth()}.pdf`;
             const m = disp && /filename="([^"]+)"/.exec(disp);
             if (m) filename = m[1];
             const a = document.createElement('a');
@@ -166,7 +230,7 @@ export function FinancialReportSettings() {
         } catch {
             setMessage(t('report.preview_failed'));
         } finally {
-            setPreviewBusy(false);
+            setPreviewBusy(null);
         }
     };
 
@@ -185,6 +249,8 @@ export function FinancialReportSettings() {
             <div>
                 <h2 className="text-xl font-bold text-gray-900">{t('config_tabs.financial-report')}</h2>
                 <p className="text-gray-500 text-sm mt-1">{t('report.subtitle')}</p>
+                <p className="text-gray-400 text-xs mt-1">{t('report.autosave_hint')}</p>
+                {isPending && <p className="text-emerald-700 text-xs mt-1">{t('report.autosave_saving')}</p>}
             </div>
 
             {lastRun && (
@@ -192,6 +258,76 @@ export function FinancialReportSettings() {
                     {t('report.last_run')}: {new Date(lastRun).toLocaleString()}
                 </p>
             )}
+
+            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">{t('report.sections_title')}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    {(
+                        [
+                            ['kpis', 'report.sec_kpis'],
+                            ['executiveSummary', 'report.sec_summary'],
+                            ['insights', 'report.sec_insights'],
+                            ['insightRulesTop', 'report.sec_insight_rules'],
+                            ['metaSpend', 'report.sec_meta'],
+                            ['investmentSummary', 'report.sec_investments'],
+                        ] as const
+                    ).map(([key, labelKey]) => (
+                        <label
+                            key={key}
+                            className={`flex items-center gap-2 ${
+                                key === 'investmentSummary' && investmentsFeatureDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                            }`}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={sections[key]}
+                                disabled={key === 'investmentSummary' && investmentsFeatureDisabled}
+                                onChange={() => toggleSection(key)}
+                                className="rounded border-gray-300"
+                            />
+                            {t(labelKey)}
+                        </label>
+                    ))}
+                </div>
+                {investmentsFeatureDisabled && (
+                    <p className="text-xs text-amber-800">{t('report.investments_pdf_disabled_hint')}</p>
+                )}
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">{t('report.detailed_charts_title')}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    {(
+                        [
+                            ['categoryBreakdown', 'report.sec_categories'],
+                            ['topMerchants', 'report.sec_merchants'],
+                            ['chartCategoryTreemap', 'report.sec_chart_treemap'],
+                            ['chartMonthlyTrend', 'report.sec_chart_monthly'],
+                            ['chartSpendingByWeekday', 'report.sec_chart_weekday'],
+                            ['chartSpendingByMonthDay', 'report.sec_chart_monthday'],
+                            ['chartMetaSpendPie', 'report.sec_chart_meta_pie'],
+                            ['customCharts', 'report.sec_custom_charts'],
+                        ] as const
+                    ).map(([key, labelKey]) => (
+                        <label key={key} className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={sections[key]} onChange={() => toggleSection(key)} />
+                            {t(labelKey)}
+                        </label>
+                    ))}
+                </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">{t('report.locale')}</p>
+                <div className="flex flex-wrap gap-4">
+                    {(['he', 'en', 'bilingual'] as const).map((lm) => (
+                        <label key={lm} className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="radio" name="fr-locale" checked={localeMode === lm} onChange={() => setLocaleMode(lm)} />
+                            {t(`report.locale_${lm}`)}
+                        </label>
+                    ))}
+                </div>
+            </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -217,39 +353,6 @@ export function FinancialReportSettings() {
                 </select>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-                <p className="text-sm font-semibold text-gray-800">{t('report.locale')}</p>
-                <div className="flex flex-wrap gap-4">
-                    {(['he', 'en', 'bilingual'] as const).map((lm) => (
-                        <label key={lm} className="flex items-center gap-2 cursor-pointer text-sm">
-                            <input type="radio" name="fr-locale" checked={localeMode === lm} onChange={() => setLocaleMode(lm)} />
-                            {t(`report.locale_${lm}`)}
-                        </label>
-                    ))}
-                </div>
-            </div>
-
-            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-                <p className="text-sm font-semibold text-gray-800">{t('report.sections_title')}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    {(
-                        [
-                            ['kpis', 'report.sec_kpis'],
-                            ['categoryBreakdown', 'report.sec_categories'],
-                            ['topMerchants', 'report.sec_merchants'],
-                            ['executiveSummary', 'report.sec_summary'],
-                            ['insights', 'report.sec_insights'],
-                            ['metaSpend', 'report.sec_meta'],
-                        ] as const
-                    ).map(([key, labelKey]) => (
-                        <label key={key} className="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" checked={sections[key]} onChange={() => toggleSection(key)} />
-                            {t(labelKey)}
-                        </label>
-                    ))}
-                </div>
-            </div>
-
             <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
                 <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={sendTelegram} onChange={() => setSendTelegram(!sendTelegram)} className="rounded border-gray-300" />
@@ -263,22 +366,27 @@ export function FinancialReportSettings() {
             <div className="flex flex-wrap gap-3">
                 <button
                     type="button"
-                    onClick={() => void onSave()}
+                    onClick={onResetDefaults}
                     disabled={isPending}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
                 >
-                    {t('report.save')}
-                </button>
-                <button type="button" onClick={onResetDefaults} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50">
                     {t('report.reset_defaults')}
                 </button>
                 <button
                     type="button"
-                    onClick={() => void onPreviewPdf()}
-                    disabled={previewBusy}
+                    onClick={() => void onPreviewPdf('month')}
+                    disabled={previewBusy !== null}
                     className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"
                 >
-                    {previewBusy ? '…' : t('report.preview_pdf')}
+                    {previewBusy === 'month' ? '…' : t('report.preview_pdf')}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => void onPreviewPdf('all')}
+                    disabled={previewBusy !== null}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                >
+                    {previewBusy === 'all' ? '…' : t('report.preview_pdf_all_time')}
                 </button>
             </div>
         </div>

@@ -43,6 +43,16 @@ export {
     filterTransactionsByCalendarMonth,
     TREEMAP_SMALL_MERGED_ID,
 } from './analytics/unifiedAnalytics.js';
+export {
+    computeMonthlyNetFlowProjection,
+    type MonthlyNetByMonthRow,
+    type MonthlyNetFlowProjection,
+} from './analytics/monthlyNetProjection.js';
+export {
+    buildCustomChartSeries,
+    getTransactionsForUserChart,
+    passesUserChartFilters,
+} from './analytics/userChartSeries.js';
 export type {
     CategoryTreemapAggregatedPart,
     CategoryTreemapGroup,
@@ -91,6 +101,11 @@ export {
 } from './financial/anomalyI18n.js';
 export type { DigestLocale } from './financial/anomalyI18n.js';
 export { resolveFinancialReportMonthYm } from './financialReportMonth.js';
+export {
+    uniqueAccountsFromTransactions,
+    consolidateAccountRowsForDisplay,
+    type UniqueAccountRow,
+} from './uniqueAccountsFromTransactions.js';
 export const version = "1.0.0";
 export {
     assignBatchContentIdsFromTransactions,

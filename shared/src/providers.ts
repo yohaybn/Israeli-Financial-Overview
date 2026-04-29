@@ -1,5 +1,17 @@
 import { ProviderDefinition } from './types.js';
 
+/** Display name for a provider id (same rule as the client hook). */
+export function getProviderDisplayName(
+    companyId: string | undefined | null,
+    definitions: ProviderDefinition[],
+    language: string
+): string {
+    if (companyId == null || companyId === '') return '—';
+    const p = definitions.find((x) => x.id === companyId);
+    if (!p) return companyId;
+    return language.startsWith('he') ? p.nameHe || p.name : p.name;
+}
+
 // Based on https://github.com/eshaham/israeli-bank-scrapers/blob/master/src/definitions.ts
 export const PROVIDERS: ProviderDefinition[] = [
     {

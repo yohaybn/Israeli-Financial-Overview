@@ -32,6 +32,9 @@ fi
 # app must listen on that port. Force here so a data volume with runtime-settings (PORT=3000 from
 # a plain Docker run) or a base image with PORT=3000 cannot make the add-on UI unreachable.
 export PORT=9203
+# Persist on the HA data volume; runtime-settings.json must not override with ./data (wrong cwd).
+export DATA_DIR=/data
+export DATA_DIR_STICKY=1
 export NODE_ENV=production
 
 # Start the application

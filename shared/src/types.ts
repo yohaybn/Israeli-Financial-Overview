@@ -628,6 +628,19 @@ export interface FinancialReportSections {
     executiveSummary: boolean;
     insights: boolean;
     metaSpend: boolean;
+    /** Detailed Analytics–style charts (SVG in PDF). */
+    chartCategoryTreemap: boolean;
+    chartMonthlyTrend: boolean;
+    chartSpendingByWeekday: boolean;
+    chartSpendingByMonthDay: boolean;
+    /** Meta spend as a pie (same data as meta bars; optional duplicate visualization). */
+    chartMetaSpendPie: boolean;
+    /** Portfolio summary when Investments feature is enabled. */
+    investmentSummary: boolean;
+    /** Saved dashboard custom charts (from Configuration / dashboard config). */
+    customCharts: boolean;
+    /** Top scored messages from enabled insight rules (stored rule fires). */
+    insightRulesTop: boolean;
 }
 
 export const DEFAULT_FINANCIAL_REPORT_SECTIONS: FinancialReportSections = {
@@ -637,6 +650,14 @@ export const DEFAULT_FINANCIAL_REPORT_SECTIONS: FinancialReportSections = {
     executiveSummary: true,
     insights: true,
     metaSpend: false,
+    chartCategoryTreemap: false,
+    chartMonthlyTrend: false,
+    chartSpendingByWeekday: false,
+    chartSpendingByMonthDay: false,
+    chartMetaSpendPie: false,
+    investmentSummary: false,
+    customCharts: false,
+    insightRulesTop: false,
 };
 
 /**

@@ -25,6 +25,8 @@ export interface AppUrlState {
     logEntryId: string | null;
     /** Selected scrape result JSON filename (for view=scrape). Omitted from URL when not on scrape. */
     resultFile: string | null;
+    /** Open this rule in the insight-rules editor (configuration + insight-rules tab only). */
+    insightRuleId: string | null;
 }
 
 function isConfigTab(s: string): s is ConfigTabId {
@@ -84,12 +86,19 @@ export function parseAppUrlState(search: string, sessionConfigTabOverride: strin
         }
     }
 
+    const insightRuleRaw = p.get('insightRule')?.trim() || null;
+    let insightRuleId: string | null = null;
+    if (view === 'configuration' && configTab === 'insight-rules' && insightRuleRaw) {
+        insightRuleId = insightRuleRaw;
+    }
+
     return {
         view,
         configTab,
         logType,
         logEntryId,
         resultFile,
+        insightRuleId,
     };
 }
 
@@ -102,7 +111,12 @@ export function buildAppUrlSearch(state: AppUrlState): string {
     if (state.view === 'scrape' && state.resultFile) {
         p.set('result', encodeURIComponent(state.resultFile));
     }
-    if (state.view === 'configuration') p.set('tab', state.configTab);
+    if (state.view === 'configuration') {
+        p.set('tab', state.configTab);
+        if (state.configTab === 'insight-rules' && state.insightRuleId) {
+            p.set('insightRule', state.insightRuleId);
+        }
+    }
     if (state.view === 'logs') {
         if (state.logType !== 'server') p.set('log', state.logType);
         if (state.logEntryId) p.set('entry', state.logEntryId);

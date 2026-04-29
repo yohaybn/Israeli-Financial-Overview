@@ -8,6 +8,7 @@ import {
     mergeCategoryMeta,
     defaultExpenseMetaForCategory,
     EXPENSE_META_BUCKETS,
+    uniqueAccountsFromTransactions,
     type ExpenseMetaCategory,
 } from '@app/shared';
 import { ArrowRightLeft, ChevronDown, Download, EyeOff, Search } from 'lucide-react';
@@ -184,20 +185,10 @@ export function TransactionTable({
     }, [transactions, categories]);
 
     const accountOptions = useMemo(() => {
-        const byKey = new Map<string, { provider: string; accountNumber: string }>();
-        for (const t of transactions) {
-            const key = `${t.provider}|${t.accountNumber ?? ''}`;
-            if (!byKey.has(key)) {
-                byKey.set(key, { provider: t.provider, accountNumber: t.accountNumber ?? '' });
-            }
-        }
-        return Array.from(byKey.entries()).sort((a, b) => {
-            const acctCmp = (a[1].accountNumber || '').localeCompare(b[1].accountNumber || '', undefined, {
-                numeric: true,
-                sensitivity: 'base',
-            });
-            if (acctCmp !== 0) return acctCmp;
-            return a[1].provider.localeCompare(b[1].provider, undefined, { sensitivity: 'base' });
+        const rows = uniqueAccountsFromTransactions(transactions);
+        return rows.map((r) => {
+            const key = `${r.provider}|${r.accountNumber}`;
+            return [key, { provider: r.provider, accountNumber: r.accountNumber }] as const;
         });
     }, [transactions]);
 

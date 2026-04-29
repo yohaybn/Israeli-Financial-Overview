@@ -1,4 +1,4 @@
-import { useCallback, useState, type SyntheticEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { Pencil, Share2, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -26,9 +26,14 @@ export const INSIGHT_RULES_QUERY_KEY = ['insight-rules'] as const;
 export function InsightRulesSettings({
     isInline = false,
     standaloneTab = false,
+    openRuleId = null,
+    onOpenRuleConsumed,
 }: {
     isInline?: boolean;
     standaloneTab?: boolean;
+    /** When set (e.g. from dashboard deep link), open this rule in the editor once rules load. */
+    openRuleId?: string | null;
+    onOpenRuleConsumed?: () => void;
 }) {
     const { t, i18n } = useTranslation();
     const queryClient = useQueryClient();
@@ -280,6 +285,24 @@ export function InsightRulesSettings({
         setCreating(false);
         setCreatePanelOpen(false);
     };
+
+    const openRuleHandledRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (openRuleId == null) {
+            openRuleHandledRef.current = null;
+            return;
+        }
+        if (isLoading) return;
+        if (openRuleHandledRef.current === openRuleId) return;
+        openRuleHandledRef.current = openRuleId;
+        const row = (rules ?? []).find((r) => r.id === openRuleId);
+        if (row) {
+            setEditing(row);
+            setCreating(false);
+            setCreatePanelOpen(false);
+        }
+        onOpenRuleConsumed?.();
+    }, [openRuleId, rules, isLoading, onOpenRuleConsumed]);
 
     const inner = (
         <>

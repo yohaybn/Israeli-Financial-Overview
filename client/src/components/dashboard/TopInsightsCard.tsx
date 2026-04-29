@@ -11,6 +11,7 @@ type TopInsight = {
     score: number;
     createdAt: string;
     source?: 'ai' | 'rule';
+    ruleId?: string;
 };
 
 function splitInsightText(text: string): { title: string; description: string } {
@@ -209,6 +210,21 @@ export function TopInsightsCard() {
                                                 >
                                                     {description}
                                                 </p>
+                                            ) : null}
+                                            {item.source === 'rule' && item.ruleId ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        window.dispatchEvent(
+                                                            new CustomEvent('open-insight-rule-settings', {
+                                                                detail: { ruleId: item.ruleId },
+                                                            })
+                                                        );
+                                                    }}
+                                                    className="mt-2 text-xs font-semibold text-amber-900 hover:text-amber-950 hover:underline text-start"
+                                                >
+                                                    {t('dashboard.open_insight_rule')}
+                                                </button>
                                             ) : null}
                                         </div>
                                     </div>

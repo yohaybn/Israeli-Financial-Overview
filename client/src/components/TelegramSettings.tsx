@@ -149,10 +149,24 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         enabled: isEnabled,
     });
 
+    const { data: reportChats } = useQuery({
+        queryKey: ['telegramReportChats'],
+        queryFn: async () => {
+            const res = await fetch(`${getApiRoot()}/telegram/report-chats`);
+            const data = await res.json();
+            return data.data || [];
+        },
+        enabled: isEnabled,
+    });
+
     const userRows = useMemo(() => {
-        const users = new Set<string>([...(allowedUsers || []), ...((notificationChats as string[]) || [])]);
+        const users = new Set<string>([
+            ...(allowedUsers || []),
+            ...((notificationChats as string[]) || []),
+            ...((reportChats as string[]) || []),
+        ]);
         return Array.from(users).sort((a, b) => a.localeCompare(b));
-    }, [allowedUsers, notificationChats]);
+    }, [allowedUsers, notificationChats, reportChats]);
 
     const { data: userLabels } = useQuery({
         queryKey: ['telegramUserLabels', userRows],
@@ -226,6 +240,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             queryClient.invalidateQueries({ queryKey: ['telegramConfig'] });
             queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
             queryClient.invalidateQueries({ queryKey: ['telegramNotificationChats'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramReportChats'] });
             queryClient.invalidateQueries({ queryKey: ['telegramBotInfo'] });
             if (typeof variables?.botToken === 'string' && variables.botToken.trim()) {
                 setBotToken('');
@@ -304,6 +319,28 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         },
     });
 
+    const { mutate: setReportChat } = useMutation({
+        mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+            const endpoint = enabled ? 'add' : 'remove';
+            const res = await fetch(`${getApiRoot()}/telegram/report-chat/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId: id }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || t('telegram.errors.update_config_failed'));
+            return data;
+        },
+        onSuccess: (_, vars) => {
+            queryClient.invalidateQueries({ queryKey: ['telegramReportChats'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramUserLabels'] });
+            showNotification('success', vars.enabled ? t('telegram.chat_report_added') : t('telegram.chat_report_removed'));
+        },
+        onError: (err: any) => {
+            showNotification('error', err.message || t('telegram.errors.update_config_failed'));
+        },
+    });
+
     const { mutate: setNotificationChat } = useMutation({
         mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
             const endpoint = enabled ? 'add' : 'remove';
@@ -356,6 +393,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             const nextNotif = ((notificationChats as string[]) || []).filter((c) => c !== id);
             const nextAccInput = { ...accountsByChatInput };
             delete nextAccInput[id];
+            const nextReport = ((reportChats as string[]) || []).filter((c) => c !== id);
             const nextRows = userRows.filter((u) => u !== id);
             const notificationAccountsByChatId = parseAccountsMapFromInput(nextAccInput, nextRows);
             const res = await fetch(`${getApiRoot()}/telegram/config`, {
@@ -364,6 +402,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                 body: JSON.stringify({
                     allowedUsers: nextAllowed,
                     notificationChatIds: nextNotif,
+                    reportChatIds: nextReport,
                     notificationAccountsByChatId,
                 }),
             });
@@ -376,6 +415,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             setAccountsByChatInput(nextAccInput);
             queryClient.invalidateQueries({ queryKey: ['telegramConfig'] });
             queryClient.invalidateQueries({ queryKey: ['telegramNotificationChats'] });
+            queryClient.invalidateQueries({ queryKey: ['telegramReportChats'] });
             queryClient.invalidateQueries({ queryKey: ['telegramStatus'] });
             queryClient.invalidateQueries({ queryKey: ['telegramUserLabels'] });
             showNotification('success', t('telegram.user_deleted_row'));
@@ -411,8 +451,9 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             display_label: getLabel(id),
             allowed_chat: allowedUsers.includes(id) ? 'true' : 'false',
             notifications_enabled: ((notificationChats as string[]) || []).includes(id) ? 'true' : 'false',
+            pdf_report_enabled: ((reportChats as string[]) || []).includes(id) ? 'true' : 'false',
         }));
-        const header = ['telegram_id', 'display_label', 'allowed_chat', 'notifications_enabled'];
+        const header = ['telegram_id', 'display_label', 'allowed_chat', 'notifications_enabled', 'pdf_report_enabled'];
         const lines = [header.join(','), ...rows.map((r) => header.map((h) => JSON.stringify(String((r as any)[h]))).join(','))];
         const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -708,6 +749,9 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                         <th className="text-center px-3 py-3 font-bold text-gray-700 text-xs uppercase tracking-wide w-28">
                                             {t('telegram.col_notification')}
                                         </th>
+                                        <th className="text-center px-3 py-3 font-bold text-gray-700 text-xs uppercase tracking-wide w-28">
+                                            {t('telegram.col_report')}
+                                        </th>
                                         <th className="text-left px-3 py-3 font-bold text-gray-700 text-xs uppercase tracking-wide min-w-[10rem]">
                                             {t('telegram.col_accounts')}
                                         </th>
@@ -719,7 +763,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 <tbody>
                                     {userRows.length === 0 && (
                                         <tr>
-                                            <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
+                                            <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
                                                 {t('telegram.no_users')}
                                             </td>
                                         </tr>
@@ -727,6 +771,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                     {userRows.map((id) => {
                                         const isAllowed = allowedUsers.includes(id);
                                         const isNotify = ((notificationChats as string[]) || []).includes(id);
+                                        const isReport = ((reportChats as string[]) || []).includes(id);
                                         const label = getLabel(id);
                                         const letter = avatarLetter(label);
                                         const busyTest = sendingTestChatId === id;
@@ -758,6 +803,14 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                                         type="checkbox"
                                                         checked={isNotify}
                                                         onChange={(e) => setNotificationChat({ id, enabled: e.target.checked })}
+                                                        className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-3 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isReport}
+                                                        onChange={(e) => setReportChat({ id, enabled: e.target.checked })}
                                                         className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                                                     />
                                                 </td>

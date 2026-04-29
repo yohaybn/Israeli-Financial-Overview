@@ -17,6 +17,8 @@
         "@actual-app/api": "^26.4.0",
         "@app/shared": "file:../shared",
         "@e965/xlsx": "^0.20.3",
+        "@fontsource/noto-sans": "^5.2.10",
+        "@fontsource/noto-sans-hebrew": "^5.2.8",
         "@google/generative-ai": "^0.24.1",
         "axios": "^1.15.0",
         "better-sqlite3": "^12.6.2",

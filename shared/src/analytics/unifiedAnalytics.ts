@@ -43,7 +43,7 @@ export interface UnifiedAnalyticsData {
     byCategory: { name: string; value: number; color: string }[];
     byCategoryTree: CategoryTreemapGroup[];
     treemapSmallParts: CategoryTreemapAggregatedPart[];
-    byMonth: { month: string; income: number; expenses: number }[];
+    byMonth: { month: string; income: number; expenses: number; net: number }[];
     byWeekday: { dayIndex: number; dayLabel: string; value: number }[];
     byMonthDay: { day: number; value: number }[];
     topMerchants: { description: string; count: number; total: number }[];
@@ -196,11 +196,16 @@ export function computeUnifiedAnalytics(
     });
 
     const byMonth = Array.from(monthMap.entries())
-        .map(([month, data]) => ({
-            month,
-            income: Math.round(data.income * 100) / 100,
-            expenses: Math.round(data.expenses * 100) / 100,
-        }))
+        .map(([month, data]) => {
+            const income = Math.round(data.income * 100) / 100;
+            const expenses = Math.round(data.expenses * 100) / 100;
+            return {
+                month,
+                income,
+                expenses,
+                net: Math.round((income - expenses) * 100) / 100,
+            };
+        })
         .sort((a, b) => a.month.localeCompare(b.month));
 
     const weekdayMap = new Map<number, number>();

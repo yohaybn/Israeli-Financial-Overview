@@ -18,6 +18,9 @@ export interface ConfigurationPanelProps {
     activeTab: ConfigTabId;
     onTabChange: (tab: ConfigTabId) => void;
     onOpenBudgetExports?: () => void;
+    /** When set with insight-rules tab, open this rule in the editor after load. */
+    openInsightRuleId?: string | null;
+    onOpenInsightRuleConsumed?: () => void;
 }
 
 const CONFIG_SECTIONS: { id: ConfigTabId }[] = [
@@ -34,7 +37,13 @@ const CONFIG_SECTIONS: { id: ConfigTabId }[] = [
     { id: 'maintenance' },
 ];
 
-export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports }: ConfigurationPanelProps) {
+export function ConfigurationPanel({
+    activeTab,
+    onTabChange,
+    onOpenBudgetExports,
+    openInsightRuleId,
+    onOpenInsightRuleConsumed,
+}: ConfigurationPanelProps) {
     const { t } = useTranslation();
 
     const sectionLabel = (id: ConfigTabId) => t(`config_tabs.${id}`);
@@ -48,7 +57,12 @@ export function ConfigurationPanel({ activeTab, onTabChange, onOpenBudgetExports
                         <h2 className="text-xl font-bold text-gray-900">{t('config_tabs.insight-rules')}</h2>
                         <p className="text-gray-500 text-sm mt-1">{t('insight_rules.subtitle')}</p>
                     </div>
-                    <InsightRulesSettings isInline standaloneTab />
+                    <InsightRulesSettings
+                        isInline
+                        standaloneTab
+                        openRuleId={openInsightRuleId ?? null}
+                        onOpenRuleConsumed={onOpenInsightRuleConsumed}
+                    />
                 </div>
             )}
             {activeTab === 'categories' && <CategorySettings />}

@@ -62,7 +62,7 @@ function App() {
         parseAppUrlState(window.location.search, consumeSessionConfigTab())
     );
     const urlHadViewAtMount = useRef(new URLSearchParams(window.location.search).has('view')).current;
-    const { view, configTab, logType, logEntryId, resultFile } = nav;
+    const { view, configTab, logType, logEntryId, resultFile, insightRuleId } = nav;
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState<string>(() => {
         const now = new Date();
@@ -102,12 +102,35 @@ function App() {
     }, []);
 
     useEffect(() => {
+        const onOpenInsightRule = (e: Event) => {
+            const id = (e as CustomEvent<{ ruleId: string }>).detail?.ruleId?.trim();
+            if (!id) return;
+            setNav((prev) => ({
+                ...prev,
+                view: 'configuration',
+                configTab: 'insight-rules',
+                insightRuleId: id,
+            }));
+        };
+        window.addEventListener('open-insight-rule-settings', onOpenInsightRule);
+        return () => window.removeEventListener('open-insight-rule-settings', onOpenInsightRule);
+    }, []);
+
+    useEffect(() => {
         const onOpenFinancialReport = () => {
             setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'financial-report' }));
         };
         window.addEventListener('open-financial-report-settings', onOpenFinancialReport);
         return () => window.removeEventListener('open-financial-report-settings', onOpenFinancialReport);
     }, []);
+
+    useEffect(() => {
+        setNav((prev) => {
+            if (!prev.insightRuleId) return prev;
+            if (prev.view === 'configuration' && prev.configTab === 'insight-rules') return prev;
+            return { ...prev, insightRuleId: null };
+        });
+    }, [nav.view, nav.configTab]);
 
     // Default to scrape view if no data exists (unless URL already specified a view)
     useEffect(() => {
@@ -169,11 +192,16 @@ function App() {
         return () => window.removeEventListener('toggle-help-widget', onToggleHelp as EventListener);
     }, []);
 
+    const handleInsightRuleOpenConsumed = useCallback(() => {
+        setNav((prev) => ({ ...prev, insightRuleId: null }));
+    }, []);
+
     const setView = (next: AppUrlState['view']) => {
         setNav((prev) => ({
             ...prev,
             view: next,
             logEntryId: next === 'logs' ? prev.logEntryId : null,
+            insightRuleId: next === 'configuration' ? prev.insightRuleId : null,
         }));
     };
 
@@ -538,10 +566,22 @@ function App() {
                         <div className={view === 'configuration' ? 'h-full' : 'hidden'}>
                             <ConfigurationPanel
                                 activeTab={configTab}
-                                onTabChange={(tab) => setNav((prev) => ({ ...prev, configTab: tab }))}
-                                onOpenBudgetExports={() =>
-                                    setNav((prev) => ({ ...prev, configTab: 'budget-exports' }))
+                                onTabChange={(tab) =>
+                                    setNav((prev) => ({
+                                        ...prev,
+                                        configTab: tab,
+                                        insightRuleId: tab === 'insight-rules' ? prev.insightRuleId : null,
+                                    }))
                                 }
+                                onOpenBudgetExports={() =>
+                                    setNav((prev) => ({
+                                        ...prev,
+                                        configTab: 'budget-exports',
+                                        insightRuleId: null,
+                                    }))
+                                }
+                                openInsightRuleId={insightRuleId}
+                                onOpenInsightRuleConsumed={handleInsightRuleOpenConsumed}
                             />
                         </div>
                         <div className={view === 'logs' ? 'h-full' : 'hidden'}>
