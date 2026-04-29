@@ -34,13 +34,23 @@ export function publicAssetUrl(relativePath: string): string {
     return new URL(rel, getResolvedPublicBase()).href;
 }
 
+/**
+ * With `base: './'`, relative `./api` resolves wrong when the ingress URL has no trailing slash
+ * (`/hassio/ingress/my_addon` → `./api` becomes `/hassio/ingress/api`). Use the live pathname prefix instead.
+ * Empty string means site root (`/`).
+ */
+export function getIngressPathPrefix(): string {
+    const p = window.location.pathname.replace(/\/+$/, '');
+    return p || '';
+}
+
 /** Socket.IO `path` option: must include HA Ingress prefix when the UI is not at domain root. */
 export function getSocketIoPath(): string {
     if (import.meta.env.DEV) return '/socket.io';
     const base = import.meta.env.BASE_URL;
     if (base === '/' || base === '') return '/socket.io';
     if (isIngressRelativeBase()) {
-        const p = window.location.pathname.replace(/\/+$/, '');
+        const p = getIngressPathPrefix();
         return p ? `${p}/socket.io` : '/socket.io';
     }
     const normalized = base.endsWith('/') ? base.slice(0, -1) : base;

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getResolvedPublicBase } from '../utils/publicBase';
+import { getIngressPathPrefix, getResolvedPublicBase, isIngressRelativeBase } from '../utils/publicBase';
 
 /**
  * Root URL for the REST API (no trailing slash). In production, respects Vite `BASE_URL` (GitHub Pages project sites).
@@ -8,6 +8,10 @@ import { getResolvedPublicBase } from '../utils/publicBase';
 export function getApiRoot(): string {
     if (import.meta.env.DEV) {
         return '/api';
+    }
+    if (isIngressRelativeBase()) {
+        const p = getIngressPathPrefix();
+        return p ? `${p}/api` : '/api';
     }
     const base = import.meta.env.BASE_URL;
     return base.endsWith('/') ? `${base}api` : `${base}/api`;
