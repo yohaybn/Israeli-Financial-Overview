@@ -82,6 +82,17 @@ jobs:
       - name: Set Docker image name (lowercase for GHCR)
         run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      - name: Resolve image version
+        id: ver
+        # Prefer the bumped version (set on push to main); fall back to ha-addon/config.yaml on tag pushes.
+        run: |
+          v="${{ needs.bump-version.outputs.version }}"
+          if [ -z "$v" ]; then
+            v=$(awk -F'"' '/^version:/ {print $2; exit}' ha-addon/config.yaml)
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $v"
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -95,16 +106,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-
       - name: Build and push App image
         uses: docker/build-push-action@v5
         with:
@@ -112,10 +113,11 @@ jobs:
           file: ./Dockerfile.app
           push: true
           platforms: linux/amd64,linux/arm64,linux/arm/v7
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ steps.ver.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:main
           build-args: |
-            VITE_APP_BUILD_VERSION=${{ github.ref_name }}@${{ github.sha }}
+            VITE_APP_BUILD_VERSION=v${{ steps.ver.outputs.version }}@${{ github.sha }}
             VITE_INSTALL_KIND=docker
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -151,6 +153,18 @@ jobs:
       - name: Set Docker image name (lowercase for GHCR)
         run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      - name: Resolve image version
+        id: ver
+        # Use bumped version from bump-version job; fall back to the version line in ha-addon/config.yaml.
+        # HA Supervisor pulls images at exactly this tag (matching ha-addon/config.yaml `version`).
+        run: |
+          v="${{ needs.bump-version.outputs.version }}"
+          if [ -z "$v" ]; then
+            v=$(awk -F'"' '/^version:/ {print $2; exit}' ha-addon/config.yaml)
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $v"
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -164,24 +178,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-addon-${{ matrix.arch }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-
-      - name: Determine App Tag
-        id: app_tag
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "tag=main" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Build and push Add-on image
         uses: docker/build-push-action@v5
         with:
@@ -189,12 +185,13 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: ${{ matrix.platform }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-addon-${{ matrix.arch }}:${{ steps.ver.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-addon-${{ matrix.arch }}:main
           build-args: |
-            BUILD_FROM=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ steps.app_tag.outputs.tag }}
-            BUILD_VERSION=${{ github.ref_name }}
-            VITE_APP_BUILD_VERSION=${{ github.ref_name }}@${{ github.sha }}
+            BUILD_FROM=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ steps.ver.outputs.version }}
+            BUILD_VERSION=${{ steps.ver.outputs.version }}
+            VITE_APP_BUILD_VERSION=v${{ steps.ver.outputs.version }}@${{ github.sha }}
             VITE_INSTALL_KIND=docker
           cache-from: type=gha
           cache-to: type=gha,mode=max
