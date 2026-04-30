@@ -173,6 +173,85 @@ export async function fetchUsdIlsRateOnDate(isoDate: string): Promise<number | n
     return null;
 }
 
+/**
+ * ILS per 1 USD for each calendar date in `[fromIso, toIso]` from Frankfurter's range endpoint.
+ * Weekends/holidays may be missing; callers should forward-fill. Returns null if the request fails.
+ */
+export async function fetchUsdIlsRatesFrankfurterRange(fromIso: string, toIso: string): Promise<Map<string, number> | null> {
+    if (!ISO_DATE_RE.test(fromIso) || !ISO_DATE_RE.test(toIso) || fromIso > toIso) return null;
+    const path = `/${fromIso}..${toIso}`;
+    const t0 = Date.now();
+    try {
+        const url = `https://${FRANKFURTER_HOST}${path}?from=USD&to=ILS`;
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        const durationMs = Date.now() - t0;
+        if (!res.ok) {
+            logExternal({
+                service: 'frankfurter',
+                operation: 'usd_ils_range',
+                host: FRANKFURTER_HOST,
+                method: 'GET',
+                path,
+                outcome: 'error',
+                durationMs,
+                httpStatus: res.status,
+                errorMessage: res.statusText,
+                extra: { fromIso, toIso },
+            });
+            return null;
+        }
+        const data = (await res.json()) as { rates?: Record<string, { ILS?: number }> };
+        const raw = data?.rates;
+        if (!raw || typeof raw !== 'object') {
+            logExternal({
+                service: 'frankfurter',
+                operation: 'usd_ils_range',
+                host: FRANKFURTER_HOST,
+                method: 'GET',
+                path,
+                outcome: 'error',
+                durationMs,
+                httpStatus: res.status,
+                errorMessage: 'missing_rates',
+                extra: { fromIso, toIso },
+            });
+            return null;
+        }
+        const m = new Map<string, number>();
+        for (const [d, v] of Object.entries(raw)) {
+            if (!ISO_DATE_RE.test(d)) continue;
+            const ils = v?.ILS;
+            if (typeof ils === 'number' && Number.isFinite(ils) && ils > 0) m.set(d, ils);
+        }
+        logExternal({
+            service: 'frankfurter',
+            operation: 'usd_ils_range',
+            host: FRANKFURTER_HOST,
+            method: 'GET',
+            path,
+            outcome: 'ok',
+            durationMs,
+            httpStatus: res.status,
+            extra: { fromIso, toIso, days: m.size },
+        });
+        return m;
+    } catch (e) {
+        const durationMs = Date.now() - t0;
+        logExternal({
+            service: 'frankfurter',
+            operation: 'usd_ils_range',
+            host: FRANKFURTER_HOST,
+            method: 'GET',
+            path,
+            outcome: 'error',
+            durationMs,
+            errorMessage: e instanceof Error ? e.message : String(e),
+            extra: { fromIso, toIso },
+        });
+        return null;
+    }
+}
+
 function sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
 }

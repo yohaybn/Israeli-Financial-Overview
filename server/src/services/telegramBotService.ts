@@ -21,6 +21,8 @@ import {
   type Transaction,
   type TransactionReviewItem,
   transactionNeedsReview,
+  DEFAULT_FINANCIAL_REPORT_SCHEDULE,
+  normalizeFinancialReportSchedule,
 } from '@app/shared';
 import { transactionsToCsv, transactionsToJson, buildCategoryExpenseSlices } from '@app/shared';
 import { ConfigService } from './configService.js';
@@ -33,8 +35,11 @@ import { isSafeTelegramRelativeFilePath } from '../utils/safeTelegramBotFileUrl.
 import { getBoundSessionIdForProfile } from './oneZeroOtpSessionStore.js';
 import { notificationService } from './notifications/index.js';
 import { TelegramNotifier } from './notifications/telegramNotifier.js';
+import { generateFinancialPdfBuffer } from './financialPdfReportService.js';
+import { PROJECT_ROOT } from '../runtimeEnv.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
+const LEGACY_SCHEDULER_CONFIG_PATH = path.join(PROJECT_ROOT, 'server', 'data', 'scheduler_config.json');
 const TEL_CONFIG_PATH = path.join(DATA_DIR, 'config', 'telegram_config.json');
 const MEMO_REPLY_MAP_PATH = path.join(DATA_DIR, 'telegram_memo_reply_map.json');
 const MEMO_REPLY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -146,7 +151,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Financial Overview Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>One Zero:</b>\n/onezero_otp - SMS OTP for One Zero (token saved on server only)\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/review — List transactions that need a memo or category\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>One Zero:</b>\n/onezero_otp - SMS OTP for One Zero (token saved on server only)\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/review — List transactions that need a memo or category\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>Reports:</b>\n/report — Financial overview PDF (this calendar month; uses dashboard PDF settings)\n/report YYYY-MM — PDF for one month\n/report all — PDF for all loaded data\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -232,6 +237,11 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     exportCaptionMonth: '📤 Month {{month}} · {{count}} rows.',
     exportInvalidMonth: '❌ Invalid month. Use YYYY-MM (example: 2026-03).',
     exportFailed: '❌ Export failed. Try again or use the web dashboard.',
+    reportPdfUsage:
+      '📄 <b>Financial overview PDF</b>\n\n• <code>/report</code> — this calendar month (server local time)\n• <code>/report YYYY-MM</code> — one month (e.g. <code>2026-03</code>)\n• <code>/report all</code> — all loaded transaction history\n\nUses the same sections and language as <b>Configuration → Financial report</b> (saved on the server).',
+    reportPdfGenerating: '⏳ Generating PDF… this can take up to a minute.',
+    reportPdfFailed: '❌ Could not generate the PDF. Check server logs or try from the web dashboard.',
+    reportPdfInvalidMonth: '❌ Invalid month. Use YYYY-MM (example: 2026-03) or <code>all</code>.',
     cardUsage:
       '📊 <b>Card image</b>\n\n• <code>/card categories</code> — spending by category (pie), current month\n• <code>/card categories YYYY-MM</code> — same for that month (e.g. <code>2026-03</code>)',
     cardInvalidMonth: '❌ Invalid month. Use YYYY-MM (example: 2026-03).',
@@ -270,7 +280,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט מבט כלכלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>One Zero:</b>\n/onezero_otp - OTP ב-SMS (האסימון נשמר בשרת בלבד)\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/review — רשימת עסקאות שחסרה הערה או קטגוריה\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>One Zero:</b>\n/onezero_otp - OTP ב-SMS (האסימון נשמר בשרת בלבד)\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/review — רשימת עסקאות שחסרה הערה או קטגוריה\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>דוחות:</b>\n/report — דוח PDF מבט כלכלי (חודש קלנדרי נוכחי; כמו הגדרות ה־PDF בלוח)\n/report YYYY-MM — דוח לחודש אחד\n/report all — דוח לכל התקופה שנטענה\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -356,6 +366,11 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     exportCaptionMonth: '📤 חודש {{month}} · {{count}} שורות.',
     exportInvalidMonth: '❌ חודש לא תקין. השתמש ב-YYYY-MM (לדוגמה: 2026-03).',
     exportFailed: '❌ הייצוא נכשל. נסה שוב או השתמש בייצוא מהדשבורד.',
+    reportPdfUsage:
+      '📄 <b>דוח PDF — מבט כלכלי</b>\n\n• <code>/report</code> — חודש קלנדרי נוכחי (זמן מקומי בשרת)\n• <code>/report YYYY-MM</code> — חודש אחד (למשל <code>2026-03</code>)\n• <code>/report all</code> — כל ההיסטוריה שנטענה\n\nמשתמש באותן חלקים ושפה כמו <b>הגדרות → דוח פיננסי</b> (נשמר בשרת).',
+    reportPdfGenerating: '⏳ מייצר PDF… זה עלול לקחת עד דקה.',
+    reportPdfFailed: '❌ לא הצלחנו ליצור את ה־PDF. נסה מהדשבורד או בדוק לוגים בשרת.',
+    reportPdfInvalidMonth: '❌ חודש לא תקין. השתמש ב־YYYY-MM (למשל 2026-03) או <code>all</code>.',
     cardUsage:
       '📊 <b>תמונת כרטיס</b>\n\n• <code>/card categories</code> — הוצאות לפי קטגוריה (עוגה), חודש נוכחי\n• <code>/card categories YYYY-MM</code> — אותו דבר לחודש (למשל <code>2026-03</code>)',
     cardInvalidMonth: '❌ חודש לא תקין. השתמש ב-YYYY-MM (לדוגמה: 2026-03).',
@@ -568,9 +583,9 @@ export class TelegramBotService {
   private buildCommandKeyboard(oneTime: boolean) {
     const kb = Markup.keyboard([
       ['/chat', '/scrape', '/memo'],
-      ['/export', '/review', '/status'],
-      ['/subscribe', '/settings', '/unlock'],
-      ['/unsubscribe', '/help'],
+      ['/export', '/report', '/review'],
+      ['/status', '/subscribe', '/settings'],
+      ['/unlock', '/unsubscribe', '/help'],
     ]).resize();
     return oneTime ? kb.oneTime() : kb;
   }
@@ -1032,6 +1047,10 @@ export class TelegramBotService {
       await this.handleExportCommand(ctx);
     });
 
+    this.bot.command('report', async (ctx) => {
+      await this.handleFinancialPdfCommand(ctx);
+    });
+
     this.bot.command('card', async (ctx) => {
       await this.handleCardCommand(ctx);
     });
@@ -1211,6 +1230,8 @@ export class TelegramBotService {
             '/memo',
             '/review',
             '/export',
+            '/report',
+            '/card',
             '/settings',
             '/status',
             '/subscribe',
@@ -2513,6 +2534,92 @@ export class TelegramBotService {
     } catch (err) {
       serverLogger.error('Error in /card command', { error: err });
       await ctx.reply(this.t('cardFailed'));
+    }
+  }
+
+  private readFinancialReportScheduleFromDisk() {
+    const cfgPath = path.join(DATA_DIR, 'scheduler_config.json');
+    let stored: { financialReportSchedule?: Record<string, unknown> } = {};
+    try {
+      if (fs.existsSync(cfgPath)) {
+        stored = fs.readJsonSync(cfgPath) as { financialReportSchedule?: Record<string, unknown> };
+      } else if (fs.existsSync(LEGACY_SCHEDULER_CONFIG_PATH)) {
+        stored = fs.readJsonSync(LEGACY_SCHEDULER_CONFIG_PATH) as { financialReportSchedule?: Record<string, unknown> };
+      }
+    } catch (e) {
+      serverLogger.warn('readFinancialReportScheduleFromDisk: read failed', { error: (e as Error).message });
+    }
+    const partial = stored.financialReportSchedule;
+    return normalizeFinancialReportSchedule({
+      ...DEFAULT_FINANCIAL_REPORT_SCHEDULE,
+      ...(partial && typeof partial === 'object' ? partial : {}),
+    });
+  }
+
+  private currentLocalMonthYm(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private async handleFinancialPdfCommand(ctx: Context): Promise<void> {
+    try {
+      const userId = ctx.from?.id.toString() || '';
+      if (!this.isUserAuthorized(userId)) {
+        this.logUnauthorizedAttempt(ctx, '/report');
+        await ctx.reply(`${this.t('accessDenied')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`, { parse_mode: 'HTML' });
+        return;
+      }
+      if (await this.replyIfAppLocked(ctx)) return;
+
+      const raw = ((ctx.message as Message.TextMessage)?.text || '').trim();
+      const parts = raw.split(/\s+/).filter(Boolean);
+      const arg1 = (parts[1] || '').split('@')[0].toLowerCase();
+
+      let pdfScope: 'month' | 'all' = 'month';
+      let monthYm = this.currentLocalMonthYm();
+
+      if (parts.length === 1) {
+        // default: current local month
+      } else if (arg1 === 'all') {
+        pdfScope = 'all';
+        monthYm = this.currentLocalMonthYm();
+      } else if (/^\d{4}-\d{2}$/.test(arg1)) {
+        monthYm = arg1;
+      } else {
+        await ctx.reply(this.t('reportPdfUsage'), { parse_mode: 'HTML' });
+        return;
+      }
+
+      await ctx.reply(this.t('reportPdfGenerating'));
+      await ctx.sendChatAction('upload_document');
+
+      const fr = this.readFinancialReportScheduleFromDisk();
+      const storage = this.getStorageService();
+      const configService = new ConfigService();
+      const aiService = new AiService();
+
+      const pdf = await generateFinancialPdfBuffer(storage, configService, aiService, {
+        monthYm,
+        pdfScope,
+        localeMode: fr.localeMode,
+        sections: fr.sections,
+      });
+
+      const filename =
+        pdfScope === 'all' ? 'financial-report-all-time.pdf' : `financial-report-${monthYm}.pdf`;
+      const caption =
+        this.config.language === 'he'
+          ? pdfScope === 'all'
+            ? 'דוח פיננסי — כל התקופה'
+            : `דוח פיננסי — ${monthYm}`
+          : pdfScope === 'all'
+            ? 'Financial report — all time'
+            : `Financial report — ${monthYm}`;
+
+      await ctx.replyWithDocument(Input.fromBuffer(pdf, filename), { caption });
+    } catch (err) {
+      serverLogger.error('Error in /report command', { error: err });
+      await ctx.reply(this.t('reportPdfFailed'));
     }
   }
 

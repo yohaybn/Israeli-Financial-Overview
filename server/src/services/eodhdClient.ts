@@ -225,6 +225,111 @@ export async function fetchEodhdLatestEodQuoteResult(apiToken: string, symbol: s
     }
 }
 
+export type EodhdEodBar = { date: string; close: number };
+
+export type EodhdEodSeriesAttemptOk = { ok: true; symbol: string; bars: EodhdEodBar[] };
+export type EodhdEodSeriesAttemptErr = { ok: false; error: string; httpStatus?: number };
+export type EodhdEodSeriesAttempt = EodhdEodSeriesAttemptOk | EodhdEodSeriesAttemptErr;
+
+/**
+ * Daily OHLC series from `/api/eod` between `fromIso` and `toIso` (inclusive), sorted ascending by date.
+ */
+export async function fetchEodhdEodSeriesResult(
+    apiToken: string,
+    symbol: string,
+    fromIso: string,
+    toIso: string
+): Promise<EodhdEodSeriesAttempt> {
+    const sym = symbol.trim();
+    if (!sym) return { ok: false, error: 'empty_symbol' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fromIso) || !/^\d{4}-\d{2}-\d{2}$/.test(toIso)) {
+        return { ok: false, error: 'invalid_date_range' };
+    }
+    if (fromIso > toIso) return { ok: false, error: 'invalid_date_range' };
+    const path = `/api/eod/${encodeURIComponent(sym)}`;
+    const url = `https://${EODHD_API_HOST}${path}?from=${fromIso}&to=${toIso}&period=d&api_token=${encodeURIComponent(apiToken)}&fmt=json`;
+    const t0 = Date.now();
+    try {
+        const res = await axios.get(url, {
+            timeout: 30000,
+            headers: { Accept: 'application/json' },
+            validateStatus: (st) => st >= 200 && st < 500,
+        });
+        const durationMs = Date.now() - t0;
+        const { data, status, statusText } = res;
+        if (typeof data === 'string' && data.includes('Forbidden')) {
+            const err = data.slice(0, 200);
+            logExternal({
+                service: 'eodhd',
+                operation: 'eod_series',
+                host: EODHD_API_HOST,
+                method: 'GET',
+                path,
+                outcome: 'error',
+                durationMs,
+                httpStatus: status,
+                errorMessage: err,
+                extra: { symbol: sym, fromIso, toIso },
+            });
+            return { ok: false, error: err || 'forbidden', httpStatus: status };
+        }
+        if (status < 200 || status >= 300) {
+            logExternal({
+                service: 'eodhd',
+                operation: 'eod_series',
+                host: EODHD_API_HOST,
+                method: 'GET',
+                path,
+                outcome: 'error',
+                durationMs,
+                httpStatus: status,
+                errorMessage: statusText,
+                extra: { symbol: sym, fromIso, toIso },
+            });
+            return { ok: false, error: statusText || `http_${status}`, httpStatus: status };
+        }
+        const rawRows = Array.isArray(data) ? data : [];
+        const bars: EodhdEodBar[] = [];
+        for (const row of rawRows) {
+            const r = row as { date?: string; close?: number };
+            const c = r.close;
+            const dt = r.date;
+            if (typeof c === 'number' && Number.isFinite(c) && c > 0 && typeof dt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dt)) {
+                bars.push({ date: dt, close: c });
+            }
+        }
+        bars.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+        logExternal({
+            service: 'eodhd',
+            operation: 'eod_series',
+            host: EODHD_API_HOST,
+            method: 'GET',
+            path,
+            outcome: 'ok',
+            durationMs,
+            httpStatus: status,
+            extra: { symbol: sym, fromIso, toIso, bars: bars.length },
+        });
+        return { ok: true, symbol: sym.toUpperCase(), bars };
+    } catch (e) {
+        const durationMs = Date.now() - t0;
+        const { outcome, httpStatus, errorMessage } = externalOutcomeFromAxiosError(e);
+        logExternal({
+            service: 'eodhd',
+            operation: 'eod_series',
+            host: EODHD_API_HOST,
+            method: 'GET',
+            path,
+            outcome,
+            durationMs,
+            httpStatus,
+            errorMessage,
+            extra: { symbol: sym, fromIso, toIso },
+        });
+        return { ok: false, error: errorMessage || 'network_error', httpStatus };
+    }
+}
+
 export async function fetchEodhdEodCloseOnDate(
     apiToken: string,
     symbol: string,

@@ -5,9 +5,11 @@ export const investmentsKeys = {
     list: ['investments', 'list'] as const,
     summary: ['investments', 'summary'] as const,
     history: (from?: string, to?: string) => ['investments', 'history', from ?? '', to ?? ''] as const,
+    valueHistory: (from?: string, to?: string) => ['investments', 'valueHistory', from ?? '', to ?? ''] as const,
     snapshotSettings: ['investments', 'snapshotSettings'] as const,
     symbolSearch: (q: string) => ['investments', 'symbolSearch', q] as const,
     appSettings: ['investments', 'appSettings'] as const,
+    priceHistory: (id: string) => ['investments', 'priceHistory', id] as const,
 };
 
 export type EodhdQuoteModeDto = 'realtime' | 'eod' | 'realtime_then_eod' | 'eod_then_realtime';
@@ -18,6 +20,8 @@ export type InvestmentAppSettingsDto = {
     eodhdApiTokenFromEnv: boolean;
     marketDataProvider: 'yahoo' | 'eodhd_then_yahoo';
     eodhdQuoteMode: EodhdQuoteModeDto;
+    /** When true, portfolio value chart uses daily USD→ILS from Frankfurter; when false, today’s spot for all dates. */
+    portfolioHistoricUsdIls: boolean;
 };
 
 export function useInvestmentAppSettings(options?: { enabled?: boolean }) {
@@ -43,6 +47,7 @@ export function useUpdateInvestmentAppSettings() {
             eodhdApiToken?: string;
             clearEodhdApiToken?: boolean;
             eodhdQuoteMode?: EodhdQuoteModeDto;
+            portfolioHistoricUsdIls?: boolean;
         }) => {
             const body: Record<string, unknown> = {};
             if (patch.featureEnabled !== undefined) body.feature_enabled = patch.featureEnabled;
@@ -51,6 +56,7 @@ export function useUpdateInvestmentAppSettings() {
                 body.eodhd_api_token = patch.eodhdApiToken.trim();
             }
             if (patch.eodhdQuoteMode !== undefined) body.eodhd_quote_mode = patch.eodhdQuoteMode;
+            if (patch.portfolioHistoricUsdIls !== undefined) body.portfolio_historic_usd_ils = patch.portfolioHistoricUsdIls;
             const { data } = await api.patch<{
                 success: boolean;
                 data?: InvestmentAppSettingsDto;
@@ -70,6 +76,8 @@ export type InvestmentRow = {
     id: string;
     userId: string;
     symbol: string;
+    /** Optional display label (does not replace the ticker). */
+    nickname?: string | null;
     quantity: number;
     purchasePricePerUnit: number;
     currency: string;
@@ -80,6 +88,18 @@ export type InvestmentRow = {
     valueInAgorot?: boolean;
     createdAt: string;
     updatedAt: string;
+};
+
+export type InvestmentPriceHistoryPoint = {
+    date: string;
+    price: number;
+    source: 'purchase' | 'eod';
+};
+
+export type InvestmentPriceHistoryDto = {
+    points: InvestmentPriceHistoryPoint[];
+    resolvedSymbol: string;
+    currency: string;
 };
 
 export type LivePositionRow = {
@@ -97,6 +117,7 @@ export type LivePositionRow = {
     costBasisIls: number | null;
     marketValueIls: number | null;
     pnlIls: number | null;
+    pnlPctOfCost?: number | null;
     quoteError?: string;
 };
 
@@ -107,6 +128,7 @@ export type PortfolioSummary = {
     totalCostBasisIls: number | null;
     totalMarketValueIls: number | null;
     totalPnlIls: number | null;
+    totalPnlPctOfCost?: number | null;
     partialQuotes: boolean;
 };
 
@@ -115,6 +137,18 @@ export type PortfolioHistoryPoint = {
     snapshotDate: string;
     totalValue: number;
     displayCurrency: string;
+};
+
+export type PortfolioValueHistoryPointDto = {
+    date: string;
+    totalValueIls: number;
+    changePct: number | null;
+};
+
+export type PortfolioValueHistoryDto = {
+    points: PortfolioValueHistoryPointDto[];
+    partial: boolean;
+    fxMode: 'historic' | 'spot';
 };
 
 export type SnapshotSettings = {
@@ -155,6 +189,28 @@ export function useInvestmentSymbolSearch(query: string) {
     });
 }
 
+export function useInvestmentPriceHistory(investmentId: string | null, options?: { enabled?: boolean }) {
+    const enabled = Boolean(investmentId) && (options?.enabled !== false);
+    return useQuery({
+        queryKey: investmentsKeys.priceHistory(investmentId ?? ''),
+        queryFn: async () => {
+            if (!investmentId) throw new Error('no_id');
+            const { data } = await api.get<{
+                success: boolean;
+                data?: InvestmentPriceHistoryDto;
+                error?: string;
+                detail?: string;
+            }>(`/investments/${investmentId}/price-history`, { validateStatus: () => true });
+            if (!data.success || !data.data) {
+                throw new Error(data.error || data.detail || 'load_failed');
+            }
+            return data.data;
+        },
+        enabled,
+        staleTime: 5 * 60_000,
+    });
+}
+
 export function useInvestmentsList() {
     return useQuery({
         queryKey: investmentsKeys.list,
@@ -180,17 +236,38 @@ export function usePortfolioSummary() {
 
 export function usePortfolioHistory(from?: string, to?: string) {
     return useQuery({
-        queryKey: investmentsKeys.history(from, to),
+        queryKey: investmentsKeys.valueHistory(from, to),
         queryFn: async () => {
             const params = new URLSearchParams();
             if (from) params.set('from', from);
             if (to) params.set('to', to);
             const q = params.toString();
-            const { data } = await api.get<{ success: boolean; data: PortfolioHistoryPoint[] }>(
-                `/investments/history${q ? `?${q}` : ''}`
-            );
-            if (!data.success) throw new Error('load_failed');
+            const { data } = await api.get<{
+                success: boolean;
+                data?: PortfolioValueHistoryDto;
+                error?: string;
+            }>(`/investments/value-history${q ? `?${q}` : ''}`, { validateStatus: () => true });
+            if (!data.success || !data.data) {
+                throw new Error(data.error || 'load_failed');
+            }
             return data.data;
+        },
+        staleTime: 5 * 60_000,
+    });
+}
+
+export function useClearPortfolioSnapshotHistory() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async () => {
+            const { data } = await api.delete<{ success: boolean; data?: { deleted: number }; error?: string }>(
+                '/investments/history'
+            );
+            if (!data.success) throw new Error(data.error || 'delete_failed');
+            return data.data?.deleted ?? 0;
+        },
+        onSuccess: () => {
+            void qc.invalidateQueries({ queryKey: ['investments'] });
         },
     });
 }
@@ -218,6 +295,7 @@ export function useCreateInvestment() {
             track_from_date: string;
             use_tel_aviv_listing?: boolean;
             value_in_agorot?: boolean;
+            nickname?: string | null;
         }) => {
             const { data } = await api.post<{ success: boolean; data: InvestmentRow }>('/investments', body);
             if (!data.success) throw new Error('save_failed');

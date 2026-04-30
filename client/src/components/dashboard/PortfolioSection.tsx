@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     LineChart,
@@ -15,6 +15,7 @@ import {
     useCreateInvestment,
     useDeleteInvestment,
     useInvestmentsList,
+    useInvestmentPriceHistory,
     usePortfolioHistory,
     usePortfolioSummary,
     useUpdateInvestment,
@@ -24,6 +25,16 @@ import {
 function formatIls(n: number | null | undefined, locale: string): string {
     if (n == null || !Number.isFinite(n)) return '—';
     return new Intl.NumberFormat(locale, { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(n);
+}
+
+function formatPositionMoney(n: number | null | undefined, currency: string, locale: string): string {
+    if (n == null || !Number.isFinite(n)) return '—';
+    const c = currency.toUpperCase() === 'USD' ? 'USD' : 'ILS';
+    return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: c,
+        maximumFractionDigits: c === 'USD' ? 4 : 2,
+    }).format(n);
 }
 
 function pnlClass(v: number | null | undefined): string {
@@ -76,6 +87,94 @@ function TaListingSwitch({
     );
 }
 
+function InvestmentPriceChartPanel({
+    investmentId,
+    currency,
+    locale,
+}: {
+    investmentId: string;
+    currency: string;
+    locale: string;
+}) {
+    const { t } = useTranslation();
+    const { data, isLoading, isError, error } = useInvestmentPriceHistory(investmentId);
+
+    if (isLoading) {
+        return <p className="text-xs text-gray-400 py-2">{t('dashboard.portfolio.price_chart_loading')}</p>;
+    }
+    if (isError) {
+        const code = error instanceof Error ? error.message : '';
+        const msg =
+            code === 'eodhd_token_required'
+                ? t('dashboard.portfolio.price_chart_need_eodhd')
+                : code === 'eodhd_no_data'
+                  ? t('dashboard.portfolio.price_chart_no_data')
+                  : code === 'invalid_buy_date'
+                    ? t('dashboard.portfolio.price_chart_bad_date')
+                    : t('dashboard.portfolio.price_chart_error');
+        return <p className="text-xs text-rose-600 py-2">{msg}</p>;
+    }
+    if (!data?.points.length) {
+        return <p className="text-xs text-gray-400 py-2">{t('dashboard.portfolio.price_chart_empty')}</p>;
+    }
+
+    const chartData = data.points.map((p, index) => ({
+        date: p.date,
+        price: p.price,
+        isPurchase: p.source === 'purchase',
+        idx: index,
+    }));
+
+    return (
+        <div className="py-3 ps-1">
+            <p className="text-[11px] text-gray-500 mb-2">
+                {t('dashboard.portfolio.price_chart_hint', { symbol: data.resolvedSymbol })}
+            </p>
+            <div className="h-44 w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                        <YAxis
+                            tick={{ fontSize: 10 }}
+                            stroke="#9ca3af"
+                            domain={['auto', 'auto']}
+                            tickFormatter={(v) =>
+                                new Intl.NumberFormat(locale, {
+                                    notation: 'compact',
+                                    maximumFractionDigits: 2,
+                                }).format(Number(v))
+                            }
+                        />
+                        <Tooltip
+                            formatter={(value: number | undefined, _n, item) => {
+                                const src = (item?.payload as { isPurchase?: boolean } | undefined)?.isPurchase;
+                                const label = src
+                                    ? t('dashboard.portfolio.price_chart_purchase')
+                                    : t('dashboard.portfolio.price_chart_eod');
+                                return [formatPositionMoney(value, currency, locale), label];
+                            }}
+                            labelFormatter={(l) => String(l)}
+                        />
+                        <Line
+                            type="monotone"
+                            dataKey="price"
+                            stroke="#0d9488"
+                            strokeWidth={2}
+                            dot={(props: { cx?: number; cy?: number; index?: number; payload?: { isPurchase?: boolean } }) => {
+                                const show = props.payload?.isPurchase === true || props.index === chartData.length - 1;
+                                if (!show) return false;
+                                return <circle cx={props.cx} cy={props.cy} r={props.payload?.isPurchase ? 4 : 3} fill="#0f766e" />;
+                            }}
+                            activeDot={{ r: 5 }}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+    );
+}
+
 export function PortfolioSection() {
     const { t, i18n } = useTranslation();
     const locale = i18n.language === 'he' || i18n.language.startsWith('he') ? 'he-IL' : 'en-US';
@@ -88,7 +187,7 @@ export function PortfolioSection() {
 
     const { data: list, isLoading: listLoading, error: listError } = useInvestmentsList();
     const { data: summary, isLoading: sumLoading, error: sumError } = usePortfolioSummary();
-    const { data: history, isLoading: histLoading } = usePortfolioHistory(fromDate);
+    const { data: valueHist, isLoading: histLoading, error: histError } = usePortfolioHistory(fromDate);
 
     const createMut = useCreateInvestment();
     const updateMut = useUpdateInvestment();
@@ -104,6 +203,8 @@ export function PortfolioSection() {
     const [newTelAviv, setNewTelAviv] = useState(false);
     const [newValueInAgorot, setNewValueInAgorot] = useState(false);
     const [newFrom, setNewFrom] = useState(() => new Date().toISOString().slice(0, 10));
+    const [newNickname, setNewNickname] = useState('');
+    const [chartRowId, setChartRowId] = useState<string | null>(null);
     const [cardCollapsed, setCardCollapsed] = useState(false);
 
     useEffect(() => {
@@ -116,11 +217,12 @@ export function PortfolioSection() {
 
     const chartRows = useMemo(
         () =>
-            (history ?? []).map((h) => ({
-                date: h.snapshotDate,
-                value: h.totalValue,
+            (valueHist?.points ?? []).map((h) => ({
+                date: h.date,
+                value: h.totalValueIls,
+                changePct: h.changePct,
             })),
-        [history]
+        [valueHist]
     );
 
     const startEdit = (row: InvestmentRow) => {
@@ -145,6 +247,12 @@ export function PortfolioSection() {
                 currency: draft.currency,
                 track_from_date: draft.trackFromDate,
                 use_tel_aviv_listing: draft.useTelAvivListing,
+                nickname:
+                    draft.nickname === undefined || draft.nickname === null
+                        ? null
+                        : String(draft.nickname).trim() === ''
+                          ? null
+                          : String(draft.nickname).trim(),
                 ...(curU === 'ILS' ? { value_in_agorot: Boolean(draft.valueInAgorot) } : { value_in_agorot: false }),
             },
         });
@@ -164,10 +272,12 @@ export function PortfolioSection() {
             track_from_date: newFrom,
             use_tel_aviv_listing: newTelAviv,
             ...(newCur === 'ILS' && newValueInAgorot ? { value_in_agorot: true } : {}),
+            ...(newNickname.trim() ? { nickname: newNickname.trim() } : {}),
         });
         setNewSymbol('');
         setNewQty('1');
         setNewPrice('');
+        setNewNickname('');
         setNewValueInAgorot(false);
     };
 
@@ -204,6 +314,12 @@ export function PortfolioSection() {
                         <div className={`text-2xl font-black mt-1 ${pnlClass(summary.totalPnlIls)}`}>
                             {formatIls(summary.totalPnlIls, locale)}
                         </div>
+                        {summary.totalPnlPctOfCost != null && Number.isFinite(summary.totalPnlPctOfCost) ? (
+                            <div className={`text-sm font-bold mt-1 ${pnlClass(summary.totalPnlIls)}`}>
+                                {summary.totalPnlPctOfCost >= 0 ? '+' : ''}
+                                {summary.totalPnlPctOfCost.toFixed(2)}%
+                            </div>
+                        ) : null}
                     </div>
                     <div className="rounded-2xl bg-gray-50 border border-gray-100 p-4">
                         <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
@@ -214,6 +330,7 @@ export function PortfolioSection() {
                                 ? summary.usdIlsRate.toFixed(2)
                                 : '—'}
                         </div>
+                        <p className="text-[10px] text-gray-400 mt-1 leading-snug">{t('dashboard.portfolio.usd_ils_hint')}</p>
                     </div>
                 </div>
             )}
@@ -228,7 +345,21 @@ export function PortfolioSection() {
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                     {t('dashboard.portfolio.chart_title')}
                 </h4>
+                <p className="text-[11px] text-gray-400 mb-1">{t('dashboard.portfolio.chart_eod_hint')}</p>
                 <p className="text-[11px] text-gray-400 mb-2">{t('dashboard.portfolio.chart_schedule_hint')}</p>
+                {valueHist?.fxMode === 'spot' ? (
+                    <p className="text-[11px] text-amber-800/90 mb-2">{t('dashboard.portfolio.chart_fx_spot')}</p>
+                ) : (
+                    <p className="text-[11px] text-gray-500 mb-2">{t('dashboard.portfolio.chart_fx_historic')}</p>
+                )}
+                {valueHist?.partial ? (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-2">
+                        {t('dashboard.portfolio.value_chart_partial')}
+                    </p>
+                ) : null}
+                {histError ? (
+                    <p className="text-sm text-rose-600 mb-2">{t('dashboard.portfolio.value_history_error')}</p>
+                ) : null}
                 {histLoading ? (
                     <p className="text-xs text-gray-400">…</p>
                 ) : chartRows.length === 0 ? (
@@ -250,7 +381,15 @@ export function PortfolioSection() {
                                     }
                                 />
                                 <Tooltip
-                                    formatter={(value: number | undefined) => [formatIls(value, locale), t('dashboard.portfolio.total_value')]}
+                                    formatter={(value: number | undefined, _name, item) => {
+                                        const row = item?.payload as { changePct?: number | null } | undefined;
+                                        const pct = row?.changePct;
+                                        const pctStr =
+                                            pct != null && Number.isFinite(pct)
+                                                ? ` (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`
+                                                : '';
+                                        return [`${formatIls(value, locale)}${pctStr}`, t('dashboard.portfolio.total_value')];
+                                    }}
                                     labelFormatter={(l) => l}
                                 />
                                 <Line type="monotone" dataKey="value" stroke="#059669" strokeWidth={2} dot={false} />
@@ -265,6 +404,7 @@ export function PortfolioSection() {
                     <thead>
                         <tr className="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                             <th className="py-2 pe-3">{t('dashboard.portfolio.symbol')}</th>
+                            <th className="py-2 pe-3">{t('dashboard.portfolio.nickname')}</th>
                             <th className="py-2 pe-3">{t('dashboard.portfolio.quantity')}</th>
                             <th className="py-2 pe-3 align-bottom" title={t('dashboard.portfolio.purchase_price_agorot_title')}>
                                 <span className="block">{t('dashboard.portfolio.purchase_price')}</span>
@@ -283,147 +423,211 @@ export function PortfolioSection() {
                     </thead>
                     <tbody>
                         {(list ?? []).map((row) => (
-                            <tr key={row.id} className="border-b border-gray-50">
-                                {editingId === row.id ? (
-                                    <>
-                                        <td className="py-2 pe-2">
-                                            <input
-                                                className="w-20 rounded border border-gray-200 px-1 py-0.5"
-                                                value={draft.symbol ?? ''}
-                                                onChange={(e) => setDraft((d) => ({ ...d, symbol: e.target.value.toUpperCase() }))}
-                                            />
-                                        </td>
-                                        <td className="py-2 pe-2">
-                                            <input
-                                                type="number"
-                                                className="w-20 rounded border border-gray-200 px-1 py-0.5"
-                                                value={draft.quantity ?? ''}
-                                                onChange={(e) =>
-                                                    setDraft((d) => ({ ...d, quantity: parseFloat(e.target.value) }))
-                                                }
-                                            />
-                                        </td>
-                                        <td className="py-2 pe-2">
-                                            <input
-                                                type="number"
-                                                className="w-24 rounded border border-gray-200 px-1 py-0.5"
-                                                value={draft.purchasePricePerUnit ?? ''}
-                                                onChange={(e) =>
-                                                    setDraft((d) => ({ ...d, purchasePricePerUnit: parseFloat(e.target.value) }))
-                                                }
-                                            />
-                                            {String(draft.currency ?? '').toUpperCase() === 'ILS' && (
-                                                <label className="flex items-center gap-1.5 text-[10px] text-gray-600 mt-1 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={Boolean(draft.valueInAgorot)}
-                                                        onChange={(e) => setDraft((d) => ({ ...d, valueInAgorot: e.target.checked }))}
-                                                    />
-                                                    <span>{t('dashboard.portfolio.agorot_checkbox')}</span>
-                                                </label>
-                                            )}
-                                        </td>
-                                        <td className="py-2 pe-2">
-                                            <select
-                                                className="rounded border border-gray-200 px-1 py-0.5"
-                                                value={draft.currency ?? 'USD'}
-                                                onChange={(e) => {
-                                                    const c = e.target.value as 'USD' | 'ILS';
-                                                    setDraft((d) => ({
-                                                        ...d,
-                                                        currency: c,
-                                                        useTelAvivListing: c === 'ILS' ? (d.useTelAvivListing ?? true) : false,
-                                                        ...(c !== 'ILS' ? { valueInAgorot: false } : {}),
-                                                    }));
-                                                }}
-                                            >
-                                                <option value="USD">USD</option>
-                                                <option value="ILS">ILS</option>
-                                            </select>
-                                        </td>
-                                        <td className="py-2 pe-2">
-                                            <div className="flex justify-center">
-                                                <TaListingSwitch
-                                                    checked={Boolean(
-                                                        draft.useTelAvivListing ?? String(draft.currency).toUpperCase() === 'ILS'
-                                                    )}
-                                                    onChange={(next) => setDraft((d) => ({ ...d, useTelAvivListing: next }))}
-                                                    disabled={updateMut.isPending}
-                                                    title={t('dashboard.portfolio.tase_quote_help')}
-                                                    label={t('dashboard.portfolio.tase_quote_short')}
+                            <Fragment key={row.id}>
+                                <tr className="border-b border-gray-50">
+                                    {editingId === row.id ? (
+                                        <>
+                                            <td className="py-2 pe-2">
+                                                <input
+                                                    className="w-20 rounded border border-gray-200 px-1 py-0.5"
+                                                    value={draft.symbol ?? ''}
+                                                    onChange={(e) =>
+                                                        setDraft((d) => ({ ...d, symbol: e.target.value.toUpperCase() }))
+                                                    }
                                                 />
-                                            </div>
-                                        </td>
-                                        <td className="py-2 pe-2">
-                                            <input
-                                                type="date"
-                                                className="rounded border border-gray-200 px-1 py-0.5"
-                                                value={draft.trackFromDate ?? ''}
-                                                onChange={(e) => setDraft((d) => ({ ...d, trackFromDate: e.target.value }))}
+                                            </td>
+                                            <td className="py-2 pe-2">
+                                                <input
+                                                    className="w-[7.5rem] max-w-full rounded border border-gray-200 px-1 py-0.5 text-xs"
+                                                    maxLength={120}
+                                                    placeholder={t('dashboard.portfolio.nickname_placeholder')}
+                                                    value={draft.nickname ?? ''}
+                                                    onChange={(e) => setDraft((d) => ({ ...d, nickname: e.target.value }))}
+                                                />
+                                            </td>
+                                            <td className="py-2 pe-2">
+                                                <input
+                                                    type="number"
+                                                    className="w-20 rounded border border-gray-200 px-1 py-0.5"
+                                                    value={draft.quantity ?? ''}
+                                                    onChange={(e) =>
+                                                        setDraft((d) => ({ ...d, quantity: parseFloat(e.target.value) }))
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="py-2 pe-2">
+                                                <input
+                                                    type="number"
+                                                    className="w-24 rounded border border-gray-200 px-1 py-0.5"
+                                                    value={draft.purchasePricePerUnit ?? ''}
+                                                    onChange={(e) =>
+                                                        setDraft((d) => ({
+                                                            ...d,
+                                                            purchasePricePerUnit: parseFloat(e.target.value),
+                                                        }))
+                                                    }
+                                                />
+                                                {String(draft.currency ?? '').toUpperCase() === 'ILS' && (
+                                                    <label className="flex items-center gap-1.5 text-[10px] text-gray-600 mt-1 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={Boolean(draft.valueInAgorot)}
+                                                            onChange={(e) =>
+                                                                setDraft((d) => ({ ...d, valueInAgorot: e.target.checked }))
+                                                            }
+                                                        />
+                                                        <span>{t('dashboard.portfolio.agorot_checkbox')}</span>
+                                                    </label>
+                                                )}
+                                            </td>
+                                            <td className="py-2 pe-2">
+                                                <select
+                                                    className="rounded border border-gray-200 px-1 py-0.5"
+                                                    value={draft.currency ?? 'USD'}
+                                                    onChange={(e) => {
+                                                        const c = e.target.value as 'USD' | 'ILS';
+                                                        setDraft((d) => ({
+                                                            ...d,
+                                                            currency: c,
+                                                            useTelAvivListing: c === 'ILS' ? (d.useTelAvivListing ?? true) : false,
+                                                            ...(c !== 'ILS' ? { valueInAgorot: false } : {}),
+                                                        }));
+                                                    }}
+                                                >
+                                                    <option value="USD">USD</option>
+                                                    <option value="ILS">ILS</option>
+                                                </select>
+                                            </td>
+                                            <td className="py-2 pe-2">
+                                                <div className="flex justify-center">
+                                                    <TaListingSwitch
+                                                        checked={Boolean(
+                                                            draft.useTelAvivListing ??
+                                                                String(draft.currency).toUpperCase() === 'ILS'
+                                                        )}
+                                                        onChange={(next) => setDraft((d) => ({ ...d, useTelAvivListing: next }))}
+                                                        disabled={updateMut.isPending}
+                                                        title={t('dashboard.portfolio.tase_quote_help')}
+                                                        label={t('dashboard.portfolio.tase_quote_short')}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="py-2 pe-2">
+                                                <input
+                                                    type="date"
+                                                    className="rounded border border-gray-200 px-1 py-0.5"
+                                                    value={draft.trackFromDate ?? ''}
+                                                    onChange={(e) =>
+                                                        setDraft((d) => ({ ...d, trackFromDate: e.target.value }))
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="py-2 pe-2 text-gray-400">…</td>
+                                            <td className="py-2 whitespace-nowrap">
+                                                <button
+                                                    type="button"
+                                                    className="text-emerald-600 font-semibold me-2"
+                                                    onClick={() => void saveEdit()}
+                                                >
+                                                    {t('dashboard.portfolio.save')}
+                                                </button>
+                                                <button type="button" className="text-gray-500" onClick={cancelEdit}>
+                                                    {t('dashboard.portfolio.cancel')}
+                                                </button>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="py-2 pe-3 font-mono font-semibold">{row.symbol}</td>
+                                            <td className="py-2 pe-3 text-xs text-gray-600 max-w-[9rem] truncate" title={row.nickname ?? ''}>
+                                                {row.nickname?.trim() ? row.nickname : '—'}
+                                            </td>
+                                            <td className="py-2 pe-3">{row.quantity}</td>
+                                            <td className="py-2 pe-3">
+                                                <span>{row.purchasePricePerUnit}</span>
+                                                {row.currency?.toUpperCase() === 'ILS' && row.valueInAgorot ? (
+                                                    <span className="text-[10px] text-gray-500 ms-1">
+                                                        {t('dashboard.portfolio.agorot_unit')}
+                                                    </span>
+                                                ) : null}
+                                            </td>
+                                            <td className="py-2 pe-3">{row.currency}</td>
+                                            <td className="py-2 pe-2 text-center text-xs">
+                                                {row.useTelAvivListing ?? row.currency?.toUpperCase() === 'ILS' ? '✓' : '—'}
+                                            </td>
+                                            <td className="py-2 pe-3">{row.trackFromDate}</td>
+                                            <td className="py-2 pe-3">
+                                                {(() => {
+                                                    const pos = summary?.positions.find((p) => p.investmentId === row.id);
+                                                    return (
+                                                        <>
+                                                            <div className={`font-medium ${pnlClass(pos?.pnlIls)}`}>
+                                                                {formatIls(pos?.pnlIls ?? null, locale)}
+                                                            </div>
+                                                            {pos?.pnlPctOfCost != null && Number.isFinite(pos.pnlPctOfCost) ? (
+                                                                <div className={`text-[10px] font-semibold mt-0.5 ${pnlClass(pos?.pnlIls)}`}>
+                                                                    {pos.pnlPctOfCost >= 0 ? '+' : ''}
+                                                                    {pos.pnlPctOfCost.toFixed(1)}%
+                                                                </div>
+                                                            ) : null}
+                                                            {pos?.quoteError ? (
+                                                                <p
+                                                                    className="text-[10px] text-rose-600 mt-0.5 max-w-[min(100%,18rem)] break-words leading-snug"
+                                                                    title={positionQuoteErrorText(t, pos.quoteError)}
+                                                                >
+                                                                    {positionQuoteErrorText(t, pos.quoteError)}
+                                                                </p>
+                                                            ) : null}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="py-2 whitespace-nowrap text-end">
+                                                <button
+                                                    type="button"
+                                                    className="text-teal-700 text-xs font-semibold me-2"
+                                                    onClick={() => setChartRowId((id) => (id === row.id ? null : row.id))}
+                                                >
+                                                    {chartRowId === row.id
+                                                        ? t('dashboard.portfolio.price_chart_hide')
+                                                        : t('dashboard.portfolio.price_chart_show')}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="text-blue-600 text-xs font-semibold me-2"
+                                                    onClick={() => startEdit(row)}
+                                                >
+                                                    {t('dashboard.portfolio.edit')}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="text-rose-600 text-xs font-semibold"
+                                                    onClick={() => {
+                                                        if (window.confirm(t('common.delete') + '?')) {
+                                                            void deleteMut.mutateAsync(row.id).then(() => {
+                                                                if (chartRowId === row.id) setChartRowId(null);
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    {t('dashboard.portfolio.delete')}
+                                                </button>
+                                            </td>
+                                        </>
+                                    )}
+                                </tr>
+                                {chartRowId === row.id && editingId !== row.id ? (
+                                    <tr className="border-b border-gray-100 bg-gray-50/90">
+                                        <td colSpan={9} className="py-1 px-3">
+                                            <InvestmentPriceChartPanel
+                                                investmentId={row.id}
+                                                currency={row.currency}
+                                                locale={locale}
                                             />
                                         </td>
-                                        <td className="py-2 pe-2 text-gray-400">…</td>
-                                        <td className="py-2 whitespace-nowrap">
-                                            <button type="button" className="text-emerald-600 font-semibold me-2" onClick={() => void saveEdit()}>
-                                                {t('dashboard.portfolio.save')}
-                                            </button>
-                                            <button type="button" className="text-gray-500" onClick={cancelEdit}>
-                                                {t('dashboard.portfolio.cancel')}
-                                            </button>
-                                        </td>
-                                    </>
-                                ) : (
-                                    <>
-                                        <td className="py-2 pe-3 font-mono font-semibold">{row.symbol}</td>
-                                        <td className="py-2 pe-3">{row.quantity}</td>
-                                        <td className="py-2 pe-3">
-                                            <span>{row.purchasePricePerUnit}</span>
-                                            {row.currency?.toUpperCase() === 'ILS' && row.valueInAgorot ? (
-                                                <span className="text-[10px] text-gray-500 ms-1">{t('dashboard.portfolio.agorot_unit')}</span>
-                                            ) : null}
-                                        </td>
-                                        <td className="py-2 pe-3">{row.currency}</td>
-                                        <td className="py-2 pe-2 text-center text-xs">
-                                            {(row.useTelAvivListing ?? row.currency?.toUpperCase() === 'ILS') ? '✓' : '—'}
-                                        </td>
-                                        <td className="py-2 pe-3">{row.trackFromDate}</td>
-                                        <td className="py-2 pe-3">
-                                            {(() => {
-                                                const pos = summary?.positions.find((p) => p.investmentId === row.id);
-                                                return (
-                                                    <>
-                                                        <div className={`font-medium ${pnlClass(pos?.pnlIls)}`}>
-                                                            {formatIls(pos?.pnlIls ?? null, locale)}
-                                                        </div>
-                                                        {pos?.quoteError ? (
-                                                            <p
-                                                                className="text-[10px] text-rose-600 mt-0.5 max-w-[min(100%,18rem)] break-words leading-snug"
-                                                                title={positionQuoteErrorText(t, pos.quoteError)}
-                                                            >
-                                                                {positionQuoteErrorText(t, pos.quoteError)}
-                                                            </p>
-                                                        ) : null}
-                                                    </>
-                                                );
-                                            })()}
-                                        </td>
-                                        <td className="py-2 whitespace-nowrap text-end">
-                                            <button type="button" className="text-blue-600 text-xs font-semibold me-2" onClick={() => startEdit(row)}>
-                                                {t('dashboard.portfolio.edit')}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="text-rose-600 text-xs font-semibold"
-                                                onClick={() => {
-                                                    if (window.confirm(t('common.delete') + '?')) void deleteMut.mutateAsync(row.id);
-                                                }}
-                                            >
-                                                {t('dashboard.portfolio.delete')}
-                                            </button>
-                                        </td>
-                                    </>
-                                )}
-                            </tr>
+                                    </tr>
+                                ) : null}
+                            </Fragment>
                         ))}
                     </tbody>
                 </table>
@@ -440,6 +644,13 @@ export function PortfolioSection() {
                             className="min-w-0 flex-1 basis-[8rem] rounded-xl border border-gray-200 px-3 py-2 text-sm font-mono uppercase"
                             value={newSymbol}
                             onChange={(e) => setNewSymbol(e.target.value)}
+                        />
+                        <input
+                            placeholder={t('dashboard.portfolio.nickname_placeholder')}
+                            className="min-w-0 flex-1 basis-[7rem] rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                            maxLength={120}
+                            value={newNickname}
+                            onChange={(e) => setNewNickname(e.target.value)}
                         />
                         <input
                             type="number"

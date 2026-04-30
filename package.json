@@ -21,7 +21,10 @@
         "electron:start": "npm run start -w desktop-electron",
         "electron:dist": "npm run dist -w desktop-electron",
         "windows:electron": "npm run windows:package && npm run electron:dist",
-        "macos:electron": "npm run macos:package && npm run dist:mac -w desktop-electron"
+        "macos:electron": "npm run macos:package && npm run dist:mac -w desktop-electron",
+        "release:patch": "node scripts/bump-version.mjs patch",
+        "release:minor": "node scripts/bump-version.mjs minor",
+        "release:major": "node scripts/bump-version.mjs major"
     },
     "engines": {
         "node": ">=20"

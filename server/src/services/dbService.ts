@@ -252,6 +252,11 @@ function initialize(db: Database.Database) {
     } catch (_) {
         /* ignore */
     }
+    try {
+        db.exec(`ALTER TABLE investments ADD COLUMN nickname TEXT`);
+    } catch (_) {
+        /* column exists */
+    }
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS portfolio_history (
@@ -293,6 +298,13 @@ function initialize(db: Database.Database) {
     try {
         db.exec(
             `ALTER TABLE investment_app_settings ADD COLUMN eodhd_quote_mode TEXT NOT NULL DEFAULT 'realtime'`
+        );
+    } catch (_) {
+        /* column exists */
+    }
+    try {
+        db.exec(
+            `ALTER TABLE investment_app_settings ADD COLUMN portfolio_historic_usd_ils INTEGER NOT NULL DEFAULT 1`
         );
     } catch (_) {
         /* column exists */
@@ -1132,6 +1144,7 @@ export class DbService {
         id: string;
         userId: string;
         symbol: string;
+        nickname: string | null;
         quantity: number;
         purchasePricePerUnit: number;
         currency: string;
@@ -1144,13 +1157,14 @@ export class DbService {
     }[] {
         const rows = this.db
             .prepare(
-                `SELECT id, user_id, symbol, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at
+                `SELECT id, user_id, symbol, nickname, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at
                  FROM investments WHERE user_id = ? ORDER BY symbol ASC, created_at ASC`
             )
             .all(userId) as {
             id: string;
             user_id: string;
             symbol: string;
+            nickname: string | null;
             quantity: number;
             purchase_price_per_unit: number;
             currency: string;
@@ -1165,6 +1179,7 @@ export class DbService {
             id: r.id,
             userId: r.user_id,
             symbol: r.symbol,
+            nickname: r.nickname != null && String(r.nickname).trim() !== '' ? String(r.nickname).trim() : null,
             quantity: Number(r.quantity),
             purchasePricePerUnit: Number(r.purchase_price_per_unit),
             currency: r.currency,
@@ -1185,6 +1200,7 @@ export class DbService {
               id: string;
               userId: string;
               symbol: string;
+              nickname: string | null;
               quantity: number;
               purchasePricePerUnit: number;
               currency: string;
@@ -1198,7 +1214,7 @@ export class DbService {
         | undefined {
         const r = this.db
             .prepare(
-                `SELECT id, user_id, symbol, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at
+                `SELECT id, user_id, symbol, nickname, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at
                  FROM investments WHERE id = ?`
             )
             .get(id) as
@@ -1206,6 +1222,7 @@ export class DbService {
                   id: string;
                   user_id: string;
                   symbol: string;
+                  nickname: string | null;
                   quantity: number;
                   purchase_price_per_unit: number;
                   currency: string;
@@ -1222,6 +1239,7 @@ export class DbService {
             id: r.id,
             userId: r.user_id,
             symbol: r.symbol,
+            nickname: r.nickname != null && String(r.nickname).trim() !== '' ? String(r.nickname).trim() : null,
             quantity: Number(r.quantity),
             purchasePricePerUnit: Number(r.purchase_price_per_unit),
             currency: r.currency,
@@ -1241,6 +1259,7 @@ export class DbService {
         id: string;
         userId: string;
         symbol: string;
+        nickname?: string | null;
         quantity: number;
         purchasePricePerUnit: number;
         currency: string;
@@ -1261,15 +1280,18 @@ export class DbService {
             row.valueInAgorot && row.currency?.toUpperCase() === 'ILS'
                 ? 1
                 : 0;
+        const nick =
+            row.nickname != null && String(row.nickname).trim() !== '' ? String(row.nickname).trim() : null;
         this.db
             .prepare(
-                `INSERT INTO investments (id, user_id, symbol, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+                `INSERT INTO investments (id, user_id, symbol, nickname, quantity, purchase_price_per_unit, currency, track_from_date, source_transaction_id, use_tel_aviv_listing, value_in_agorot, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
             )
             .run(
                 row.id,
                 row.userId,
                 row.symbol,
+                nick,
                 row.quantity,
                 row.purchasePricePerUnit,
                 row.currency,
@@ -1284,6 +1306,7 @@ export class DbService {
         id: string,
         patch: Partial<{
             symbol: string;
+            nickname: string | null;
             quantity: number;
             purchasePricePerUnit: number;
             currency: string;
@@ -1293,10 +1316,14 @@ export class DbService {
         }>
     ): boolean {
         const fields: string[] = [];
-        const values: (string | number)[] = [];
+        const values: (string | number | null)[] = [];
         if (patch.symbol !== undefined) {
             fields.push('symbol = ?');
             values.push(patch.symbol);
+        }
+        if (patch.nickname !== undefined) {
+            fields.push('nickname = ?');
+            values.push(patch.nickname);
         }
         if (patch.quantity !== undefined) {
             fields.push('quantity = ?');
@@ -1360,6 +1387,11 @@ export class DbService {
             totalValue: Number(r.total_value),
             displayCurrency: r.display_currency,
         }));
+    }
+
+    /** Deletes all saved daily portfolio snapshots (SQLite `portfolio_history`). Does not affect EOD-based charts. */
+    deleteAllPortfolioHistory(userId: string): number {
+        return this.db.prepare(`DELETE FROM portfolio_history WHERE user_id = ?`).run(userId).changes;
     }
 
     upsertPortfolioHistorySnapshot(row: {
@@ -1441,11 +1473,12 @@ export class DbService {
         featureEnabled: boolean;
         eodhdApiToken: string | null;
         eodhdQuoteMode: string;
+        portfolioHistoricUsdIls: boolean;
         updatedAt: string;
     } {
         const r = this.db
             .prepare(
-                `SELECT user_id, feature_enabled, eodhd_api_token, eodhd_quote_mode, updated_at FROM investment_app_settings WHERE user_id = ?`
+                `SELECT user_id, feature_enabled, eodhd_api_token, eodhd_quote_mode, portfolio_historic_usd_ils, updated_at FROM investment_app_settings WHERE user_id = ?`
             )
             .get(userId) as
             | {
@@ -1453,17 +1486,26 @@ export class DbService {
                   feature_enabled: number;
                   eodhd_api_token: string | null;
                   eodhd_quote_mode: string | null;
+                  portfolio_historic_usd_ils: number | null;
                   updated_at: string;
               }
             | undefined;
         if (!r) {
-            return { userId, featureEnabled: false, eodhdApiToken: null, eodhdQuoteMode: 'realtime', updatedAt: '' };
+            return {
+                userId,
+                featureEnabled: false,
+                eodhdApiToken: null,
+                eodhdQuoteMode: 'realtime',
+                portfolioHistoricUsdIls: true,
+                updatedAt: '',
+            };
         }
         return {
             userId: r.user_id,
             featureEnabled: r.feature_enabled !== 0,
             eodhdApiToken: r.eodhd_api_token,
             eodhdQuoteMode: (r.eodhd_quote_mode && String(r.eodhd_quote_mode).trim()) || 'realtime',
+            portfolioHistoricUsdIls: r.portfolio_historic_usd_ils == null ? true : r.portfolio_historic_usd_ils !== 0,
             updatedAt: r.updated_at,
         };
     }
@@ -1473,17 +1515,25 @@ export class DbService {
         featureEnabled: boolean;
         eodhdApiToken: string | null;
         eodhdQuoteMode: string;
+        portfolioHistoricUsdIls: boolean;
     }): void {
         this.db
             .prepare(
-                `INSERT INTO investment_app_settings (user_id, feature_enabled, eodhd_api_token, eodhd_quote_mode, updated_at)
-                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `INSERT INTO investment_app_settings (user_id, feature_enabled, eodhd_api_token, eodhd_quote_mode, portfolio_historic_usd_ils, updated_at)
+                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                  ON CONFLICT(user_id) DO UPDATE SET
                    feature_enabled = excluded.feature_enabled,
                    eodhd_api_token = excluded.eodhd_api_token,
                    eodhd_quote_mode = excluded.eodhd_quote_mode,
+                   portfolio_historic_usd_ils = excluded.portfolio_historic_usd_ils,
                    updated_at = CURRENT_TIMESTAMP`
             )
-            .run(row.userId, row.featureEnabled ? 1 : 0, row.eodhdApiToken, row.eodhdQuoteMode);
+            .run(
+                row.userId,
+                row.featureEnabled ? 1 : 0,
+                row.eodhdApiToken,
+                row.eodhdQuoteMode,
+                row.portfolioHistoricUsdIls ? 1 : 0
+            );
     }
 }

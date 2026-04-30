@@ -17,6 +17,8 @@ import {
     isInvestmentsFeatureEnabled,
 } from '../constants/marketData.js';
 import { parseEodhdQuoteMode } from '../constants/eodhdQuote.js';
+import { buildInvestmentPriceHistory } from '../services/investmentPriceHistoryService.js';
+import { buildPortfolioEodValueHistory } from '../services/portfolioEodValueHistoryService.js';
 
 const router = Router();
 const db = new DbService();
@@ -33,6 +35,17 @@ router.use((req, res, next) => {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SYMBOL_RE = /^[A-Za-z0-9.\-]{1,24}$/;
+const NICKNAME_MAX = 120;
+
+function nicknameFromBody(body: Record<string, unknown>): string | null | undefined | 'invalid_nickname' {
+    if (!Object.prototype.hasOwnProperty.call(body, 'nickname')) return undefined;
+    const raw = body.nickname;
+    if (raw === null) return null;
+    const s = String(raw ?? '').trim();
+    if (!s) return null;
+    if (s.length > NICKNAME_MAX) return 'invalid_nickname';
+    return s;
+}
 
 function todayInTimezone(timeZone: string): string {
     return new Intl.DateTimeFormat('en-CA', {
@@ -59,6 +72,7 @@ function investmentAppSettingsPayload() {
         eodhdApiTokenFromEnv,
         marketDataProvider: getMarketDataProviderMode(),
         eodhdQuoteMode: parseEodhdQuoteMode(settings.eodhdQuoteMode),
+        portfolioHistoricUsdIls: settings.portfolioHistoricUsdIls,
     };
 }
 
@@ -92,11 +106,20 @@ router.patch('/app-settings', (req, res) => {
         if (typeof body.eodhd_quote_mode === 'string') eodhdQuoteMode = parseEodhdQuoteMode(body.eodhd_quote_mode);
         if (typeof body.eodhdQuoteMode === 'string') eodhdQuoteMode = parseEodhdQuoteMode(body.eodhdQuoteMode);
 
+        let portfolioHistoricUsdIls = cur.portfolioHistoricUsdIls;
+        if (body.portfolio_historic_usd_ils !== undefined) {
+            portfolioHistoricUsdIls = Boolean(body.portfolio_historic_usd_ils);
+        }
+        if (body.portfolioHistoricUsdIls !== undefined) {
+            portfolioHistoricUsdIls = Boolean(body.portfolioHistoricUsdIls);
+        }
+
         db.upsertInvestmentAppSettings({
             userId: DEFAULT_INVESTMENT_USER_ID,
             featureEnabled,
             eodhdApiToken: nextToken,
             eodhdQuoteMode,
+            portfolioHistoricUsdIls,
         });
         invalidateInvestmentMarketSettingsCache();
         reloadPortfolioSnapshotSchedule();
@@ -170,6 +193,11 @@ router.post('/', (req, res) => {
             return res.status(400).json({ success: false, error: 'value_in_agorot_requires_ils' });
         }
 
+        const nickParsed = nicknameFromBody(body as Record<string, unknown>);
+        if (nickParsed === 'invalid_nickname') {
+            return res.status(400).json({ success: false, error: 'invalid_nickname', max: NICKNAME_MAX });
+        }
+
         const id = uuidv4();
         db.insertInvestment({
             id,
@@ -181,6 +209,7 @@ router.post('/', (req, res) => {
             trackFromDate,
             useTelAvivListing: useTelAvivBody !== undefined ? useTelAvivBody : currency === 'ILS',
             valueInAgorot: valueInAgorotBody !== undefined ? valueInAgorotWants && currency === 'ILS' : false,
+            ...(nickParsed !== undefined ? { nickname: nickParsed } : {}),
         });
         const created = db.getInvestment(id);
         res.json({ success: true, data: created });
@@ -200,6 +229,7 @@ router.patch('/:id', (req, res) => {
         const body = req.body ?? {};
         const patch: {
             symbol?: string;
+            nickname?: string | null;
             quantity?: number;
             purchasePricePerUnit?: number;
             currency?: string;
@@ -207,6 +237,13 @@ router.patch('/:id', (req, res) => {
             useTelAvivListing?: boolean;
             valueInAgorot?: boolean;
         } = {};
+        const nickParsed = nicknameFromBody(body as Record<string, unknown>);
+        if (nickParsed === 'invalid_nickname') {
+            return res.status(400).json({ success: false, error: 'invalid_nickname', max: NICKNAME_MAX });
+        }
+        if (nickParsed !== undefined) {
+            patch.nickname = nickParsed;
+        }
         if (body.symbol !== undefined) {
             const symbol = String(body.symbol).trim().toUpperCase();
             if (!SYMBOL_RE.test(symbol)) {
@@ -308,6 +345,88 @@ router.get('/history', (req, res) => {
         }
         const data = db.listPortfolioHistory(DEFAULT_INVESTMENT_USER_ID, { fromDate, toDate });
         res.json({ success: true, data });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: msg });
+    }
+});
+
+router.delete('/history', (_req, res) => {
+    try {
+        const deleted = db.deleteAllPortfolioHistory(DEFAULT_INVESTMENT_USER_ID);
+        res.json({ success: true, data: { deleted } });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: msg });
+    }
+});
+
+router.get('/value-history', async (req, res) => {
+    try {
+        const fromDate = req.query.from ? String(req.query.from) : undefined;
+        const toDate = req.query.to ? String(req.query.to) : undefined;
+        if (fromDate && !ISO_DATE.test(fromDate)) {
+            return res.status(400).json({ success: false, error: 'invalid_from' });
+        }
+        if (toDate && !ISO_DATE.test(toDate)) {
+            return res.status(400).json({ success: false, error: 'invalid_to' });
+        }
+        const historic = db.getInvestmentAppSettings(DEFAULT_INVESTMENT_USER_ID).portfolioHistoricUsdIls;
+        const result = await buildPortfolioEodValueHistory(db, DEFAULT_INVESTMENT_USER_ID, {
+            fromDate,
+            toDate,
+            historicUsdIls: historic,
+        });
+        if (!result.ok) {
+            if (result.error === 'no_positions') {
+                return res.json({
+                    success: true,
+                    data: { points: [], partial: false, fxMode: historic ? 'historic' : 'spot' },
+                });
+            }
+            return res.status(503).json({ success: false, error: result.error });
+        }
+        res.json({
+            success: true,
+            data: {
+                points: result.points,
+                partial: result.partial,
+                fxMode: result.fxMode,
+            },
+        });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: msg });
+    }
+});
+
+router.get('/:id/price-history', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const result = await buildInvestmentPriceHistory(db, DEFAULT_INVESTMENT_USER_ID, id);
+        if (!result.ok) {
+            const status =
+                result.error === 'not_found'
+                    ? 404
+                    : result.error === 'eodhd_token_required'
+                      ? 503
+                      : result.error === 'invalid_buy_date'
+                        ? 400
+                        : 502;
+            return res.status(status).json({
+                success: false,
+                error: result.error,
+                ...(result.detail ? { detail: result.detail } : {}),
+            });
+        }
+        res.json({
+            success: true,
+            data: {
+                points: result.points,
+                resolvedSymbol: result.resolvedSymbol,
+                currency: result.currency,
+            },
+        });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         res.status(500).json({ success: false, error: msg });

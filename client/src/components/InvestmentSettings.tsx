@@ -7,6 +7,7 @@ import {
     useSnapshotSettings,
     useUpdateSnapshotSettings,
     useSavePortfolioSnapshot,
+    useClearPortfolioSnapshotHistory,
     type EodhdQuoteModeDto,
 } from '../hooks/useInvestments';
 import { EODHD_API_QUICKSTART_URL, EODHD_DASHBOARD_URL, EODHD_REGISTER_URL } from '../constants/eodhdUrls';
@@ -28,10 +29,12 @@ export function InvestmentSettings({ isInline = false }: { isInline?: boolean })
     const { data: snapSettings } = useSnapshotSettings({ enabled: snapQueryEnabled });
     const schedMut = useUpdateSnapshotSettings();
     const snapMut = useSavePortfolioSnapshot();
+    const clearHistMut = useClearPortfolioSnapshotHistory();
 
     const [featureOn, setFeatureOn] = useState(true);
     const [tokenInput, setTokenInput] = useState('');
     const [quoteMode, setQuoteMode] = useState<EodhdQuoteModeDto>('realtime');
+    const [historicUsdIls, setHistoricUsdIls] = useState(true);
     const [feedback, setFeedback] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
     const [runTime, setRunTime] = useState('22:00');
@@ -43,6 +46,7 @@ export function InvestmentSettings({ isInline = false }: { isInline?: boolean })
             setFeatureOn(data.featureEnabled);
             setTokenInput('');
             setQuoteMode(data.eodhdQuoteMode);
+            setHistoricUsdIls(data.portfolioHistoricUsdIls !== false);
         }
     }, [data]);
 
@@ -141,6 +145,31 @@ export function InvestmentSettings({ isInline = false }: { isInline?: boolean })
                 },
             }
         );
+    };
+
+    const onHistoricFxToggle = (next: boolean) => {
+        const prev = historicUsdIls;
+        setHistoricUsdIls(next);
+        updateMutation.mutate(
+            { portfolioHistoricUsdIls: next },
+            {
+                onSuccess: () => showFeedback('ok', t('investment_settings.saved')),
+                onError: (e) => {
+                    setHistoricUsdIls(prev);
+                    showFeedback('err', e instanceof Error ? e.message : String(e));
+                },
+            }
+        );
+    };
+
+    const onClearSnapshotHistory = () => {
+        if (!window.confirm(t('investment_settings.clear_snapshot_history_confirm'))) return;
+        clearHistMut.mutate(undefined, {
+            onSuccess: (deleted) => {
+                showFeedback('ok', t('investment_settings.snapshot_history_cleared', { count: deleted }));
+            },
+            onError: (e) => showFeedback('err', e instanceof Error ? e.message : String(e)),
+        });
     };
 
     if (!enabled) return null;
@@ -345,6 +374,31 @@ export function InvestmentSettings({ isInline = false }: { isInline?: boolean })
                                     className="rounded-lg border border-emerald-200 text-emerald-800 text-sm font-semibold px-4 py-2 hover:bg-emerald-50 disabled:opacity-50"
                                 >
                                     {t('dashboard.portfolio.snapshot_now')}
+                                </button>
+                            </div>
+                            <div className="pt-3 border-t border-gray-100 space-y-2">
+                                <p className="text-xs font-semibold text-gray-800">{t('investment_settings.portfolio_chart_fx_title')}</p>
+                                <p className="text-[11px] text-gray-500">{t('investment_settings.portfolio_chart_fx_help')}</p>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={historicUsdIls}
+                                        disabled={updateMutation.isPending}
+                                        onChange={(e) => onHistoricFxToggle(e.target.checked)}
+                                    />
+                                    <span>{t('investment_settings.portfolio_chart_fx_historic')}</span>
+                                </label>
+                            </div>
+                            <div className="pt-3 border-t border-gray-100 space-y-2">
+                                <p className="text-xs font-semibold text-gray-800">{t('investment_settings.snapshot_db_title')}</p>
+                                <p className="text-[11px] text-gray-500">{t('investment_settings.snapshot_db_help')}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => void onClearSnapshotHistory()}
+                                    disabled={clearHistMut.isPending}
+                                    className="rounded-lg border border-rose-200 text-rose-800 text-sm font-semibold px-4 py-2 hover:bg-rose-50 disabled:opacity-50"
+                                >
+                                    {t('investment_settings.clear_snapshot_history')}
                                 </button>
                             </div>
                         </div>

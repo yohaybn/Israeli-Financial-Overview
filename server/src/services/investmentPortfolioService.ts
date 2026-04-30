@@ -24,6 +24,8 @@ export type LivePositionRow = {
     costBasisIls: number | null;
     marketValueIls: number | null;
     pnlIls: number | null;
+    /** P&L as % of cost in ILS when cost &gt; 0. */
+    pnlPctOfCost: number | null;
     quoteError?: string;
 };
 
@@ -34,6 +36,8 @@ export type LivePortfolioSummary = {
     totalCostBasisIls: number | null;
     totalMarketValueIls: number | null;
     totalPnlIls: number | null;
+    /** Total P&L as % of total cost basis in ILS (null if cost is zero or incomplete). */
+    totalPnlPctOfCost: number | null;
     partialQuotes: boolean;
 };
 
@@ -105,6 +109,11 @@ export async function computeLivePortfolioForUser(db: DbService, userId: string)
             anyPartial = true;
         }
 
+        const pnlPctOfCost =
+            costBasisIls != null && costBasisIls > 0 && pnlIls != null && Number.isFinite(pnlIls)
+                ? (pnlIls / costBasisIls) * 100
+                : null;
+
         positions.push({
             investmentId: inv.id,
             symbol: sym,
@@ -120,6 +129,7 @@ export async function computeLivePortfolioForUser(db: DbService, userId: string)
             costBasisIls,
             marketValueIls,
             pnlIls,
+            pnlPctOfCost,
             quoteError:
                 quoteShekelsPerUnit == null
                     ? (quoteResolutionError ?? 'quote_unavailable')
@@ -127,6 +137,19 @@ export async function computeLivePortfolioForUser(db: DbService, userId: string)
                       ? 'fx_unavailable'
                       : undefined,
         });
+    }
+
+    if (rows.length === 0) {
+        return {
+            displayCurrency: PORTFOLIO_DISPLAY_CURRENCY,
+            usdIlsRate: usdIlsRate,
+            positions: [],
+            totalCostBasisIls: 0,
+            totalMarketValueIls: 0,
+            totalPnlIls: 0,
+            totalPnlPctOfCost: 0,
+            partialQuotes: false,
+        };
     }
 
     const totalCostBasisIls = positions.every((p) => p.costBasisIls != null)
@@ -139,17 +162,13 @@ export async function computeLivePortfolioForUser(db: DbService, userId: string)
         ? positions.reduce((a, p) => a + (p.pnlIls as number), 0)
         : null;
 
-    if (rows.length === 0) {
-        return {
-            displayCurrency: PORTFOLIO_DISPLAY_CURRENCY,
-            usdIlsRate: usdIlsRate,
-            positions: [],
-            totalCostBasisIls: 0,
-            totalMarketValueIls: 0,
-            totalPnlIls: 0,
-            partialQuotes: false,
-        };
-    }
+    const totalPnlPctOfCost =
+        totalCostBasisIls != null &&
+        totalCostBasisIls > 0 &&
+        totalPnlIls != null &&
+        Number.isFinite(totalPnlIls)
+            ? (totalPnlIls / totalCostBasisIls) * 100
+            : null;
 
     const missing = rows
         .map((r) => r.symbol.trim().toUpperCase())
@@ -168,6 +187,7 @@ export async function computeLivePortfolioForUser(db: DbService, userId: string)
         totalCostBasisIls,
         totalMarketValueIls,
         totalPnlIls,
+        totalPnlPctOfCost,
         partialQuotes: anyPartial,
     };
 }
