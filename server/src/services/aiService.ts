@@ -1597,6 +1597,109 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
         }
     }
 
+    /**
+     * Bilingual short narrative comparing the report month to prior / YoY periods (trusted multi-month aggregates only).
+     */
+    async generateFinancialMonthComparisonNarrative(params: {
+        reportMonthYm: string;
+        localeMode: FinancialReportLocaleMode;
+        comparisonContextSummary: string;
+    }): Promise<FinancialReportBilingualBlock | null> {
+        if (!this.genAI) return null;
+        await this.loadSettings();
+        const primaryChat = this.settings.chatModel;
+        const langRule =
+            params.localeMode === 'he'
+                ? 'All user-visible strings in JSON must be Hebrew only (use he field; en may be empty string).'
+                : params.localeMode === 'en'
+                  ? 'All user-visible strings in JSON must be English only (use en field; he may be empty string).'
+                  : 'Provide both he and en for every text field (bilingual report).';
+
+        const systemInstruction =
+            'You are a financial analyst for Israeli household cashflow (ILS). ' +
+            'Output ONLY valid JSON: {"narrative":{"he":"...","en":"..."}}. ' +
+            'Compare the report month to the other months in the data using ONLY the provided totals and category lists. ' +
+            'Focus on 2–4 concrete shifts in leading expense categories, income, expenses, or net. Not professional investment advice. ' +
+            'No markdown in strings. Do not invent merchants or months. ' +
+            langRule;
+
+        const userText =
+            `Report month (treat as "current" in comparisons): ${params.reportMonthYm}\n\n` +
+            `${this.categoryMetaContextForPrompt()}` +
+            `${this.personaContextForFinancialReport()}` +
+            `Multi-month aggregates (trusted):\n${params.comparisonContextSummary}\n\n` +
+            'Respond with JSON exactly: {"narrative":{"he":"...","en":"..."}}\n';
+
+        const generationConfig = {
+            ...this.analyticsGenerationConfigStructured({ temperature: 0.35 }),
+        };
+
+        const runGeneration = async (chatModelName: string) => {
+            const m = this.genAI!.getGenerativeModel({ model: chatModelName, systemInstruction });
+            const genStart = Date.now();
+            const result = await runWithAILoadTracking(() =>
+                m.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: userText }] }],
+                    generationConfig,
+                })
+            );
+            const response = await result.response;
+            const text = response.text();
+            const latencyMs = Date.now() - genStart;
+            return { text, response, latencyMs, chatModelName };
+        };
+
+        try {
+            let outcome: Awaited<ReturnType<typeof runGeneration>>;
+            try {
+                outcome = await runGeneration(primaryChat);
+            } catch (e1: any) {
+                const fb = this.effectiveFallbackModel(primaryChat);
+                if (!fb || !isGeminiRateLimitOrOverloadError(e1)) throw e1;
+                outcome = await runGeneration(fb);
+            }
+
+            const { text, response, latencyMs, chatModelName } = outcome;
+            const usageMetadata = response.usageMetadata;
+            await logAICall({
+                model: chatModelName,
+                provider: 'gemini',
+                requestInfo: {
+                    systemPrompt: systemInstruction,
+                    userInput: userText.slice(0, 8000),
+                    inputLength: userText.length,
+                },
+                responseInfo: {
+                    rawOutput: text,
+                    finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                    success: true,
+                },
+                metadata: {
+                    promptTokens: usageMetadata?.promptTokenCount,
+                    completionTokens: usageMetadata?.candidatesTokenCount,
+                    totalTokens: usageMetadata?.totalTokenCount,
+                    latencyMs,
+                },
+            });
+
+            let parsed: any;
+            try {
+                parsed = this.extractJson(text);
+            } catch {
+                return null;
+            }
+            return this.normalizeBilingualBlock(parsed?.narrative);
+        } catch (e: any) {
+            serverLogger.warn('generateFinancialMonthComparisonNarrative failed', { error: e?.message || String(e) });
+            await logAIError(primaryChat, 'gemini', 'financial-report-month-comparison', e, {
+                latencyMs: 0,
+                systemPrompt:
+                    'You are a financial analyst for Israeli household cashflow (ILS). Output ONLY valid JSON: {"narrative":{"he":"...","en":"..."}}.',
+            });
+            return null;
+        }
+    }
+
     async parseDocument(text: string, provider: string = 'imported', accountNumber: string = 'unknown'): Promise<{ transactions: Transaction[], accounts: Account[] }> {
         if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
 

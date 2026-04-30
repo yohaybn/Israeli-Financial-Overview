@@ -15,6 +15,7 @@ interface MonthlyTransactionsCardProps {
     defaultCollapsed?: boolean;
     /** Increment (e.g. from parent) to expand the card when already mounted. */
     expandSignal?: number;
+    collapseAllSignal?: number;
     scopeLabel?: string;
     filterLabel?: string;
     onClearFilter?: () => void;
@@ -32,6 +33,7 @@ export function MonthlyTransactionsCard({
     onUpdateCategory,
     defaultCollapsed = false,
     expandSignal = 0,
+    collapseAllSignal = 0,
     scopeLabel: _scopeLabel,
     filterLabel,
     onClearFilter,
@@ -44,6 +46,10 @@ export function MonthlyTransactionsCard({
     useEffect(() => {
         if (expandSignal > 0) setCollapsed(false);
     }, [expandSignal]);
+
+    useEffect(() => {
+        if (collapseAllSignal > 0) setCollapsed(true);
+    }, [collapseAllSignal]);
 
     const transactionsExcludingInternal = useMemo(
         () => transactions.filter((txn) => !isInternalTransfer(txn, customCCKeywords ?? [])),

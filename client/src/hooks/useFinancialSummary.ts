@@ -4,6 +4,7 @@ import {
     FinancialSummary,
     CategoryBaseline,
     detectRecurring,
+    filterUpcomingAlreadyRealizedInMonth,
     computeHistoricalBaseline,
     computeBudgetHealth,
     detectAnomalies,
@@ -120,7 +121,16 @@ export function useFinancialSummary(
 
         // Step 5: Detect recurring items not yet appearing IN THE SELECTED MONTH
         // We pass ALL real transactions to detect patterns
-        const { upcoming: upcomingFixed, realizedIncome, realizedBills } = detectRecurring(realTransactions, currentMonth, customCCKeywords);
+        const { upcoming: upcomingFixedRaw, realizedIncome, realizedBills } = detectRecurring(
+            realTransactions,
+            currentMonth,
+            customCCKeywords
+        );
+        const upcomingFixed = filterUpcomingAlreadyRealizedInMonth(
+            upcomingFixedRaw,
+            currentMonthTxns,
+            customCCKeywords
+        );
         const subscriptions = detectSubscriptions(allTransactions);
 
         // Calculate remaining planned from upcoming bills

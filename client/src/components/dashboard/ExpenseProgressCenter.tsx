@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ShoppingBag } from 'lucide-react';
@@ -37,6 +37,7 @@ interface ExpenseProgressCenterProps {
     onCategoryClick?: (categoryName: string) => void;
     /** When true, section body starts collapsed (e.g. mobile default). */
     defaultCollapsed?: boolean;
+    collapseAllSignal?: number;
 }
 
 type Health = 'healthy' | 'caution' | 'critical';
@@ -66,11 +67,16 @@ export function ExpenseProgressCenter({
     onUpdateCategory,
     onCategoryClick,
     defaultCollapsed = false,
+    collapseAllSignal = 0,
 }: ExpenseProgressCenterProps) {
     const { t, i18n } = useTranslation();
     const [selectedKpi, setSelectedKpi] = useState<'already_spent' | 'remaining_planned' | null>(null);
     const [showForecastModal, setShowForecastModal] = useState(false);
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+    useEffect(() => {
+        if (collapseAllSignal > 0) setCollapsed(true);
+    }, [collapseAllSignal]);
 
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {

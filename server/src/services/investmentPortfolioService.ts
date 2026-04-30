@@ -7,6 +7,8 @@ import { serviceLogger as logger } from '../utils/logger.js';
 export type LivePositionRow = {
     investmentId: string;
     symbol: string;
+    /** Optional display name from investments.nickname */
+    nickname: string | null;
     quantity: number;
     purchasePricePerUnit: number;
     /**
@@ -117,6 +119,7 @@ export async function computeLivePortfolioForUser(db: DbService, userId: string)
         positions.push({
             investmentId: inv.id,
             symbol: sym,
+            nickname: inv.nickname,
             quantity: inv.quantity,
             purchasePricePerUnit: inv.purchasePricePerUnit,
             valueInAgorot: inv.valueInAgorot,

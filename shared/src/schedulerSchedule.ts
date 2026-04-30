@@ -258,6 +258,13 @@ export function normalizeFinancialReportSchedule<T extends FinancialReportSchedu
             ? 'current_calendar_month'
             : 'previous_calendar_month';
 
+    const rawPrior = mergedBase.monthComparisonPriorMonths;
+    const monthComparisonPriorMonths =
+        typeof rawPrior === 'number' && Number.isFinite(rawPrior)
+            ? Math.max(0, Math.min(12, Math.floor(rawPrior)))
+            : def.monthComparisonPriorMonths;
+    const monthComparisonYearOverYear = Boolean(mergedBase.monthComparisonYearOverYear);
+
     return {
         ...mergedBase,
         ...normalized,
@@ -266,6 +273,8 @@ export function normalizeFinancialReportSchedule<T extends FinancialReportSchedu
         localeMode,
         sections: mergeFinancialReportSections(def.sections, mergedBase.sections),
         scheduledMonthRule,
+        monthComparisonPriorMonths,
+        monthComparisonYearOverYear,
         lastRun: mergedBase.lastRun
     } as T;
 }

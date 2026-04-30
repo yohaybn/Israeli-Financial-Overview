@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Wallet } from 'lucide-react';
@@ -17,6 +17,8 @@ interface IncomeProgressCenterProps {
     onUpdateCategory?: (transactionId: string, category: string) => void;
     /** When true, section body starts collapsed (e.g. mobile default). */
     defaultCollapsed?: boolean;
+    /** Increment to collapse body when mounted (dashboard “collapse all”). */
+    collapseAllSignal?: number;
 }
 
 type StreamIcon = 'received' | 'expected' | 'upcoming';
@@ -54,11 +56,16 @@ export function IncomeProgressCenter({
     categories,
     onUpdateCategory,
     defaultCollapsed = false,
+    collapseAllSignal = 0,
 }: IncomeProgressCenterProps) {
     const { t, i18n } = useTranslation();
     const [selectedKpi, setSelectedKpi] = useState<'already_received' | 'expected_inflow' | null>(null);
     const [showViewAll, setShowViewAll] = useState(false);
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+    useEffect(() => {
+        if (collapseAllSignal > 0) setCollapsed(true);
+    }, [collapseAllSignal]);
 
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {

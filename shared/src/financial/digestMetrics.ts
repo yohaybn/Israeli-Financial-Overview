@@ -2,7 +2,7 @@ import type { Transaction, BudgetHealth, AnomalyAlert, HistoricalBaseline } from
 import { isInternalTransfer } from '../isInternalTransfer.js';
 import { isTransactionIgnored } from '../isTransactionIgnored.js';
 import { expenseCategoryKey } from '../expenseCategory.js';
-import { detectRecurring } from './recurring.js';
+import { detectRecurring, filterUpcomingAlreadyRealizedInMonth } from './recurring.js';
 import {
     computeHistoricalBaseline,
     detectAnomalies,
@@ -91,7 +91,12 @@ export function computeFinancialDigestSnapshot(
         }
     }
 
-    const { upcoming: upcomingFixed } = detectRecurring(realTransactions, currentMonth, customCCKeywords);
+    const { upcoming: upcomingFixedRaw } = detectRecurring(realTransactions, currentMonth, customCCKeywords);
+    const upcomingFixed = filterUpcomingAlreadyRealizedInMonth(
+        upcomingFixedRaw,
+        currentMonthTxns,
+        customCCKeywords
+    );
 
     const remainingPlanned = upcomingFixed
         .filter(item => item.type === 'bill')

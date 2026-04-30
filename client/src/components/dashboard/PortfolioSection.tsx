@@ -175,7 +175,13 @@ function InvestmentPriceChartPanel({
     );
 }
 
-export function PortfolioSection() {
+export function PortfolioSection({
+    collapseAllSignal = 0,
+    defaultCollapsed = false,
+}: {
+    collapseAllSignal?: number;
+    defaultCollapsed?: boolean;
+} = {}) {
     const { t, i18n } = useTranslation();
     const locale = i18n.language === 'he' || i18n.language.startsWith('he') ? 'he-IL' : 'en-US';
 
@@ -205,7 +211,11 @@ export function PortfolioSection() {
     const [newFrom, setNewFrom] = useState(() => new Date().toISOString().slice(0, 10));
     const [newNickname, setNewNickname] = useState('');
     const [chartRowId, setChartRowId] = useState<string | null>(null);
-    const [cardCollapsed, setCardCollapsed] = useState(false);
+    const [cardCollapsed, setCardCollapsed] = useState(defaultCollapsed);
+
+    useEffect(() => {
+        if (collapseAllSignal > 0) setCardCollapsed(true);
+    }, [collapseAllSignal]);
 
     useEffect(() => {
         setNewTelAviv(newCur === 'ILS');

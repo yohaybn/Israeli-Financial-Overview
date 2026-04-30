@@ -1,7 +1,10 @@
 import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import type { DashboardSectionsVisibility } from '@app/shared';
+import { mergeDashboardSectionsVisibility } from '@app/shared';
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
+import { useInvestmentAppSettings } from '../../hooks/useInvestments';
 
 function computePanelPosition(rect: DOMRect): { top: number; left: number; width: number } {
     const margin = 8;
@@ -12,9 +15,21 @@ function computePanelPosition(rect: DOMRect): { top: number; left: number; width
     return { top, left, width: maxW };
 }
 
+const SECTION_CONTROLS: { key: keyof DashboardSectionsVisibility; labelKey: string }[] = [
+    { key: 'topInsights', labelKey: 'dashboard.section_top_insights' },
+    { key: 'income', labelKey: 'dashboard.section_income' },
+    { key: 'expenses', labelKey: 'dashboard.section_expenses' },
+    { key: 'subscriptions', labelKey: 'dashboard.section_subscriptions' },
+    { key: 'monthlyTransactions', labelKey: 'dashboard.section_monthly_transactions' },
+    { key: 'investments', labelKey: 'dashboard.section_investments' },
+    { key: 'detailedAnalytics', labelKey: 'dashboard.section_detailed_analytics' },
+];
+
 export function CCPaymentDateSettings() {
     const { t, i18n } = useTranslation();
     const { config, updateConfig } = useDashboardConfig();
+    const { data: investmentAppSettings } = useInvestmentAppSettings();
+    const investmentsFeatureOn = investmentAppSettings?.featureEnabled !== false;
     const [isOpen, setIsOpen] = useState(false);
     const anchorRef = useRef<HTMLDivElement>(null);
     const [panelPos, setPanelPos] = useState({ top: 0, left: 0, width: 320 });
@@ -64,6 +79,18 @@ export function CCPaymentDateSettings() {
     };
 
     const panelDir = i18n.language === 'he' ? 'rtl' : 'ltr';
+
+    const sectionVisibility = mergeDashboardSectionsVisibility(config.sectionsVisibility);
+
+    const setSectionVisible = (key: keyof DashboardSectionsVisibility, visible: boolean) => {
+        updateConfig({
+            sectionsVisibility: { ...sectionVisibility, [key]: visible },
+        });
+    };
+
+    const sectionControls = SECTION_CONTROLS.filter(
+        (row) => row.key !== 'investments' || investmentsFeatureOn
+    );
 
     const popover =
         isOpen &&
@@ -157,6 +184,32 @@ export function CCPaymentDateSettings() {
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                {t('dashboard.sections_visibility_title')}
+                            </label>
+                            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                                {t('dashboard.sections_visibility_desc')}
+                            </p>
+                            <ul className="space-y-1 max-h-[min(40vh,14rem)] overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-100">
+                                {sectionControls.map(({ key, labelKey }) => (
+                                    <li key={key}>
+                                        <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50/80">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
+                                                checked={sectionVisibility[key]}
+                                                onChange={(e) => setSectionVisible(key, e.target.checked)}
+                                            />
+                                            <span className="text-sm font-medium text-gray-800 min-w-0 flex-1">
+                                                {t(labelKey)}
+                                            </span>
+                                        </label>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
 
                         {(config.customCCKeywords ?? []).length > 0 && (

@@ -46,6 +46,10 @@ export default defineConfig(({ mode }) => {
     const isDemo = env.VITE_DEMO === 'true' || process.env.VITE_DEMO === 'true'
     const baseFromEnv = env.VITE_BASE || env.GITHUB_PAGES_BASE || process.env.VITE_BASE || process.env.GITHUB_PAGES_BASE
     const base = baseFromEnv ? normalizeBase(baseFromEnv) : '/'
+    // HA Ingress rewrites URLs per session, so a service-worker-cached `index.html`/asset hashes
+    // get permanently stale after each addon update. Disable PWA for the ingress build; users
+    // with a pre-installed stale SW are cleaned up by the runtime kill-switch in main.tsx.
+    const isIngressBuild = base === './'
 
     const clientVersion = readClientPackageVersion()
     const appBuildVersion =
@@ -111,7 +115,7 @@ export default defineConfig(({ mode }) => {
             'import.meta.env.VITE_INSTALL_KIND': JSON.stringify(installKind),
             'import.meta.env.VITE_GITHUB_REPO': JSON.stringify(githubRepo),
         },
-        plugins: [react(), ...(isDemo ? [] : [pwaPlugin])],
+        plugins: [react(), ...(isDemo || isIngressBuild ? [] : [pwaPlugin])],
         resolve: {
             alias: {
                 '@': path.resolve(__dirname, './src'),

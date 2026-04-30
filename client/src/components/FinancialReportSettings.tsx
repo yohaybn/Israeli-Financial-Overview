@@ -35,6 +35,8 @@ function parseFinancialReportFromApi(fr: Record<string, unknown>): {
     localeMode: FinancialReportLocaleMode;
     scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
     sections: FinancialReportSections;
+    monthComparisonPriorMonths: number;
+    monthComparisonYearOverYear: boolean;
     editor: ScheduleEditorValue;
 } {
     const lm = fr.localeMode;
@@ -66,6 +68,17 @@ function parseFinancialReportFromApi(fr: Record<string, unknown>): {
             ...DEFAULT_FINANCIAL_REPORT_SECTIONS,
             ...(typeof fr.sections === 'object' && fr.sections ? (fr.sections as FinancialReportSections) : {}),
         },
+        monthComparisonPriorMonths: (() => {
+            const raw = fr.monthComparisonPriorMonths;
+            if (typeof raw === 'number' && Number.isFinite(raw)) {
+                return Math.max(0, Math.min(12, Math.floor(raw)));
+            }
+            return DEFAULT_FINANCIAL_REPORT_SCHEDULE.monthComparisonPriorMonths;
+        })(),
+        monthComparisonYearOverYear:
+            typeof fr.monthComparisonYearOverYear === 'boolean'
+                ? fr.monthComparisonYearOverYear
+                : DEFAULT_FINANCIAL_REPORT_SCHEDULE.monthComparisonYearOverYear,
         editor,
     };
 }
@@ -76,6 +89,8 @@ function buildFinancialReportPatch(p: {
     localeMode: FinancialReportLocaleMode;
     scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
     sections: FinancialReportSections;
+    monthComparisonPriorMonths: number;
+    monthComparisonYearOverYear: boolean;
     editor: ScheduleEditorValue;
 }): Record<string, unknown> {
     const sw = p.editor.weekdays.length ? p.editor.weekdays : [1];
@@ -86,6 +101,8 @@ function buildFinancialReportPatch(p: {
         localeMode: p.localeMode,
         scheduledMonthRule: p.scheduledMonthRule,
         sections: p.sections,
+        monthComparisonPriorMonths: p.monthComparisonPriorMonths,
+        monthComparisonYearOverYear: p.monthComparisonYearOverYear,
         scheduleType: p.editor.scheduleType,
         runTime: p.editor.runTime,
         weekdays: sw,
@@ -112,6 +129,12 @@ export function FinancialReportSettings() {
         'previous_calendar_month'
     );
     const [sections, setSections] = useState<FinancialReportSections>({ ...DEFAULT_FINANCIAL_REPORT_SECTIONS });
+    const [monthComparisonPriorMonths, setMonthComparisonPriorMonths] = useState(
+        DEFAULT_FINANCIAL_REPORT_SCHEDULE.monthComparisonPriorMonths
+    );
+    const [monthComparisonYearOverYear, setMonthComparisonYearOverYear] = useState(
+        DEFAULT_FINANCIAL_REPORT_SCHEDULE.monthComparisonYearOverYear
+    );
     const [editor, setEditor] = useState<ScheduleEditorValue>(emptyFrSchedule);
     const [message, setMessage] = useState<string | null>(null);
     const [previewBusy, setPreviewBusy] = useState<'month' | 'all' | null>(null);
@@ -129,6 +152,8 @@ export function FinancialReportSettings() {
         setLocaleMode(parsed.localeMode);
         setScheduledMonthRule(parsed.scheduledMonthRule);
         setSections(parsed.sections);
+        setMonthComparisonPriorMonths(parsed.monthComparisonPriorMonths);
+        setMonthComparisonYearOverYear(parsed.monthComparisonYearOverYear);
         setEditor(parsed.editor);
         lastSavedKeyRef.current = JSON.stringify(buildFinancialReportPatch(parsed));
         setSyncedFromServer(true);
@@ -146,9 +171,20 @@ export function FinancialReportSettings() {
                 localeMode,
                 scheduledMonthRule,
                 sections,
+                monthComparisonPriorMonths,
+                monthComparisonYearOverYear,
                 editor,
             }),
-        [enabled, sendTelegram, localeMode, scheduledMonthRule, sections, editor]
+        [
+            enabled,
+            sendTelegram,
+            localeMode,
+            scheduledMonthRule,
+            sections,
+            monthComparisonPriorMonths,
+            monthComparisonYearOverYear,
+            editor,
+        ]
     );
 
     useEffect(() => {
@@ -180,6 +216,8 @@ export function FinancialReportSettings() {
         setLocaleMode(d.localeMode);
         setScheduledMonthRule(d.scheduledMonthRule);
         setSections({ ...d.sections });
+        setMonthComparisonPriorMonths(d.monthComparisonPriorMonths);
+        setMonthComparisonYearOverYear(d.monthComparisonYearOverYear);
         const parts = d.cronExpression.split(' ');
         const runTime = d.runTime ?? `${parts[1].padStart(2, '0')}:${parts[0].padStart(2, '0')}`;
         setEditor({
@@ -205,7 +243,13 @@ export function FinancialReportSettings() {
             const body =
                 scope === 'all'
                     ? { scope: 'all' as const, localeMode, sections }
-                    : { month: previewMonth(), localeMode, sections };
+                    : {
+                          month: previewMonth(),
+                          localeMode,
+                          sections,
+                          monthComparisonPriorMonths,
+                          monthComparisonYearOverYear,
+                      };
             const res = await fetch(`${getApiRoot()}/reports/financial-pdf`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -235,7 +279,13 @@ export function FinancialReportSettings() {
     };
 
     const toggleSection = (key: keyof FinancialReportSections) => {
-        setSections((s) => ({ ...s, [key]: !s[key] }));
+        setSections((s) => {
+            const next = { ...s, [key]: !s[key] };
+            if (key === 'monthComparison' && next.monthComparison === false) {
+                next.monthComparisonAi = false;
+            }
+            return next;
+        });
     };
 
     if (isLoading && !data) {
@@ -270,6 +320,7 @@ export function FinancialReportSettings() {
                             ['insightRulesTop', 'report.sec_insight_rules'],
                             ['metaSpend', 'report.sec_meta'],
                             ['investmentSummary', 'report.sec_investments'],
+                            ['monthComparison', 'report.sec_month_compare'],
                         ] as const
                     ).map(([key, labelKey]) => (
                         <label
@@ -291,6 +342,48 @@ export function FinancialReportSettings() {
                 </div>
                 {investmentsFeatureDisabled && (
                     <p className="text-xs text-amber-800">{t('report.investments_pdf_disabled_hint')}</p>
+                )}
+                <p className="text-xs text-gray-500 pt-1">{t('report.sec_month_compare_help')}</p>
+                {sections.monthComparison && (
+                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3 text-sm">
+                        <label className="flex flex-col gap-1 max-w-xs">
+                            <span className="text-gray-700">{t('report.month_compare_prior_label')}</span>
+                            <input
+                                type="number"
+                                min={0}
+                                max={12}
+                                value={monthComparisonPriorMonths}
+                                onChange={(e) => {
+                                    const v = Math.max(0, Math.min(12, Math.floor(Number(e.target.value) || 0)));
+                                    setMonthComparisonPriorMonths(v);
+                                }}
+                                className="rounded-lg border border-gray-200 px-3 py-2 w-24"
+                            />
+                            <span className="text-xs text-gray-500">{t('report.month_compare_prior_hint')}</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={monthComparisonYearOverYear}
+                                onChange={() => setMonthComparisonYearOverYear(!monthComparisonYearOverYear)}
+                                className="rounded border-gray-300"
+                            />
+                            <span>{t('report.month_compare_yoy')}</span>
+                        </label>
+                        <label className={`flex items-start gap-2 ${sections.monthComparison ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
+                            <input
+                                type="checkbox"
+                                checked={sections.monthComparisonAi}
+                                disabled={!sections.monthComparison}
+                                onChange={() => toggleSection('monthComparisonAi')}
+                                className="rounded border-gray-300 mt-0.5"
+                            />
+                            <span>
+                                <span className="block">{t('report.sec_month_compare_ai')}</span>
+                                <span className="block text-xs text-gray-500 font-normal">{t('report.sec_month_compare_ai_help')}</span>
+                            </span>
+                        </label>
+                    </div>
                 )}
             </div>
 

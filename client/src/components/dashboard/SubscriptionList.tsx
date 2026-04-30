@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Subscription, Transaction } from '@app/shared';
@@ -14,6 +14,7 @@ interface SubscriptionListProps {
     categories?: string[];
     onUpdateCategory?: (txnId: string, category: string) => void;
     defaultCollapsed?: boolean;
+    collapseAllSignal?: number;
     /** YYYY-MM — used for "paid this month" and budget share */
     selectedMonth?: string;
     /** Sum of expense debits this month (for % of spending) */
@@ -90,12 +91,17 @@ export function SubscriptionList({
     categories,
     onUpdateCategory,
     defaultCollapsed = false,
+    collapseAllSignal = 0,
     selectedMonth,
     monthExpenseTotal = 0,
 }: SubscriptionListProps) {
     const { t, i18n } = useTranslation();
     const [showInfo, setShowInfo] = useState(false);
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+    useEffect(() => {
+        if (collapseAllSignal > 0) setCollapsed(true);
+    }, [collapseAllSignal]);
     const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
     const [selectedHistorySub, setSelectedHistorySub] = useState<Subscription | null>(null);
     const [flaggedKeys, setFlaggedKeys] = useState<Set<string>>(() => new Set());

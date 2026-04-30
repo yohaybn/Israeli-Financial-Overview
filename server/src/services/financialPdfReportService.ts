@@ -19,7 +19,7 @@ import {
     PROVIDERS,
     getProviderDisplayName,
 } from '@app/shared';
-import type { FinancialReportNarrative } from './aiService.js';
+import type { FinancialReportBilingualBlock, FinancialReportNarrative } from './aiService.js';
 import { AiService } from './aiService.js';
 import { StorageService } from './storageService.js';
 import { ConfigService } from './configService.js';
@@ -58,6 +58,105 @@ function formatIls(n: number, localeTag: string): string {
         currency: 'ILS',
         maximumFractionDigits: 0,
     }).format(n);
+}
+
+function formatPct(n: number | null | undefined, localeTag: string): string {
+    if (n == null || !Number.isFinite(n)) return '—';
+    return `${new Intl.NumberFormat(localeTag, { maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(n)}%`;
+}
+
+function shiftCalendarMonthYm(ym: string, deltaMonths: number): string {
+    const m = /^(\d{4})-(\d{2})$/.exec(ym);
+    if (!m) return ym;
+    const y = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10);
+    const d = new Date(y, mo - 1 + deltaMonths, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function buildMonthComparisonRows(
+    allTransactions: Transaction[],
+    reportYm: string,
+    priorMonths: number,
+    yearOverYear: boolean,
+    customCCKeywords: string[],
+    yoySuffix: string
+): { ym: string; displayLabel: string; income: number; expenses: number; net: number }[] {
+    const rows: { ym: string; displayLabel: string; income: number; expenses: number; net: number }[] = [];
+    const seen = new Set<string>();
+
+    const pushYm = (ym: string, label: string) => {
+        if (seen.has(ym)) return;
+        seen.add(ym);
+        const tx = filterTransactionsByCalendarMonth(allTransactions, ym);
+        const a = computeUnifiedAnalytics(tx, customCCKeywords);
+        rows.push({
+            ym,
+            displayLabel: label,
+            income: a.totalIncome,
+            expenses: a.totalExpenses,
+            net: a.netBalance,
+        });
+    };
+
+    pushYm(reportYm, reportYm);
+    for (let i = 1; i <= priorMonths; i++) {
+        pushYm(shiftCalendarMonthYm(reportYm, -i), shiftCalendarMonthYm(reportYm, -i));
+    }
+    if (yearOverYear) {
+        const yoyYm = shiftCalendarMonthYm(reportYm, -12);
+        pushYm(yoyYm, `${yoyYm} (${yoySuffix})`);
+    }
+    return rows;
+}
+
+function buildMonthComparisonAiContext(
+    allTransactions: Transaction[],
+    reportYm: string,
+    priorMonths: number,
+    yearOverYear: boolean,
+    customCCKeywords: string[],
+    yoySuffix: string
+): string | null {
+    if (priorMonths <= 0 && !yearOverYear) return null;
+    const rows = buildMonthComparisonRows(
+        allTransactions,
+        reportYm,
+        priorMonths,
+        yearOverYear,
+        customCCKeywords,
+        yoySuffix
+    );
+    const lines: string[] = [];
+    lines.push(
+        `Primary report month: ${reportYm}. For each calendar month: totals are ILS; category amounts are expense spend (positive ILS). Use only the data below.`
+    );
+    for (const r of rows) {
+        const tx = filterTransactionsByCalendarMonth(allTransactions, r.ym);
+        const a = computeUnifiedAnalytics(tx, customCCKeywords);
+        lines.push(`\n--- ${r.displayLabel} (month ${r.ym}) ---`);
+        lines.push(`Income: ${a.totalIncome}; Expenses: ${a.totalExpenses}; Net: ${a.netBalance}`);
+        lines.push('Leading expense categories:');
+        for (const c of a.byCategory.slice(0, 10)) {
+            lines.push(`  - ${c.name}: ${c.value}`);
+        }
+    }
+    return lines.join('\n');
+}
+
+function monthComparisonSectionHtml(
+    rows: { displayLabel: string; income: number; expenses: number; net: number }[],
+    localeTag: string,
+    labels: { title: string; colMonth: string; income: string; expenses: string; net: string }
+): string {
+    const head = `<tr><th>${escapeHtml(labels.colMonth)}</th><th>${escapeHtml(labels.income)}</th><th>${escapeHtml(labels.expenses)}</th><th>${escapeHtml(labels.net)}</th></tr>`;
+    const body = rows
+        .map(
+            (r) =>
+                `<tr><td>${escapeHtml(r.displayLabel)}</td><td>${escapeHtml(formatIls(r.income, localeTag))}</td><td>${escapeHtml(formatIls(r.expenses, localeTag))}</td><td>${escapeHtml(formatIls(r.net, localeTag))}</td></tr>`
+        )
+        .join('');
+    return `<section class="pdf-section"><h2>${escapeHtml(labels.title)}</h2><table class="cmp-table">${head}${body}</table></section>`;
 }
 
 const META_KEYS = ['fixed', 'variable', 'optimization'] as const;
@@ -124,15 +223,18 @@ function buildAggregatesSummary(
     return lines.join('\n');
 }
 
-function narrativeSectionHtml(
+function narrativeExecutiveAndMonthAiHtml(
     narrative: FinancialReportNarrative | null,
+    monthComparisonNarrative: FinancialReportBilingualBlock | null,
     localeMode: FinancialReportLocaleMode,
     sections: FinancialReportSections,
-    labels: { summary: string; insights: string; unavailable: string }
-): string {
-    if (!narrative && (sections.executiveSummary || sections.insights)) {
-        return `<p class="muted">${escapeHtml(labels.unavailable)}</p>`;
+    labels: {
+        summary: string;
+        unavailable: string;
+        monthComparisonAiTitle: string;
+        monthComparisonAiUnavailable: string;
     }
+): string {
     const showHe = localeMode === 'he' || localeMode === 'bilingual';
     const showEn = localeMode === 'en' || localeMode === 'bilingual';
     let out = '';
@@ -149,6 +251,31 @@ function narrativeSectionHtml(
             }
         }
     }
+    if (sections.monthComparisonAi) {
+        out += `<h2>${escapeHtml(labels.monthComparisonAiTitle)}</h2>`;
+        if (!monthComparisonNarrative) {
+            out += `<p class="muted">${escapeHtml(labels.monthComparisonAiUnavailable)}</p>`;
+        } else {
+            if (showHe) {
+                out += `<p dir="rtl" lang="he" class="rtl-block">${escapeHtml(monthComparisonNarrative.he || '—')}</p>`;
+            }
+            if (showEn) {
+                out += `<p dir="ltr" lang="en">${escapeHtml(monthComparisonNarrative.en || '—')}</p>`;
+            }
+        }
+    }
+    return out;
+}
+
+function narrativeInsightsHtml(
+    narrative: FinancialReportNarrative | null,
+    localeMode: FinancialReportLocaleMode,
+    sections: FinancialReportSections,
+    labels: { insights: string; unavailable: string }
+): string {
+    const showHe = localeMode === 'he' || localeMode === 'bilingual';
+    const showEn = localeMode === 'en' || localeMode === 'bilingual';
+    let out = '';
     if (sections.insights) {
         out += `<h2>${escapeHtml(labels.insights)}</h2>`;
         if (!narrative) {
@@ -176,16 +303,13 @@ function insightRulesTopSectionHtml(
     localeMode: FinancialReportLocaleMode,
     labels: {
         title: string;
-        empty: string;
         kindInsight: string;
         kindAlert: string;
     }
 ): string {
     const showHe = localeMode === 'he' || localeMode === 'bilingual';
     const showEn = localeMode === 'en' || localeMode === 'bilingual';
-    if (!rows.length) {
-        return `<h2>${escapeHtml(labels.title)}</h2><p class="muted">${escapeHtml(labels.empty)}</p>`;
-    }
+    if (!rows.length) return '';
     let out = `<h2>${escapeHtml(labels.title)}</h2><ol class="insights">`;
     for (const r of rows) {
         const kindLabel = r.kind === 'alert' ? labels.kindAlert : labels.kindInsight;
@@ -326,9 +450,11 @@ async function buildInvestmentSectionHtml(
         empty: string;
         partialNote: string;
         symbol: string;
+        nickname: string;
         qty: string;
         value: string;
         pnl: string;
+        pnlPct: string;
         totalRow: string;
     }
 ): Promise<string> {
@@ -340,16 +466,19 @@ async function buildInvestmentSectionHtml(
     if (!summary.positions.length) {
         return `<section class="pdf-section"><h2>${escapeHtml(labels.title)}</h2><p class="muted">${escapeHtml(labels.empty)}</p></section>`;
     }
-    const head = `<tr><th>${escapeHtml(labels.symbol)}</th><th>${escapeHtml(labels.qty)}</th><th>${escapeHtml(labels.value)}</th><th>${escapeHtml(labels.pnl)}</th></tr>`;
+    const head = `<tr><th>${escapeHtml(labels.symbol)}</th><th>${escapeHtml(labels.nickname)}</th><th>${escapeHtml(labels.qty)}</th><th>${escapeHtml(labels.value)}</th><th>${escapeHtml(labels.pnl)}</th><th>${escapeHtml(labels.pnlPct)}</th></tr>`;
     const rows = summary.positions.map((p) => {
         const mv = p.marketValueIls != null ? formatIls(p.marketValueIls, localeTag) : '—';
         const pnl = p.pnlIls != null ? formatIls(p.pnlIls, localeTag) : '—';
+        const pct = formatPct(p.pnlPctOfCost, localeTag);
+        const nick = (p.nickname && p.nickname.trim()) || '—';
         const q = Number.isInteger(p.quantity) ? String(p.quantity) : String(p.quantity);
-        return `<tr><td>${escapeHtml(p.symbol)}</td><td>${escapeHtml(q)}</td><td>${escapeHtml(mv)}</td><td>${escapeHtml(pnl)}</td></tr>`;
+        return `<tr><td>${escapeHtml(p.symbol)}</td><td>${escapeHtml(nick)}</td><td>${escapeHtml(q)}</td><td>${escapeHtml(mv)}</td><td>${escapeHtml(pnl)}</td><td>${escapeHtml(pct)}</td></tr>`;
     });
     let foot = '';
     if (summary.totalMarketValueIls != null && summary.totalPnlIls != null) {
-        foot = `<tr class="inv-totals"><td colspan="2"><strong>${escapeHtml(labels.totalRow)}</strong></td><td><strong>${escapeHtml(formatIls(summary.totalMarketValueIls, localeTag))}</strong></td><td><strong>${escapeHtml(formatIls(summary.totalPnlIls, localeTag))}</strong></td></tr>`;
+        const totPct = formatPct(summary.totalPnlPctOfCost, localeTag);
+        foot = `<tr class="inv-totals"><td colspan="3"><strong>${escapeHtml(labels.totalRow)}</strong></td><td><strong>${escapeHtml(formatIls(summary.totalMarketValueIls, localeTag))}</strong></td><td><strong>${escapeHtml(formatIls(summary.totalPnlIls, localeTag))}</strong></td><td><strong>${escapeHtml(totPct)}</strong></td></tr>`;
     }
     const note = summary.partialQuotes ? `<p class="muted small">${escapeHtml(labels.partialNote)}</p>` : '';
     return `<section class="pdf-section"><h2>${escapeHtml(labels.title)}</h2>${note}<table class="inv">${head}${rows.join('')}${foot}</table></section>`;
@@ -363,6 +492,12 @@ export interface GenerateFinancialPdfParams {
     pdfScope?: FinancialPdfScope;
     localeMode: FinancialReportLocaleMode;
     sections: FinancialReportSections;
+    /** Month-scoped PDF: compare KPIs to prior months / YoY (from report schedule). */
+    monthComparison?: {
+        enabled: boolean;
+        priorMonths: number;
+        yearOverYear: boolean;
+    };
 }
 
 export async function generateFinancialPdfBuffer(
@@ -395,20 +530,57 @@ export async function generateFinancialPdfBuffer(
             : params.monthYm;
     const aggregatesSummary = buildAggregatesSummary(periodLabelForSummary, analytics, metaRows);
 
+    const mc = params.monthComparison;
+    const monthMcDataReady =
+        pdfScope === 'month' &&
+        mc?.enabled === true &&
+        params.sections.monthComparison === true &&
+        (mc.priorMonths > 0 || mc.yearOverYear === true);
+
+    const wantMainNarrative = params.sections.executiveSummary || params.sections.insights;
+    const wantComparisonAi =
+        params.sections.monthComparisonAi === true && monthMcDataReady && mc != null;
+
+    const yoySuffixForAi = params.localeMode === 'en' ? 'YoY' : 'שנה קודמת';
+    const comparisonAiContext =
+        wantComparisonAi && mc
+            ? buildMonthComparisonAiContext(
+                  all,
+                  params.monthYm,
+                  mc.priorMonths,
+                  mc.yearOverYear,
+                  customCCKeywords,
+                  yoySuffixForAi
+              )
+            : null;
+
     let narrative: FinancialReportNarrative | null = null;
-    if (params.sections.executiveSummary || params.sections.insights) {
-        if (aiService.hasApiKey()) {
-            narrative = await aiService.generateFinancialReportNarrative({
-                monthYm: params.monthYm,
-                reportPeriodDescription:
-                    pdfScope === 'all'
-                        ? 'Reporting period: All time (full loaded transaction history).'
-                        : undefined,
-                localeMode: params.localeMode,
-                aggregatesSummary,
-                transactions: scopeTx,
-            });
-        }
+    let monthComparisonNarrative: FinancialReportBilingualBlock | null = null;
+    const hasApi = aiService.hasApiKey();
+    if (hasApi && (wantMainNarrative || (wantComparisonAi && comparisonAiContext))) {
+        const [narrativeResult, comparisonResult] = await Promise.all([
+            wantMainNarrative
+                ? aiService.generateFinancialReportNarrative({
+                      monthYm: params.monthYm,
+                      reportPeriodDescription:
+                          pdfScope === 'all'
+                              ? 'Reporting period: All time (full loaded transaction history).'
+                              : undefined,
+                      localeMode: params.localeMode,
+                      aggregatesSummary,
+                      transactions: scopeTx,
+                  })
+                : Promise.resolve(null),
+            wantComparisonAi && comparisonAiContext
+                ? aiService.generateFinancialMonthComparisonNarrative({
+                      reportMonthYm: params.monthYm,
+                      localeMode: params.localeMode,
+                      comparisonContextSummary: comparisonAiContext,
+                  })
+                : Promise.resolve(null),
+        ]);
+        narrative = narrativeResult;
+        monthComparisonNarrative = comparisonResult;
     }
 
     const localeTag = params.localeMode === 'en' ? 'en-IL' : 'he-IL';
@@ -423,6 +595,9 @@ export async function generateFinancialPdfBuffer(
                   summary: 'Executive summary',
                   insights: 'Insights',
                   unavailable: 'AI narrative unavailable (configure Gemini or try again).',
+                  monthComparisonAiTitle: 'AI: month vs. prior periods',
+                  monthComparisonAiUnavailable:
+                      'AI month comparison unavailable (enable Gemini, turn on month comparison with prior months or YoY, or try again).',
                   kpis: 'Key figures',
                   categories: 'Spending by category',
                   merchants: 'Top merchants',
@@ -449,10 +624,15 @@ export async function generateFinancialPdfBuffer(
                   investmentsEmpty: 'No open positions.',
                   investmentsPartial: 'Some quotes or FX rates are missing; totals may be incomplete.',
                   invSymbol: 'Symbol',
+                  invNickname: 'Nickname',
                   invQty: 'Qty',
                   invValue: 'Value (ILS)',
                   invPnl: 'P&L (ILS)',
+                  invPnlPct: 'P&L %',
                   invTotal: 'Totals',
+                  monthCompareTitle: 'Month comparison (income, expenses, net)',
+                  monthCompareColMonth: 'Month',
+                  monthCompareYoySuffix: 'YoY',
                   customChartsNoSaved: 'No custom charts are saved in dashboard settings.',
                   customChartsEmptyData: 'No data for this chart in the selected scope.',
                   accountsInReport: 'Accounts in report scope',
@@ -462,8 +642,6 @@ export async function generateFinancialPdfBuffer(
                   dateRangePrefix: 'Transaction dates in this report:',
                   dateRangeEmpty: 'No dated transactions in this scope.',
                   insightRulesTitle: 'Top insight rules',
-                  insightRulesEmpty:
-                      'No matching rule insights for this report (enable rules under Configuration → Insight rules, or refresh fires after new data).',
                   insightRulesKindInsight: 'Insight',
                   insightRulesKindAlert: 'Alert',
               }
@@ -471,6 +649,9 @@ export async function generateFinancialPdfBuffer(
                   summary: 'סיכום מנהלים',
                   insights: 'תובנות',
                   unavailable: 'סעיף AI אינו זמין (הגדירו Gemini או נסו שוב).',
+                  monthComparisonAiTitle: 'AI: השוואת החודש לתקופות קודמות',
+                  monthComparisonAiUnavailable:
+                      'השוואת חודשים ב-AI אינה זמינה (הפעילו Gemini, השוואת חודשים עם חודשים קודמים או שנה שעברה, או נסו שוב).',
                   kpis: 'מדדים עיקריים',
                   categories: 'הוצאות לפי קטגוריה',
                   merchants: 'בתי עסק מובילים',
@@ -497,10 +678,15 @@ export async function generateFinancialPdfBuffer(
                   investmentsEmpty: 'אין פוזיציות פתוחות.',
                   investmentsPartial: 'חסרים שערים או המרות; הסכומים עשויים להיות חלקיים.',
                   invSymbol: 'ני״ע',
+                  invNickname: 'כינוי',
                   invQty: 'כמות',
                   invValue: 'שווי (₪)',
                   invPnl: 'רווח/הפסד (₪)',
+                  invPnlPct: '% שינוי מול עלות',
                   invTotal: 'סה״כ',
+                  monthCompareTitle: 'השוואת חודשים (הכנסות, הוצאות, נטו)',
+                  monthCompareColMonth: 'חודש',
+                  monthCompareYoySuffix: 'שנה קודמת',
                   customChartsNoSaved: 'אין גרפים מותאמים שמורים בהגדרות הלוח.',
                   customChartsEmptyData: 'אין נתונים לגרף הזה בהיקף הנבחר.',
                   accountsInReport: 'חשבונות בהיקף הדוח',
@@ -510,8 +696,6 @@ export async function generateFinancialPdfBuffer(
                   dateRangePrefix: 'תאריכי תנועות בדוח:',
                   dateRangeEmpty: 'אין תנועות עם תאריך בהיקף זה.',
                   insightRulesTitle: 'כללי תובנות — מובילים',
-                  insightRulesEmpty:
-                      'אין תובנות מתאימות לדוח זה (הפעילו כללים תחת הגדרות → כללי תובנות, או רעננו לאחר נתונים חדשים).',
                   insightRulesKindInsight: 'תובנה',
                   insightRulesKindAlert: 'התראה',
               };
@@ -550,8 +734,50 @@ export async function generateFinancialPdfBuffer(
         bodyInner += `</div></section>`;
     }
 
-    if (params.sections.executiveSummary || params.sections.insights) {
-        bodyInner += `<section>${narrativeSectionHtml(narrative, params.localeMode, params.sections, labels)}</section>`;
+    const showMonthComparisonTable =
+        pdfScope === 'month' &&
+        mc?.enabled &&
+        params.sections.monthComparison &&
+        (mc.priorMonths > 0 || mc.yearOverYear);
+
+    if (params.sections.executiveSummary || params.sections.monthComparisonAi) {
+        const head = narrativeExecutiveAndMonthAiHtml(narrative, monthComparisonNarrative, params.localeMode, params.sections, {
+            summary: labels.summary,
+            unavailable: labels.unavailable,
+            monthComparisonAiTitle: labels.monthComparisonAiTitle,
+            monthComparisonAiUnavailable: labels.monthComparisonAiUnavailable,
+        });
+        if (head.trim()) {
+            bodyInner += `<section>${head}</section>`;
+        }
+    }
+
+    if (showMonthComparisonTable && mc) {
+        const cmpRows = buildMonthComparisonRows(
+            all,
+            params.monthYm,
+            mc.priorMonths,
+            mc.yearOverYear,
+            customCCKeywords,
+            labels.monthCompareYoySuffix
+        );
+        bodyInner += monthComparisonSectionHtml(cmpRows, localeTag, {
+            title: labels.monthCompareTitle,
+            colMonth: labels.monthCompareColMonth,
+            income: labels.income,
+            expenses: labels.expenses,
+            net: labels.net,
+        });
+    }
+
+    if (params.sections.insights) {
+        const tail = narrativeInsightsHtml(narrative, params.localeMode, params.sections, {
+            insights: labels.insights,
+            unavailable: labels.unavailable,
+        });
+        if (tail.trim()) {
+            bodyInner += `<section>${tail}</section>`;
+        }
     }
 
     if (params.sections.insightRulesTop) {
@@ -560,12 +786,13 @@ export async function generateFinancialPdfBuffer(
             pdfScope,
             monthYm: params.monthYm,
         });
-        bodyInner += `<section>${insightRulesTopSectionHtml(ruleFireRows, params.localeMode, {
-            title: labels.insightRulesTitle,
-            empty: labels.insightRulesEmpty,
-            kindInsight: labels.insightRulesKindInsight,
-            kindAlert: labels.insightRulesKindAlert,
-        })}</section>`;
+        if (ruleFireRows.length > 0) {
+            bodyInner += `<section>${insightRulesTopSectionHtml(ruleFireRows, params.localeMode, {
+                title: labels.insightRulesTitle,
+                kindInsight: labels.insightRulesKindInsight,
+                kindAlert: labels.insightRulesKindAlert,
+            })}</section>`;
+        }
     }
 
     if (params.sections.metaSpend && metaRows) {
@@ -584,9 +811,11 @@ export async function generateFinancialPdfBuffer(
             empty: labels.investmentsEmpty,
             partialNote: labels.investmentsPartial,
             symbol: labels.invSymbol,
+            nickname: labels.invNickname,
             qty: labels.invQty,
             value: labels.invValue,
             pnl: labels.invPnl,
+            pnlPct: labels.invPnlPct,
             totalRow: labels.invTotal,
         });
     }
@@ -824,6 +1053,9 @@ ${getFinancialPdfEmbeddedFontsCss()}
   table.inv { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
   table.inv th, table.inv td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: start; }
   table.inv th { background: #f8fafc; }
+  table.cmp-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 4px; }
+  table.cmp-table th, table.cmp-table td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: start; }
+  table.cmp-table th { background: #f8fafc; }
   tr.inv-totals td { background: #f0fdfa; }
   p.small { font-size: 8.5pt; margin-top: 6px; }
   .report-accounts-section { margin-top: 8px; }

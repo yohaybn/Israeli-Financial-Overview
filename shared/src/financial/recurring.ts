@@ -6,6 +6,112 @@ import { expenseCategoryKey, DEFAULT_EXPENSE_CATEGORY } from '../expenseCategory
 const normalizeDescription = (desc: string) =>
     desc.replace(/[^a-zA-Z0-9\u0590-\u05FF\s]/g, '').trim();
 
+const REL_AMOUNT_TOLERANCE = 0.15;
+
+function findSubsetMatchingSum(amounts: number[], target: number, relTol: number): number[] | null {
+    const n = amounts.length;
+    if (n === 0 || target <= 0) return null;
+    const upper = target * (1 + relTol);
+    const lower = target * (1 - relTol);
+    if (n > 14) {
+        const total = amounts.reduce((a, b) => a + b, 0);
+        if (total >= lower && total <= upper) {
+            return amounts.map((_, i) => i);
+        }
+        return null;
+    }
+    for (let mask = 1; mask < 1 << n; mask++) {
+        let sum = 0;
+        const idx: number[] = [];
+        for (let i = 0; i < n; i++) {
+            if (mask & (1 << i)) {
+                sum += amounts[i];
+                idx.push(i);
+            }
+        }
+        if (sum >= lower && sum <= upper) {
+            return idx;
+        }
+    }
+    return null;
+}
+
+function tryConsumeRealizedForItem(
+    item: UpcomingItem,
+    monthTxns: Transaction[],
+    customCCKeywords: string[],
+    usedTxnIndices: Set<number>
+): boolean {
+    const target = item.amount;
+    if (target <= 0) return false;
+
+    const itemNorm = normalizeDescription(item.description);
+    const wantBill = item.type === 'bill';
+
+    const absAmt = (t: Transaction) => Math.abs(t.chargedAmount || t.amount || 0);
+
+    const candidateIndices: number[] = [];
+    for (let i = 0; i < monthTxns.length; i++) {
+        if (usedTxnIndices.has(i)) continue;
+        const t = monthTxns[i];
+        if (isTransactionIgnored(t) || isInternalTransfer(t, customCCKeywords)) continue;
+        const raw = t.chargedAmount || t.amount || 0;
+        if (wantBill && raw >= 0) continue;
+        if (!wantBill && raw <= 0) continue;
+        if (normalizeDescription(t.description) !== itemNorm) continue;
+        candidateIndices.push(i);
+    }
+
+    for (const i of candidateIndices) {
+        const amt = absAmt(monthTxns[i]);
+        if (Math.abs(amt - target) / target <= REL_AMOUNT_TOLERANCE) {
+            usedTxnIndices.add(i);
+            return true;
+        }
+    }
+
+    const amounts = candidateIndices.map(i => absAmt(monthTxns[i]));
+    const subset = findSubsetMatchingSum(amounts, target, REL_AMOUNT_TOLERANCE);
+    if (subset) {
+        for (const li of subset) {
+            usedTxnIndices.add(candidateIndices[li]);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Drops recurring "upcoming" items that already have matching realized transactions in the
+ * selected month (including split payments whose parts sum to the expected amount).
+ *
+ * Complements {@link detectRecurring}: that detector only marks a bill paid when a *single*
+ * month transaction is within tolerance of the historical average; without this filter,
+ * those expenses still count in "already spent" while the virtual bill remains in
+ * "remaining planned".
+ */
+export function filterUpcomingAlreadyRealizedInMonth(
+    upcoming: UpcomingItem[],
+    monthTxns: Transaction[],
+    customCCKeywords: string[] = []
+): UpcomingItem[] {
+    if (!upcoming.length) return upcoming;
+
+    const used = new Set<number>();
+    const sorted = [...upcoming].sort((a, b) => a.expectedDate.localeCompare(b.expectedDate));
+    const kept: UpcomingItem[] = [];
+
+    for (const item of sorted) {
+        if (tryConsumeRealizedForItem(item, monthTxns, customCCKeywords, used)) {
+            continue;
+        }
+        kept.push(item);
+    }
+
+    return kept.sort((a, b) => a.expectedDate.localeCompare(b.expectedDate));
+}
+
 /**
  * Detect recurring transactions by analyzing historical patterns.
  */

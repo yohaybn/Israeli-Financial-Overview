@@ -24,8 +24,22 @@ export function getGoogleOAuthCallbackUrl(): string {
 
 const getAxiosBaseUrl = () => getApiRoot();
 
+const RESOLVED_API_ROOT = getAxiosBaseUrl();
+
+if (typeof window !== 'undefined') {
+    // One-time diagnostic so users debugging "why does /api/... 404 in HA Ingress?" can confirm at a
+    // glance which base the bundle is actually using. Cheap; runs once at module init.
+    // eslint-disable-next-line no-console
+    console.info('[api] resolved API root', {
+        apiRoot: RESOLVED_API_ROOT,
+        baseUrl: import.meta.env.BASE_URL,
+        pathname: window.location.pathname,
+        href: window.location.href,
+    });
+}
+
 export const api = axios.create({
-    baseURL: getAxiosBaseUrl(),
+    baseURL: RESOLVED_API_ROOT,
     headers: {
         'Content-Type': 'application/json',
     },

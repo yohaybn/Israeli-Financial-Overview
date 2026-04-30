@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -70,11 +70,15 @@ const CARD_ICONS = [
     },
 ] as const;
 
-export function TopInsightsCard() {
+export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?: number }) {
     const { t, i18n } = useTranslation();
     const queryClient = useQueryClient();
     const [expanded, setExpanded] = useState(true);
     const locale = i18n.language?.startsWith('he') ? 'he' : 'en';
+
+    useEffect(() => {
+        if (collapseAllSignal > 0) setExpanded(false);
+    }, [collapseAllSignal]);
 
     const { data: insights, isLoading } = useQuery({
         queryKey: [...AI_TOP_INSIGHTS_QUERY_KEY, 3, locale],

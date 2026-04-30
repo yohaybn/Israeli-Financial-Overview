@@ -582,8 +582,16 @@ export class SchedulerService {
             const aiService = new AiService();
             const pdf = await generateFinancialPdfBuffer(storageService, configService, aiService, {
                 monthYm,
+                pdfScope: 'month',
                 localeMode: s.localeMode,
                 sections: s.sections,
+                monthComparison: {
+                    enabled:
+                        s.sections.monthComparison === true &&
+                        ((s.monthComparisonPriorMonths ?? 0) > 0 || s.monthComparisonYearOverYear === true),
+                    priorMonths: s.monthComparisonPriorMonths ?? 0,
+                    yearOverYear: s.monthComparisonYearOverYear === true,
+                },
             });
             if (s.sendTelegram) {
                 telegramBotService.syncNotificationNotifierChatIds();

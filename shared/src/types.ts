@@ -440,11 +440,40 @@ export interface UserChartDefinition {
 /** Maximum saved custom charts per dashboard. */
 export const MAX_USER_CHARTS = 12;
 
+/** Main dashboard blocks the user can show or hide from dashboard settings. */
+export interface DashboardSectionsVisibility {
+    topInsights: boolean;
+    income: boolean;
+    expenses: boolean;
+    subscriptions: boolean;
+    monthlyTransactions: boolean;
+    investments: boolean;
+    detailedAnalytics: boolean;
+}
+
+export const DEFAULT_DASHBOARD_SECTIONS_VISIBILITY: DashboardSectionsVisibility = {
+    topInsights: true,
+    income: true,
+    expenses: true,
+    subscriptions: true,
+    monthlyTransactions: true,
+    investments: true,
+    detailedAnalytics: true,
+};
+
+export function mergeDashboardSectionsVisibility(
+    partial?: Partial<DashboardSectionsVisibility>
+): DashboardSectionsVisibility {
+    return { ...DEFAULT_DASHBOARD_SECTIONS_VISIBILITY, ...partial };
+}
+
 export interface DashboardConfig {
     ccPaymentDate: number; // Day of month (1-31) when CC bill is debited
     forecastMonths: number; // How many months of history to use for forecasting (3, 6, or 12)
     customCCKeywords: string[]; // User-defined CC payment description keywords
     customCharts?: UserChartDefinition[];
+    /** Optional per-section visibility; omitted keys default to visible. */
+    sectionsVisibility?: Partial<DashboardSectionsVisibility>;
 }
 
 export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
@@ -641,6 +670,10 @@ export interface FinancialReportSections {
     customCharts: boolean;
     /** Top scored messages from enabled insight rules (stored rule fires). */
     insightRulesTop: boolean;
+    /** Month-scoped PDF only: table comparing income/expenses/net to prior months and optional YoY. */
+    monthComparison: boolean;
+    /** Month-scoped PDF only: AI narrative comparing report month to prior / YoY (separate Gemini call; needs API key). */
+    monthComparisonAi: boolean;
 }
 
 export const DEFAULT_FINANCIAL_REPORT_SECTIONS: FinancialReportSections = {
@@ -658,6 +691,8 @@ export const DEFAULT_FINANCIAL_REPORT_SECTIONS: FinancialReportSections = {
     investmentSummary: false,
     customCharts: false,
     insightRulesTop: false,
+    monthComparison: false,
+    monthComparisonAi: false,
 };
 
 /**
@@ -671,6 +706,10 @@ export interface FinancialReportScheduleConfig extends CronScheduleFields {
     sections: FinancialReportSections;
     /** When the cron fires, which calendar month YYYY-MM to aggregate. */
     scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
+    /** When month comparison is enabled: how many prior calendar months to list (0–12). */
+    monthComparisonPriorMonths: number;
+    /** When month comparison is enabled: include same calendar month one year earlier. */
+    monthComparisonYearOverYear: boolean;
     lastRun?: string;
 }
 
@@ -680,6 +719,8 @@ export const DEFAULT_FINANCIAL_REPORT_SCHEDULE: FinancialReportScheduleConfig = 
     localeMode: 'bilingual',
     sections: { ...DEFAULT_FINANCIAL_REPORT_SECTIONS },
     scheduledMonthRule: 'previous_calendar_month',
+    monthComparisonPriorMonths: 3,
+    monthComparisonYearOverYear: true,
     scheduleType: 'weekly',
     runTime: '07:00',
     weekdays: [1],

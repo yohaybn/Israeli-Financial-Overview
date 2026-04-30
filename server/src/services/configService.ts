@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { DashboardConfig, DEFAULT_DASHBOARD_CONFIG } from '@app/shared';
+import { DashboardConfig, DEFAULT_DASHBOARD_CONFIG, mergeDashboardSectionsVisibility } from '@app/shared';
 import { RUNTIME_SETTINGS_PATH } from '../runtimeEnv.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -93,6 +93,7 @@ export class ConfigService {
             if (!Array.isArray(merged.customCharts)) {
                 merged.customCharts = DEFAULT_DASHBOARD_CONFIG.customCharts;
             }
+            merged.sectionsVisibility = mergeDashboardSectionsVisibility(content.sectionsVisibility);
             return merged;
         } catch (error) {
             console.error('Error reading backend dashboard config:', error);
@@ -103,6 +104,12 @@ export class ConfigService {
     async updateDashboardConfig(updates: Partial<DashboardConfig>): Promise<DashboardConfig> {
         const current = await this.getDashboardConfig();
         const updated = { ...current, ...updates };
+        if (updates.sectionsVisibility !== undefined) {
+            updated.sectionsVisibility = mergeDashboardSectionsVisibility({
+                ...current.sectionsVisibility,
+                ...updates.sectionsVisibility,
+            });
+        }
         await fs.ensureDir(path.dirname(DASHBOARD_CONFIG_PATH));
         await fs.writeJson(DASHBOARD_CONFIG_PATH, updated, { spaces: 2 });
         return updated;

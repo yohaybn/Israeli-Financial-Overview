@@ -2603,6 +2603,14 @@ export class TelegramBotService {
         pdfScope,
         localeMode: fr.localeMode,
         sections: fr.sections,
+        monthComparison: {
+          enabled:
+            pdfScope === 'month' &&
+            fr.sections.monthComparison === true &&
+            ((fr.monthComparisonPriorMonths ?? 0) > 0 || fr.monthComparisonYearOverYear === true),
+          priorMonths: fr.monthComparisonPriorMonths ?? 0,
+          yearOverYear: fr.monthComparisonYearOverYear === true,
+        },
       });
 
       const filename =

@@ -83,7 +83,10 @@ export {
     transactionsForReviewItems
 } from './txnReview.js';
 export type { TransactionReviewReason } from './txnReview.js';
-export { detectRecurring } from './financial/recurring.js';
+export {
+    detectRecurring,
+    filterUpcomingAlreadyRealizedInMonth,
+} from './financial/recurring.js';
 export {
     clampTxnPaceRatio,
     computeHistoricalBaseline,

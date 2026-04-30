@@ -105,6 +105,7 @@ export type InvestmentPriceHistoryDto = {
 export type LivePositionRow = {
     investmentId: string;
     symbol: string;
+    nickname?: string | null;
     quantity: number;
     purchasePricePerUnit: number;
     valueInAgorot?: boolean;

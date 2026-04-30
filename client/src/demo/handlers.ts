@@ -1,7 +1,9 @@
 import { http, HttpResponse } from 'msw';
 import {
+    type DashboardConfig,
     Profile,
     PROVIDERS,
+    mergeDashboardSectionsVisibility,
     mergeProfileCredentialsOnUpdate,
     sanitizeProfileForClient,
     transactionsToCsv,
@@ -172,8 +174,15 @@ export const demoHandlers = [
     ),
 
     http.post(apiPath('/config/dashboard'), async ({ request }) => {
-        const body = (await request.json().catch(() => ({}))) as object;
-        return HttpResponse.json({ success: true, data: { ...demoDashboardConfig, ...body } });
+        const body = (await request.json().catch(() => ({}))) as Partial<DashboardConfig>;
+        const next: DashboardConfig = { ...demoDashboardConfig, ...body };
+        if (body.sectionsVisibility != null && typeof body.sectionsVisibility === 'object') {
+            next.sectionsVisibility = mergeDashboardSectionsVisibility({
+                ...mergeDashboardSectionsVisibility(demoDashboardConfig.sectionsVisibility),
+                ...body.sectionsVisibility,
+            });
+        }
+        return HttpResponse.json({ success: true, data: next });
     }),
 
     http.get(apiPath('/definitions'), () =>

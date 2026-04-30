@@ -32,6 +32,8 @@ function coerceSections(raw: unknown): FinancialReportSections {
         investmentSummary: o.investmentSummary === true,
         customCharts: o.customCharts === true,
         insightRulesTop: o.insightRulesTop === true,
+        monthComparison: o.monthComparison === true,
+        monthComparisonAi: o.monthComparisonAi === true,
     };
 }
 
@@ -105,6 +107,16 @@ export function createReportRoutes(schedulerService: SchedulerService) {
             );
             const localeMode = body.localeMode !== undefined ? coerceLocale(body.localeMode) : saved.localeMode;
             const sections = body.sections ? coerceSections(body.sections) : saved.sections;
+            const sectionMc = sections.monthComparison === true;
+            let priorMonths = saved.monthComparisonPriorMonths ?? 0;
+            if (typeof body.monthComparisonPriorMonths === 'number' && Number.isFinite(body.monthComparisonPriorMonths)) {
+                priorMonths = Math.max(0, Math.min(12, Math.floor(body.monthComparisonPriorMonths)));
+            }
+            let yearOverYear = saved.monthComparisonYearOverYear === true;
+            if (typeof body.monthComparisonYearOverYear === 'boolean') {
+                yearOverYear = body.monthComparisonYearOverYear;
+            }
+            const mcEnabled = sectionMc && (priorMonths > 0 || yearOverYear);
 
             const aiService = new AiService();
             const pdf = await generateFinancialPdfBuffer(storageService, configService, aiService, {
@@ -112,6 +124,11 @@ export function createReportRoutes(schedulerService: SchedulerService) {
                 pdfScope,
                 localeMode,
                 sections,
+                monthComparison: {
+                    enabled: mcEnabled,
+                    priorMonths,
+                    yearOverYear,
+                },
             });
             const filename =
                 pdfScope === 'all' ? 'financial-report-all-time.pdf' : `financial-report-${monthYmForParams}.pdf`;
