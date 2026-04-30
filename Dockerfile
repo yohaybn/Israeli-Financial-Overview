@@ -41,7 +41,7 @@ RUN npm install
 # Build workspaces in order
 RUN npm run build -w shared
 # Supervisor passes BUILD_VERSION from config.yaml version; CI may pass VITE_APP_BUILD_VERSION (tag@sha) instead.
-ARG BUILD_VERSION=1.3.2
+ARG BUILD_VERSION=1.3.3
 ARG VITE_APP_BUILD_VERSION=
 ARG VITE_INSTALL_KIND=docker
 ENV VITE_INSTALL_KIND=docker
