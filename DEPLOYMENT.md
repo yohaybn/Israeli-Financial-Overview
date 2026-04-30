@@ -19,7 +19,8 @@ The application is configured using Environment Variables. These take precedence
 
 The project includes:
 - **`Dockerfile.app`**: Multi-stage image for the standalone app (GHCR / docker-style deploy).
-- **`Dockerfile`**, **`config.yaml`**, **`run.sh`**, **`build.yaml`** at the **repository root**: Home Assistant Supervisor builds the add-on from the **full repo** as context (install the entire clone under `/addons/<name>/`).
+- **`Dockerfile`** and **`run.sh`** at the **repository root**: CI builds the Home Assistant add-on image from the **full monorepo** as Docker context (needed to compile client/server).
+- **`ha-addon/`**: Home Assistant add-on metadata — **`config.yaml`** (version, `image:` pointing at GHCR `*-addon-{arch}`, Ingress, options schema), **`README.md`**, **`CHANGELOG.md`**, **`logo.png`**, **`icon.png`**. Users install via **Settings → Add-ons → Repository URL**; the Supervisor pulls the prebuilt image — no local `/addons/` clone required for normal installs.
 
 ## Security & encryption (at rest)
 
@@ -103,25 +104,24 @@ docker-compose up -d --build
 To deploy as a Home Assistant Add-on:
 
 ### Prerequisites
-1. You must publish the Docker images to GHCR (GitHub Container Registry).
-2. The images must be named `ghcr.io/your-username/your-repo-name-addon-{arch}` (GitHub publishes lowercase, e.g. `ghcr.io/yohaybn/israeli-financial-overview-addon-{arch}`).
+1. Published Docker images on GHCR (the repo’s CI builds `ghcr.io/<owner>/<repo>-addon-{arch}` tags from each release).
+2. `ha-addon/config.yaml` must declare `image: ghcr.io/<owner>/<repo>-addon-{arch}` so the Supervisor pulls those tags (substitutes `{arch}` per platform).
 
 ### Installation
-1. Go to Home Assistant > Settings > Add-ons > Add-on Store.
-2. Click the 3 dots (...) > Repositories.
-3. Add the URL of this GitHub repository.
-4. Refresh/reload the store.
-5. Find "Financial Overview" and install it.
+1. Go to Home Assistant → **Settings → Add-ons → Add-on Store**.
+2. Open **Repositories** (⋮ menu) and add this GitHub repository URL.
+3. Reload the store, find **Financial Overview**, and **Install**. The Supervisor downloads the image from GHCR (internet required).
 
 ### Configuration
-In the Add-on "Configuration" tab, fill in your Google OAuth details and Drive folder ID (optional: redirect URI and Gemini API key).
+In the add-on **Configuration** tab, fill in Google OAuth / Drive and optional keys as documented in [`ha-addon/README.md`](ha-addon/README.md).
 
 - `google_client_id`
 - `google_client_secret`
 - `drive_folder_id`
 - `google_redirect_uri` (optional)
 - `gemini_api_key` (optional; for AI features)
+- `telegram_bot_token`, `eodhd_api_token` (optional)
 
-**Internal HTTP port (add-on only):** **9203** — set in `config.yaml` as `ingress_port` and in the add-on `Dockerfile` as `ENV PORT=9203` (must match for Ingress; different from the default 3000 used by `Dockerfile.app` / vanilla Docker).
+**Internal HTTP port (add-on only):** **9203** — `ingress_port` in [`ha-addon/config.yaml`](ha-addon/config.yaml) and `ENV PORT=9203` in the root [`Dockerfile`](Dockerfile) for the add-on image (must match for Ingress; different from port **3000** used by `Dockerfile.app` / vanilla Docker).
 
 Start the add-on and open the Web UI from the sidebar.

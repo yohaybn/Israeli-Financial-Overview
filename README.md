@@ -115,7 +115,7 @@ npm run setup
 npm run dev
 ```
 
-This runs the API and the Vite dev client together (see root `package.json`). The UI is typically served on **`http://127.0.0.1:5173`** with the API proxied; for normal Docker/Compose the app is often on **port 3000**; the **Home Assistant** add-on uses **9203** internally to match `ingress_port` (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+This runs the API and the Vite dev client together (see root `package.json`). The UI is typically served on **`http://127.0.0.1:5173`** with the API proxied; for normal Docker/Compose the app is often on **port 3000**; the **Home Assistant** add-on uses **9203** internally to match `ingress_port` in [`ha-addon/config.yaml`](ha-addon/config.yaml) (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 ### Docker
 
@@ -141,13 +141,13 @@ CI workflows set `VITE_APP_BUILD_VERSION` and `VITE_INSTALL_KIND` automatically 
 
 ### Home Assistant add-on
 
+The add-on definition lives under [`ha-addon/`](ha-addon/) (`config.yaml`, store README, changelog, logo/icon). Published images are pulled from GHCR — you **do not** need to copy the whole repo into `/addons/` manually.
+
 1. Add this repository in **Settings → Add-ons → Add-on Store → Repositories**.
 2. Install **Financial Overview** and configure OAuth/Drive (and other options) in the add-on **Configuration** tab.
-3. Start the add-on and open the Web UI from the sidebar.
+3. Start the add-on and open the Web UI from the sidebar (Ingress uses **`mdi:finance`** in the sidebar).
 
-**Port / Ingress:** Home Assistant’s sidebar proxy (Ingress) always uses the **internal** port defined in the add-on’s `config.yaml` (currently **9203**). There is no separate **port** option, because the Supervisor would still connect to that static port — changing a “port” in the UI would break Ingress. To use another **internal** port, only a fork that changes `ingress_port` in `config.yaml` and `PORT` in the `Dockerfile` is supported.
-
-The Supervisor build uses the **entire Git repository** as the Docker context (`config.yaml` and `Dockerfile` live at the repo root). If you use **Samba/SSH** to install a local copy, clone or copy the **full project** into `/addons/<folder>/`, not only a `ha-addon` subfolder.
+**Port / Ingress:** Home Assistant’s sidebar proxy (Ingress) always uses the **internal** port defined in [`ha-addon/config.yaml`](ha-addon/config.yaml) (`ingress_port`, currently **9203**). There is no separate **port** option in the UI — changing it would break Ingress. To use another internal port, fork and change `ingress_port`, `PORT` in the root [`Dockerfile`](Dockerfile), and publish new images.
 
 Details: [DEPLOYMENT.md](DEPLOYMENT.md).
 

@@ -44,15 +44,17 @@ export function getIngressPathPrefix(): string {
     return p || '';
 }
 
-/** Socket.IO `path` option: must include HA Ingress prefix when the UI is not at domain root. */
+/**
+ * Socket.IO `path` option: derived from the live `window.location.pathname`, mirroring
+ * `getApiRoot()` in `lib/api.ts`. Reading pathname directly is robust against bundler/Ingress
+ * quirks where `import.meta.env.BASE_URL` branches were unreliable.
+ */
 export function getSocketIoPath(): string {
     if (import.meta.env.DEV) return '/socket.io';
-    const base = import.meta.env.BASE_URL;
-    if (base === '/' || base === '') return '/socket.io';
-    if (isIngressRelativeBase()) {
-        const p = getIngressPathPrefix();
-        return p ? `${p}/socket.io` : '/socket.io';
-    }
-    const normalized = base.endsWith('/') ? base.slice(0, -1) : base;
-    return `${normalized}/socket.io`;
+    const pathname =
+        typeof window !== 'undefined' && window.location && window.location.pathname
+            ? window.location.pathname
+            : '/';
+    const normalized = pathname.replace(/\/+/g, '/').replace(/\/+$/, '');
+    return normalized ? `${normalized}/socket.io` : '/socket.io';
 }

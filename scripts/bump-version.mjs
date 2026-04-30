@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Keep config.yaml, server/package.json, and Dockerfile (ARG BUILD_VERSION) in sync.
+ * Keep ha-addon/config.yaml, server/package.json, and Dockerfile (ARG BUILD_VERSION) in sync.
  *
  * Usage:
  *   node scripts/bump-version.mjs patch          # 1.0.4 -> 1.0.5 (default)
@@ -10,7 +10,7 @@
  *
  * Notes:
  * - The single source of truth is `server/package.json`.
- * - `config.yaml` line `version: "x.y.z"` and Dockerfile `ARG BUILD_VERSION=x.y.z` are mirrored.
+ * - `ha-addon/config.yaml` line `version: "x.y.z"` and Dockerfile `ARG BUILD_VERSION=x.y.z` are mirrored.
  * - Exits non-zero if any file is missing or unparseable.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(__filename), '..');
 const PKG = path.join(ROOT, 'server', 'package.json');
-const CFG = path.join(ROOT, 'config.yaml');
+const CFG = path.join(ROOT, 'ha-addon', 'config.yaml');
 const DOCKERFILE = path.join(ROOT, 'Dockerfile');
 
 const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)$/;
@@ -51,7 +51,7 @@ function writeJson(p, obj) {
 function replaceConfigYaml(next) {
     const raw = readFileSync(CFG, 'utf8');
     if (!/^version:\s*".+"\s*$/m.test(raw)) {
-        throw new Error('config.yaml: could not find a `version: "x.y.z"` line');
+        throw new Error('ha-addon/config.yaml: could not find a `version: "x.y.z"` line');
     }
     const out = raw.replace(/^version:\s*".+"\s*$/m, `version: "${next}"`);
     writeFileSync(CFG, out, 'utf8');
@@ -81,7 +81,7 @@ function main() {
 
     console.log(`Bumped ${current} -> ${next}`);
     console.log(`  server/package.json   ✓`);
-    console.log(`  config.yaml           ✓`);
+    console.log(`  ha-addon/config.yaml   ✓`);
     console.log(`  Dockerfile            ${dockerfileTouched ? '✓' : '(no ARG BUILD_VERSION default; skipped)'}`);
     console.log('');
     console.log('Next steps:');
