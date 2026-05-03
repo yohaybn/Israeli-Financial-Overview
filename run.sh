@@ -1,5 +1,6 @@
-#!/command/with-contenv sh
-set -e
+#!/bin/sh
+# POSIX sh on HA Alpine base (bash is not guaranteed). Avoid `set -e` so a bad options.json / jq
+# cannot kill the script before Node starts (would break Ingress on :9203).
 
 CONFIG_PATH=/data/options.json
 echo "Starting Financial Overview Add-on..."
@@ -10,7 +11,7 @@ if [ -f "$CONFIG_PATH" ]; then
     export_json_key() {
         key=$1
         env_var=$2
-        val=$(jq --raw-output ".$key // empty" "$CONFIG_PATH")
+        val=$(jq --raw-output ".$key // empty" "$CONFIG_PATH" 2>/dev/null) || val=
         if [ -n "$val" ]; then
             echo "Setting $env_var"
             export "$env_var=$val"
@@ -35,12 +36,13 @@ export PORT=9203
 export DATA_DIR=/data
 export DATA_DIR_STICKY=1
 export NODE_ENV=production
+# Bind all interfaces so Supervisor can reach the container IP (not only 127.0.0.1).
+export LISTEN_HOST=0.0.0.0
 
 # Start the application
 # DATA_DIR is /data by default in Dockerfile, which is the HA persistent partition
 # Exit 42 = graceful restart (see ConfigService.restart); loop so the add-on does not exit.
 cd /usr/src/app
-set +e
 while true; do
     node server/dist/index.js
     ec=$?

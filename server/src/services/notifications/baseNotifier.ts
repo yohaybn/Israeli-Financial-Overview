@@ -3,7 +3,8 @@
  * Defines the interface all notification channels must implement
  */
 
-import { NotificationPayload, NotifierConfig, NotifierResult } from './types.js';
+import { NotificationPayload, NotifierConfig } from './types.js';
+import { toPlainText } from './formatter.js';
 
 export abstract class BaseNotifier {
   protected channelName: string;
@@ -48,61 +49,7 @@ export abstract class BaseNotifier {
    * Override in concrete classes for channel-specific formatting
    */
   protected formatPayload(payload: NotificationPayload): string {
-    switch (payload.detailLevel) {
-      case 'minimal':
-        return `[${payload.status.toUpperCase()}] Pipeline ${payload.pipelineId} completed in ${payload.summary.durationMs}ms`;
-
-      case 'normal':
-        return [
-          `Pipeline Notification - ${payload.status.toUpperCase()}`,
-          `ID: ${payload.pipelineId}`,
-          `Duration: ${payload.summary.durationMs}ms`,
-          `Stages: ${payload.summary.stagesRun.join(' -> ')}`,
-          `Successful: ${payload.summary.successfulStages.join(', ')}`,
-          payload.summary.failedStage
-            ? `Failed: ${payload.summary.failedStage}`
-            : '',
-          payload.summary.transactionCount
-            ? `Transactions: ${payload.summary.transactionCount}`
-            : '',
-          payload.summary.insights?.length
-            ? `Insights: ${payload.summary.insights.join('; ')}`
-            : '',
-        ]
-          .filter(Boolean)
-          .join('\n');
-
-      case 'detailed':
-        return [
-          `Pipeline Notification - ${payload.status.toUpperCase()}`,
-          `ID: ${payload.pipelineId}`,
-          `Timestamp: ${payload.timestamp.toISOString()}`,
-          `Duration: ${payload.summary.durationMs}ms`,
-          `Stages Run: ${payload.summary.stagesRun.join(' -> ')}`,
-          `Successful Stages: ${payload.summary.successfulStages.join(', ')}`,
-          payload.summary.failedStage
-            ? `Failed Stage: ${payload.summary.failedStage}`
-            : '',
-          `Summary:`,
-          `  Transactions: ${payload.summary.transactionCount || 0}`,
-          `  Accounts: ${payload.summary.accounts || 0}`,
-          `  Balance: ${payload.summary.balance || 0}`,
-          payload.summary.insights?.length
-            ? `Insights:\n  ${payload.summary.insights.join('\n  ')}`
-            : '',
-          payload.errorDetails
-            ? `Error Details:\n  Stage: ${payload.errorDetails.stage}\n  Message: ${payload.errorDetails.message}`
-            : '',
-        ]
-          .filter(Boolean)
-          .join('\n');
-
-      case 'verbose':
-        return JSON.stringify(payload, null, 2);
-
-      default:
-        return this.formatPayload({ ...payload, detailLevel: 'normal' });
-    }
+    return toPlainText(payload);
   }
 
   /**

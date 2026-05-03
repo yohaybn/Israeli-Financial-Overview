@@ -203,3 +203,18 @@ export function applyRuntimeSettings(): void {
 }
 
 applyRuntimeSettings();
+
+/**
+ * Pin unset DATA_DIR to repo `data/` (same default as RUNTIME_SETTINGS_PATH / defaultDataDirForRuntime).
+ * Otherwise scheduler_config.json, mqtt_config.json, app.db, etc. use `./data` and follow process.cwd(),
+ * so a restart from a different working directory looks like settings were lost.
+ */
+function ensureDefaultDataDirEnv(): void {
+    const cur = process.env.DATA_DIR;
+    if (typeof cur === 'string' && cur.trim() !== '') {
+        return;
+    }
+    process.env.DATA_DIR = path.join(PROJECT_ROOT, 'data');
+}
+
+ensureDefaultDataDirEnv();

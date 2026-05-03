@@ -7,6 +7,7 @@ import { GoogleSettings } from './GoogleSettings';
 import { GoogleSheetsSync } from './GoogleSheetsSync';
 import { FraudSettings } from './FraudSettings';
 import { TelegramSettings } from './TelegramSettings';
+import { MqttSettings } from './MqttSettings';
 import { CategorySettings } from './CategorySettings';
 import { InsightRulesSettings } from './InsightRulesSettings';
 import type { ConfigTabId } from '../utils/appUrlState';
@@ -34,6 +35,7 @@ const CONFIG_SECTIONS: { id: ConfigTabId }[] = [
     { id: 'budget-exports' },
     { id: 'investments' },
     { id: 'telegram' },
+    { id: 'mqtt' },
     { id: 'maintenance' },
 ];
 
@@ -85,6 +87,7 @@ export function ConfigurationPanel({
             {activeTab === 'budget-exports' && <BudgetExportSettings />}
             {activeTab === 'investments' && <InvestmentSettings isInline />}
             {activeTab === 'telegram' && <TelegramSettings isInline={true} />}
+            {activeTab === 'mqtt' && <MqttSettings isInline={true} />}
             {activeTab === 'maintenance' && <MaintenancePanel />}
         </>
     );

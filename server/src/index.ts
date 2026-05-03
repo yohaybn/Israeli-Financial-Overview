@@ -51,6 +51,15 @@ async function startServer() {
   const { createBudgetExportRoutes } = await import('./routes/budgetExportRoutes.js');
   const { investmentRoutes } = await import('./routes/investmentRoutes.js');
   const { createReportRoutes } = await import('./routes/reportRoutes.js');
+  const { mqttRoutes, registerMqttNotifier } = await import('./routes/mqttRoutes.js');
+  const { mqttClientService } = await import('./services/mqttClientService.js');
+  registerMqttNotifier();
+  // Never await MQTT before listen — connect can block up to connectTimeout (~35s) and Supervisor
+  // Ingress health-checks $ingress_port immediately, causing "Cannot connect to host …:9203".
+  void mqttClientService.initFromDisk().catch((e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e);
+    serverLogger.warn('MQTT background init failed (non-fatal)', { message: msg });
+  });
   const { reloadPortfolioSnapshotSchedule } = await import('./services/portfolioSnapshotScheduler.js');
 
   const app = express();
@@ -172,6 +181,7 @@ async function startServer() {
   app.use('/api/sheets', sheetsRoutes);
   app.use('/api/scheduler', createSchedulerRoutes(schedulerService));
   app.use('/api/telegram', telegramRoutes);
+  app.use('/api/mqtt', mqttRoutes);
   app.use('/api/logs', logRoutes);
   app.use('/api/notifications', createNotificationRoutes());
   app.use('/api/config', configRoutes);
@@ -216,10 +226,12 @@ async function startServer() {
     });
   });
 
+  const listenHost = process.env.LISTEN_HOST || '0.0.0.0';
+
   try {
-    httpServer.listen(port, () => {
-      serverLogger.info(`Server running on http://localhost:${port}`);
-      serverLogger.info(`WebSocket ready on ws://localhost:${port}`);
+    httpServer.listen(port, listenHost, () => {
+      serverLogger.info(`Server running on http://${listenHost}:${port}`);
+      serverLogger.info(`WebSocket ready on ws://${listenHost}:${port}`);
       serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
       reloadPortfolioSnapshotSchedule();

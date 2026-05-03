@@ -187,8 +187,15 @@ export class PostScrapeService {
           channels.push('telegram');
         }
       }
+      if (!channels.includes('mqtt')) {
+        const mqNotifier = notificationService.getNotifier('mqtt');
+        if (mqNotifier && mqNotifier.isEnabled()) {
+          channels.push('mqtt');
+        }
+      }
 
       const sendTelegram = channels.includes('telegram');
+      const sendMqtt = channels.includes('mqtt');
       const channelsNoTelegram = channels.filter((c) => c !== 'telegram');
 
       const headline =
@@ -230,7 +237,7 @@ export class PostScrapeService {
         await notificationService.notify(channelsNoTelegram, fullPayload);
       }
 
-      if (sendTelegram) {
+      if (sendTelegram || sendMqtt) {
         const countOnlyLine =
           botLanguage === 'he'
             ? `${items.length} תנועות חדשות דורשות סיווג או הערה.`
@@ -250,7 +257,8 @@ export class PostScrapeService {
             insights: [countOnlyLine],
           },
         };
-        await this.notifyWithTelegramAggregation(['telegram'], telegramReviewPayload, request);
+        const segCh = [...(sendTelegram ? ['telegram'] : []), ...(sendMqtt ? ['mqtt'] : [])];
+        await this.notifyWithAggregation(segCh, telegramReviewPayload, request);
         try {
           await telegramBotService.sendMemoReplyPromptsForReview(items, request, botLanguage);
         } catch (e) {
@@ -344,30 +352,52 @@ export class PostScrapeService {
     }
   }
 
-  private async notifyWithTelegramAggregation(
+  private shouldAggregateMqtt(request?: ScrapeRequest): boolean {
+    return Boolean((request as any)?.options?.aggregateMqttNotifications);
+  }
+
+  private getMqttAggregationBuffer(request?: ScrapeRequest): NotificationPayload[] | null {
+    if (!this.shouldAggregateMqtt(request) || !request) return null;
+    const reqAny = request as any;
+    if (!reqAny.__mqttAggregationPayloads) {
+      reqAny.__mqttAggregationPayloads = [];
+    }
+    return reqAny.__mqttAggregationPayloads as NotificationPayload[];
+  }
+
+  private async notifyWithAggregation(
     channels: string[],
     payload: NotificationPayload,
     request?: ScrapeRequest
   ): Promise<void> {
+    const bufTg =
+      this.shouldAggregateTelegram(request) && request
+        ? this.getTelegramAggregationBuffer(request)
+        : null;
+    const bufMq =
+      this.shouldAggregateMqtt(request) && request ? this.getMqttAggregationBuffer(request) : null;
+
     if (channels.includes('telegram')) {
       telegramBotService.syncNotificationNotifierChatIds();
     }
-    const buffer = this.getTelegramAggregationBuffer(request);
-    if (!buffer) {
-      await notificationService.notify(channels, payload);
-      return;
-    }
 
-    const nonTelegramChannels = channels.filter((c) => c !== 'telegram');
-    if (nonTelegramChannels.length > 0) {
-      await notificationService.notify(nonTelegramChannels, payload);
+    const sendNow = channels.filter((c) => {
+      if (c === 'telegram' && bufTg) return false;
+      if (c === 'mqtt' && bufMq) return false;
+      return true;
+    });
+
+    if (sendNow.length > 0) {
+      await notificationService.notify(sendNow, payload);
     }
 
     const tgNotifier = notificationService.getNotifier('telegram');
-    const shouldCollectTelegram =
-      channels.includes('telegram') && Boolean(tgNotifier && tgNotifier.isEnabled());
-    if (shouldCollectTelegram) {
-      buffer.push(payload);
+    if (bufTg && channels.includes('telegram') && tgNotifier?.isEnabled()) {
+      bufTg.push(payload);
+    }
+    const mqNotifier = notificationService.getNotifier('mqtt');
+    if (bufMq && channels.includes('mqtt') && mqNotifier?.isEnabled()) {
+      bufMq.push(payload);
     }
   }
 
@@ -453,6 +483,90 @@ export class PostScrapeService {
     (request as any).__telegramAggregationPayloads = [];
   }
 
+  async flushAggregatedMqttNotification(request?: ScrapeRequest): Promise<void> {
+    const buffer = this.getMqttAggregationBuffer(request);
+    if (!buffer || buffer.length === 0) return;
+
+    const mainBuffer = buffer.filter((p) => !p.telegramSegment);
+    const reviewPayload = buffer.find((p) => p.telegramSegment === 'review-count');
+    const fraudPayloads = buffer.filter((p) => p.telegramSegment === 'fraud');
+    const customPayload = buffer.find((p) => p.telegramSegment === 'custom-ai');
+
+    const bySeverity = { success: 1, warning: 2, failure: 3 } as const;
+    const finalStatus = buffer.reduce<'success' | 'warning' | 'failure'>((current, p) => {
+      return bySeverity[p.status] > bySeverity[current] ? p.status : current;
+    }, 'success');
+
+    if (mainBuffer.length > 0) {
+      const digestInsights = mainBuffer
+        .filter((p) => p.pipelineId === 'Spending digest')
+        .flatMap((p) => p.summary?.insights || [])
+        .filter((s) => !!s);
+      const otherInsights = mainBuffer
+        .filter((p) => p.pipelineId !== 'Spending digest')
+        .flatMap((p) => p.summary?.insights || [])
+        .filter((s) => !!s);
+      const insights = [...digestInsights, ...otherInsights].slice(0, 24);
+
+      const scrapePayload =
+        [...mainBuffer].reverse().find((p) => p.summary?.transactionCount != null || p.summary?.accounts != null) ||
+        mainBuffer[mainBuffer.length - 1];
+
+      const combinedPayload: NotificationPayload = {
+        pipelineId: request?.profileName || request?.companyId || scrapePayload.pipelineId || 'scrape',
+        status: finalStatus,
+        timestamp: new Date(),
+        detailLevel: 'normal',
+        runSource: this.getRunSource(request),
+        summary: {
+          durationMs: Math.max(...mainBuffer.map((p) => p.summary?.durationMs || 0)),
+          stagesRun: ['scrape', 'post-scrape'],
+          successfulStages: finalStatus === 'failure' ? ['scrape'] : ['scrape', 'post-scrape'],
+          failedStage: finalStatus === 'failure' ? 'post-scrape' : undefined,
+          transactionCount: scrapePayload.summary?.transactionCount,
+          accounts: scrapePayload.summary?.accounts,
+          balance: scrapePayload.summary?.balance,
+          insights,
+        },
+        errorDetails:
+          finalStatus === 'failure'
+            ? {
+                stage: 'post-scrape',
+                message:
+                  buffer
+                    .map((p) => p.errorDetails?.message)
+                    .find((m) => !!m) || 'Post-scrape failed',
+              }
+            : undefined,
+      };
+
+      await notificationService.notify(['mqtt'], combinedPayload);
+    }
+
+    if (reviewPayload) {
+      await notificationService.notify(['mqtt'], reviewPayload);
+    }
+
+    if (fraudPayloads.length > 0) {
+      const base = fraudPayloads[0];
+      const mergedFraud: NotificationPayload = {
+        ...base,
+        summary: {
+          ...base.summary,
+          insights: fraudPayloads.flatMap((p) => p.summary?.insights || []).filter((s) => !!s),
+        },
+        telegramSegment: 'fraud',
+      };
+      await notificationService.notify(['mqtt'], mergedFraud);
+    }
+
+    if (customPayload) {
+      await notificationService.notify(['mqtt'], customPayload);
+    }
+
+    (request as any).__mqttAggregationPayloads = [];
+  }
+
   /**
    * Optional spending digest (budget pace + anomalies + whale alerts) via @app/shared.
    * Uses the same Telegram aggregation buffer as other post-scrape notifications when enabled.
@@ -463,7 +577,10 @@ export class PostScrapeService {
     if (!postCfg.spendingDigestEnabled) return;
 
     const tgNotifier = notificationService.getNotifier('telegram');
-    if (!tgNotifier || !tgNotifier.isEnabled()) return;
+    const mqNotifier = notificationService.getNotifier('mqtt');
+    const tgOn = tgNotifier && tgNotifier.isEnabled();
+    const mqOn = mqNotifier && mqNotifier.isEnabled();
+    if (!tgOn && !mqOn) return;
 
     const txns = await this.storageService.getAllTransactions(true);
     const snapshot = computeFinancialDigestSnapshot(txns as any, {});
@@ -496,12 +613,18 @@ export class PostScrapeService {
       insights.push(digestLocale === 'he' ? 'אין התראות קטגוריה.' : 'No category alerts.');
     }
 
-    const channels = [...(postCfg.notificationChannels || ['console'])];
-    if (!channels.includes('telegram')) {
-      if (tgNotifier && tgNotifier.isEnabled()) {
-        channels.push('telegram');
+      const channels = [...(postCfg.notificationChannels || ['console'])];
+      if (!channels.includes('telegram')) {
+        if (tgNotifier && tgNotifier.isEnabled()) {
+          channels.push('telegram');
+        }
       }
-    }
+      if (!channels.includes('mqtt')) {
+        const mqNotifier = notificationService.getNotifier('mqtt');
+        if (mqNotifier && mqNotifier.isEnabled()) {
+          channels.push('mqtt');
+        }
+      }
 
     const payload: NotificationPayload = {
       pipelineId: 'Spending digest',
@@ -518,7 +641,7 @@ export class PostScrapeService {
       },
     };
 
-    await this.notifyWithTelegramAggregation(channels, payload, request);
+    await this.notifyWithAggregation(channels, payload, request);
 
     await fs.writeFile(fpPath, snapshot.digestFingerprint, 'utf-8');
     logger.info('Spending digest queued/sent (same channel aggregation as post-scrape)');
@@ -534,6 +657,12 @@ export class PostScrapeService {
         const tgNotifier = notificationService.getNotifier('telegram');
         if (tgNotifier && tgNotifier.isEnabled()) {
           channels.push('telegram');
+        }
+      }
+      if (!channels.includes('mqtt')) {
+        const mqNotifier = notificationService.getNotifier('mqtt');
+        if (mqNotifier && mqNotifier.isEnabled()) {
+          channels.push('mqtt');
         }
       }
 
@@ -556,7 +685,7 @@ export class PostScrapeService {
         },
       };
 
-      await this.notifyWithTelegramAggregation(channels, payload, request);
+      await this.notifyWithAggregation(channels, payload, request);
       logger.info(`Post-scrape error notification sent for ${stage}`);
     } catch (notifyErr) {
       logger.warn('Failed to send post-scrape error notification', { error: (notifyErr as Error).message });
@@ -576,6 +705,12 @@ export class PostScrapeService {
         const tgNotifier = notificationService.getNotifier('telegram');
         if (tgNotifier && tgNotifier.isEnabled()) {
           channels.push('telegram');
+        }
+      }
+      if (!channels.includes('mqtt')) {
+        const mqNotifier = notificationService.getNotifier('mqtt');
+        if (mqNotifier && mqNotifier.isEnabled()) {
+          channels.push('mqtt');
         }
       }
 
@@ -611,7 +746,7 @@ export class PostScrapeService {
         },
       };
 
-      await this.notifyWithTelegramAggregation(channels, payload, request);
+      await this.notifyWithAggregation(channels, payload, request);
       logger.info('Categorization failure notification sent');
     } catch (notifyErr) {
       logger.warn('Failed to send categorization failure notification', { error: (notifyErr as Error).message });
@@ -834,7 +969,7 @@ export class PostScrapeService {
                       },
                     };
 
-                    await this.notifyWithTelegramAggregation(channels, payload, request);
+                    await this.notifyWithAggregation(channels, payload, request);
                     logger.info('Post-scrape: local fraud notification sent');
                   }
                 }
@@ -914,7 +1049,7 @@ export class PostScrapeService {
                     },
                   };
 
-                  await this.notifyWithTelegramAggregation(channels, payload, request);
+                  await this.notifyWithAggregation(channels, payload, request);
 
                   logger.info('Post-scrape: AI fraud notification sent');
                 }
@@ -1016,7 +1151,7 @@ export class PostScrapeService {
                   },
                 };
 
-                await this.notifyWithTelegramAggregation(channels, payload, request);
+                await this.notifyWithAggregation(channels, payload, request);
 
                 logger.info('Post-scrape: custom AI notification sent');
               }
@@ -1113,6 +1248,9 @@ export class PostScrapeService {
     if (reqAny?.options && reqAny.options.aggregateTelegramNotifications === undefined) {
       reqAny.options.aggregateTelegramNotifications = cfg.aggregateTelegramNotifications !== false;
     }
+    if (reqAny?.options && reqAny.options.aggregateMqttNotifications === undefined) {
+      reqAny.options.aggregateMqttNotifications = cfg.aggregateMqttNotifications !== false;
+    }
 
     const batchLogId = generateScrapeRunLogId();
     if (request) {
@@ -1135,7 +1273,12 @@ export class PostScrapeService {
     }
 
     let flushAction: ScrapeRunActionRecord = { key: 'telegram-aggregate-flush', status: 'skipped' };
-    if (reqAny && (reqAny.options?.aggregateTelegramNotifications || reqAny.options?.postScrape)) {
+    if (
+      reqAny &&
+      (reqAny.options?.aggregateTelegramNotifications ||
+        reqAny.options?.aggregateMqttNotifications ||
+        reqAny.options?.postScrape)
+    ) {
       flushAction = { key: 'telegram-aggregate-flush', status: 'ok' };
       try {
         await this.flushAggregatedTelegramNotification(request);
@@ -1146,6 +1289,11 @@ export class PostScrapeService {
           detail: (err as Error).message,
         };
         logger.warn('Post-scrape batch: flush Telegram notification failed', { error: (err as Error).message });
+      }
+      try {
+        await this.flushAggregatedMqttNotification(request);
+      } catch (err) {
+        logger.warn('Post-scrape batch: flush MQTT notification failed', { error: (err as Error).message });
       }
     }
 
@@ -1175,11 +1323,17 @@ export class PostScrapeService {
       const cfg = await this.getConfig();
       const channels = [...(cfg.notificationChannels || ['console'])];
 
-      // Auto-include telegram if the notifier is registered and enabled
+      // Auto-include telegram / mqtt if the notifier is registered and enabled
       if (!channels.includes('telegram')) {
         const tgNotifier = notificationService.getNotifier('telegram');
         if (tgNotifier && tgNotifier.isEnabled()) {
           channels.push('telegram');
+        }
+      }
+      if (!channels.includes('mqtt')) {
+        const mqNotifier = notificationService.getNotifier('mqtt');
+        if (mqNotifier && mqNotifier.isEnabled()) {
+          channels.push('mqtt');
         }
       }
 
@@ -1207,7 +1361,7 @@ export class PostScrapeService {
         } : undefined,
       };
 
-      await this.notifyWithTelegramAggregation(channels, payload, request);
+      await this.notifyWithAggregation(channels, payload, request);
       logger.info('Scrape notification sent', { success, channels });
     } catch (err) {
       logger.warn('Failed to send scrape notification', { error: (err as Error).message });

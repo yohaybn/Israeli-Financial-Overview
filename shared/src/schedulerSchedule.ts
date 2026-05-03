@@ -271,6 +271,7 @@ export function normalizeFinancialReportSchedule<T extends FinancialReportSchedu
         ...normalized,
         enabled: mergedBase.enabled ?? false,
         sendTelegram: Boolean(mergedBase.sendTelegram),
+        sendMqtt: Boolean(mergedBase.sendMqtt),
         localeMode,
         sections: mergeFinancialReportSections(def.sections, mergedBase.sections),
         scheduledMonthRule,

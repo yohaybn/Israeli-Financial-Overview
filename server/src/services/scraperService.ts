@@ -125,6 +125,15 @@ export class ScraperService {
         if (request.options) {
             (request.options as any).aggregateTelegramNotifications = aggregateTelegramNotifications;
         }
+        const optAggMq = (request.options as any)?.aggregateMqttNotifications;
+        const aggregateMqttNotifications =
+            optAggMq !== undefined && optAggMq !== null
+                ? Boolean(optAggMq)
+                : (postCfg.aggregateMqttNotifications !== false);
+        if (request.options) {
+            (request.options as any).aggregateMqttNotifications = aggregateMqttNotifications;
+        }
+        const useAggregatePath = aggregateTelegramNotifications || aggregateMqttNotifications;
         const deferPostScrape = Boolean((request.options as any)?.deferPostScrape);
 
         const addLog = (msg: string) => {
@@ -352,7 +361,7 @@ export class ScraperService {
                 const scrapeRunLogId = generateScrapeRunLogId();
                 (request as any).__scrapeRunLogId = scrapeRunLogId;
 
-                if (aggregateTelegramNotifications) {
+                if (useAggregatePath) {
                     let postActions: ScrapeRunActionRecord[] = [];
                     try {
                         postActions = await postScrapeService.handleResult(successResult, request);
@@ -374,6 +383,7 @@ export class ScraperService {
                     let flushAction: ScrapeRunActionRecord = { key: 'telegram-aggregate-flush', status: 'ok' };
                     try {
                         await postScrapeService.flushAggregatedTelegramNotification(request);
+                        await postScrapeService.flushAggregatedMqttNotification(request);
                     } catch (err: any) {
                         this.emitLog(`Aggregated Telegram notification failed: ${err?.message || err}`);
                         flushAction = {
@@ -456,10 +466,11 @@ export class ScraperService {
                 if (deferPostScrape) {
                     return failResult;
                 }
-                if (aggregateTelegramNotifications) {
+                if (useAggregatePath) {
                     try {
                         await postScrapeService.sendScrapeNotification(failResult, request);
                         await postScrapeService.flushAggregatedTelegramNotification(request);
+                        await postScrapeService.flushAggregatedMqttNotification(request);
                     } catch (err: any) {
                         this.emitLog(`Scrape notification failed: ${err?.message || err}`);
                     }
@@ -497,10 +508,11 @@ export class ScraperService {
             if (deferPostScrape) {
                 return errorResult;
             }
-            if (aggregateTelegramNotifications) {
+            if (useAggregatePath) {
                 try {
                     await postScrapeService.sendScrapeNotification(errorResult, request);
                     await postScrapeService.flushAggregatedTelegramNotification(request);
+                    await postScrapeService.flushAggregatedMqttNotification(request);
                 } catch (err: any) {
                     this.emitLog(`Scrape notification failed: ${err?.message || err}`);
                 }

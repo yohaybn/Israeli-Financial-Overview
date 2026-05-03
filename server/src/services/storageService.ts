@@ -114,6 +114,7 @@ const DEFAULT_GLOBAL_CONFIG: GlobalScrapeConfig = {
         },
         notificationChannels: ['console'],
         aggregateTelegramNotifications: true,
+        aggregateMqttNotifications: true,
         spendingDigestEnabled: false,
         transactionReviewReminder: {
             enabled: true,

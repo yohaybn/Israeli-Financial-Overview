@@ -11,6 +11,7 @@ export const CONFIG_TAB_IDS = [
     'budget-exports',
     'investments',
     'telegram',
+    'mqtt',
     'maintenance',
 ] as const;
 export type ConfigTabId = (typeof CONFIG_TAB_IDS)[number];

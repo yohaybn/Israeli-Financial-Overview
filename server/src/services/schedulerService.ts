@@ -32,6 +32,7 @@ import { generateFinancialPdfBuffer } from './financialPdfReportService.js';
 import { ConfigService } from './configService.js';
 import { AiService } from './aiService.js';
 import { telegramBotService } from './telegramBotService.js';
+import { mqttClientService } from './mqttClientService.js';
 
 /** Resolve each use so `process.env.DATA_DIR` updates (Maintenance) are not stuck on the import-time cwd. */
 function schedulerDataDir(): string {
@@ -614,6 +615,24 @@ export class SchedulerService {
             if (s.sendTelegram) {
                 telegramBotService.syncNotificationNotifierChatIds();
                 await telegramBotService.sendFinancialPdfToChats(pdf, `financial-report-${monthYm}.pdf`, monthYm);
+            }
+            if (s.sendMqtt && mqttClientService.isConfiguredForPublish()) {
+                const topic = mqttClientService.getConfig().topic?.trim();
+                if (topic) {
+                    try {
+                        const payload = JSON.stringify({
+                            type: 'financial-report-pdf',
+                            monthYm,
+                            filename: `financial-report-${monthYm}.pdf`,
+                            pdfBase64: pdf.toString('base64'),
+                        });
+                        await mqttClientService.publish(topic, payload, { qos: 1 });
+                    } catch (mqErr) {
+                        logger.warn('Scheduled financial PDF: MQTT publish failed', {
+                            error: (mqErr as Error).message,
+                        });
+                    }
+                }
             }
             this.config.financialReportSchedule = {
                 ...s,

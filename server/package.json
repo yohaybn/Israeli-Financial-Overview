@@ -28,6 +28,7 @@
         "fs-extra": "^11.3.0",
         "googleapis": "^171.4.0",
         "israeli-bank-scrapers": "^6.7.1",
+        "mqtt": "^5.15.1",
         "multer": "^2.0.2",
         "node-cron": "^4.2.1",
         "path2d": "^0.3.1",

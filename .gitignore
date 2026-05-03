@@ -34,3 +34,4 @@ desktop-electron/secrets/community-submit.env
 secrets/community-submit.env
 docs/
 gas/
+data/

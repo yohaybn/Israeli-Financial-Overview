@@ -420,6 +420,23 @@ export const demoHandlers = [
         HttpResponse.json({ success: true, message: 'Configuration updated' })
     ),
 
+    http.get(apiPath('/mqtt/config'), () =>
+        HttpResponse.json({
+            success: true,
+            data: { enabled: false, brokerUrl: '', topic: '', password: '' },
+        })
+    ),
+    http.post(apiPath('/mqtt/config'), () =>
+        HttpResponse.json({ success: true, message: 'OK', data: { enabled: false } })
+    ),
+    http.get(apiPath('/mqtt/status'), () =>
+        HttpResponse.json({
+            success: true,
+            data: { connected: false, lastError: null, brokerHost: null },
+        })
+    ),
+    http.post(apiPath('/mqtt/test'), () => HttpResponse.json({ success: true, message: 'ok' })),
+
     http.get(apiPath('/sheets/folder-config'), () =>
         HttpResponse.json({ success: true, data: { folderId: '', folderName: '' } })
     ),

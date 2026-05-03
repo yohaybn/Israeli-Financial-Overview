@@ -13,6 +13,7 @@ import {
   TELEGRAM_API_HOST,
 } from '../../utils/externalServiceLog.js';
 import { splitTelegramPlainText } from '../../utils/telegramTextSplit.js';
+import { toMarkdown, unescapeMDV2 } from './formatter.js';
 
 export interface TelegramNotifierConfig extends Omit<NotifierConfig, 'enabled'> {
   enabled?: boolean;
@@ -21,88 +22,6 @@ export interface TelegramNotifierConfig extends Omit<NotifierConfig, 'enabled'> 
   parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2';
   language?: 'en' | 'he';
 }
-
-// MarkdownV2 escape helper – must escape these chars outside code spans
-function escMDV2(text: string): string {
-  return String(text).replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
-}
-
-// Remove MarkdownV2 escaping so we can send continuation chunks as plain text (no parse_mode)
-function unescapeMDV2(text: string): string {
-  return String(text).replace(/\\([_*[\]()~`>#+\-=|{}.!])/g, '$1');
-}
-
-/**
- * AI replies often use Markdown `**bold**`. Telegram MarkdownV2 uses `*bold*` (single asterisks).
- * Convert paired `**...**` blocks first, then escape the rest so `**` is not shown literally.
- */
-function markdownBoldToMarkdownV2(text: string): string {
-  const s = String(text);
-  const re = /\*\*([\s\S]*?)\*\*/g;
-  let last = 0;
-  let out = '';
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(s)) !== null) {
-    out += escMDV2(s.slice(last, m.index));
-    out += `*${escMDV2(m[1])}*`;
-    last = m.index + m[0].length;
-  }
-  out += escMDV2(s.slice(last));
-  return out;
-}
-
-const LABELS: Record<'en' | 'he', Record<string, string>> = {
-  en: {
-    scrapeNotification: '🏦 Scrape Notification',
-    profile: 'Profile',
-    duration: 'Duration',
-    transactions: 'Transactions',
-    accounts: 'Accounts',
-    balance: 'Balance',
-    error: 'Error',
-    stages: 'Stages',
-    successful: 'Successful',
-    failed: 'Failed',
-    timestamp: 'Timestamp',
-    insights: 'Insights',
-    reviewCountTitle: 'Category / memo',
-    fraudSegmentTitle: 'Suspicious / anomaly',
-    customAiSegmentTitle: 'Custom query',
-    source: 'Source',
-    sourceTelegramBot: 'Telegram bot',
-    sourceScheduler: 'Scheduler',
-    sourceManual: 'Manual',
-    successStatus: '✅ SUCCESS',
-    failureStatus: '❌ FAILURE',
-    warningStatus: '⚠️ WARNING',
-    seconds: 's',
-  },
-  he: {
-    scrapeNotification: '🏦 תוצאת סריקה',
-    profile: 'פרופיל',
-    duration: 'משך',
-    transactions: 'עסקאות',
-    accounts: 'חשבונות',
-    balance: 'יתרה',
-    error: 'שגיאה',
-    stages: 'שלבים',
-    successful: 'הצליחו',
-    failed: 'נכשל',
-    timestamp: 'זמן',
-    insights: 'תובנות',
-    reviewCountTitle: 'קטגוריה / הערה',
-    fraudSegmentTitle: 'חשוד / חריגה',
-    customAiSegmentTitle: 'שאילתת AI מותאמת',
-    source: '\u05DE\u05E7\u05D5\u05E8',
-    sourceTelegramBot: '\u05D1\u05D5\u05D8 \u05D8\u05DC\u05D2\u05E8\u05DD',
-    sourceScheduler: '\u05DE\u05EA\u05D6\u05DE\u05DF',
-    sourceManual: '\u05D9\u05D3\u05E0\u05D9',
-    successStatus: '✅ הצלחה',
-    failureStatus: '❌ כישלון',
-    warningStatus: '⚠️ אזהרה',
-    seconds: 'שניות',
-  },
-};
 
 export class TelegramNotifier extends BaseNotifier {
   private botToken: string;
@@ -133,15 +52,13 @@ export class TelegramNotifier extends BaseNotifier {
       return;
     }
 
-    const message = this.formatMessage(payload);
+    const message = toMarkdown(payload, this.language);
     const chunks = splitTelegramPlainText(message, 3800);
 
     for (const chatId of this.chatIds) {
       let sent = 0;
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        // First chunk uses parse_mode for formatting; continuation chunks are sent as plain text
-        // so Telegram never rejects them (MarkdownV2 often fails on chunk 2 when it starts with * \ etc.)
         const useParseMode = i === 0;
         const textToSend = useParseMode ? chunk : unescapeMDV2(chunk);
         try {
@@ -221,108 +138,6 @@ export class TelegramNotifier extends BaseNotifier {
         throw new Error(`Failed to send Telegram message: ${error.response?.data?.description || error.message}`);
       }
       throw error;
-    }
-  }
-
-  private L(key: string): string {
-    return LABELS[this.language]?.[key] ?? LABELS['en'][key] ?? key;
-  }
-
-  private statusText(status: string): string {
-    if (status === 'success') return this.L('successStatus');
-    if (status === 'failure') return this.L('failureStatus');
-    return this.L('warningStatus');
-  }
-
-  private runSourceText(source?: string): string {
-    if (source === 'telegram_bot') return this.L('sourceTelegramBot');
-    if (source === 'scheduler') return this.L('sourceScheduler');
-    return this.L('sourceManual');
-  }
-
-  /**
-   * Format payload as Telegram MarkdownV2 message
-   */
-  private formatMessage(payload: NotificationPayload): string {
-    if (payload.telegramSegment === 'review-count') {
-      const line = (payload.summary.insights && payload.summary.insights[0]) || '';
-      return `*${escMDV2(this.L('reviewCountTitle'))}*\n${escMDV2(line)}`;
-    }
-    if (payload.telegramSegment === 'fraud') {
-      const body = (payload.summary.insights || []).join('\n\n');
-      return `*${escMDV2(this.L('fraudSegmentTitle'))}*\n\n${escMDV2(body)}`;
-    }
-    if (payload.telegramSegment === 'custom-ai') {
-      const body = (payload.summary.insights || []).join('\n\n');
-      return `*${escMDV2(this.L('customAiSegmentTitle'))}*\n\n${markdownBoldToMarkdownV2(body)}`;
-    }
-
-    const statusLine = `${this.statusText(payload.status)}`;
-    const title = `*${escMDV2(this.L('scrapeNotification'))} \\- ${escMDV2(statusLine)}*`;
-    const durationStr = `${(payload.summary.durationMs / 1000).toFixed(2)}${this.L('seconds')}`;
-    const sourceStr = this.runSourceText(payload.runSource);
-
-    switch (payload.detailLevel) {
-      case 'minimal':
-        return `${title}\n*${escMDV2(this.L('source'))}:* ${escMDV2(sourceStr)}\n⏱ ${escMDV2(durationStr)}`;
-
-      case 'normal': {
-        const lines: string[] = [title];
-        lines.push(`*${escMDV2(this.L('profile'))}:* \`${escMDV2(payload.pipelineId)}\``);
-        lines.push(`*${escMDV2(this.L('source'))}:* ${escMDV2(sourceStr)}`);
-        lines.push(`*${escMDV2(this.L('duration'))}:* ${escMDV2(durationStr)}`);
-        if (payload.summary.transactionCount != null) {
-          lines.push(`*${escMDV2(this.L('transactions'))}:* ${escMDV2(String(payload.summary.transactionCount))}`);
-        }
-        if (payload.summary.failedStage) {
-          lines.push(`*${escMDV2(this.L('failed'))}:* ${escMDV2(payload.summary.failedStage)}`);
-        }
-        if (payload.summary.insights?.length) {
-          lines.push(`*${escMDV2(this.L('insights'))}:*`);
-          payload.summary.insights.forEach(i => lines.push(`• ${escMDV2(i)}`));
-        }
-        if (payload.errorDetails?.message) {
-          lines.push(`*${escMDV2(this.L('error'))}:* ${escMDV2(payload.errorDetails.message)}`);
-        }
-        return lines.join('\n');
-      }
-
-      case 'detailed': {
-        const lines: string[] = [title];
-        lines.push(`*${escMDV2(this.L('profile'))}:* \`${escMDV2(payload.pipelineId)}\``);
-        lines.push(`*${escMDV2(this.L('source'))}:* ${escMDV2(sourceStr)}`);
-        lines.push(`*${escMDV2(this.L('timestamp'))}:* ${escMDV2(payload.timestamp.toISOString())}`);
-        lines.push(`*${escMDV2(this.L('duration'))}:* ${escMDV2(durationStr)}`);
-        if (payload.summary.stagesRun.length) {
-          lines.push(`*${escMDV2(this.L('stages'))}:* ${escMDV2(payload.summary.stagesRun.join(' → '))}`);
-        }
-        if (payload.summary.successfulStages.length) {
-          lines.push(`*${escMDV2(this.L('successful'))}:* ${escMDV2(payload.summary.successfulStages.join(', '))}`);
-        }
-        if (payload.summary.failedStage) {
-          lines.push(`*${escMDV2(this.L('failed'))}:* ${escMDV2(payload.summary.failedStage)}`);
-        }
-        if (payload.summary.transactionCount != null) {
-          lines.push(`*${escMDV2(this.L('transactions'))}:* ${escMDV2(String(payload.summary.transactionCount))}`);
-        }
-        if (payload.summary.accounts != null) {
-          lines.push(`*${escMDV2(this.L('accounts'))}:* ${escMDV2(String(payload.summary.accounts))}`);
-        }
-        if (payload.summary.insights?.length) {
-          lines.push(`*${escMDV2(this.L('insights'))}:*`);
-          payload.summary.insights.forEach(i => lines.push(`• ${escMDV2(i)}`));
-        }
-        if (payload.errorDetails?.message) {
-          lines.push(`*${escMDV2(this.L('error'))}:* ${escMDV2(payload.errorDetails.message)}`);
-        }
-        return lines.join('\n');
-      }
-
-      case 'verbose':
-        return `\`\`\`\n${JSON.stringify(payload, null, 2).substring(0, 3900)}\n\`\`\``;
-
-      default:
-        return this.formatMessage({ ...payload, detailLevel: 'normal' });
     }
   }
 

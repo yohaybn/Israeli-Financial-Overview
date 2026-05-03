@@ -3,6 +3,8 @@
  * Defines interfaces and enums for the notification system
  */
 
+import type { MqttConfig } from '@app/shared';
+
 export type NotificationStatus = 'success' | 'failure' | 'warning';
 export type NotificationDetailLevel = 'minimal' | 'normal' | 'detailed' | 'verbose';
 export type NotificationRunSource = 'telegram_bot' | 'scheduler' | 'manual';
@@ -57,6 +59,7 @@ export interface NotificationChannelConfig {
     chatId?: string;
     botToken?: string;
   };
+  mqtt?: NotifierConfig & MqttConfig;
   [key: string]: NotifierConfig | undefined;
 }
 

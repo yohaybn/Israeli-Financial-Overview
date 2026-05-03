@@ -19,6 +19,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
     const [config, setConfig] = useState<GlobalScrapeConfig | null>(null);
     const [availableChannels, setAvailableChannels] = useState<string[]>([]);
     const [telegramStatus, setTelegramStatus] = useState<any>(null);
+    const [mqttStatus, setMqttStatus] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [toast, setToast] = useState<string | null>(null);
     const lastSerializedRef = useRef<string | null>(null);
@@ -26,10 +27,11 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [configRes, channelsRes, telegramRes] = await Promise.all([
+                const [configRes, channelsRes, telegramRes, mqttRes] = await Promise.all([
                     api.get<{ success: boolean; data: GlobalScrapeConfig }>('/config'),
                     api.get<{ success: boolean; data: string[] }>('/notifications/channels'),
-                    api.get<{ success: boolean; data: any }>('/telegram/status')
+                    api.get<{ success: boolean; data: any }>('/telegram/status'),
+                    api.get<{ success: boolean; data: any }>('/mqtt/status')
                 ]);
 
                 if (configRes.data.success) {
@@ -39,6 +41,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                 }
                 if (channelsRes.data.success) setAvailableChannels(channelsRes.data.data);
                 if (telegramRes.data.success) setTelegramStatus(telegramRes.data.data);
+                if (mqttRes.data.success) setMqttStatus(mqttRes.data.data);
             } catch (err) {
                 console.error('Failed to fetch scrape settings', err);
                 setError(t('scraper.errors.load_failed'));
@@ -523,6 +526,20 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                     <span className="text-xs text-gray-500">{t('post_scrape.telegram_aggregate_desc')}</span>
                                 </span>
                             </label>
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={config.postScrapeConfig.aggregateMqttNotifications !== false}
+                                    onChange={(e) =>
+                                        updatePostScrape({ aggregateMqttNotifications: e.target.checked })
+                                    }
+                                    className="w-5 h-5 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-gray-700">{t('post_scrape.mqtt_aggregate')}</span>
+                                    <span className="text-xs text-gray-500">{t('post_scrape.mqtt_aggregate_desc')}</span>
+                                </span>
+                            </label>
                             <p className="text-xs text-gray-500 pl-8 border-l-2 border-indigo-100 ml-1">
                                 {t('post_scrape.whale_where')}
                             </p>
@@ -606,11 +623,16 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                         <div className="space-y-3">
                             <label className="text-sm font-bold text-gray-700">{t('post_scrape.notification_channels')}</label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                {Array.from(new Set([...(availableChannels || []), 'telegram'])).map((ch) => {
+                                {Array.from(new Set([...(availableChannels || []), 'telegram', 'mqtt'])).map((ch) => {
                                     const isTelegram = ch === 'telegram';
-                                    const isActive = isTelegram ? !!telegramStatus?.isActive : (availableChannels || []).includes(ch);
+                                    const isMqtt = ch === 'mqtt';
+                                    const isActive = isTelegram
+                                        ? !!telegramStatus?.isActive
+                                        : isMqtt
+                                          ? !!mqttStatus?.connected
+                                          : (availableChannels || []).includes(ch);
                                     const isSelected = (config.postScrapeConfig.notificationChannels || []).includes(ch);
-                                    const disabled = isTelegram && !isActive;
+                                    const disabled = (isTelegram && !isActive) || (isMqtt && !isActive);
 
                                     return (
                                         <label key={ch} className={`flex items-center gap-2 p-2 border-2 rounded-xl transition-all ${disabled ? 'opacity-40 grayscale cursor-not-allowed' : 'cursor-pointer'} ${isSelected ? 'border-purple-600 bg-purple-50' : 'border-gray-50 bg-white hover:border-purple-200'}`}>

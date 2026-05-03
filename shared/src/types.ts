@@ -1,3 +1,37 @@
+/**
+ * MQTT broker + publish settings (notification channel, Configuration → MQTT, `mqtt_config.json`).
+ * Passwords are never returned to the client in full from the API (redact or omit).
+ */
+export interface MqttConfig {
+    enabled?: boolean;
+    /** e.g. mqtt://host or mqtts://host */
+    brokerUrl?: string;
+    port?: number;
+    clientId?: string;
+    username?: string;
+    password?: string;
+    /** Primary topic for pipeline NotificationPayload (JSON) */
+    topic?: string;
+    /** TLS: use ssl/tls (mqtts) */
+    useTls?: boolean;
+    /** Reject unauthorized TLS certs (set false for self-signed) */
+    rejectUnauthorized?: boolean;
+    /** Last Will topic (e.g. app status) */
+    willTopic?: string;
+    /** Last Will payload when client disconnects ungracefully */
+    willMessage?: string;
+    /** Retain flag for LWT */
+    willRetain?: boolean;
+}
+
+/**
+ * Optional grouping of channel configs for documentation / API typing.
+ * Server `notification_config.json` may embed `channels.mqtt` using {@link MqttConfig}.
+ */
+export interface NotificationChannelConfig {
+    mqtt?: MqttConfig;
+}
+
 export interface PostScrapeConfig {
     runCategorization: boolean;
     fraudDetection: {
@@ -34,6 +68,11 @@ export interface PostScrapeConfig {
      * Per-request options still override when set by the Telegram bot or API.
      */
     aggregateTelegramNotifications?: boolean;
+    /**
+     * When true (default), combine multiple MQTT messages from a single scrape into one publish per run
+     * (mirrors {@link aggregateTelegramNotifications} for the MQTT channel).
+     */
+    aggregateMqttNotifications?: boolean;
     /**
      * After a successful scrape, send a short budget pace / anomaly digest to configured channels (deduped by fingerprint).
      * Telegram delivery still requires the bot enabled; digest text locale follows Telegram bot language when sending to Telegram.
@@ -554,6 +593,7 @@ export interface ScraperOptions {
     excludedAccountNumbers?: string[];
     suppressTelegramNotifications?: boolean;
     aggregateTelegramNotifications?: boolean;
+    aggregateMqttNotifications?: boolean;
     runSource?: 'telegram_bot' | 'scheduler' | 'manual';
     initiatedBy?: string;
 }
@@ -704,6 +744,8 @@ export const DEFAULT_FINANCIAL_REPORT_SECTIONS: FinancialReportSections = {
 export interface FinancialReportScheduleConfig extends CronScheduleFields {
     enabled: boolean;
     sendTelegram: boolean;
+    /** When true, publish scheduled financial PDF to MQTT (e.g. base64 in JSON on configured topic). */
+    sendMqtt: boolean;
     localeMode: FinancialReportLocaleMode;
     sections: FinancialReportSections;
     /** When the cron fires, which calendar month YYYY-MM to aggregate. */
@@ -718,6 +760,7 @@ export interface FinancialReportScheduleConfig extends CronScheduleFields {
 export const DEFAULT_FINANCIAL_REPORT_SCHEDULE: FinancialReportScheduleConfig = {
     enabled: false,
     sendTelegram: false,
+    sendMqtt: false,
     localeMode: 'bilingual',
     sections: { ...DEFAULT_FINANCIAL_REPORT_SECTIONS },
     scheduledMonthRule: 'previous_calendar_month',

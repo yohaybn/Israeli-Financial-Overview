@@ -32,6 +32,7 @@ const emptyFrSchedule = (): ScheduleEditorValue => ({
 function parseFinancialReportFromApi(fr: Record<string, unknown>): {
     enabled: boolean;
     sendTelegram: boolean;
+    sendMqtt: boolean;
     localeMode: FinancialReportLocaleMode;
     scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
     sections: FinancialReportSections;
@@ -61,6 +62,7 @@ function parseFinancialReportFromApi(fr: Record<string, unknown>): {
     return {
         enabled: Boolean(fr.enabled),
         sendTelegram: Boolean(fr.sendTelegram),
+        sendMqtt: Boolean(fr.sendMqtt),
         localeMode,
         scheduledMonthRule:
             fr.scheduledMonthRule === 'current_calendar_month' ? 'current_calendar_month' : 'previous_calendar_month',
@@ -86,6 +88,7 @@ function parseFinancialReportFromApi(fr: Record<string, unknown>): {
 function buildFinancialReportPatch(p: {
     enabled: boolean;
     sendTelegram: boolean;
+    sendMqtt: boolean;
     localeMode: FinancialReportLocaleMode;
     scheduledMonthRule: 'previous_calendar_month' | 'current_calendar_month';
     sections: FinancialReportSections;
@@ -98,6 +101,7 @@ function buildFinancialReportPatch(p: {
     return {
         enabled: p.enabled,
         sendTelegram: p.sendTelegram,
+        sendMqtt: p.sendMqtt,
         localeMode: p.localeMode,
         scheduledMonthRule: p.scheduledMonthRule,
         sections: p.sections,
@@ -124,6 +128,7 @@ export function FinancialReportSettings() {
 
     const [enabled, setEnabled] = useState(false);
     const [sendTelegram, setSendTelegram] = useState(false);
+    const [sendMqtt, setSendMqtt] = useState(false);
     const [localeMode, setLocaleMode] = useState<FinancialReportLocaleMode>('bilingual');
     const [scheduledMonthRule, setScheduledMonthRule] = useState<'previous_calendar_month' | 'current_calendar_month'>(
         'previous_calendar_month'
@@ -149,6 +154,7 @@ export function FinancialReportSettings() {
         const parsed = parseFinancialReportFromApi(data as Record<string, unknown>);
         setEnabled(parsed.enabled);
         setSendTelegram(parsed.sendTelegram);
+        setSendMqtt(parsed.sendMqtt);
         setLocaleMode(parsed.localeMode);
         setScheduledMonthRule(parsed.scheduledMonthRule);
         setSections(parsed.sections);
@@ -168,6 +174,7 @@ export function FinancialReportSettings() {
             buildFinancialReportPatch({
                 enabled,
                 sendTelegram,
+                sendMqtt,
                 localeMode,
                 scheduledMonthRule,
                 sections,
@@ -178,6 +185,7 @@ export function FinancialReportSettings() {
         [
             enabled,
             sendTelegram,
+            sendMqtt,
             localeMode,
             scheduledMonthRule,
             sections,
@@ -213,6 +221,8 @@ export function FinancialReportSettings() {
         const d = DEFAULT_FINANCIAL_REPORT_SCHEDULE;
         setEnabled(d.enabled);
         setSendTelegram(d.sendTelegram);
+        setSendMqtt(d.sendMqtt);
+        setSendMqtt(d.sendMqtt);
         setLocaleMode(d.localeMode);
         setScheduledMonthRule(d.scheduledMonthRule);
         setSections({ ...d.sections });
@@ -452,6 +462,11 @@ export function FinancialReportSettings() {
                     <span className="text-sm font-medium text-gray-800">{t('report.send_telegram')}</span>
                 </label>
                 <p className="text-xs text-gray-500">{t('report.send_telegram_help')}</p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={sendMqtt} onChange={() => setSendMqtt(!sendMqtt)} className="rounded border-gray-300" />
+                    <span className="text-sm font-medium text-gray-800">{t('report.send_mqtt')}</span>
+                </label>
+                <p className="text-xs text-gray-500">{t('report.send_mqtt_help')}</p>
             </div>
 
             {message && <p className="text-sm text-emerald-700">{message}</p>}
