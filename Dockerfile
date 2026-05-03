@@ -67,4 +67,8 @@ ENV DATA_DIR=/data
 ENV PORT=9203
 EXPOSE 9203
 
+# Inherited ENTRYPOINT from the app image (Dockerfile.app: docker-entrypoint.sh) would run
+# `node /run.sh` and crash with "SyntaxError: Invalid regular expression flags". Reset it
+# so Supervisor / s6 invokes /run.sh directly as a shell script.
+ENTRYPOINT []
 CMD [ "/run.sh" ]
