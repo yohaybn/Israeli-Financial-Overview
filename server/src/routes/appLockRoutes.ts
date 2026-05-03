@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { appLockService } from '../services/appLockService.js';
 import { profileService } from '../services/profileService.js';
+import { notifySchedulerScrapeAfterUnlockOrStartup } from '../services/schedulerUnlockCoordinator.js';
 
 export const appLockRoutes = Router();
 
@@ -28,6 +29,7 @@ appLockRoutes.post('/unlock', async (req, res) => {
     }
     try {
         const migration = await profileService.migrateFromEnvIfNeeded();
+        notifySchedulerScrapeAfterUnlockOrStartup();
         return res.json({
             success: true,
             migratedProfiles: migration.migrated,
@@ -55,6 +57,7 @@ appLockRoutes.post('/setup', async (req, res) => {
     }
     try {
         const migration = await profileService.migrateFromEnvIfNeeded();
+        notifySchedulerScrapeAfterUnlockOrStartup();
         return res.json({
             success: true,
             migratedProfiles: migration.migrated,

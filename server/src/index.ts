@@ -9,6 +9,10 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { createSchedulerRoutes } from './routes/schedulerRoutes.js';
 import { SchedulerService } from './services/schedulerService.js';
+import {
+  registerSchedulerForUnlockScrape,
+  notifySchedulerScrapeAfterUnlockOrStartup,
+} from './services/schedulerUnlockCoordinator.js';
 import { ScraperService } from './services/scraperService.js';
 import { postScrapeService } from './services/postScrapeService.js';
 import { profileService } from './services/profileService.js';
@@ -19,6 +23,7 @@ import { ImportService } from './services/importService.js';
 import { serverLogger } from './utils/logger.js';
 import { maskSensitiveData } from './utils/masking.js';
 import { runAiMemoryRetentionPrune } from './services/aiMemoryRetention.js';
+import { appLockService } from './services/appLockService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,6 +72,7 @@ async function startServer() {
   postScrapeService.setSocketIO(io);
 
   const schedulerService = new SchedulerService(scraperService, profileService);
+  registerSchedulerForUnlockScrape(schedulerService);
 
   // Supervisor / some proxies forward paths like `//assets/...`, which breaks express.static and routing.
   app.use((req, _res, next) => {
@@ -217,6 +223,11 @@ async function startServer() {
       serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
       reloadPortfolioSnapshotSchedule();
+      setTimeout(() => {
+        if (!appLockService.isLockConfigured()) {
+          notifySchedulerScrapeAfterUnlockOrStartup();
+        }
+      }, 2500);
       void runAiMemoryRetentionPrune().catch((e: unknown) => {
         const msg = e instanceof Error ? e.message : String(e);
         const stack = e instanceof Error ? e.stack : undefined;

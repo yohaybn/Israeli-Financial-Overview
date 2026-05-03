@@ -228,6 +228,8 @@
         "interval_anchor_desc": "Runs on this date, then every N days after.",
         "custom_cron": "Cron expression",
         "custom_cron_desc": "Five fields: minute hour day-of-month month day-of-week (same as standard cron).",
+        "scrape_on_unlock_title": "Also run once after unlock or startup",
+        "scrape_on_unlock_description": "When the app is locked, runs one automated scrape right after you unlock (web or Telegram). When no app lock is set, runs once shortly after the server starts. Uses the same profiles as your scheduled run. Your time-based schedule still applies as usual.",
         "profiles": "Profiles to Scrape",
         "insight_rules_configure_link": "Open Insight rules settings",
         "insight_rules_timer_title": "Scheduled insight rules (timer)",

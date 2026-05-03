@@ -28,6 +28,7 @@ import { transactionsToCsv, transactionsToJson, buildCategoryExpenseSlices } fro
 import { ConfigService } from './configService.js';
 import { renderCategorySpendingPiePng } from './categoryPieImageService.js';
 import { postScrapeService } from './postScrapeService.js';
+import { notifySchedulerScrapeAfterUnlockOrStartup } from './schedulerUnlockCoordinator.js';
 import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
 import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
@@ -2114,6 +2115,7 @@ export class TelegramBotService {
       const ok = appLockService.tryUnlock(password);
       if (ok) {
         await profileService.migrateFromEnvIfNeeded();
+        notifySchedulerScrapeAfterUnlockOrStartup();
       }
 
       if (chatId) {

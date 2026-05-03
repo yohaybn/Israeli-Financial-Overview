@@ -41,7 +41,8 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
     const getProviderName = (companyId: string) => getProviderDisplayName(companyId, providers, i18n.language);
 
     const [enabled, setEnabled] = useState(false);
-    const [scrapeSchedule, setScrapeSchedule] = useState<ScheduleEditorValue>(emptySchedule);
+    const [scrapeOnceOnUnlockOrStartup, setScrapeOnceOnUnlockOrStartup] = useState(false);
+    const [scrapeSchedule, setScrapeSchedule] = useState<ScheduleEditorValue>(() => emptySchedule());
 
     const [backupEnabled, setBackupEnabled] = useState(false);
     const [backupDestination, setBackupDestination] = useState<'local' | 'google-drive'>('local');
@@ -84,6 +85,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
         if (!config) return;
 
         setEnabled(config.enabled ?? false);
+        setScrapeOnceOnUnlockOrStartup(Boolean(config.scrapeOnceOnUnlockOrStartup));
         const parts = config.cronExpression?.split(' ') || [];
         const scrapeRunTime =
             config.runTime ??
@@ -144,6 +146,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
         const bm = backupSchedule.monthDays.length ? backupSchedule.monthDays : [1];
         return {
             enabled,
+            scrapeOnceOnUnlockOrStartup,
             scheduleType: scrapeSchedule.scheduleType,
             runTime: scrapeSchedule.runTime,
             selectedProfiles,
@@ -190,6 +193,7 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
         };
     }, [
         enabled,
+        scrapeOnceOnUnlockOrStartup,
         scrapeSchedule,
         backupEnabled,
         backupDestination,
@@ -361,6 +365,20 @@ export function SchedulerSettings({ isInline = false }: { isInline?: boolean }) 
 
                 <div className={`space-y-8 transition-opacity duration-200 ${enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
                     <ScheduleEditor value={scrapeSchedule} onChange={patchScrape} />
+
+                    <div className="flex gap-3 rounded-xl border border-gray-200 bg-[#fafbfc] p-4 items-start">
+                        <input
+                            id="scheduler-scrape-on-unlock"
+                            type="checkbox"
+                            checked={scrapeOnceOnUnlockOrStartup}
+                            onChange={(e) => setScrapeOnceOnUnlockOrStartup(e.target.checked)}
+                            className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600"
+                        />
+                        <label htmlFor="scheduler-scrape-on-unlock" className="text-sm text-[#1a2b3c] cursor-pointer select-none">
+                            <span className="font-semibold">{t('scheduler.scrape_on_unlock_title')}</span>
+                            <span className="block mt-1 text-gray-600 leading-snug">{t('scheduler.scrape_on_unlock_description')}</span>
+                        </label>
+                    </div>
 
                     <div>
                         <label className={`${SCHED_LABEL} mb-3`}>{t('scheduler.profiles')}</label>

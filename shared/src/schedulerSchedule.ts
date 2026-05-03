@@ -169,7 +169,8 @@ export function normalizeSchedulerConfig<T extends SchedulerConfig>(config: T): 
 
     return {
         ...config,
-        ...normalized
+        ...normalized,
+        scrapeOnceOnUnlockOrStartup: Boolean(config.scrapeOnceOnUnlockOrStartup)
     } as T;
 }
 

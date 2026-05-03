@@ -623,6 +623,8 @@ export interface CronScheduleFields {
 
 export interface SchedulerConfig extends CronScheduleFields {
     enabled: boolean;
+    /** With automation enabled: run one scheduled scrape when the user unlocks the app or (if no lock) shortly after server start. */
+    scrapeOnceOnUnlockOrStartup?: boolean;
     selectedProfiles: string[]; // List of profile IDs to run
     /** Independent of scrape schedule; re-runs insight rules on a timer (no scrape). */
     insightRulesSchedule?: InsightRulesScheduleConfig;
@@ -744,6 +746,7 @@ export const DEFAULT_INSIGHT_RULES_SCHEDULE: InsightRulesScheduleConfig = {
 
 export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
     enabled: false,
+    scrapeOnceOnUnlockOrStartup: false,
     scheduleType: 'daily',
     runTime: '08:00',
     cronExpression: '0 8 * * *', // Default: Daily at 8:00 AM

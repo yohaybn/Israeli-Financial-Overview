@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/command/with-contenv sh
 set -e
 
 CONFIG_PATH=/data/options.json
@@ -6,15 +6,14 @@ echo "Starting Financial Overview Add-on..."
 
 if [ -f "$CONFIG_PATH" ]; then
     echo "Reading config from $CONFIG_PATH"
-    
-    # helper to export if key exists and is not null
+
     export_json_key() {
-        local key=$1
-        local env_var=$2
-        local val=$(jq --raw-output ".$key // empty" $CONFIG_PATH)
-        if [ ! -z "$val" ]; then
+        key=$1
+        env_var=$2
+        val=$(jq --raw-output ".$key // empty" "$CONFIG_PATH")
+        if [ -n "$val" ]; then
             echo "Setting $env_var"
-            export "$env_var"="$val"
+            export "$env_var=$val"
         fi
     }
 
@@ -25,7 +24,7 @@ if [ -f "$CONFIG_PATH" ]; then
     export_json_key "gemini_api_key" "GEMINI_API_KEY"
     export_json_key "telegram_bot_token" "TELEGRAM_BOT_TOKEN"
     export_json_key "eodhd_api_token" "EODHD_API_TOKEN"
-    
+
 fi
 
 # Home Assistant: Supervisor proxies Ingress to `ingress_port` in ha-addon/config.yaml (default 9203). The

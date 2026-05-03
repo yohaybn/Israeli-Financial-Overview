@@ -264,6 +264,24 @@ export class SchedulerService {
         }
     }
 
+    /**
+     * When automation is on and scrapeOnceOnUnlockOrStartup is set, trigger the same run as the timer
+     * (after unlock, or after server start if no app lock — caller should invoke on listen in that case).
+     */
+    public maybeTriggerScrapeOnUnlockOrStartup(): void {
+        const cfg = normalizeSchedulerConfig(this.config);
+        if (!cfg.enabled || !cfg.scrapeOnceOnUnlockOrStartup) {
+            return;
+        }
+        if (!appLockService.isUnlocked()) {
+            return;
+        }
+        logger.info('Scrape-on-unlock/start option: triggering scheduled scrape run');
+        void this.runScheduledScrape().catch((err: unknown) => {
+            logger.error('Scrape-on-unlock/start run failed', { error: err });
+        });
+    }
+
     private startBackupJob() {
         this.stopBackupJob();
 

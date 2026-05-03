@@ -59,6 +59,8 @@ RUN case "$(uname -m)" in aarch64|arm64) cpu=arm64 ;; armv7l|armv6l|armhf) cpu=a
     && npm install --no-save --os=linux --cpu="$cpu" sharp -w server
 
 COPY run.sh /
+# Strip Windows CRLF if present (broken shebang → kernel falls through to Node and tries to interpret shell as JS).
+RUN sed -i 's/\r$//' /run.sh
 RUN chmod a+x /run.sh
 
 ENV DATA_DIR=/data

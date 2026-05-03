@@ -341,6 +341,7 @@ export const demoHandlers = [
             success: true,
             data: {
                 enabled: false,
+                scrapeOnceOnUnlockOrStartup: false,
                 insightRulesSchedule: {
                     enabled: false,
                     scheduleType: 'daily',
