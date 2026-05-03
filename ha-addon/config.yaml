@@ -1,6 +1,6 @@
 name: "Financial Overview"
 # Must match server/package.json "version". Supervisor passes BUILD_VERSION to CI Docker builds from this value.
-version: "1.3.8"
+version: "1.3.9"
 slug: "bank_scraper"
 description: "Financial Overview (מבט כלכלי) — scrape Israeli banks and upload to Google Drive"
 url: "https://github.com/yohaybn/Israeli-Financial-Overview"
