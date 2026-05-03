@@ -34,12 +34,25 @@ if (typeof window !== 'undefined') {
     // One-time diagnostic so users debugging "why does /api/... 404 in HA Ingress?" can confirm at a
     // glance which base the bundle is actually using. Cheap; runs once at module init.
     // eslint-disable-next-line no-console
+    const normalizedPathname = window.location.pathname
+        .replace(/\/+/g, '/')
+        .replace(/\/+$/, '');
+    const resolvedApiRoot = getApiRoot();
+    const ingressPathDetected = /^\/api\/hassio_ingress\/[^/]+$/.test(normalizedPathname);
     console.info('[api] resolved API root', {
-        apiRoot: getApiRoot(),
+        apiRoot: resolvedApiRoot,
         baseUrl: import.meta.env.BASE_URL,
+        buildVersion: import.meta.env.VITE_APP_BUILD_VERSION,
+        installKind: import.meta.env.VITE_INSTALL_KIND,
+        moduleUrl: import.meta.url,
         pathname: window.location.pathname,
+        normalizedPathname,
         href: window.location.href,
     });
+    if (ingressPathDetected && resolvedApiRoot === '/api') {
+        // eslint-disable-next-line no-console
+        console.warn('[api] ingress path detected but API root resolved to /api; stale cached frontend bundle is likely');
+    }
 }
 
 /**
