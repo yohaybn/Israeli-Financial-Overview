@@ -8,13 +8,17 @@ export function isIngressRelativeBase(): boolean {
     return b === './' || b.startsWith('./');
 }
 
-/** Directory URL (with trailing slash) for resolving static files and API roots in the browser. */
+/**
+ * Directory URL (with trailing slash) for resolving static files and API roots in the browser.
+ *
+ * Do NOT branch on `import.meta.env.DEV` — the addon Dockerfile sets `NODE_ENV=development`
+ * during install/build, which Vite can bake as `DEV=true` even in the production bundle.
+ * The path-based logic below produces the right answer in dev (`base === '/'`) and in
+ * ingress (`base === './'`).
+ */
 export function getResolvedPublicBase(): string {
     const base = import.meta.env.BASE_URL;
-    if (import.meta.env.DEV) {
-        return `${window.location.origin}/`;
-    }
-    if (base === '/' || base === '') {
+    if (base === '/' || base === '' || base == null) {
         return `${window.location.origin}/`;
     }
     if (isIngressRelativeBase()) {
@@ -45,16 +49,19 @@ export function getIngressPathPrefix(): string {
 }
 
 /**
- * Socket.IO `path` option: derived from the live `window.location.pathname`, mirroring
- * `getApiRoot()` in `lib/api.ts`. Reading pathname directly is robust against bundler/Ingress
- * quirks where `import.meta.env.BASE_URL` branches were unreliable.
+ * Socket.IO `path` option: mirrors `getApiRoot()` in `lib/api.ts`. Detect the HA ingress URL
+ * explicitly rather than branching on `import.meta.env.DEV`; the addon Dockerfile sets
+ * `NODE_ENV=development` during build, which can leak `DEV=true` into the production bundle
+ * and make this short-circuit incorrectly to `/socket.io` under ingress.
  */
 export function getSocketIoPath(): string {
-    if (import.meta.env.DEV) return '/socket.io';
-    const pathname =
-        typeof window !== 'undefined' && window.location && window.location.pathname
-            ? window.location.pathname
-            : '/';
-    const normalized = pathname.replace(/\/+/g, '/').replace(/\/+$/, '');
-    return normalized ? `${normalized}/socket.io` : '/socket.io';
+    if (typeof window === 'undefined' || !window.location || !window.location.pathname) {
+        return '/socket.io';
+    }
+    const pathname = window.location.pathname;
+    const ingressMatch = pathname.match(/^\/api\/hassio_ingress\/[^/]+/);
+    if (ingressMatch) {
+        return `${ingressMatch[0]}/socket.io`;
+    }
+    return '/socket.io';
 }
