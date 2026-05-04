@@ -22,7 +22,7 @@ export function isBackupScopeId(s: string): s is BackupScopeId {
 
 /** Map a snapshot entry path to its scope, or null if unknown (ignored during restore). */
 export function backupEntryPathToScope(entryPath: string): BackupScopeId | null {
-    if (entryPath === 'app.db') {
+    if (entryPath === 'app.db' || entryPath === 'eodhd_api_token.backup.json') {
         return 'database';
     }
     if (entryPath === BACKUP_SNAPSHOT_RUNTIME_SETTINGS_PATH) {

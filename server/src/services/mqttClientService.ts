@@ -44,6 +44,21 @@ export class MqttClientService {
   private lastError: string | null = null;
   private connected = false;
   private connectInFlight: Promise<void> | null = null;
+  private readonly packetHandlers = new Set<(topic: string, payload: Buffer) => void>();
+  private readonly forwardMessage = (topic: string, payload: Buffer) => {
+    for (const fn of this.packetHandlers) {
+      try {
+        fn(topic, payload);
+      } catch (e) {
+        logger.error('MQTT inbound handler error', { error: (e as Error).message });
+      }
+    }
+  };
+
+  addPacketHandler(handler: (topic: string, payload: Buffer) => void): () => void {
+    this.packetHandlers.add(handler);
+    return () => this.packetHandlers.delete(handler);
+  }
 
   getConfig(): MqttConfig {
     return { ...this.config };
@@ -80,7 +95,9 @@ export class MqttClientService {
 
   isConfiguredForPublish(): boolean {
     const c = this.config;
-    return !!(c.enabled && c.brokerUrl?.trim() && c.topic?.trim());
+    const hasNotify = !!c.topic?.trim();
+    const hasCommands = !!c.commandTopic?.trim();
+    return !!(c.enabled && c.brokerUrl?.trim() && (hasNotify || hasCommands));
   }
 
   getStatus(): { connected: boolean; lastError: string | null; brokerHost: string | null } {
@@ -174,6 +191,17 @@ export class MqttClientService {
           });
           const onlinePayload = Buffer.from('online', 'utf-8');
           cli.publish(willTopic, onlinePayload, { qos: 1, retain: c.willRetain !== false }, () => {
+            cli.on('message', this.forwardMessage);
+            const cmdTop = c.commandTopic?.trim();
+            if (cmdTop) {
+              cli.subscribe(cmdTop, { qos: 1 }, (subErr) => {
+                if (subErr) {
+                  logger.warn('MQTT command topic subscribe failed', { topic: cmdTop, error: subErr.message });
+                } else {
+                  logger.info('MQTT subscribed to command topic', { topic: cmdTop });
+                }
+              });
+            }
             resolve();
           });
         });
@@ -211,6 +239,7 @@ export class MqttClientService {
   destroyClient(): void {
     if (this.client) {
       try {
+        this.client.removeListener('message', this.forwardMessage);
         this.client.removeAllListeners();
         this.client.end(true);
       } catch {

@@ -13,6 +13,8 @@ import {
 import { GoogleAuthService } from './googleAuthService.js';
 import { DbService, closeDbForRestore } from './dbService.js';
 import { RUNTIME_SETTINGS_PATH } from '../runtimeEnv.js';
+import { getEodhdApiToken, invalidateInvestmentMarketSettingsCache } from '../constants/marketData.js';
+import { DEFAULT_INVESTMENT_USER_ID } from '../constants/investments.js';
 
 export { BACKUP_SCOPE_IDS, type BackupScopeId };
 
@@ -31,6 +33,8 @@ const SNAPSHOT_NAME_PREFIX = 'bank-scraper-backup';
 const BACKUP_EXT = '.backup.json';
 
 const RUNTIME_SETTINGS_SNAPSHOT_PATH = BACKUP_SNAPSHOT_RUNTIME_SETTINGS_PATH;
+/** Saved next to app.db when the database scope is included; carries env-only EODHD tokens into restore. */
+const EODHD_TOKEN_BACKUP_SNAPSHOT_PATH = 'eodhd_api_token.backup.json';
 
 const BACKUP_TARGETS = [
     'results',
@@ -214,7 +218,33 @@ export class BackupService {
             });
         }
 
+        await this.injectResolvedEodhdApiToken(entries, scopes);
+
         return entries;
+    }
+
+    /**
+     * Persist the effective EODHD token (same resolution as runtime: env overrides DB) when backing up `database`,
+     * so restores keep working when the token was only set via EODHD_API_TOKEN.
+     */
+    private async injectResolvedEodhdApiToken(entries: BackupEntry[], scopes?: BackupScopeId[]): Promise<void> {
+        if (!this.scopeWanted(scopes, 'database')) {
+            return;
+        }
+        const effective = getEodhdApiToken()?.trim() || '';
+        const idx = entries.findIndex(e => e.path === EODHD_TOKEN_BACKUP_SNAPSHOT_PATH);
+        if (idx >= 0) {
+            entries.splice(idx, 1);
+        }
+        if (!effective) {
+            return;
+        }
+        const json = JSON.stringify({ apiToken: effective }, null, 2);
+        entries.push({
+            path: EODHD_TOKEN_BACKUP_SNAPSHOT_PATH,
+            encoding: 'base64',
+            content: Buffer.from(json, 'utf8').toString('base64')
+        });
     }
 
     /**
@@ -437,7 +467,42 @@ export class BackupService {
         const dbRestored = willRestoreDb;
         const needsReloadFromFiles = !dbRestored && (isPartial ? wroteResultsFiles : true);
 
+        await this.applyEodhdTokenBackupSidecarIfNeeded(filesToRestore);
+
         return { dbRestored, needsReloadFromFiles };
+    }
+
+    /** Merge bundled EODHD token into SQLite and remove sidecar file (included with database-scope backups). */
+    private async applyEodhdTokenBackupSidecarIfNeeded(filesRestored: BackupSnapshot['files']): Promise<void> {
+        if (!filesRestored.some(e => e.path === EODHD_TOKEN_BACKUP_SNAPSHOT_PATH)) {
+            return;
+        }
+        const sidecarAbs = path.join(DATA_DIR, EODHD_TOKEN_BACKUP_SNAPSHOT_PATH);
+        if (!(await fs.pathExists(sidecarAbs))) {
+            return;
+        }
+        try {
+            const raw = (await fs.readJson(sidecarAbs)) as Record<string, unknown>;
+            await fs.remove(sidecarAbs);
+            const token = typeof raw.apiToken === 'string' ? raw.apiToken.trim() : '';
+            if (!token) {
+                return;
+            }
+            const dbSvc = new DbService();
+            const cur = dbSvc.getInvestmentAppSettings(DEFAULT_INVESTMENT_USER_ID);
+            dbSvc.upsertInvestmentAppSettings({
+                ...cur,
+                userId: DEFAULT_INVESTMENT_USER_ID,
+                eodhdApiToken: token,
+            });
+            invalidateInvestmentMarketSettingsCache();
+        } catch {
+            try {
+                await fs.remove(sidecarAbs);
+            } catch {
+                /* ignore */
+            }
+        }
     }
 
     async restoreFromLocalBackup(filename: string, scopes?: BackupScopeId[]): Promise<RestoreSnapshotResult> {

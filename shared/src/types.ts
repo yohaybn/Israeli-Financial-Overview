@@ -22,6 +22,18 @@ export interface MqttConfig {
     willMessage?: string;
     /** Retain flag for LWT */
     willRetain?: boolean;
+    /**
+     * Subscribe to this topic for JSON command messages (automation parity with Telegram slash commands).
+     * Payload shape: `{ "command": string, "requestId"?: string, "secret"?: string, "userId"?: string, "args"?: object }`.
+     */
+    commandTopic?: string;
+    /** Publish command results here; default `{commandTopic}/response` when commandTopic is set. */
+    commandResponseTopic?: string;
+    /**
+     * Shared secret for MQTT commands. Required when commandTopic is set unless Telegram allowedUsers is configured
+     * (then userId must match allowedUsers). Prefer always setting a strong secret.
+     */
+    commandSecret?: string;
 }
 
 /**

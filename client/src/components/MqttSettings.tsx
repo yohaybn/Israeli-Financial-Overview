@@ -5,6 +5,45 @@ import { Radio } from 'lucide-react';
 import { getApiRoot } from '../lib/api';
 import type { MqttConfig } from '@app/shared';
 
+/** Defaults for empty / new MQTT config (aligns with server fallbacks where applicable). */
+const MQTT_FORM_DEFAULTS: Partial<MqttConfig> = {
+    enabled: false,
+    brokerUrl: '',
+    useTls: false,
+    rejectUnauthorized: true,
+    topic: 'bank-scraper/notify',
+    commandTopic: '',
+    commandResponseTopic: '',
+    clientId: '',
+    username: '',
+    willTopic: '',
+    willMessage: 'offline',
+};
+
+function mergeConfigIntoForm(api: MqttConfig): Partial<MqttConfig> {
+    const merged: Partial<MqttConfig> = { ...MQTT_FORM_DEFAULTS, ...api };
+    if (!String(merged.topic ?? '').trim()) {
+        merged.topic = MQTT_FORM_DEFAULTS.topic;
+    }
+    if (merged.willMessage === undefined || merged.willMessage === null || !String(merged.willMessage).trim()) {
+        merged.willMessage = MQTT_FORM_DEFAULTS.willMessage;
+    }
+    if (merged.rejectUnauthorized === undefined) {
+        merged.rejectUnauthorized = MQTT_FORM_DEFAULTS.rejectUnauthorized;
+    }
+    if (merged.enabled === undefined) {
+        merged.enabled = MQTT_FORM_DEFAULTS.enabled;
+    }
+    if (merged.useTls === undefined) {
+        merged.useTls = MQTT_FORM_DEFAULTS.useTls;
+    }
+    merged.password =
+        api.password && String(api.password).startsWith('***') ? '' : api.password ?? '';
+    merged.commandSecret =
+        api.commandSecret && String(api.commandSecret).startsWith('***') ? '' : api.commandSecret ?? '';
+    return merged;
+}
+
 interface MqttSettingsProps {
     isInline?: boolean;
 }
@@ -14,7 +53,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
     const queryClient = useQueryClient();
     const enabled = isInline !== false;
 
-    const [form, setForm] = useState<Partial<MqttConfig>>({});
+    const [form, setForm] = useState<Partial<MqttConfig>>(() => ({ ...MQTT_FORM_DEFAULTS }));
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const showNotification = useCallback((type: 'success' | 'error', message: string) => {
@@ -35,11 +74,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
 
     useEffect(() => {
         if (config) {
-            setForm({
-                ...config,
-                password:
-                    config.password && String(config.password).startsWith('***') ? '' : config.password,
-            });
+            setForm(mergeConfigIntoForm(config));
         }
     }, [config]);
 
@@ -135,7 +170,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     <span className="text-xs font-bold text-gray-600">{t('mqtt.broker_url')}</span>
                     <input
                         className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="mqtt://localhost or mqtts://"
+                        placeholder="mqtt://127.0.0.1:1883"
                         value={form.brokerUrl || ''}
                         onChange={(e) => updateField('brokerUrl', e.target.value)}
                     />
@@ -169,11 +204,48 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     <span className="text-xs font-bold text-gray-600">{t('mqtt.notify_topic')}</span>
                     <input
                         className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
-                        placeholder="bank-scraper/notify"
+                        placeholder={MQTT_FORM_DEFAULTS.topic}
                         value={form.topic || ''}
                         onChange={(e) => updateField('topic', e.target.value)}
                     />
+                    <p className="mt-1 text-xs text-gray-500">{t('mqtt.notify_topic_hint')}</p>
                 </label>
+
+                <div className="border-t border-gray-100 pt-3 space-y-3">
+                    <div className="text-xs font-bold text-gray-500 uppercase">{t('mqtt.commands_section')}</div>
+                    <label className="block">
+                        <span className="text-xs font-bold text-gray-600">{t('mqtt.command_topic')}</span>
+                        <input
+                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                            placeholder="bank-scraper/cmd"
+                            value={form.commandTopic || ''}
+                            onChange={(e) => updateField('commandTopic', e.target.value)}
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-bold text-gray-600">{t('mqtt.command_response_topic')}</span>
+                        <input
+                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                            placeholder={t('mqtt.command_response_placeholder')}
+                            value={form.commandResponseTopic || ''}
+                            onChange={(e) => updateField('commandResponseTopic', e.target.value)}
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-bold text-gray-600">{t('mqtt.command_secret')}</span>
+                        <input
+                            type="password"
+                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                            autoComplete="new-password"
+                            placeholder={
+                                config?.commandSecret?.startsWith?.('***') ? '••••••••' : ''
+                            }
+                            value={form.commandSecret || ''}
+                            onChange={(e) => updateField('commandSecret', e.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-gray-500">{t('mqtt.command_secret_hint')}</p>
+                    </label>
+                </div>
 
                 <label className="block">
                     <span className="text-xs font-bold text-gray-600">{t('mqtt.client_id')}</span>
@@ -232,6 +304,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                         <span className="text-xs font-bold text-gray-600">{t('mqtt.will_message')}</span>
                         <input
                             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                            placeholder={MQTT_FORM_DEFAULTS.willMessage ?? 'offline'}
                             value={form.willMessage ?? ''}
                             onChange={(e) => updateField('willMessage', e.target.value)}
                         />
@@ -250,8 +323,9 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     <button
                         type="button"
                         onClick={() => testMutation.mutate()}
-                        disabled={testMutation.isPending || !form.enabled}
+                        disabled={testMutation.isPending || !form.enabled || !form.topic?.trim()}
                         className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        title={!form.topic?.trim() ? t('mqtt.test_requires_notify_topic') : undefined}
                     >
                         {t('mqtt.test_publish')}
                     </button>

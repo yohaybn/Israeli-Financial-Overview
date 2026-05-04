@@ -8,16 +8,25 @@ import { mqttClientService } from '../services/mqttClientService.js';
 import { MqttNotifier } from '../services/notifications/mqttNotifier.js';
 import { notificationService } from '../services/notifications/notificationService.js';
 import { serverLogger } from '../utils/logger.js';
+import { initMqttCommandService } from '../services/mqttCommandService.js';
 
 const router = Router();
 
 function maskPassword(cfg: MqttConfig): MqttConfig {
+  const out = { ...cfg };
   const p = cfg.password;
-  if (!p || typeof p !== 'string') return { ...cfg, password: '' };
-  return {
-    ...cfg,
-    password: p.length ? `***${p.slice(-4)}` : '',
-  };
+  if (p && typeof p === 'string' && p.length) {
+    out.password = `***${p.slice(-4)}`;
+  } else {
+    out.password = '';
+  }
+  const s = cfg.commandSecret;
+  if (s && typeof s === 'string' && s.length) {
+    out.commandSecret = `***${s.slice(-4)}`;
+  } else if (s !== undefined) {
+    out.commandSecret = '';
+  }
+  return out;
 }
 
 /** Register or refresh MQTT notifier after config changes (reads live config from mqttClientService). */
@@ -28,6 +37,7 @@ export function registerMqttNotifier(): void {
   } catch (e) {
     serverLogger.warn('MQTT notifier registration skipped', { error: (e as Error).message });
   }
+  initMqttCommandService();
 }
 
 /**
@@ -60,10 +70,19 @@ router.post('/config', async (req: Request, res: Response) => {
     if (typeof body.password === 'string' && body.password.startsWith('***')) {
       merged.password = current.password;
     }
+    if (typeof body.commandSecret === 'string' && body.commandSecret.startsWith('***')) {
+      merged.commandSecret = current.commandSecret;
+    }
     if (body.password === '' || body.password === undefined) {
       delete (merged as any).password;
       if (current.password && body.password === undefined) {
         merged.password = current.password;
+      }
+    }
+    if (body.commandSecret === '' || body.commandSecret === undefined) {
+      delete (merged as any).commandSecret;
+      if (current.commandSecret && body.commandSecret === undefined) {
+        merged.commandSecret = current.commandSecret;
       }
     }
     mqttClientService.saveToDisk(merged);
@@ -118,10 +137,23 @@ router.get('/status', (_req: Request, res: Response) => {
  */
 router.post('/test', async (_req: Request, res: Response) => {
   try {
-    if (!mqttClientService.isConfiguredForPublish()) {
+    const live = mqttClientService.getConfig();
+    if (!live.enabled || !live.brokerUrl?.trim()) {
       return res.status(400).json({
         success: false,
-        error: 'MQTT is not enabled or broker/topic is missing',
+        error: 'MQTT is not enabled or broker URL is missing',
+      });
+    }
+    if (!live.topic?.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Set a notification topic to run test publish',
+      });
+    }
+    if (!mqttClientService.getStatus().connected) {
+      return res.status(400).json({
+        success: false,
+        error: 'MQTT is not connected',
       });
     }
     const payload = JSON.stringify({

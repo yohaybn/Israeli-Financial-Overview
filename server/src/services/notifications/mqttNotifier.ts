@@ -14,8 +14,9 @@ export class MqttNotifier extends BaseNotifier {
   }
 
   async send(payload: NotificationPayload): Promise<void> {
-    if (!mqttClientService.isConfiguredForPublish()) {
-      serverLogger.debug('MQTT notifier skip: not configured');
+    const c = mqttClientService.getConfig();
+    if (!mqttClientService.isConfiguredForPublish() || !c.topic?.trim()) {
+      serverLogger.debug('MQTT notifier skip: not configured or no notify topic');
       return;
     }
     const body = toJson(payload);

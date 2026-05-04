@@ -6,6 +6,7 @@ test('backupScopesInSnapshot collects unique scopes from paths', () => {
     const scopes = backupScopesInSnapshot({
         files: [
             { path: 'app.db' },
+            { path: 'eodhd_api_token.backup.json' },
             { path: 'results/x.json' },
             { path: 'config/a.json' },
             { path: 'unknown/thing' }

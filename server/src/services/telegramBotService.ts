@@ -599,6 +599,14 @@ export class TelegramBotService {
   }
 
   /**
+   * True if this Telegram user id is allowed to use bot commands (same list as /scrape etc.).
+   * Used by MQTT command bridge when `userId` is supplied in the JSON payload.
+   */
+  isTelegramUserAllowed(userId: string): boolean {
+    return this.isUserAuthorized(userId);
+  }
+
+  /**
    * Log unauthorized request attempt
    */
   private logUnauthorizedAttempt(ctx: Context, command: string): void {
