@@ -1209,9 +1209,10 @@
             "price_chart_bad_date": "Track-from date cannot be in the future.",
             "price_chart_error": "Could not load price history.",
             "price_chart_empty": "No data.",
-            "price_chart_hint": "Per-unit daily close from EODHD ({{symbol}}). The first point is your recorded purchase price.",
+            "price_chart_hint": "Per-unit daily close from EODHD ({{symbol}}). The first point is your recorded purchase price. When shown, the last orange dot is the delayed live quote.",
             "price_chart_purchase": "Your purchase",
-            "price_chart_eod": "Market close"
+            "price_chart_eod": "Market close",
+            "price_chart_realtime": "Live (delayed)"
         },
         "custom_charts_section_title": "Your charts",
         "custom_charts_intro": "Build charts from your transaction data. Settings are saved with your dashboard.",

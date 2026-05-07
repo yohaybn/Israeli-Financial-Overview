@@ -94,7 +94,7 @@ export type InvestmentRow = {
 export type InvestmentPriceHistoryPoint = {
     date: string;
     price: number;
-    source: 'purchase' | 'eod';
+    source: 'purchase' | 'eod' | 'realtime';
 };
 
 export type InvestmentPriceHistoryDto = {

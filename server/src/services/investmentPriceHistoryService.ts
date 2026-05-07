@@ -1,13 +1,13 @@
 import type { DbService } from './dbService.js';
 import { getEodhdApiToken } from '../constants/marketData.js';
 import { buildEodhdQuoteCandidates } from './eodhdSymbolResolver.js';
-import { fetchEodhdEodSeriesResult } from './eodhdClient.js';
+import { fetchEodhdEodSeriesResult, fetchEodhdRealtimeQuoteResult } from './eodhdClient.js';
 
 export type InvestmentPriceHistoryPoint = {
     date: string;
     price: number;
-    /** Your recorded purchase price per unit on the buy date (first point). */
-    source: 'purchase' | 'eod';
+    /** Purchase on `trackFromDate`, daily EOD closes, or trailing live (delayed) REST close. */
+    source: 'purchase' | 'eod' | 'realtime';
 };
 
 export type InvestmentEodRowInput = {
@@ -56,6 +56,28 @@ function eodCloseToDisplayPerUnit(close: number, inv: { currency: string; valueI
 }
 
 /**
+ * Append UTC-today live (delayed) REST close as the final chart point; drops same-day EOD trailing bar if present.
+ */
+async function appendRealtimeTrailingDot(
+    points: InvestmentPriceHistoryPoint[],
+    inv: InvestmentEodRowInput,
+    resolvedSymbol: string,
+    apiToken: string
+): Promise<void> {
+    const rt = await fetchEodhdRealtimeQuoteResult(apiToken, resolvedSymbol);
+    if (!rt.ok) return;
+    const today = utcTodayIso();
+    const px = eodCloseToDisplayPerUnit(rt.price, inv);
+    while (points.length > 1) {
+        const last = points[points.length - 1];
+        if (!last || last.date !== today || last.source === 'purchase') break;
+        if (last.source === 'eod' || last.source === 'realtime') points.pop();
+        else break;
+    }
+    points.push({ date: today, price: px, source: 'realtime' });
+}
+
+/**
  * Same EOD series as the per-position chart: purchase price on `trackFromDate`, then daily closes after that.
  * Used by single-investment chart and aggregate portfolio value history.
  */
@@ -96,6 +118,7 @@ export async function loadEodPointsForInvestmentRow(
         }
         const marketBars = series.bars.filter((b) => b.date > buy);
         if (marketBars.length === 0) {
+            await appendRealtimeTrailingDot(points, inv, series.symbol, token);
             return {
                 ok: true,
                 points,
@@ -109,6 +132,7 @@ export async function loadEodPointsForInvestmentRow(
                 source: 'eod',
             });
         }
+        await appendRealtimeTrailingDot(points, inv, series.symbol, token);
         return {
             ok: true,
             points,

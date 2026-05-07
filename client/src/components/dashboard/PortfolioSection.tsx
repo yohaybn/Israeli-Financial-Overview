@@ -124,6 +124,7 @@ function InvestmentPriceChartPanel({
         date: p.date,
         price: p.price,
         isPurchase: p.source === 'purchase',
+        isRealtimeTail: p.source === 'realtime',
         idx: index,
     }));
 
@@ -150,10 +151,14 @@ function InvestmentPriceChartPanel({
                         />
                         <Tooltip
                             formatter={(value: number | undefined, _n, item) => {
-                                const src = (item?.payload as { isPurchase?: boolean } | undefined)?.isPurchase;
-                                const label = src
+                                const payload = item?.payload as
+                                    | { isPurchase?: boolean; isRealtimeTail?: boolean }
+                                    | undefined;
+                                const label = payload?.isPurchase
                                     ? t('dashboard.portfolio.price_chart_purchase')
-                                    : t('dashboard.portfolio.price_chart_eod');
+                                    : payload?.isRealtimeTail
+                                      ? t('dashboard.portfolio.price_chart_realtime')
+                                      : t('dashboard.portfolio.price_chart_eod');
                                 return [formatPositionMoney(value, currency, locale), label];
                             }}
                             labelFormatter={(l) => String(l)}
@@ -163,10 +168,29 @@ function InvestmentPriceChartPanel({
                             dataKey="price"
                             stroke="#0d9488"
                             strokeWidth={2}
-                            dot={(props: { cx?: number; cy?: number; index?: number; payload?: { isPurchase?: boolean } }) => {
-                                const show = props.payload?.isPurchase === true || props.index === chartData.length - 1;
-                                if (!show) return false;
-                                return <circle cx={props.cx} cy={props.cy} r={props.payload?.isPurchase ? 4 : 3} fill="#0f766e" />;
+                            dot={(props: {
+                                cx?: number;
+                                cy?: number;
+                                index?: number;
+                                payload?: { isPurchase?: boolean; isRealtimeTail?: boolean };
+                            }) => {
+                                const ix = props.index ?? 0;
+                                const pay = props.payload;
+                                const isLast = ix === chartData.length - 1;
+                                const { cx, cy } = props;
+                                if (cx == null || cy == null) return false;
+                                if (pay?.isPurchase) {
+                                    return <circle cx={cx} cy={cy} r={4} fill="#0f766e" />;
+                                }
+                                if (isLast && pay?.isRealtimeTail) {
+                                    return (
+                                        <circle cx={cx} cy={cy} r={5} fill="#ea580c" stroke="#fff" strokeWidth={1} />
+                                    );
+                                }
+                                if (isLast) {
+                                    return <circle cx={cx} cy={cy} r={3} fill="#0f766e" />;
+                                }
+                                return false;
                             }}
                             activeDot={{ r: 5 }}
                         />

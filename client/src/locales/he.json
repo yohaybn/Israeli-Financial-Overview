@@ -1209,9 +1209,10 @@
             "price_chart_bad_date": "תאריך \"מעקב מ־\" לא יכול להיות בעתיד.",
             "price_chart_error": "לא ניתן לטעון את היסטוריית המחירים.",
             "price_chart_empty": "אין נתונים.",
-            "price_chart_hint": "סגירה יומית ליחידה מ־EODHD ({{symbol}}). הנקודה הראשונה היא מחיר הרכישה ששמרתם.",
+            "price_chart_hint": "סגירה יומית ליחידה מ־EODHD ({{symbol}}). הנקודה הראשונה היא מחיר הרכישה ששמרתם. נקודה כתומה אחרונה = שער חי (באיחור) כשקיים.",
             "price_chart_purchase": "רכישה שלכם",
-            "price_chart_eod": "סגירת שוק"
+            "price_chart_eod": "סגירת שוק",
+            "price_chart_realtime": "שער חי (באיחור)"
         },
         "custom_charts_section_title": "הגרפים שלכם",
         "custom_charts_intro": "בונים גרפים מתנועות בפועל. ההגדרות נשמרות עם לוח הבקרה.",

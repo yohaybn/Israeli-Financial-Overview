@@ -151,6 +151,7 @@ function parseRealtimeQuoteRow(raw: Record<string, unknown>): EodhdQuoteAttemptO
     return { ok: true, symbol: code.toUpperCase(), price };
 }
 
+/** One HTTP request: `https://{host}/api/real-time/{stock1}?api_token=…&s=stock2,stock3,…&fmt=json` (EODHD live / delayed). */
 async function fetchEodhdRealtimeQuotesBatchChunk(
     apiToken: string,
     chunk: readonly string[],
@@ -161,9 +162,12 @@ async function fetchEodhdRealtimeQuotesBatchChunk(
     if (!cleaned.length) return out;
     const primary = cleaned[0]!;
     const rest = cleaned.slice(1);
-    const sParam = rest.length ? `&s=${encodeURIComponent(rest.join(','))}` : '';
+    let url = `https://${EODHD_API_HOST}/api/real-time/${encodeURIComponent(primary)}?api_token=${encodeURIComponent(apiToken)}`;
+    if (rest.length) {
+        url += `&s=${rest.map((s) => encodeURIComponent(s)).join(',')}`;
+    }
+    url += `&fmt=json`;
     const pathBase = `/api/real-time/${encodeURIComponent(primary)}`;
-    const url = `https://${EODHD_API_HOST}${pathBase}?api_token=${encodeURIComponent(apiToken)}&fmt=json${sParam}`;
     const t0 = Date.now();
     try {
         const res = await axios.get(url, {
