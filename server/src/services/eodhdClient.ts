@@ -1,6 +1,16 @@
 import { logExternal, externalOutcomeFromAxiosError, EODHD_API_HOST } from '../utils/externalServiceLog.js';
 import axios from 'axios';
 
+/** Prefer `adjusted_close` when present (corporate actions); else raw `close` — aligns with EODHD JSON and typical dashboards. */
+function eodDailyBarPrice(row: { close?: number; adjusted_close?: number } | undefined): number | null {
+    if (!row) return null;
+    const adj = row.adjusted_close;
+    if (typeof adj === 'number' && Number.isFinite(adj) && adj > 0) return adj;
+    const c = row.close;
+    if (typeof c === 'number' && Number.isFinite(c) && c > 0) return c;
+    return null;
+}
+
 export type EodhdRealtimeOk = { symbol: string; price: number; quoteCurrency?: string };
 
 export type EodhdQuoteAttemptOk = { ok: true; symbol: string; price: number };
@@ -104,6 +114,156 @@ export async function fetchEodhdRealtimeQuoteResult(apiToken: string, symbol: st
     }
 }
 
+/** EODHD recommends ~15–20 tickers per live request; each symbol still counts as one API call on their plan. */
+export const EODHD_REALTIME_BATCH_MAX_TICKERS = 18;
+
+function sleepMs(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
+}
+
+function parseRealtimeJsonRows(data: unknown): Record<string, unknown>[] {
+    if (Array.isArray(data)) {
+        return data.filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === 'object' && !Array.isArray(x));
+    }
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+        return [data as Record<string, unknown>];
+    }
+    return [];
+}
+
+/** One row from live (delayed) API: `/api/real-time/{first}?s=b,c&fmt=json` */
+function parseRealtimeQuoteRow(raw: Record<string, unknown>): EodhdQuoteAttemptOk | null {
+    const close = raw.close as unknown;
+    const codeRaw =
+        typeof raw.code === 'string'
+            ? raw.code
+            : typeof (raw as { Code?: string }).Code === 'string'
+              ? (raw as { Code: string }).Code
+              : null;
+    const code = (codeRaw ?? '').trim();
+    const price =
+        typeof close === 'number' && Number.isFinite(close) && close > 0
+            ? close
+            : typeof close === 'string' && /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(close.trim())
+              ? Number(close.trim())
+              : NaN;
+    if (!code || !(price > 0) || !Number.isFinite(price)) return null;
+    return { ok: true, symbol: code.toUpperCase(), price };
+}
+
+async function fetchEodhdRealtimeQuotesBatchChunk(
+    apiToken: string,
+    chunk: readonly string[],
+    chunkIndex: number
+): Promise<Map<string, EodhdQuoteAttemptOk>> {
+    const out = new Map<string, EodhdQuoteAttemptOk>();
+    const cleaned = chunk.map((s) => s.trim().toUpperCase()).filter(Boolean);
+    if (!cleaned.length) return out;
+    const primary = cleaned[0]!;
+    const rest = cleaned.slice(1);
+    const sParam = rest.length ? `&s=${encodeURIComponent(rest.join(','))}` : '';
+    const pathBase = `/api/real-time/${encodeURIComponent(primary)}`;
+    const url = `https://${EODHD_API_HOST}${pathBase}?api_token=${encodeURIComponent(apiToken)}&fmt=json${sParam}`;
+    const t0 = Date.now();
+    try {
+        const res = await axios.get(url, {
+            timeout: 20000,
+            headers: {
+                Accept: 'application/json',
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
+            validateStatus: (st) => st >= 200 && st < 500,
+        });
+        const durationMs = Date.now() - t0;
+        const { data, status, statusText } = res;
+        if (typeof data === 'string' && data.includes('Forbidden')) {
+            const err = data.slice(0, 200);
+            logExternal({
+                service: 'eodhd',
+                operation: 'real_time_batch',
+                host: EODHD_API_HOST,
+                method: 'GET',
+                path: pathBase,
+                outcome: 'error',
+                durationMs,
+                httpStatus: status,
+                errorMessage: err,
+                extra: { chunkIndex, tickerCount: cleaned.length },
+            });
+            return out;
+        }
+        if (status < 200 || status >= 300) {
+            logExternal({
+                service: 'eodhd',
+                operation: 'real_time_batch',
+                host: EODHD_API_HOST,
+                method: 'GET',
+                path: pathBase,
+                outcome: 'error',
+                durationMs,
+                httpStatus: status,
+                errorMessage: statusText,
+                extra: { chunkIndex, tickerCount: cleaned.length },
+            });
+            return out;
+        }
+        const rows = parseRealtimeJsonRows(data);
+        for (const row of rows) {
+            const ok = parseRealtimeQuoteRow(row);
+            if (!ok) continue;
+            out.set(ok.symbol.toUpperCase(), ok);
+        }
+        logExternal({
+            service: 'eodhd',
+            operation: 'real_time_batch',
+            host: EODHD_API_HOST,
+            method: 'GET',
+            path: pathBase,
+            outcome: out.size === 0 && rows.length > 0 ? 'error' : 'ok',
+            durationMs,
+            httpStatus: status,
+            errorMessage: out.size === 0 && rows.length > 0 ? 'no_usable_live_rows' : undefined,
+            extra: { chunkIndex, requested: cleaned.length, parsedTickers: out.size },
+        });
+        return out;
+    } catch (e) {
+        const durationMs = Date.now() - t0;
+        const { outcome, httpStatus, errorMessage } = externalOutcomeFromAxiosError(e);
+        logExternal({
+            service: 'eodhd',
+            operation: 'real_time_batch',
+            host: EODHD_API_HOST,
+            method: 'GET',
+            path: pathBase,
+            outcome,
+            durationMs,
+            httpStatus,
+            errorMessage,
+            extra: { chunkIndex, tickerCount: cleaned.length },
+        });
+        return out;
+    }
+}
+
+/** Live (delayed) quotes: one HTTP request per chunk, `GET /api/real-time/{first}?s=second,third,...` */
+export async function fetchEodhdRealtimeQuotesBatchMerged(
+    apiToken: string,
+    symbolsDistinct: readonly string[]
+): Promise<Map<string, EodhdQuoteAttemptOk>> {
+    const merged = new Map<string, EodhdQuoteAttemptOk>();
+    const uniq = [...new Set(symbolsDistinct.map((s) => s.trim().toUpperCase()).filter(Boolean))];
+    for (let i = 0, chunkIndex = 0; i < uniq.length; i += EODHD_REALTIME_BATCH_MAX_TICKERS, chunkIndex++) {
+        const chunk = uniq.slice(i, i + EODHD_REALTIME_BATCH_MAX_TICKERS);
+        const part = await fetchEodhdRealtimeQuotesBatchChunk(apiToken, chunk, chunkIndex);
+        for (const [k, v] of part) merged.set(k, v);
+        if (i + EODHD_REALTIME_BATCH_MAX_TICKERS < uniq.length) {
+            await sleepMs(40 + Math.floor(Math.random() * 40));
+        }
+    }
+    return merged;
+}
+
 /**
  * Delayed / live REST quote (`close` field). One API call per symbol.
  */
@@ -172,10 +332,10 @@ export async function fetchEodhdLatestEodQuoteResult(apiToken: string, symbol: s
         const rows = Array.isArray(data) ? data : [];
         let best: { date: string; close: number } | null = null;
         for (const row of rows) {
-            const r = row as { date?: string; close?: number };
-            const c = r.close;
+            const r = row as { date?: string; close?: number; adjusted_close?: number };
+            const c = eodDailyBarPrice(r);
             const dt = r.date;
-            if (typeof c === 'number' && Number.isFinite(c) && c > 0 && typeof dt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dt)) {
+            if (c != null && typeof dt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dt)) {
                 if (!best || dt > best.date) best = { date: dt, close: c };
             }
         }
@@ -252,7 +412,11 @@ export async function fetchEodhdEodSeriesResult(
     try {
         const res = await axios.get(url, {
             timeout: 30000,
-            headers: { Accept: 'application/json' },
+            headers: {
+                Accept: 'application/json',
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
             validateStatus: (st) => st >= 200 && st < 500,
         });
         const durationMs = Date.now() - t0;
@@ -291,10 +455,10 @@ export async function fetchEodhdEodSeriesResult(
         const rawRows = Array.isArray(data) ? data : [];
         const bars: EodhdEodBar[] = [];
         for (const row of rawRows) {
-            const r = row as { date?: string; close?: number };
-            const c = r.close;
+            const r = row as { date?: string; close?: number; adjusted_close?: number };
+            const c = eodDailyBarPrice(r);
             const dt = r.date;
-            if (typeof c === 'number' && Number.isFinite(c) && c > 0 && typeof dt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dt)) {
+            if (c != null && typeof dt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dt)) {
                 bars.push({ date: dt, close: c });
             }
         }
@@ -380,8 +544,8 @@ export async function fetchEodhdEodCloseOnDate(
             return null;
         }
         const rows = Array.isArray(data) ? data : [];
-        const row = rows[0] as { date?: string; close?: number } | undefined;
-        const close = row && typeof row.close === 'number' && Number.isFinite(row.close) && row.close > 0 ? row.close : null;
+        const row = rows[0] as { date?: string; close?: number; adjusted_close?: number } | undefined;
+        const close = eodDailyBarPrice(row);
         if (close == null) {
             logExternal({
                 service: 'eodhd',

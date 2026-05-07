@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     LineChart,
     Line,
@@ -9,7 +10,7 @@ import {
     ResponsiveContainer,
     CartesianGrid,
 } from 'recharts';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, RefreshCw } from 'lucide-react';
 import { DashboardCardHeader, dashboardCardShellClass } from './DashboardCardChrome';
 import {
     useCreateInvestment,
@@ -19,6 +20,7 @@ import {
     usePortfolioHistory,
     usePortfolioSummary,
     useUpdateInvestment,
+    refreshPortfolioInvestmentData,
     type InvestmentRow,
 } from '../../hooks/useInvestments';
 
@@ -184,6 +186,8 @@ export function PortfolioSection({
 } = {}) {
     const { t, i18n } = useTranslation();
     const locale = i18n.language === 'he' || i18n.language.startsWith('he') ? 'he-IL' : 'en-US';
+    const qc = useQueryClient();
+    const [eodRefreshing, setEodRefreshing] = useState(false);
 
     const fromDate = useMemo(() => {
         const d = new Date();
@@ -352,9 +356,31 @@ export function PortfolioSection({
             )}
 
             <div className="mb-6">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                    {t('dashboard.portfolio.chart_title')}
-                </h4>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        {t('dashboard.portfolio.chart_title')}
+                    </h4>
+                    <button
+                        type="button"
+                        title={t('dashboard.portfolio.refresh_eod_tooltip')}
+                        aria-busy={eodRefreshing}
+                        disabled={eodRefreshing || listLoading || histLoading || sumLoading}
+                        onClick={async () => {
+                            setEodRefreshing(true);
+                            try {
+                                await refreshPortfolioInvestmentData(qc);
+                            } catch {
+                                await qc.invalidateQueries({ queryKey: ['investments'], refetchType: 'active' });
+                            } finally {
+                                setEodRefreshing(false);
+                            }
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-45 disabled:pointer-events-none"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${eodRefreshing ? 'animate-spin' : ''}`} aria-hidden />
+                        {eodRefreshing ? t('dashboard.portfolio.refresh_eod_busy') : t('dashboard.portfolio.refresh_eod')}
+                    </button>
+                </div>
                 <p className="text-[11px] text-gray-400 mb-1">{t('dashboard.portfolio.chart_eod_hint')}</p>
                 <p className="text-[11px] text-gray-400 mb-2">{t('dashboard.portfolio.chart_schedule_hint')}</p>
                 {valueHist?.fxMode === 'spot' ? (

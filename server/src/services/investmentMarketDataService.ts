@@ -8,6 +8,7 @@ import {
     fetchEodhdEodCloseOnDate,
     fetchEodhdLatestEodQuoteResult,
     fetchEodhdRealtimeQuoteResult,
+    fetchEodhdRealtimeQuotesBatchMerged,
 } from './eodhdClient.js';
 import { fetchYahooCloseOnDate } from './yahooChartClose.js';
 import { useEodhdPrimaryQuotes, getEodhdApiToken } from '../constants/marketData.js';
@@ -485,6 +486,8 @@ async function tryEodhdCandidatesForKey(
 export type ResolveQuotesOptions = {
     /** From `investment_app_settings.eodhd_quote_mode` (default `realtime`). */
     eodhdQuoteMode?: string | null;
+    /** When true (e.g. explicit UI refresh), resolve with live API first, then EOD as fallback. */
+    forceRealtimeQuotes?: boolean;
 };
 
 /**
@@ -496,7 +499,9 @@ export async function resolveQuotesForPortfolioRows(
     rows: PortfolioQuoteRow[],
     opts: ResolveQuotesOptions = {}
 ): Promise<Map<string, PortfolioQuoteResolution>> {
-    const mode = parseEodhdQuoteMode(opts.eodhdQuoteMode);
+    const mode = opts.forceRealtimeQuotes
+        ? parseEodhdQuoteMode('realtime_then_eod')
+        : parseEodhdQuoteMode(opts.eodhdQuoteMode);
     const keyToYahooCandidates = new Map<string, string[]>();
     const keyToEodCandidates = new Map<string, string[]>();
     for (const r of rows) {
@@ -513,6 +518,31 @@ export async function resolveQuotesForPortfolioRows(
 
     if (tryEod && eodToken) {
         const tk = eodToken;
+
+        const useRealtimeBatchWave = mode === 'realtime' || mode === 'realtime_then_eod';
+        if (useRealtimeBatchWave && rows.length > 0) {
+            const firstSymByKey = new Map<string, string>();
+            for (const r of rows) {
+                const key = r.symbol.trim().toUpperCase();
+                const c0 = (keyToEodCandidates.get(key) ?? [])[0];
+                if (c0?.trim()) firstSymByKey.set(key, c0.trim().toUpperCase());
+            }
+            const batchSymbolsDistinct = [...new Set([...firstSymByKey.values()])];
+            if (batchSymbolsDistinct.length > 0) {
+                const batchMap = await fetchEodhdRealtimeQuotesBatchMerged(tk, batchSymbolsDistinct);
+                for (const r of rows) {
+                    const key = r.symbol.trim().toUpperCase();
+                    if (successByKey.has(key)) continue;
+                    const fst = firstSymByKey.get(key);
+                    if (!fst) continue;
+                    const ok = batchMap.get(fst);
+                    if (ok?.ok) {
+                        successByKey.set(key, { price: ok.price, resolvedSymbol: ok.symbol });
+                    }
+                }
+            }
+        }
+
         for (const r of rows) {
             const key = r.symbol.trim().toUpperCase();
             if (successByKey.has(key)) continue;

@@ -323,9 +323,12 @@ router.delete('/:id', (req, res) => {
     }
 });
 
-router.get('/summary', async (_req, res) => {
+router.get('/summary', async (req, res) => {
     try {
-        const data = await computeLivePortfolioForUser(db, DEFAULT_INVESTMENT_USER_ID);
+        const preferRealtime = String(req.query.prefer_realtime ?? '') === '1';
+        const data = await computeLivePortfolioForUser(db, DEFAULT_INVESTMENT_USER_ID, {
+            preferRealtimeQuotes: preferRealtime,
+        });
         res.json({ success: true, data });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);

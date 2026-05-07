@@ -11,7 +11,7 @@ export type PortfolioValueHistoryPoint = {
     changePct: number | null;
 };
 
-function todayIsoUtc(): string {
+function utcTodayIso(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
@@ -63,25 +63,11 @@ export async function buildPortfolioEodValueHistory(
         return { ok: false, error: 'eodhd_token_required' };
     }
 
-    const today = todayIsoUtc();
+    const apiToday = utcTodayIso();
     const minBuy = rows.reduce((a, r) => (r.trackFromDate < a ? r.trackFromDate : a), rows[0].trackFromDate);
     const from = opts.fromDate && opts.fromDate >= minBuy ? opts.fromDate : minBuy;
-    const to = opts.toDate && opts.toDate <= today ? opts.toDate : today;
-    if (from > to) {
-        return { ok: true, points: [], partial: false, fxMode: opts.historicUsdIls ? 'historic' : 'spot' };
-    }
 
     const spotFx = await fetchUsdIlsRate();
-    const fxMap = opts.historicUsdIls ? await fetchUsdIlsRatesFrankfurterRange(minBuy, today) : null;
-    let partial = opts.historicUsdIls && (fxMap == null || fxMap.size === 0);
-
-    let fxCarry = spotFx;
-    if (opts.historicUsdIls && fxMap && fxMap.size > 0) {
-        for (const [dt, v] of [...fxMap.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
-            if (dt < from) fxCarry = v;
-            else break;
-        }
-    }
 
     type RowPack = {
         inv: InvestmentEodRowInput;
@@ -114,7 +100,35 @@ export async function buildPortfolioEodValueHistory(
         return { ok: true, points: [], partial: true, fxMode: opts.historicUsdIls ? 'historic' : 'spot' };
     }
 
+    let chartEndNatural = apiToday;
+    for (const pack of packs) {
+        const last = pack.points[pack.points.length - 1]?.date;
+        if (last && last > chartEndNatural) {
+            chartEndNatural = last;
+        }
+    }
+
+    const fxMap = opts.historicUsdIls ? await fetchUsdIlsRatesFrankfurterRange(minBuy, chartEndNatural) : null;
+    let partial = opts.historicUsdIls && (fxMap == null || fxMap.size === 0);
+
+    let fxCarry = spotFx;
+    if (opts.historicUsdIls && fxMap && fxMap.size > 0) {
+        for (const [dt, v] of [...fxMap.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+            if (dt < from) fxCarry = v;
+            else break;
+        }
+    }
+
+    let to = opts.toDate != null && opts.toDate.trim() !== '' ? opts.toDate : chartEndNatural;
+    if (to > chartEndNatural) {
+        to = chartEndNatural;
+    }
+
     if (anySeriesFail) partial = true;
+
+    if (from > to) {
+        return { ok: true, points: [], partial: false, fxMode: opts.historicUsdIls ? 'historic' : 'spot' };
+    }
 
     const calendar = iterCalendarDates(from, to);
     const rawPoints: PortfolioValueHistoryPoint[] = [];

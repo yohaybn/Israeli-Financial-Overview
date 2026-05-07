@@ -65,7 +65,11 @@ function toIls(amountNative: number, currency: string, usdIls: number | null): n
     return null;
 }
 
-export async function computeLivePortfolioForUser(db: DbService, userId: string): Promise<LivePortfolioSummary> {
+export async function computeLivePortfolioForUser(
+    db: DbService,
+    userId: string,
+    portfolioOpts?: { preferRealtimeQuotes?: boolean }
+): Promise<LivePortfolioSummary> {
     const rows = db.listInvestments(userId);
     // Run FX before quotes so parallel Yahoo requests do not contend the same session (reduces 429s).
     const usdIlsRate = await fetchUsdIlsRate();
@@ -76,7 +80,10 @@ export async function computeLivePortfolioForUser(db: DbService, userId: string)
             currency: r.currency,
             useTelAvivListing: r.useTelAvivListing,
         })),
-        { eodhdQuoteMode: quoteMode }
+        {
+            eodhdQuoteMode: quoteMode,
+            forceRealtimeQuotes: portfolioOpts?.preferRealtimeQuotes ?? false,
+        }
     );
 
     const positions: LivePositionRow[] = [];

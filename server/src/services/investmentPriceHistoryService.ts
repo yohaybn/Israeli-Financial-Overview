@@ -24,8 +24,21 @@ function sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
 }
 
-function todayIsoUtc(): string {
+function utcTodayIso(): string {
     return new Date().toISOString().slice(0, 10);
+}
+
+/** Calendar days past UTC "today" passed as `/api/eod` `to=` (inclusive cap; API returns through last available bar). */
+const EODHD_EOD_TO_BUFFER_DAYS = 10;
+
+/**
+ * EODHD serves per-exchange daily bars that may land after UTC midnight; a future `to=` is ignored upstream
+ * but avoids clipping the newest trading day published for the symbol.
+ */
+function eodApiThroughIso(): string {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + EODHD_EOD_TO_BUFFER_DAYS);
+    return d.toISOString().slice(0, 10);
 }
 
 function purchasePricePerUnitMajor(inv: InvestmentEodRowInput): number {
@@ -54,7 +67,7 @@ export async function loadEodPointsForInvestmentRow(
     | { ok: false; error: string; detail?: string }
 > {
     const buy = inv.trackFromDate;
-    const today = todayIsoUtc();
+    const today = utcTodayIso();
     if (buy > today) {
         return { ok: false, error: 'invalid_buy_date' };
     }
@@ -66,10 +79,11 @@ export async function loadEodPointsForInvestmentRow(
 
     const candidates = buildEodhdQuoteCandidates(inv.symbol, inv.currency, inv.useTelAvivListing);
     const errors: string[] = [];
+    const eodToIso = eodApiThroughIso();
 
     for (let i = 0; i < candidates.length; i++) {
         const sym = candidates[i];
-        const series = await fetchEodhdEodSeriesResult(token, sym, buy, today);
+        const series = await fetchEodhdEodSeriesResult(token, sym, buy, eodToIso);
         if (!series.ok) {
             errors.push(`${sym}: ${series.error}`);
             if (i + 1 < candidates.length) await sleep(100 + Math.floor(Math.random() * 80));

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
 export const investmentsKeys = {
@@ -133,6 +134,23 @@ export type PortfolioSummary = {
     partialQuotes: boolean;
 };
 
+/**
+ * Dashboard “Refresh market data”: server resolves summary with live EODHD quotes (batched) then EOD fallback;
+ * then invalidates list/history queries without a second summary GET that would omit the prefer-realtime hint.
+ */
+export async function refreshPortfolioInvestmentData(queryClient: QueryClient): Promise<void> {
+    const { data } = await api.get<{ success: boolean; data?: PortfolioSummary; error?: string }>(
+        '/investments/summary?prefer_realtime=1'
+    );
+    if (data.success && data.data) {
+        queryClient.setQueryData(investmentsKeys.summary, data.data);
+    }
+    await queryClient.invalidateQueries({
+        predicate: (q) =>
+            Array.isArray(q.queryKey) && q.queryKey[0] === 'investments' && q.queryKey[1] !== 'summary',
+    });
+}
+
 export type PortfolioHistoryPoint = {
     id: string;
     snapshotDate: string;
@@ -208,7 +226,8 @@ export function useInvestmentPriceHistory(investmentId: string | null, options?:
             return data.data;
         },
         enabled,
-        staleTime: 5 * 60_000,
+        staleTime: 0,
+        gcTime: 5 * 60_000,
     });
 }
 
@@ -231,7 +250,7 @@ export function usePortfolioSummary() {
             if (!data.success) throw new Error('load_failed');
             return data.data;
         },
-        staleTime: 45_000,
+        staleTime: 30_000,
     });
 }
 
@@ -253,7 +272,8 @@ export function usePortfolioHistory(from?: string, to?: string) {
             }
             return data.data;
         },
-        staleTime: 5 * 60_000,
+        staleTime: 0,
+        gcTime: 5 * 60_000,
     });
 }
 

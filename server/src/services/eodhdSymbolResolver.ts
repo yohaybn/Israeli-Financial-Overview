@@ -11,7 +11,8 @@ function looksLikeEodhdExchangedSymbol(sym: string): boolean {
 export function buildEodhdQuoteCandidates(
     portfolioSymbol: string,
     currency: string,
-    useTelAvivListing: boolean
+    /** Ignored for EODHD (ILS always uses `*.TA` / `TA.*` candidates). Kept for backward-compatible call sites. */
+    _useTelAvivListing: boolean
 ): string[] {
     const s = portfolioSymbol.trim().toUpperCase();
     const cur = currency.toUpperCase();
@@ -29,7 +30,7 @@ export function buildEodhdQuoteCandidates(
         if (base) add(`${base}.TA`);
     }
 
-    if (cur === 'ILS' && useTelAvivListing) {
+    if (cur === 'ILS') {
         if (s.endsWith('.TA')) add(s);
         else if (!s.startsWith('TA.')) add(`${s}.TA`);
         if (!s.startsWith('TA.')) {
