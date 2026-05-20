@@ -2,6 +2,7 @@ import YahooFinance from 'yahoo-finance2';
 import { serviceLogger as logger } from '../utils/logger.js';
 import { logExternal, YAHOO_QUERY_HOST } from '../utils/externalServiceLog.js';
 import { createYahooLoggingFetch } from '../utils/yahooHttpTrace.js';
+import { runWithYahooPriority } from '../utils/yahooRequestQueue.js';
 import { buildYahooQuoteCandidates } from './yahooSymbolResolver.js';
 import { buildEodhdQuoteCandidates } from './eodhdSymbolResolver.js';
 import {
@@ -18,9 +19,6 @@ import { parseEodhdQuoteMode, type EodhdQuoteMode } from '../constants/eodhdQuot
 const yahooFinance = new YahooFinance({
     fetch: createYahooLoggingFetch(),
 } as unknown as ConstructorParameters<typeof YahooFinance>[0]);
-
-const BATCH_SIZE = 3;
-const BETWEEN_BATCH_MS = 500;
 
 let usdIlsCache: { value: number; at: number } | null = null;
 /** Fresh-enough FX for display; Yahoo is easy to 429 if polled too often. */
@@ -262,9 +260,18 @@ export async function fetchUsdIlsRate(): Promise<number | null> {
     if (usdIlsCache && now - usdIlsCache.at < USD_ILS_TTL_MS) {
         return usdIlsCache.value;
     }
+
+    const frank = await fetchUsdIlsFromFrankfurter();
+    if (frank != null) {
+        usdIlsCache = { value: frank, at: now };
+        return frank;
+    }
+
     const t0 = Date.now();
     try {
-        const q = (await yahooFinance.quote('ILS=X')) as { regularMarketPrice?: number };
+        const q = (await runWithYahooPriority('aux', () =>
+            yahooFinance.quote('ILS=X')
+        )) as { regularMarketPrice?: number };
         const durationMs = Date.now() - t0;
         const p = typeof q?.regularMarketPrice === 'number' && Number.isFinite(q.regularMarketPrice) ? q.regularMarketPrice : null;
         if (p == null || p <= 0) {
@@ -308,11 +315,6 @@ export async function fetchUsdIlsRate(): Promise<number | null> {
             errorMessage: e instanceof Error ? e.message : String(e),
             extra: { symbol: 'ILS=X' },
         });
-        const frank = await fetchUsdIlsFromFrankfurter();
-        if (frank != null) {
-            usdIlsCache = { value: frank, at: now };
-            return frank;
-        }
         if (usdIlsCache != null && now - usdIlsCache.at < USD_ILS_STALE_MAX_MS) {
             logger.warn('Using stale USD/ILS cache after Yahoo and Frankfurter failure', {
                 cacheAgeMs: now - usdIlsCache.at,
@@ -335,39 +337,33 @@ export async function fetchYahooQuotesForSymbols(symbols: string[]): Promise<Yah
     const out: YahooQuoteResult[] = [];
     const batchT0 = Date.now();
 
-    for (let i = 0; i < unique.length; i += BATCH_SIZE) {
-        const batch = unique.slice(i, i + BATCH_SIZE);
-        const batchResults = await Promise.all(
-            batch.map(async (symbol) => {
-                try {
-                    const q = (await yahooFinance.quote(symbol)) as {
-                        symbol?: string;
-                        regularMarketPrice?: number;
-                        currency?: string;
-                    };
-                    const price =
-                        typeof q?.regularMarketPrice === 'number' && Number.isFinite(q.regularMarketPrice)
-                            ? q.regularMarketPrice
-                            : null;
-                    if (price == null || price < 0) {
-                        return { ok: false as const, symbol, error: 'missing_price' };
-                    }
-                    return {
-                        ok: true as const,
-                        symbol: (q.symbol || symbol).toUpperCase(),
-                        price,
-                        quoteCurrency: q.currency,
-                    };
-                } catch (e) {
-                    const msg = e instanceof Error ? e.message : String(e);
-                    return { ok: false as const, symbol, error: msg.slice(0, 200) };
+    for (const symbol of unique) {
+        const one = await runWithYahooPriority('stock', async (): Promise<YahooQuoteResult> => {
+            try {
+                const q = (await yahooFinance.quote(symbol)) as {
+                    symbol?: string;
+                    regularMarketPrice?: number;
+                    currency?: string;
+                };
+                const price =
+                    typeof q?.regularMarketPrice === 'number' && Number.isFinite(q.regularMarketPrice)
+                        ? q.regularMarketPrice
+                        : null;
+                if (price == null || price < 0) {
+                    return { ok: false as const, symbol, error: 'missing_price' };
                 }
-            })
-        );
-        out.push(...batchResults);
-        if (i + BATCH_SIZE < unique.length) {
-            await sleep(BETWEEN_BATCH_MS + Math.floor(Math.random() * 120));
-        }
+                return {
+                    ok: true as const,
+                    symbol: (q.symbol || symbol).toUpperCase(),
+                    price,
+                    quoteCurrency: q.currency,
+                };
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                return { ok: false as const, symbol, error: msg.slice(0, 200) };
+            }
+        });
+        out.push(one);
     }
 
     if (unique.length > 0) {

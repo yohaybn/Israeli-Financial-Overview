@@ -71,8 +71,6 @@ export async function computeLivePortfolioForUser(
     portfolioOpts?: { preferRealtimeQuotes?: boolean }
 ): Promise<LivePortfolioSummary> {
     const rows = db.listInvestments(userId);
-    // Run FX before quotes so parallel Yahoo requests do not contend the same session (reduces 429s).
-    const usdIlsRate = await fetchUsdIlsRate();
     const quoteMode = db.getInvestmentAppSettings(DEFAULT_INVESTMENT_USER_ID).eodhdQuoteMode;
     const resolvedQuotes = await resolveQuotesForPortfolioRows(
         rows.map((r) => ({
@@ -85,6 +83,7 @@ export async function computeLivePortfolioForUser(
             forceRealtimeQuotes: portfolioOpts?.preferRealtimeQuotes ?? false,
         }
     );
+    const usdIlsRate = await fetchUsdIlsRate();
 
     const positions: LivePositionRow[] = [];
     let anyPartial = false;

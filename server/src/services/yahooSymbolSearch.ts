@@ -2,6 +2,7 @@ import axios from 'axios';
 import { serviceLogger as logger } from '../utils/logger.js';
 import { externalOutcomeFromAxiosError, logExternal, YAHOO_QUERY2_HOST } from '../utils/externalServiceLog.js';
 import { axiosResponseHeadersForTrace, logYahooAxiosTrace } from '../utils/yahooHttpTrace.js';
+import { noteYahooHttp429, runWithYahooPriority } from '../utils/yahooRequestQueue.js';
 
 export type YahooSymbolSearchHit = {
     symbol: string;
@@ -24,7 +25,10 @@ type YahooSearchQuote = {
 export async function searchYahooFinanceSymbols(query: string): Promise<YahooSymbolSearchHit[]> {
     const q = query.trim();
     if (q.length < 1) return [];
+    return runWithYahooPriority('aux', () => searchYahooFinanceSymbolsInner(q));
+}
 
+async function searchYahooFinanceSymbolsInner(q: string): Promise<YahooSymbolSearchHit[]> {
     const params = new URLSearchParams({
         q,
         quotesCount: '15',
@@ -60,6 +64,7 @@ export async function searchYahooFinanceSymbols(query: string): Promise<YahooSym
             },
         });
 
+        if (status === 429) noteYahooHttp429();
         if (status < 200 || status >= 300) {
             logExternal({
                 service: 'yahoo',
@@ -106,6 +111,7 @@ export async function searchYahooFinanceSymbols(query: string): Promise<YahooSym
         return out;
     } catch (e: unknown) {
         const durationMs = Date.now() - t0;
+        if (axios.isAxiosError(e) && e.response?.status === 429) noteYahooHttp429();
         const { outcome, httpStatus, errorMessage } = externalOutcomeFromAxiosError(e);
         logger.warn('Yahoo symbol search failed', { message: errorMessage });
         logYahooAxiosTrace({

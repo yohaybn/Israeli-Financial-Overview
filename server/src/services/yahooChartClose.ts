@@ -2,12 +2,17 @@ import axios from 'axios';
 import { serviceLogger as logger } from '../utils/logger.js';
 import { externalOutcomeFromAxiosError, logExternal, YAHOO_QUERY_HOST } from '../utils/externalServiceLog.js';
 import { axiosResponseHeadersForTrace, logYahooAxiosTrace } from '../utils/yahooHttpTrace.js';
+import { noteYahooHttp429, runWithYahooPriority, yahooPriorityForSymbol } from '../utils/yahooRequestQueue.js';
 
 /**
  * Yahoo chart v8 API — used for historical closes when the bundled yahoo-finance2 build
  * only ships quote/autoc.
  */
 export async function fetchYahooCloseOnDate(yahooSymbol: string, isoDate: string): Promise<number | null> {
+    return runWithYahooPriority(yahooPriorityForSymbol(yahooSymbol), () => fetchYahooCloseOnDateInner(yahooSymbol, isoDate));
+}
+
+async function fetchYahooCloseOnDateInner(yahooSymbol: string, isoDate: string): Promise<number | null> {
     const parts = isoDate.split('-').map((x) => parseInt(x, 10));
     if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
     const [y, mo, d] = parts;
@@ -29,6 +34,7 @@ export async function fetchYahooCloseOnDate(yahooSymbol: string, isoDate: string
             validateStatus: (s) => s >= 200 && s < 500,
         });
         const { data, status, statusText, headers } = res;
+        if (status === 429) noteYahooHttp429();
         const durationMs = Date.now() - t0;
         logYahooAxiosTrace({
             operation: 'chart_close',
@@ -106,6 +112,7 @@ export async function fetchYahooCloseOnDate(yahooSymbol: string, isoDate: string
             message: e instanceof Error ? e.message : String(e),
         });
         if (axios.isAxiosError(e) && e.response) {
+            if (e.response.status === 429) noteYahooHttp429();
             logYahooAxiosTrace({
                 operation: 'chart_close',
                 method: 'GET',

@@ -152,7 +152,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>Your User ID:</b>',
     shareId: 'Please share your User ID with the manager to request access.',
     welcome: '👋 Welcome to Financial Overview Bot!\n\nI can help you with:\n• 📊 Run bank scrapers and get notifications\n• 💬 Chat with AI about your transactions\n• ⚙️ Manage your settings\n\nUse /help for available commands',
-    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>One Zero:</b>\n/onezero_otp - SMS OTP for One Zero (token saved on server only)\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/review — List transactions that need a memo or category\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>Reports:</b>\n/report — Financial overview PDF (this calendar month; uses dashboard PDF settings)\n/report YYYY-MM — PDF for one month\n/report all — PDF for all loaded data\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Notifications:</b>\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n\n<b>Settings:</b>\n/settings - Manage your preferences\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
+    helpText: '📖 <b>Available Commands:</b>\n\n<b>Scraping:</b>\n/scrape - Run a bank scraper\n/status - Check scraper status\n\n<b>One Zero:</b>\n/onezero_otp - SMS OTP for One Zero (token saved on server only)\n\n<b>Transactions:</b>\n/memo - Set memo on a transaction (copy id from dashboard)\n/review — List transactions that need a memo or category\n/export csv — Download all transactions as CSV\n/export json — Download all transactions as JSON\n/export csv 2026-03 — Same for one month (YYYY-MM)\n\n<b>Charts:</b>\n/card categories — Spending by category (pie) for the current month\n/card categories 2026-03 — Same for a specific month (YYYY-MM)\n\n<b>Reports:</b>\n/report — Financial overview PDF (this calendar month; uses dashboard PDF settings)\n/report YYYY-MM — PDF for one month\n/report all — PDF for all loaded data\n\n<b>AI Chat:</b>\n/chat - Start AI chat about transactions\n\n<b>Settings:</b>\n/settings - Toggle scrape notifications and scheduled PDF report for this chat\n\n<b>App lock:</b>\n/unlock - Enter app password when the web UI is locked\n\n<b>Help:</b>\n/help - Show this message',
     noProfiles: '❌ No profiles configured. Please set up a profile first.',
     selectProfile: '🏦 Select the profile to scrape:',
     chatModeActive: '💬 AI Chat Mode activated!\n\nAsk me questions about your transactions:\n• "What are my largest expenses?"\n• "Analyze my spending this month"\n• "Show me transactions in the food category"\n\nType /done or /cancel to exit chat mode',
@@ -168,8 +168,6 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     reportChats: 'PDF report chats',
     adminChats: 'Admin Chats',
     token: 'Token',
-    subscribed: '✅ You are now subscribed to notifications',
-    unsubscribed: '✅ You have been unsubscribed from notifications',
     notAuthorized: '❌ You are not authorized.',
     exitedChatMode: '✅ Exited AI chat mode.',
     unknownCommand: 'Unknown command. Available commands:',
@@ -189,8 +187,6 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     comingSoon: 'Coming soon!',
     unauthorizedChat: 'You are not allowed to use chat commands.',
     unauthorizedSettings: 'You are not allowed to open settings.',
-    unauthorizedSubscribe: 'You are not allowed to subscribe to notifications.',
-    unauthorizedUnsubscribe: 'You are not allowed to unsubscribe from notifications.',
     errorExecutingScraper: '❌ Error executing scraper',
     errorRetrievingProfiles: '❌ Error retrieving profiles',
     invalidStartDate: 'Invalid start date',
@@ -281,7 +277,7 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     yourUserId: '<b>מזהה המשתמש שלך:</b>',
     shareId: 'אנא שתף את מזהה המשתמש שלך עם המנהל כדי לבקש גישה.',
     welcome: '👋 ברוך הבא לבוט מבט כלכלי!\n\nאני יכול לעזור לך עם:\n• 📊 הרצת סורקים ושיגור התראות\n• 💬 שיחה עם AI על העסקאות שלך\n• ⚙️ ניהול ההגדרות שלך\n\nהקלד /help לרשימת הפקודות',
-    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>One Zero:</b>\n/onezero_otp - OTP ב-SMS (האסימון נשמר בשרת בלבד)\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/review — רשימת עסקאות שחסרה הערה או קטגוריה\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>דוחות:</b>\n/report — דוח PDF מבט כלכלי (חודש קלנדרי נוכחי; כמו הגדרות ה־PDF בלוח)\n/report YYYY-MM — דוח לחודש אחד\n/report all — דוח לכל התקופה שנטענה\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>התראות:</b>\n/subscribe - הפעל התראות\n/unsubscribe - בטל התראות\n\n<b>הגדרות:</b>\n/settings - נהל את ההעדפות שלך\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
+    helpText: '📖 <b>פקודות זמינות:</b>\n\n<b>סריקה:</b>\n/scrape - הרץ סורק בנק\n/status - בדוק סטטוס סורק\n\n<b>One Zero:</b>\n/onezero_otp - OTP ב-SMS (האסימון נשמר בשרת בלבד)\n\n<b>עסקאות:</b>\n/memo - הוסף הערה לעסקה (העתק מזהה מלוח הבקרה)\n/review — רשימת עסקאות שחסרה הערה או קטגוריה\n/export csv — הורד את כל העסקאות כ-CSV\n/export json — הורד את כל העסקאות כ-JSON\n/export csv 2026-03 — אותו דבר לחודש אחד (YYYY-MM)\n\n<b>גרפים:</b>\n/card categories — הוצאות לפי קטגוריה (עוגה) לחודש הנוכחי\n/card categories 2026-03 — אותו דבר לחודש אחר (YYYY-MM)\n\n<b>דוחות:</b>\n/report — דוח PDF מבט כלכלי (חודש קלנדרי נוכחי; כמו הגדרות ה־PDF בלוח)\n/report YYYY-MM — דוח לחודש אחד\n/report all — דוח לכל התקופה שנטענה\n\n<b>שיחת AI:</b>\n/chat - התחל שיחת AI על עסקאות\n\n<b>הגדרות:</b>\n/settings - הפעלה/כיבוי התראות סריקה ודוח PDF מתוזמן לצ\'אט זה\n\n<b>נעילת אפליקציה:</b>\n/unlock - הזן סיסמת אפליקציה כשהממשק נעול\n\n<b>עזרה:</b>\n/help - הצג הודעה זו',
     noProfiles: '❌ לא הוגדרו פרופילים. אנא הגדר פרופיל תחילה.',
     selectProfile: '🏦 בחר פרופיל לסריקה:',
     chatModeActive: '💬 מצב שיחת AI הופעל!\n\nשאל אותי שאלות על העסקאות שלך:\n• "מהן הוצאותיי הגדולות ביותר?"\n• "נתח את ההוצאות שלי החודש"\n• "הצג עסקאות בקטגוריית מזון"\n\nהקלד /done או /cancel ליציאה ממצב שיחה',
@@ -297,8 +293,6 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     reportChats: 'דוחות PDF',
     adminChats: 'צ׳אטים של מנהלים',
     token: 'טוקן',
-    subscribed: '✅ נרשמת להתראות',
-    unsubscribed: '✅ בוטלה הרשמתך להתראות',
     notAuthorized: '❌ אין לך הרשאה.',
     exitedChatMode: '✅ יצאת ממצב שיחת AI.',
     unknownCommand: 'פקודה לא מוכרת. פקודות זמינות:',
@@ -318,8 +312,6 @@ const BOT_STRINGS: Record<'en' | 'he', Record<string, string>> = {
     comingSoon: 'בקרוב!',
     unauthorizedChat: 'אין לך הרשאה להשתמש בפקודות צ׳אט.',
     unauthorizedSettings: 'אין לך הרשאה לפתוח הגדרות.',
-    unauthorizedSubscribe: 'אין לך הרשאה להירשם להתראות.',
-    unauthorizedUnsubscribe: 'אין לך הרשאה לבטל הרשמה להתראות.',
     errorExecutingScraper: '❌ שגיאה בהרצת הסורק',
     errorRetrievingProfiles: '❌ שגיאה בטעינת פרופילים',
     invalidStartDate: 'תאריך התחלה לא תקין',
@@ -585,8 +577,8 @@ export class TelegramBotService {
     const kb = Markup.keyboard([
       ['/chat', '/scrape', '/memo'],
       ['/export', '/report', '/review'],
-      ['/status', '/subscribe', '/settings'],
-      ['/unlock', '/unsubscribe', '/help'],
+      ['/status', '/settings', '/help'],
+      ['/unlock'],
     ]).resize();
     return oneTime ? kb.oneTime() : kb;
   }
@@ -1025,16 +1017,6 @@ export class TelegramBotService {
       await this.handleStatus(ctx);
     });
 
-    // Subscribe command
-    this.bot.command('subscribe', async (ctx) => {
-      await this.handleSubscribe(ctx);
-    });
-
-    // Unsubscribe command
-    this.bot.command('unsubscribe', async (ctx) => {
-      await this.handleUnsubscribe(ctx);
-    });
-
     // Done / Cancel command to exit chat mode
     this.bot.command('done', async (ctx) => {
       await this.handleDoneCommand(ctx);
@@ -1243,8 +1225,6 @@ export class TelegramBotService {
             '/card',
             '/settings',
             '/status',
-            '/subscribe',
-            '/unsubscribe',
             '/help',
             '/start',
             '/done',
@@ -1620,66 +1600,6 @@ export class TelegramBotService {
     const statusStr = this.isRunning ? this.t('botOnline') : this.t('botOffline');
     const message = `${this.t('botStatus')} ${statusStr}\n\n${this.t('configuredFeatures')}\n• ${this.t('notifChats')}: ${this.config.notificationChatIds.length}\n• ${this.t('reportChats')}: ${(this.config.reportChatIds || []).length}\n• ${this.t('adminChats')}: ${this.config.adminChatIds.length}\n• ${this.t('token')}: ${this.config.botToken ? '✅' : '❌'}`;
     await ctx.reply(message);
-  }
-
-  /**
-   * Handle /subscribe command
-   */
-  private async handleSubscribe(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id?.toString();
-    const userId = ctx.from?.id.toString() || '';
-
-    if (!chatId) return;
-
-    // Check authorization
-    if (!this.isUserAuthorized(userId)) {
-      this.logUnauthorizedAttempt(ctx, '/subscribe');
-      const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('unauthorizedSubscribe')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
-      await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
-      return;
-    }
-
-    if (!this.config.notificationChatIds.includes(chatId)) {
-      this.config.notificationChatIds.push(chatId);
-      this.saveConfig();
-    }
-
-    const state = this.chatStates.get(chatId);
-    if (state) {
-      state.isNotificationEnabled = true;
-      this.chatStates.set(chatId, state);
-    }
-
-    await ctx.reply(this.t('subscribed'));
-  }
-
-  /**
-   * Handle /unsubscribe command
-   */
-  private async handleUnsubscribe(ctx: Context): Promise<void> {
-    const chatId = ctx.chat?.id?.toString();
-    const userId = ctx.from?.id.toString() || '';
-
-    if (!chatId) return;
-
-    // Check authorization
-    if (!this.isUserAuthorized(userId)) {
-      this.logUnauthorizedAttempt(ctx, '/unsubscribe');
-      const unauthorizedMessage = `${this.t('accessDenied')}\n\n${this.t('unauthorizedUnsubscribe')}\n\n${this.t('yourUserId')} <code>${userId}</code>\n\n${this.t('shareId')}`;
-      await ctx.reply(unauthorizedMessage, { parse_mode: 'HTML' });
-      return;
-    }
-
-    this.config.notificationChatIds = this.config.notificationChatIds.filter(id => id !== chatId);
-    this.saveConfig();
-
-    const state = this.chatStates.get(chatId);
-    if (state) {
-      state.isNotificationEnabled = false;
-      this.chatStates.set(chatId, state);
-    }
-
-    await ctx.reply(this.t('unsubscribed'));
   }
 
   /**

@@ -1,5 +1,6 @@
 import { serverLogger } from './logger.js';
 import { maskSensitiveData } from './masking.js';
+import { enqueueYahooWork, getYahooRequestPriority, noteYahooHttp429 } from './yahooRequestQueue.js';
 
 /**
  * When enabled (default), logs each Yahoo HTTP exchange with `outgoing` / `incoming`
@@ -98,12 +99,14 @@ function logYahooTraceLine(
  * Wraps `fetch` for `new YahooFinance({ fetch })` so every yahoo-finance2 request
  * (quotes, crumb, cookies, etc.) emits one trace line with outgoing + incoming.
  */
-export function createYahooLoggingFetch(
+function createYahooLoggingFetchInner(
     baseFetch: typeof globalThis.fetch = globalThis.fetch.bind(globalThis) as typeof fetch
 ): typeof fetch {
     return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         if (!isYahooHttpTraceEnabled()) {
-            return baseFetch(input, init);
+            const res = await baseFetch(input, init);
+            if (res.status === 429) noteYahooHttp429();
+            return res;
         }
 
         const urlStr =
@@ -133,6 +136,7 @@ export function createYahooLoggingFetch(
                 data = '<response body unreadable>';
             }
 
+            if (res.status === 429) noteYahooHttp429();
             const outcome = res.ok ? 'ok' : 'http_error';
             logYahooTraceLine(
                 'yahoo_finance2_fetch',
@@ -174,6 +178,19 @@ export function createYahooLoggingFetch(
             });
             throw e;
         }
+    };
+}
+
+/**
+ * Wraps `fetch` for `new YahooFinance({ fetch })` — queued (stock before aux), traced, 429-aware.
+ */
+export function createYahooLoggingFetch(
+    baseFetch: typeof globalThis.fetch = globalThis.fetch.bind(globalThis) as typeof fetch
+): typeof fetch {
+    const inner = createYahooLoggingFetchInner(baseFetch);
+    return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const priority = getYahooRequestPriority();
+        return enqueueYahooWork(priority, () => inner(input, init));
     };
 }
 
