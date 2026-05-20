@@ -69,138 +69,222 @@ const PROVIDER_ROWS: { provider: string; accountNumber: string }[] = [
     { provider: 'visaCal', accountNumber: '4580' },
 ];
 
-function buildTransactions(): Transaction[] {
+const INVESTMENT_BROKER_TXNS: { description: string; amount: number; day: number }[] = [
+    { description: 'קניית מניות — AAPL (דמו)', amount: -4200, day: 5 },
+    { description: 'קניית מניות — MSFT (דמו)', amount: -3100, day: 12 },
+    { description: 'דמי ניהול תיק — בנק (דמו)', amount: -35, day: 1 },
+];
+
+type MonthBuildOpts = {
+    maxDay?: number;
+    expenseScale?: number;
+    idPrefix: string;
+    includeInvestmentTxns?: boolean;
+};
+
+function buildMonthTransactions(
+    y: number,
+    m: number,
+    rand: () => number,
+    opts: MonthBuildOpts
+): Transaction[] {
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const effectiveLastDay = opts.maxDay != null ? Math.min(opts.maxDay, lastDay) : lastDay;
+    const scale = opts.expenseScale ?? 1;
+    const out: Transaction[] = [];
+    let idCounter = 0;
+    const nextId = () => `${opts.idPrefix}${idCounter++}`;
+
+    const monthTotal =
+        MIN_TXNS_PER_MONTH + Math.floor(rand() * (MAX_TXNS_PER_MONTH - MIN_TXNS_PER_MONTH + 1));
+    const expenseCount = Math.max(1, Math.round((monthTotal - 3) * scale));
+
+    const salaryDay = 1 + Math.floor(rand() * Math.min(7, effectiveLastDay));
+    const salaryAmount = 11800 + Math.round(rand() * 2000);
+    out.push(
+        txn({
+            id: nextId(),
+            date: ymd(new Date(y, m, salaryDay)),
+            description: 'שכר — Demo Employer',
+            amount: salaryAmount,
+            originalAmount: salaryAmount,
+            originalCurrency: 'ILS',
+            chargedAmount: salaryAmount,
+            status: 'completed',
+            category: 'הכנסות',
+            provider: 'hapoalim',
+            accountNumber: '131',
+            txnType: 'income',
+        })
+    );
+
+    const bituachDay = Math.min(effectiveLastDay, 8 + Math.floor(rand() * 12));
+    const bituachAmount = 900 + Math.round(rand() * 2100);
+    out.push(
+        txn({
+            id: nextId(),
+            date: ymd(new Date(y, m, bituachDay)),
+            description: 'ביטוח לאומי — גמלאות ילדים',
+            amount: bituachAmount,
+            originalAmount: bituachAmount,
+            originalCurrency: 'ILS',
+            chargedAmount: bituachAmount,
+            status: 'completed',
+            category: 'הכנסות',
+            provider: 'hapoalim',
+            accountNumber: '131',
+            txnType: 'income',
+        })
+    );
+
+    const sideJobDay = Math.min(effectiveLastDay, 12 + Math.floor(rand() * 14));
+    const sideJobAmount = 2400 + Math.round(rand() * 3800);
+    out.push(
+        txn({
+            id: nextId(),
+            date: ymd(new Date(y, m, sideJobDay)),
+            description: 'שכר — מעסיק נוסף (דמו)',
+            amount: sideJobAmount,
+            originalAmount: sideJobAmount,
+            originalCurrency: 'ILS',
+            chargedAmount: sideJobAmount,
+            status: 'completed',
+            category: 'הכנסות',
+            provider: 'hapoalim',
+            accountNumber: '131',
+            txnType: 'income',
+        })
+    );
+
+    if (opts.includeInvestmentTxns) {
+        for (const inv of INVESTMENT_BROKER_TXNS) {
+            if (inv.day <= effectiveLastDay) {
+                out.push(
+                    txn({
+                        id: nextId(),
+                        date: ymd(new Date(y, m, inv.day)),
+                        description: inv.description,
+                        amount: inv.amount,
+                        originalAmount: inv.amount,
+                        originalCurrency: 'ILS',
+                        chargedAmount: inv.amount,
+                        status: 'completed',
+                        category: 'Investments',
+                        provider: 'hapoalim',
+                        accountNumber: '131',
+                        txnType: 'expense',
+                        isInvestment: true,
+                    })
+                );
+            }
+        }
+    }
+
+    for (let k = 0; k < expenseCount; k++) {
+        const day = 1 + Math.floor(rand() * effectiveLastDay);
+        const pick = EXPENSE_DESCRIPTIONS[Math.floor(rand() * EXPENSE_DESCRIPTIONS.length)];
+        const raw = pick.min + rand() * (pick.max - pick.min);
+        const amt = -Math.round(raw * 100) / 100;
+        const row = PROVIDER_ROWS[Math.floor(rand() * PROVIDER_ROWS.length)];
+        const isSub = SUBSCRIPTION_DESCRIPTIONS.has(pick.description);
+
+        const isInternal = rand() < 0.012;
+        if (isInternal) {
+            const tfer = -(500 + Math.round(rand() * 4500));
+            out.push(
+                txn({
+                    id: nextId(),
+                    date: ymd(new Date(y, m, day)),
+                    description: 'העברה בין חשבונות',
+                    amount: tfer,
+                    originalAmount: tfer,
+                    originalCurrency: 'ILS',
+                    chargedAmount: tfer,
+                    status: 'completed',
+                    category: 'העברות',
+                    provider: 'hapoalim',
+                    accountNumber: '131',
+                    txnType: 'internal_transfer',
+                    isInternalTransfer: true,
+                })
+            );
+            continue;
+        }
+
+        out.push(
+            txn({
+                id: nextId(),
+                date: ymd(new Date(y, m, day)),
+                description: pick.description,
+                amount: amt,
+                originalAmount: amt,
+                originalCurrency: 'ILS',
+                chargedAmount: amt,
+                status: 'completed',
+                category: pick.category,
+                provider: row.provider,
+                accountNumber: row.accountNumber,
+                txnType: 'expense',
+                isSubscription: isSub,
+            })
+        );
+    }
+
+    return out;
+}
+
+let cachedPastMonths: Transaction[] | null = null;
+
+function buildPastMonthsTransactions(): Transaction[] {
     const rand = mulberry32(0x64_65_6d_6f); // "demo"
     const now = new Date();
     const endYear = now.getFullYear();
     const endMonth = now.getMonth();
     const out: Transaction[] = [];
-    let idCounter = 0;
-    const nextId = () => `demo-txn-${idCounter++}`;
 
-    for (let mi = 0; mi < 6; mi++) {
+    for (let mi = 0; mi < 5; mi++) {
         const monthDate = new Date(endYear, endMonth - 5 + mi, 1);
-        const y = monthDate.getFullYear();
-        const m = monthDate.getMonth();
-        const lastDay = new Date(y, m + 1, 0).getDate();
-        const monthTotal =
-            MIN_TXNS_PER_MONTH + Math.floor(rand() * (MAX_TXNS_PER_MONTH - MIN_TXNS_PER_MONTH + 1));
-
-        const salaryDay = 1 + Math.floor(rand() * Math.min(7, lastDay));
-        const salaryAmount = 11800 + Math.round(rand() * 2000);
         out.push(
-            txn({
-                id: nextId(),
-                date: ymd(new Date(y, m, salaryDay)),
-                description: 'שכר — Demo Employer',
-                amount: salaryAmount,
-                originalAmount: salaryAmount,
-                originalCurrency: 'ILS',
-                chargedAmount: salaryAmount,
-                status: 'completed',
-                category: 'הכנסות',
-                provider: 'hapoalim',
-                accountNumber: '131',
-                txnType: 'income',
+            ...buildMonthTransactions(monthDate.getFullYear(), monthDate.getMonth(), rand, {
+                idPrefix: `demo-txn-p${mi}-`,
             })
         );
-
-        const bituachDay = Math.min(lastDay, 8 + Math.floor(rand() * 12));
-        const bituachAmount = 900 + Math.round(rand() * 2100);
-        out.push(
-            txn({
-                id: nextId(),
-                date: ymd(new Date(y, m, bituachDay)),
-                description: 'ביטוח לאומי — גמלאות ילדים',
-                amount: bituachAmount,
-                originalAmount: bituachAmount,
-                originalCurrency: 'ILS',
-                chargedAmount: bituachAmount,
-                status: 'completed',
-                category: 'הכנסות',
-                provider: 'hapoalim',
-                accountNumber: '131',
-                txnType: 'income',
-            })
-        );
-
-        const sideJobDay = Math.min(lastDay, 12 + Math.floor(rand() * 14));
-        const sideJobAmount = 2400 + Math.round(rand() * 3800);
-        out.push(
-            txn({
-                id: nextId(),
-                date: ymd(new Date(y, m, sideJobDay)),
-                description: 'שכר — מעסיק נוסף (דמו)',
-                amount: sideJobAmount,
-                originalAmount: sideJobAmount,
-                originalCurrency: 'ILS',
-                chargedAmount: sideJobAmount,
-                status: 'completed',
-                category: 'הכנסות',
-                provider: 'hapoalim',
-                accountNumber: '131',
-                txnType: 'income',
-            })
-        );
-
-        const expenseCount = monthTotal - 3;
-        for (let k = 0; k < expenseCount; k++) {
-            const day = 1 + Math.floor(rand() * lastDay);
-            const pick = EXPENSE_DESCRIPTIONS[Math.floor(rand() * EXPENSE_DESCRIPTIONS.length)];
-            const raw =
-                pick.min + rand() * (pick.max - pick.min);
-            const amt = -Math.round(raw * 100) / 100;
-            const row = PROVIDER_ROWS[Math.floor(rand() * PROVIDER_ROWS.length)];
-            const isSub = SUBSCRIPTION_DESCRIPTIONS.has(pick.description);
-
-            const isInternal = rand() < 0.012;
-            if (isInternal) {
-                const tfer = -(500 + Math.round(rand() * 4500));
-                out.push(
-                    txn({
-                        id: nextId(),
-                        date: ymd(new Date(y, m, day)),
-                        description: 'העברה בין חשבונות',
-                        amount: tfer,
-                        originalAmount: tfer,
-                        originalCurrency: 'ILS',
-                        chargedAmount: tfer,
-                        status: 'completed',
-                        category: 'העברות',
-                        provider: 'hapoalim',
-                        accountNumber: '131',
-                        txnType: 'internal_transfer',
-                        isInternalTransfer: true,
-                    })
-                );
-                continue;
-            }
-
-            out.push(
-                txn({
-                    id: nextId(),
-                    date: ymd(new Date(y, m, day)),
-                    description: pick.description,
-                    amount: amt,
-                    originalAmount: amt,
-                    originalCurrency: 'ILS',
-                    chargedAmount: amt,
-                    status: 'completed',
-                    category: pick.category,
-                    provider: row.provider,
-                    accountNumber: row.accountNumber,
-                    txnType: 'expense',
-                    isSubscription: isSub,
-                })
-            );
-        }
     }
 
-    out.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
     return out;
 }
 
-export const demoTransactions: Transaction[] = buildTransactions();
+/** Current calendar month — regenerated on each call (dates through today). */
+function buildCurrentMonthTransactions(): Transaction[] {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const today = now.getDate();
+    const scale = Math.max(0.25, today / lastDay);
+    const seed = y * 100 + (m + 1) + today;
+    const rand = mulberry32(seed ^ 0x64_65_6d_6f);
+
+    return buildMonthTransactions(y, m, rand, {
+        maxDay: today,
+        expenseScale: scale,
+        idPrefix: 'demo-txn-cur-',
+        includeInvestmentTxns: true,
+    });
+}
+
+/** All demo transactions: five past months (cached) + current month (on the fly). */
+export function getDemoTransactions(): Transaction[] {
+    if (!cachedPastMonths) {
+        cachedPastMonths = buildPastMonthsTransactions();
+    }
+    const all = [...cachedPastMonths, ...buildCurrentMonthTransactions()];
+    all.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    return all;
+}
+
+/** @deprecated Use {@link getDemoTransactions} — kept for imports that expect a static array. */
+export const demoTransactions: Transaction[] = getDemoTransactions();
 
 const postScrape: PostScrapeConfig = {
     runCategorization: true,
@@ -233,28 +317,38 @@ export const demoDashboardConfig: DashboardConfig = {
 };
 
 export const demoAiSettings = {
-    categories: ['מזון', 'הכנסות', 'שירותים', 'בידור', 'העברות', 'רכב', 'ביטוחים', 'בריאות', 'חינוך', 'אחר'],
+    categories: ['מזון', 'הכנסות', 'שירותים', 'בידור', 'העברות', 'רכב', 'ביטוחים', 'בריאות', 'חינוך', 'אחר', 'Investments'],
     model: 'gemini-2.0-flash',
+    chatModel: 'gemini-2.0-flash',
     enabled: true,
+    personaInjectionEnabled: true,
+    userContext: {
+        profile: { narrativeNotes: 'משפחה עם שני ילדים בגן' },
+        financialGoals: { topPriorities: ['investing', 'building_emergency_fund'] },
+    },
 };
 
-export const demoScrapeResultList = [
-    {
-        filename: DEMO_SAMPLE_FILENAME,
-        transactionCount: demoTransactions.length,
-        accountCount: 2,
-        createdAt: new Date().toISOString(),
-    },
-];
+export function getDemoScrapeResultList() {
+    const txns = getDemoTransactions();
+    return [
+        {
+            filename: DEMO_SAMPLE_FILENAME,
+            transactionCount: txns.length,
+            accountCount: 2,
+            createdAt: new Date().toISOString(),
+        },
+    ];
+}
 
 export function demoScrapeResultFile(): ScrapeResult {
+    const transactions = getDemoTransactions();
     return {
         success: true,
         accounts: [
             { accountNumber: '131', provider: 'hapoalim', balance: 12400, currency: 'ILS' },
             { accountNumber: '5326', provider: 'isracard', currency: 'ILS' },
         ],
-        transactions: demoTransactions,
+        transactions,
         executionTimeMs: 1200,
     };
 }
@@ -288,7 +382,7 @@ export const demoTopInsights = [
     },
     {
         id: 'insight-3',
-        text: 'רוב ההוצאות הקבועות מכוסות מתוך השכר החודשי — שימוש תקין ביתרה.',
+        text: 'תיק ההשקעות בדמו מציג רווח כולל — ראה לוח השקעות.',
         score: 68,
         createdAt: new Date().toISOString(),
         source: 'ai' as const,
