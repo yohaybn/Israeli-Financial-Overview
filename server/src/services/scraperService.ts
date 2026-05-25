@@ -2,6 +2,7 @@ import { createScraper, CompanyTypes } from 'israeli-bank-scrapers';
 import {
     ScrapeResult,
     ScrapeRequest,
+    PROVIDERS,
     countTransactionsForExclusionPattern,
     isAccountNumberExcluded,
     mergeExcludedAccountNumberLists,
@@ -51,6 +52,29 @@ let activeScrapeCount = 0;
 
 /** When smart start is on, never scrape fewer than this many days of history (vs day-after-last-txn). */
 const SMART_START_MIN_LOOKBACK_DAYS = 7;
+
+function validateScrapeCredentials(
+    companyId: string,
+    credentials: Record<string, string> | undefined
+): string | null {
+    const creds = credentials ?? {};
+    if ((creds as Record<string, unknown>)._locked) {
+        return 'Profile credentials are locked. Unlock the app in the web UI, then retry.';
+    }
+    if ((creds as Record<string, unknown>)._error === 'DECRYPTION_FAILED') {
+        return 'Could not decrypt profile credentials. Unlock with your app password or re-save ID, card digits, and password on the profile.';
+    }
+    const provider = PROVIDERS.find((p) => p.id === companyId);
+    if (!provider) return null;
+    const missing = provider.credentialFields
+        .filter((f) => f.required)
+        .filter((f) => typeof creds[f.name] !== 'string' || creds[f.name].trim() === '')
+        .map((f) => f.name);
+    if (missing.length > 0) {
+        return `Missing required credentials for ${companyId}: ${missing.join(', ')}. Re-enter them on the profile or in the scrape form.`;
+    }
+    return null;
+}
 
 export function getActiveScrapeCount(): number {
     return activeScrapeCount;
@@ -175,6 +199,26 @@ export class ScraperService {
             } catch (err) {
                 addLog(`Warning: Failed to load profile: ${(err as Error).message}. Falling back to provided credentials.`);
             }
+        }
+
+        const credentialError = validateScrapeCredentials(request.companyId, credentials);
+        if (credentialError) {
+            addLog(credentialError);
+            this.emitProgress(ScraperProgressTypes.Terminating, credentialError);
+            const executionTimeMs = Date.now() - startTime;
+            if (this.io) {
+                this.io.emit('scrape:complete', {
+                    success: false,
+                    error: credentialError,
+                    executionTimeMs,
+                });
+            }
+            return {
+                success: false as const,
+                error: credentialError,
+                logs,
+                executionTimeMs,
+            };
         }
 
         const executablePath = this.getExecutablePath();
