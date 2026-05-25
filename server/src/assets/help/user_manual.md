@@ -205,7 +205,7 @@ This is the control center of the app. It holds all automations, rules, AI promp
 
 The AI keeps a **server-side memory** the unified analyst loads on each chat turn.
 
-*   **Stored AI facts (memory facts):** Persistent lines in the database—long-lived context the model should assume is true until you edit them (budget rules, dates, preferences). You manage them in the Facts list. The analyst’s structured replies can **append** new fact lines when they are not duplicates of existing ones. These are **not** the same as the short **summary bullets** Gemini may show after **persona extraction** from a narrative; those bullets are a readout of what was inferred and are **not** automatically copied into stored memory facts unless you add them yourself.
+*   **Stored AI facts (memory facts):** Persistent **stable** context (household, income structure, goals, preferences)—not month-specific observations. You manage them in the Facts list. The analyst can **append** new facts or **replace** outdated ones (e.g. job or salary change) when confident; replacements match existing lines by text. These are **not** the same as the short **summary bullets** after **persona extraction**; those bullets are not automatically copied into stored facts unless you add them yourself.
 *   **Retention Days:** Set how many days the app should keep Insights and Alerts before pruning them (facts are edited or cleared explicitly).
 *   **Insights:** Analytical takeaways from past analyst replies (with scores). Delete an insight if you want that topic reconsidered from scratch.
 *   **Alerts:** Time-sensitive or high-priority items with scores; dismissing an alert blocks the same text from being stored again.

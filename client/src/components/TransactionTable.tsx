@@ -11,12 +11,12 @@ import {
     uniqueAccountsFromTransactions,
     type ExpenseMetaCategory,
 } from '@app/shared';
-import { ArrowRightLeft, ChevronDown, Download, EyeOff, Search } from 'lucide-react';
+import { ArrowRightLeft, ChevronDown, Download, EyeOff, RefreshCw, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { TransactionModal } from './TransactionModal';
 import { isInternalTransfer } from '../utils/transactionUtils';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
-import { useAISettings } from '../hooks/useScraper';
+import { useAISettings, useRecategorizeAll } from '../hooks/useScraper';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { getCategoryLucideIcon } from '../utils/categoryIcons';
 import { transactionMatchesSearchQuery } from '../utils/transactionSearch';
@@ -143,6 +143,7 @@ export function TransactionTable({
 
     const customCCKeywords = config.customCCKeywords ?? [];
     const { data: aiSettings } = useAISettings();
+    const { mutate: recategorizeAll, isPending: isRecategorizing } = useRecategorizeAll();
 
     const categoryListForMeta = useMemo(
         () => (categories.length > 0 ? categories : aiSettings?.categories ?? []),
@@ -328,6 +329,25 @@ export function TransactionTable({
             default:
                 return status;
         }
+    };
+
+    const handleRecategorize = () => {
+        recategorizeAll(false, {
+            onSuccess: (data) => {
+                if (data.error) {
+                    window.alert(
+                        t('table.recategorize_partial', { error: data.error, count: data.count })
+                    );
+                } else if (data.count === 0) {
+                    window.alert(t('table.recategorize_none'));
+                } else {
+                    window.alert(t('ai_settings.recategorize_success', { count: data.count }));
+                }
+            },
+            onError: (err: Error) => {
+                window.alert(t('common.error_with_message', { error: err.message || t('common.unknown_error') }));
+            },
+        });
     };
 
     const downloadCurrentView = (format: 'csv' | 'json') => {
@@ -644,7 +664,42 @@ export function TransactionTable({
                                         className={`px-6 py-4 text-sm font-semibold text-gray-700 ${col.sortable ? 'cursor-pointer hover:bg-gray-100' : ''} ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
                                         onClick={() => col.sortable && handleSort(col.key as SortField)}
                                     >
-                                        {t(col.label)} {col.sortable && sortField === col.key && (sortOrder === 'asc' ? '↑' : '↓')}
+                                        {col.key === 'category' ? (
+                                            <div
+                                                className={clsx(
+                                                    'inline-flex flex-wrap items-center gap-2',
+                                                    i18n.language === 'he' ? 'flex-row-reverse' : ''
+                                                )}
+                                            >
+                                                <span>{t(col.label)}</span>
+                                                <button
+                                                    type="button"
+                                                    title={t('table.recategorize_title')}
+                                                    disabled={isRecategorizing}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleRecategorize();
+                                                    }}
+                                                    className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 transition-colors hover:border-indigo-300 hover:bg-indigo-100 disabled:opacity-50"
+                                                >
+                                                    <RefreshCw
+                                                        className={clsx(
+                                                            'h-3 w-3 shrink-0',
+                                                            isRecategorizing && 'animate-spin'
+                                                        )}
+                                                        aria-hidden
+                                                    />
+                                                    {t('table.recategorize')}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {t(col.label)}{' '}
+                                                {col.sortable &&
+                                                    sortField === col.key &&
+                                                    (sortOrder === 'asc' ? '↑' : '↓')}
+                                            </>
+                                        )}
                                     </th>
                                 ))}
                             </tr>

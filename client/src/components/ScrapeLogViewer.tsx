@@ -159,13 +159,7 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({ initialEntryId
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">{t('scrape_logs.title')}</h2>
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-ai-logs'))}
-            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
-          >
-            {t('scrape_logs.link_ai_logs')}
-          </button>
+          
         </div>
         <div className="flex flex-wrap gap-2">
           <button

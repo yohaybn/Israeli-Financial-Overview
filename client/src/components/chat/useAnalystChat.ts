@@ -85,16 +85,28 @@ export function useAnalystChat({
                 });
 
                 const memoryNote =
-                    result.factsAdded > 0 || result.insightsAdded > 0 || result.alertsAdded > 0
+                    result.factsAdded > 0 ||
+                    (result.factsReplaced ?? 0) > 0 ||
+                    result.insightsAdded > 0 ||
+                    result.alertsAdded > 0
                         ? `\n\n_${t('ai_chat.memory_saved', {
                               facts: result.factsAdded,
+                              factsReplaced: result.factsReplaced ?? 0,
                               insights: result.insightsAdded,
                               alerts: result.alertsAdded,
                           })}_`
                         : '';
 
-                if (result.factsAdded > 0 || result.insightsAdded > 0 || result.alertsAdded > 0) {
+                if (
+                    result.factsAdded > 0 ||
+                    (result.factsReplaced ?? 0) > 0 ||
+                    result.insightsAdded > 0 ||
+                    result.alertsAdded > 0
+                ) {
                     queryClient.invalidateQueries({ queryKey: AI_TOP_INSIGHTS_QUERY_KEY });
+                    if (result.factsAdded > 0 || (result.factsReplaced ?? 0) > 0) {
+                        queryClient.invalidateQueries({ queryKey: ['ai-memory-facts'] });
+                    }
                     queryClient.invalidateQueries({ queryKey: ['ai-memory-insights'] });
                     queryClient.invalidateQueries({ queryKey: ['ai-memory-alerts'] });
                 }

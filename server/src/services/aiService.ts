@@ -190,10 +190,14 @@ export interface FinancialReportNarrative {
     insights: FinancialReportInsightNarrative[];
 }
 
+/** Replace one stored fact line when life/finance context changed (oldText should match Stored facts). */
+export type FactReplacement = { oldText: string; newText: string };
+
 /** Unified AI chat: model returns user-facing text plus facts, scored insights, and scored alerts. */
 export interface StructuredChatResult {
     response: string;
     facts: string[];
+    factsReplace: FactReplacement[];
     insights: ScoredMemoryItem[];
     alerts: ScoredMemoryItem[];
     /** Set when the request succeeded using {@link AiSettings.fallbackModel} after a 429/503 on the primary model. */
@@ -230,6 +234,24 @@ export function normalizeScoredItems(raw: unknown, legacyDefaultScore: number = 
             const score = clampScore((item as any).score);
             out.push({ text: t, score });
         }
+    }
+    return out;
+}
+
+/** Parses model JSON `factsReplace`: `{ oldText, newText }[]` (aliases `old`/`new` accepted). */
+export function normalizeFactReplacements(raw: unknown): FactReplacement[] {
+    if (!Array.isArray(raw)) return [];
+    const out: FactReplacement[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const o = item as Record<string, unknown>;
+        const oldText =
+            (typeof o.oldText === 'string' ? o.oldText : typeof o.old === 'string' ? o.old : '').trim();
+        const newText =
+            (typeof o.newText === 'string' ? o.newText : typeof o.new === 'string' ? o.new : '').trim();
+        if (!oldText || !newText) continue;
+        if (oldText.toLowerCase() === newText.toLowerCase()) continue;
+        out.push({ oldText, newText });
     }
     return out;
 }
@@ -1235,7 +1257,7 @@ export class AiService {
                 : '';
         const systemInstructionBase =
             'You are a professional financial analyst. Reply with a single JSON object exactly as specified in the user message. ' +
-            'Do not wrap JSON in markdown fences. Do not repeat prior insights verbatim; facts are long-term memory, insights are one-time analytical notes.' +
+            'Do not wrap JSON in markdown fences. Do not repeat prior insights verbatim. Facts are stable life/finance context (not time-bound snapshots); insights are data-driven observations; use factsReplace only when stored facts are clearly outdated.' +
             personaHint;
         const sysExtra = this.settings.analyticsSystemInstructionExtra?.trim();
         const systemInstruction = sysExtra ? `${systemInstructionBase}\n\n${sysExtra}` : systemInstructionBase;
@@ -1247,14 +1269,15 @@ export class AiService {
 ---
 OUTPUT FORMAT
 Respond with one JSON object only (no markdown code fences, no text before or after). Schema:
-{"response": string, "facts": string[], "insights": {"text": string, "score": number}[], "alerts": {"text": string, "score": number}[]}
+{"response": string, "facts": string[], "factsReplace": {"oldText": string, "newText": string}[], "insights": {"text": string, "score": number}[], "alerts": {"text": string, "score": number}[]}
 
 - "response": Your main answer to the user (you may use markdown inside this string).
-- "facts": Durable context worth remembering across sessions (life situation, goals, standing preferences). Do not duplicate items already listed under "Stored facts" in the prompt. Do not put raw one-off numbers here unless the user asked to remember them. Use an empty array if nothing new.
+- "facts": NEW stable context only—parameters that sharpen future analysis across months, not observations about the current period. Good examples: household composition; employment/income structure (salaried vs freelance, typical pay days if standing); long-term goals; standing category preferences; recurring obligations the user asked you to remember (rent, subscriptions, loans). Bad examples (put these in "insights" or "response" instead): month-specific cash-flow commentary; "already paid/settled this month"; one-off spikes; anything that will be stale next week. Do not duplicate lines under "Stored facts". Do not store raw balances unless the user explicitly asked to remember them. Use [] if nothing new.
+- "factsReplace": Update an outdated STORED fact when the user clearly reports a lasting change (new job, salary/pay schedule change, moved, new dependent) OR transaction data reliably contradicts a stored line—and you are confident. Each item: {"oldText": "<copy one Stored facts line verbatim>", "newText": "<replacement stable fact>"}. Max 1–2 items per reply; use [] if unsure. Never replace based on temporary cash-flow, a single month, or an insight. Do not add the same information in both "facts" and "factsReplace".
 - "insights": Analytical observations (trends, comparisons, patterns). Each item MUST include "score" 1–100. Score bands: 1–35 = minor; 36–65 = notable; 66–100 = high-signal. Do not duplicate items under "Recent insights" in the prompt. Use an empty array if nothing new.
 - "alerts": ONLY for items that genuinely need attention soon: clear overspend vs plan, missed or imminent payment deadline, fraud-like or highly unusual activity, or another time-critical risk. Put general tips, education, and non-urgent observations in "response" or "insights" instead—NOT here. Prefer at most 1–2 alerts per reply; use [] when there is nothing truly alert-worthy. Each item MUST include "score" 1–100. Alert score bands: 1–50 = watchlist (rarely needed); 51–74 = address soon; 75–84 = important; 85–100 = urgent/critical only—do not inflate scores. Do not duplicate "Recent alerts" below.
 
-Facts are user-editable persistent memory. Insights and alerts are stored with scores for prioritization.`;
+Facts are user-editable persistent memory (stable context). Insights and alerts are stored with scores for prioritization.`;
 
         const fullQuery = effectiveQuery + jsonSpec;
 
@@ -1423,6 +1446,7 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
                 return {
                     response: text,
                     facts: [],
+                    factsReplace: [],
                     insights: [],
                     alerts: [],
                     ...(usedFallbackModel ? { usedFallbackModel } : {})
@@ -1430,11 +1454,13 @@ Facts are user-editable persistent memory. Insights and alerts are stored with s
             }
             const resText = typeof parsed.response === 'string' ? parsed.response : '';
             const facts = Array.isArray(parsed.facts) ? parsed.facts.filter((x: unknown) => typeof x === 'string' && x.trim()) : [];
+            const factsReplace = normalizeFactReplacements(parsed.factsReplace);
             const insights = normalizeScoredItems(parsed.insights, 50);
             const alerts = normalizeScoredItems(parsed.alerts, 70);
             return {
                 response: resText || text,
                 facts,
+                factsReplace,
                 insights,
                 alerts,
                 ...(usedFallbackModel ? { usedFallbackModel } : {})
@@ -2071,7 +2097,7 @@ Allowed values (use these strings only, or null):
 - aiPreferences.reportingDepth: low | high_level | standard | detailed_analysis
 
 Rules:
-- "facts": 3–8 short bullet strings in the user's language summarizing what you inferred (no JSON inside bullets).
+- "facts": 3–8 short stable-context bullets in the user's language (household, income structure, goals, preferences)—not month-specific or time-bound observations (no JSON inside bullets).
 - Add one cards[] row per distinct card product; add incomes[] rows for each salary, allowance, pension, or child benefit mentioned.
 - paymentDays: calendar days 1–31 when mentioned (e.g. salary on the 1st and 15th → [1, 15]).
 - chargePaymentDay: day of month for charge/credit card statement if mentioned.

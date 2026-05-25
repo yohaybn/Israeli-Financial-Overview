@@ -499,6 +499,10 @@
         "export_view_json": "JSON",
         "export_view_aria": "Download current table (filters and sort applied)",
         "export_empty": "No rows to export for this view",
+        "recategorize": "Re-categorize",
+        "recategorize_title": "Run AI again on transactions in the default category (skips categories you set manually)",
+        "recategorize_none": "No transactions in the default category to re-categorize.",
+        "recategorize_partial": "AI categorization had issues: {{error}}. Updated {{count}} rows from cache where possible.",
         "reset_all": "Restore to defaults (factory reset)",
         "reset_all_desc": "Deletes the entire server data folder and clears site cookies/storage in this browser. You will lose transactions, profiles, AI memory, OAuth tokens, integrations, local backups, and logs.",
         "confirm_reset_all": "Are you sure you want to reset all user modifications (categories, filters, ignoring) back to defaults? This cannot be undone."
@@ -1468,7 +1472,7 @@
         "view_ai_logs": "View AI Logs ←",
         "greeting": "Hello! I am your AI financial analyst. I can help answer questions about your spending habits, trends, or anomalies. What would you like to know?",
         "error": "Sorry — I hit an error while analyzing your data. Please try again.",
-        "memory_saved": "Memory: +{{facts}} fact(s), +{{insights}} insight(s), +{{alerts}} alert(s) saved",
+        "memory_saved": "Memory: +{{facts}} fact(s), {{factsReplaced}} fact(s) updated, +{{insights}} insight(s), +{{alerts}} alert(s) saved",
         "fallback_used": "This reply used your fallback model ({{model}}) after a temporary rate limit or overload on the primary model."
     },
     "ai_errors": {
@@ -1491,7 +1495,7 @@
         "clear_all": "Clear all",
         "clear_all_confirm": "Remove every item in “{{section}}”? This cannot be undone.",
         "facts_heading": "Facts",
-        "facts_help": "Examples: goals, household situation, preferences. The AI may suggest new facts; you can edit or delete them here.",
+        "facts_help": "Stable context for sharper analysis (household, income structure, goals, preferences)—not month-specific observations. The AI may add facts or update outdated ones when your situation changes; you can edit or delete them here.",
         "insights_heading": "Insights",
         "insights_help": "Observations from past replies. Delete items if you want them to be allowed again in future answers.",
         "fact_placeholder": "Add a fact…",

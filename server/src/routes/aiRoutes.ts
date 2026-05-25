@@ -89,7 +89,8 @@ router.post('/chat/unified', async (req, res) => {
         const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
             conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : undefined,
         });
-        const { factsAdded, insightsAdded, alertsAdded, newAlerts } = mergeAndPersistAiMemory(structured);
+        const { factsAdded, factsReplaced, insightsAdded, alertsAdded, newAlerts } =
+            mergeAndPersistAiMemory(structured);
         void telegramBotService.notifyNewAiMemoryAlerts(newAlerts);
 
         res.json({
@@ -97,6 +98,7 @@ router.post('/chat/unified', async (req, res) => {
             data: {
                 response: structured.response,
                 factsAdded,
+                factsReplaced,
                 insightsAdded,
                 alertsAdded,
                 ...(structured.usedFallbackModel ? { usedFallbackModel: structured.usedFallbackModel } : {})

@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { UserPersonaContext } from '@app/shared';
 import { isUserPersonaEmpty } from '@app/shared';
 import { DbService } from './dbService.js';
-import type { StructuredChatResult } from './aiService.js';
+import type { FactReplacement, StructuredChatResult } from './aiService.js';
 import type { ConversationTurn } from './aiService.js';
 import { normalizeAiMemoryKey } from '../utils/aiMemoryNormalize.js';
 
@@ -56,7 +56,7 @@ ${historyNote ? `- Additional context: ${historyNote}` : ''}
 
 ${personaBlock}${STATIC_APP_DOCS_FOR_AI}
 
-Stored facts (editable by the user in Configuration; do not duplicate these in the JSON "facts" array unless the user changes the situation):
+Stored facts (persistent stable context—household, income structure, goals, preferences; NOT time-bound monthly observations. User-editable in Configuration. Copy a line verbatim into factsReplace.oldText when updating; add only genuinely new stable lines in JSON "facts"):
 ${factsBlock}
 
 Recent insights (already recorded with importance score; do not repeat the same observation or duplicate in JSON "insights"):
@@ -68,14 +68,61 @@ ${alertsBlock}
 User Query: ${userQuery}`;
 }
 
+function findStoredFactIdForReplacement(
+    existing: { id: string; text: string }[],
+    oldText: string
+): string | null {
+    const key = normalizeAiMemoryKey(oldText);
+    const exact = existing.find((f) => normalizeAiMemoryKey(f.text) === key);
+    if (exact) return exact.id;
+    const fuzzy = existing.filter((f) => {
+        const fk = normalizeAiMemoryKey(f.text);
+        return fk.includes(key) || key.includes(fk);
+    });
+    return fuzzy.length === 1 ? fuzzy[0].id : null;
+}
+
+export function applyFactReplacements(
+    replacements: FactReplacement[],
+    existing: { id: string; text: string }[]
+): { factsReplaced: number; existingKeys: Set<string> } {
+    let factsReplaced = 0;
+    const existingKeys = new Set(existing.map((f) => normalizeAiMemoryKey(f.text)));
+    const usedIds = new Set<string>();
+
+    for (const { oldText, newText } of replacements.slice(0, 2)) {
+        const id = findStoredFactIdForReplacement(existing, oldText);
+        if (!id || usedIds.has(id)) continue;
+        const trimmedNew = newText.trim();
+        if (!trimmedNew) continue;
+        const newKey = normalizeAiMemoryKey(trimmedNew);
+        if (existingKeys.has(newKey)) {
+            const dup = existing.find((f) => normalizeAiMemoryKey(f.text) === newKey && f.id !== id);
+            if (dup) continue;
+        }
+        if (db.updateAiMemoryFact(id, trimmedNew)) {
+            usedIds.add(id);
+            const oldFact = existing.find((f) => f.id === id);
+            if (oldFact) existingKeys.delete(normalizeAiMemoryKey(oldFact.text));
+            existingKeys.add(newKey);
+            const row = existing.find((f) => f.id === id);
+            if (row) row.text = trimmedNew;
+            factsReplaced++;
+        }
+    }
+
+    return { factsReplaced, existingKeys };
+}
+
 export function mergeAndPersistAiMemory(structured: StructuredChatResult): {
     factsAdded: number;
+    factsReplaced: number;
     insightsAdded: number;
     alertsAdded: number;
     newAlerts: { text: string; score: number }[];
 } {
     const existing = db.listAiMemoryFacts();
-    const existingKeys = new Set(existing.map((f) => normalizeAiMemoryKey(f.text)));
+    const { factsReplaced, existingKeys } = applyFactReplacements(structured.factsReplace ?? [], existing);
 
     let factsAdded = 0;
     for (const raw of structured.facts) {
@@ -117,7 +164,7 @@ export function mergeAndPersistAiMemory(structured: StructuredChatResult): {
         newAlerts.push({ text: t, score: item.score });
     }
 
-    return { factsAdded, insightsAdded, alertsAdded, newAlerts };
+    return { factsAdded, factsReplaced, insightsAdded, alertsAdded, newAlerts };
 }
 
 export type { ConversationTurn };

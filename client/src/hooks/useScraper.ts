@@ -340,6 +340,7 @@ export function useUnifiedAIChat() {
                 data: {
                     response: string;
                     factsAdded: number;
+                    factsReplaced: number;
                     insightsAdded: number;
                     alertsAdded: number;
                     usedFallbackModel?: string;

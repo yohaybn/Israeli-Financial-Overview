@@ -618,7 +618,7 @@ export const demoHandlers = [
         const { response, factsAdded, insightsAdded, alertsAdded } = demoChatReply(query, historyNote);
         return HttpResponse.json({
             success: true,
-            data: { response, factsAdded, insightsAdded, alertsAdded },
+            data: { response, factsAdded, factsReplaced: 0, insightsAdded, alertsAdded },
         });
     }),
 
