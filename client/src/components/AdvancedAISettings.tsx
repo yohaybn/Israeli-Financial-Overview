@@ -86,6 +86,68 @@ export function AdvancedAISettings({
             defaultOpen={false}
             bodyClassName="px-6 pb-6 pt-0 space-y-6"
         >
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 space-y-2">
+                <div className="flex items-start gap-3">
+                    <input
+                        id="adv-super-privacy"
+                        type="checkbox"
+                        disabled={isPending}
+                        checked={Boolean(localSettings.superPrivacyMode)}
+                        onChange={(e) =>
+                            persistSettings({ ...base, superPrivacyMode: e.target.checked })
+                        }
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="min-w-0">
+                        <label htmlFor="adv-super-privacy" className="text-sm font-bold text-emerald-900 cursor-pointer">
+                            {t('ai_settings.super_privacy_label')}
+                        </label>
+                        <p className="text-xs text-emerald-800/90 leading-relaxed mt-1">
+                            {t('ai_settings.super_privacy_help')}
+                        </p>
+                    </div>
+                </div>
+                {Boolean(localSettings.superPrivacyMode) && (
+                    <div className="mt-4 pt-4 border-t border-emerald-200/80 space-y-3">
+                        <p className="text-xs font-semibold text-emerald-900">
+                            {t('ai_settings.super_privacy_share_heading')}
+                        </p>
+                        <p className="text-xs text-emerald-800/80 leading-relaxed">
+                            {t('ai_settings.super_privacy_share_intro')}
+                        </p>
+                        {(
+                            [
+                                ['superPrivacySharePersona', 'ai_settings.super_privacy_share_persona'],
+                                ['superPrivacyShareFacts', 'ai_settings.super_privacy_share_facts'],
+                                ['superPrivacyShareInsights', 'ai_settings.super_privacy_share_insights'],
+                                ['superPrivacyShareAlerts', 'ai_settings.super_privacy_share_alerts'],
+                                [
+                                    'superPrivacyShareDashboardContext',
+                                    'ai_settings.super_privacy_share_dashboard',
+                                ],
+                                ['superPrivacyShareChatHistory', 'ai_settings.super_privacy_share_history'],
+                            ] as const
+                        ).map(([key, labelKey]) => (
+                            <label
+                                key={key}
+                                className="flex items-start gap-2.5 text-sm text-emerald-950 cursor-pointer"
+                            >
+                                <input
+                                    type="checkbox"
+                                    disabled={isPending}
+                                    checked={Boolean(localSettings[key])}
+                                    onChange={(e) =>
+                                        persistSettings({ ...base, [key]: e.target.checked })
+                                    }
+                                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <span>{t(labelKey)}</span>
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             <div className="space-y-2">
                 <label className={labelClass} htmlFor="adv-fallback-model">
                     {t('ai_settings.fallback_model_label')}

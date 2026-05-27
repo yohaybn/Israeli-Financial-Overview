@@ -15,6 +15,8 @@ import { useCreateProfile } from '../hooks/useProfiles';
 import { useAppLockStatus } from '../hooks/useAppLock';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { OneZeroLongTermTokenHelper } from './OneZeroLongTermTokenHelper';
+import { isDemoMode } from '../demo/isDemo';
+import { demoProfiles } from '../demo/sampleData';
 
 // Run a scrape with full options
 function useRunScrape() {
@@ -26,6 +28,7 @@ function useRunScrape() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['scrapeResults'] });
+            queryClient.invalidateQueries({ queryKey: ['unified-data'] });
         },
     });
 }
@@ -48,6 +51,7 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
     const restricted = Boolean(appLock?.restricted);
     const { data: providers, isLoading: isLoadingProviders } = useProviders();
     const { mutate: runScrape, isPending, isSuccess, isError, error, reset } = useRunScrape();
+    const demoMode = isDemoMode();
 
     const { data: globalConfig } = useGlobalConfig();
     const { mutate: createProfile, isPending: isCreating } = useCreateProfile();
@@ -95,6 +99,16 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
         }
     }, [providers, selectedProvider]);
 
+    // Demo: pre-load sample profile so scrape works without credentials
+    useEffect(() => {
+        if (!demoMode) return;
+        const profile = demoProfiles[0];
+        if (!profile) return;
+        setProfileId(profile.id);
+        setLoadedProfileName(profile.name);
+        setSelectedProvider(profile.companyId);
+    }, [demoMode]);
+
     // Reset credentials when provider changes
     useEffect(() => {
         setCredentials({});
@@ -103,8 +117,8 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
 
     const currentProvider = providers?.find(p => p.id === selectedProvider);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = (e?: React.FormEvent) => {
+        e?.preventDefault();
         if (!selectedProvider) return;
         if (restricted) return;
 
@@ -194,6 +208,23 @@ export function ScraperForm({ onOpenSettings }: { onOpenSettings?: () => void })
                     </button>
                 )}
             </div>
+
+            {demoMode && (
+                <div className="rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3 text-sm text-violet-950">
+                    <p className="font-semibold">{t('scraper.demo_scrape_title')}</p>
+                    <p className="mt-1 text-violet-900/90">{t('scraper.demo_scrape_desc')}</p>
+                    <button
+                        type="button"
+                        onClick={() => handleSubmit()}
+                        disabled={isPending || restricted}
+                        className={`mt-3 w-full sm:w-auto flex justify-center items-center gap-2 py-2.5 px-5 rounded-lg text-sm font-bold text-white transition-colors ${
+                            isPending || restricted ? 'bg-violet-400 cursor-not-allowed' : 'bg-violet-600 hover:bg-violet-700'
+                        }`}
+                    >
+                        {isPending ? t('scraper.scraping') : t('scraper.demo_scrape_button')}
+                    </button>
+                </div>
+            )}
 
             {/* Profile Management Section */}
             <ProfileManager

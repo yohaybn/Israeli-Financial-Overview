@@ -30,11 +30,26 @@ import {
     demoDashboardConfig,
     demoGlobalScrapeConfig,
     demoProfiles,
+    demoScrapeResultCurrentMonth,
     demoScrapeResultFile,
     demoTopInsights,
+    getDemoCurrentMonthScrapeFilename,
     getDemoScrapeResultList,
     getDemoTransactions,
 } from './sampleData';
+
+/** Latest demo scrape run (current month mock). */
+let demoLastScrapeResult = demoScrapeResultCurrentMonth();
+
+function resolveDemoScrapeResultFile(filename: string) {
+    if (filename === DEMO_SAMPLE_FILENAME) {
+        return demoScrapeResultFile();
+    }
+    if (filename === getDemoCurrentMonthScrapeFilename() || filename.startsWith('demo-scrape-')) {
+        return demoLastScrapeResult;
+    }
+    return demoScrapeResultFile();
+}
 
 function apiPath(path: string) {
     return ({ request }: { request: Request }) => {
@@ -169,12 +184,16 @@ export const demoHandlers = [
     http.get(({ request }) => {
         const p = new URL(request.url).pathname;
         return isSingleScrapeResultFilePath(p);
-    }, () =>
-        HttpResponse.json({
+    }, ({ request }) => {
+        const pathname = new URL(request.url).pathname;
+        const marker = '/api/results/';
+        const idx = pathname.lastIndexOf(marker);
+        const filename = decodeURIComponent(pathname.slice(idx + marker.length));
+        return HttpResponse.json({
             success: true,
-            data: demoScrapeResultFile(),
-        })
-    ),
+            data: resolveDemoScrapeResultFile(filename),
+        });
+    }),
 
     http.get(apiPath('/ai/settings'), () =>
         HttpResponse.json({ success: true, data: demoAiSettings })
@@ -366,6 +385,67 @@ export const demoHandlers = [
             },
         })
     ),
+
+    http.post(apiPath('/ai/custom-charts/generate'), async () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                chart: {
+                    id: 'demo-txn-chart-1',
+                    title: 'Demo: expenses by category',
+                    chartKind: 'bar',
+                    groupBy: 'category',
+                    measure: 'sum_expense',
+                    dataScope: 'follow_analytics',
+                },
+            },
+        })
+    ),
+
+    http.post(apiPath('/ai/sql-analytic-cards/generate'), async () => {
+        const card = {
+            id: 'demo-sql-card-1',
+            title: 'Demo: spend by category',
+            description: 'Sample AI SQL chart (demo mode)',
+            chartKind: 'bar' as const,
+            dataQueryKey: 'main',
+            labelColumn: 'label',
+            valueColumns: ['total'],
+            queries: [
+                {
+                    key: 'main',
+                    sql: "SELECT 'Food' AS label, 1200 AS total UNION SELECT 'Transport', 450",
+                },
+            ],
+            createdAt: new Date().toISOString(),
+        };
+        const chartRows = [
+            { label: 'Food', total: 1200 },
+            { label: 'Transport', total: 450 },
+        ];
+        return HttpResponse.json({
+            success: true,
+            data: { card, chartRows, queryResults: { main: { rows: chartRows, columns: ['label', 'total'] } } },
+        });
+    }),
+
+    http.post(apiPath('/ai/sql-analytic-cards/run'), async ({ request }) => {
+        const body = (await request.json().catch(() => ({}))) as {
+            card?: { valueColumns?: string[] };
+        };
+        const valueKey = body.card?.valueColumns?.[0] ?? 'total';
+        const chartRows = [
+            { label: 'Food', [valueKey]: 1200 },
+            { label: 'Transport', [valueKey]: 450 },
+        ];
+        return HttpResponse.json({
+            success: true,
+            data: {
+                chartRows,
+                queryResults: { main: { rows: chartRows, columns: ['label', valueKey] } },
+            },
+        });
+    }),
 
     http.get(apiPath('/community/insight-rules/config'), () =>
         HttpResponse.json({ success: true, data: { submitViaProxy: true } })
@@ -582,13 +662,16 @@ export const demoHandlers = [
 
     http.get(apiPath('/sheets/list'), () => HttpResponse.json({ success: true, data: [] })),
 
-    http.post(apiPath('/scrape'), async () =>
-        HttpResponse.json({
+    http.post(apiPath('/scrape'), async () => {
+        await new Promise((r) => setTimeout(r, 1100));
+        demoLastScrapeResult = demoScrapeResultCurrentMonth();
+        const filename = getDemoCurrentMonthScrapeFilename();
+        return HttpResponse.json({
             success: true,
-            data: demoScrapeResultFile(),
-            filename: DEMO_SAMPLE_FILENAME,
-        })
-    ),
+            data: demoLastScrapeResult,
+            filename,
+        });
+    }),
 
     http.post(apiPath('/scrape/onezero/otp/trigger'), async () =>
         HttpResponse.json({

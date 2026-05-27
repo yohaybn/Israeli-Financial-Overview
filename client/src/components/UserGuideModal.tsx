@@ -107,7 +107,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                     id: 'ai',
                     title: 'AI Features',
                     icon: '🤖',
-                    content: 'Gemini categorization and analyst chat (indigo FAB on any main tab): AI does not see your encrypted profile passwords—only transaction text you send for those features. Scraping is separate (israeli-bank-scrapers, no AI). Customize categories in AI Settings.'
+                    content: 'Gemini categorization and analyst chat (indigo FAB on any main tab): AI does not see your encrypted profile passwords. Standard analyst mode may send transaction rows; enable Super privacy mode under Configuration → AI → Advanced to send only the DB schema + your question—SQL runs locally. Scraping is separate (israeli-bank-scrapers, no AI). Customize categories in AI Settings.'
                 },
                 {
                     id: 'export',

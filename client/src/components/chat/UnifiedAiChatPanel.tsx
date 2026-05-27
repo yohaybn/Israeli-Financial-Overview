@@ -42,7 +42,9 @@ export function UnifiedAiChatPanel({
 
     const subtitle =
         activeTab === 'analyst'
-            ? `${t('unified_ai.powered_by', 'Powered by')} ${aiSettings?.chatModel || 'Gemini'}`
+            ? aiSettings?.superPrivacyMode
+                ? t('unified_ai.subtitle_super_privacy')
+                : `${t('unified_ai.powered_by', 'Powered by')} ${aiSettings?.chatModel || 'Gemini'}`
             : t('unified_ai.subtitle_help', 'How to use the app');
 
     if (!isOpen) return null;

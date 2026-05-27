@@ -93,6 +93,9 @@ export class ConfigService {
             if (!Array.isArray(merged.customCharts)) {
                 merged.customCharts = DEFAULT_DASHBOARD_CONFIG.customCharts;
             }
+            if (!Array.isArray(merged.sqlAnalyticCards)) {
+                merged.sqlAnalyticCards = DEFAULT_DASHBOARD_CONFIG.sqlAnalyticCards;
+            }
             merged.sectionsVisibility = mergeDashboardSectionsVisibility(content.sectionsVisibility);
             return merged;
         } catch (error) {

@@ -28,12 +28,10 @@ import {
 import { TREEMAP_SMALL_MERGED_ID, useAnalytics } from '../hooks/useAnalytics';
 import type { CategoryParentGroupKey } from '@app/shared';
 import { isInternalTransfer, isLoanCategory } from '../utils/transactionUtils';
-import {
-    ANALYTICS_CHART_TOOLTIP_STYLE,
-    CustomChartCard,
-    CustomChartModal,
-    useUserCustomChartsEmbedded,
-} from './dashboard/UserCustomChartsSection';
+import { ANALYTICS_CHART_TOOLTIP_STYLE, CustomChartCard } from './dashboard/UserCustomChartsSection';
+import { SqlAnalyticCard } from './dashboard/SqlAnalyticCardsSection';
+import { UnifiedChartModal } from './dashboard/UnifiedChartModal';
+import { useUnifiedDashboardCharts } from '../hooks/useUnifiedDashboardCharts';
 
 interface AnalyticsDashboardProps {
     transactions: Transaction[];
@@ -106,7 +104,7 @@ export function AnalyticsDashboard({
         [analytics.byMonth]
     );
 
-    const ucc = useUserCustomChartsEmbedded();
+    const charts = useUnifiedDashboardCharts();
 
     const mergedCategoryMeta = useMemo(
         () => mergeCategoryMeta(categories, categoryMeta),
@@ -344,14 +342,14 @@ export function AnalyticsDashboard({
             <div className="flex flex-wrap items-center justify-end gap-2 mb-2">
                 <button
                     type="button"
-                    onClick={() => ucc.setModal({ initial: null })}
-                    disabled={ucc.atLimit}
+                    onClick={charts.openAddChart}
+                    disabled={charts.atLimit}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all border border-gray-200 bg-white text-violet-700 hover:bg-violet-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    {t('dashboard.custom_charts_add')}
+                    {t('dashboard.unified_chart_add')}
                 </button>
                 <div className="inline-flex bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-sm">
                     <button
@@ -789,7 +787,7 @@ export function AnalyticsDashboard({
                     </ResponsiveContainer>
                 </div>
 
-                {ucc.charts.map((spec) => (
+                {charts.transactionCharts.map((spec) => (
                     <CustomChartCard
                         key={spec.id}
                         spec={spec}
@@ -799,22 +797,39 @@ export function AnalyticsDashboard({
                             viewRange === 'month' ? t('analytics.this_month') : t('analytics.all_months')
                         }
                         customCCKeywords={customCCKeywords}
-                        weekdayLabels={ucc.weekdayLabels}
-                        onEdit={() => ucc.setModal({ initial: spec })}
-                        onRemove={() => ucc.handleRemove(spec.id)}
+                        weekdayLabels={charts.weekdayLabels}
+                        onEdit={() => charts.openEditTransactionChart(spec)}
+                        onRemove={() => charts.handleRemoveTransactionChart(spec.id)}
+                    />
+                ))}
+
+                {charts.sqlCards.map((spec) => (
+                    <SqlAnalyticCard
+                        key={spec.id}
+                        spec={spec}
+                        onEdit={() => charts.openEditSqlChart(spec)}
+                        onRemove={() => charts.handleRemoveSqlChart(spec.id)}
                     />
                 ))}
             </div>
         </div>
-        {ucc.modal && (
-            <CustomChartModal
-                key={ucc.modal.initial?.id ?? `add-${chartDefaultSingleMonth ?? 'none'}`}
-                initial={ucc.modal.initial}
-                onClose={() => ucc.setModal(null)}
-                onSave={ucc.handleSaveChart}
-                atLimit={ucc.atLimit}
+        {charts.modal && (
+            <UnifiedChartModal
+                key={
+                    charts.modal.initial?.id ??
+                    `${charts.modal.source}-add-${chartDefaultSingleMonth ?? 'none'}`
+                }
+                modal={charts.modal}
+                onClose={() => charts.setModal(null)}
+                atLimit={charts.atLimit}
                 categoryOptions={categories}
                 defaultSingleMonth={chartDefaultSingleMonth}
+                followTransactions={displayTransactions}
+                fullTransactionPool={allTransactions ?? monthTransactions}
+                customCCKeywords={customCCKeywords}
+                weekdayLabels={charts.weekdayLabels}
+                onSaveTransaction={charts.handleSaveTransactionChart}
+                onSaveSql={charts.handleSaveSqlChart}
             />
         )}
     </>

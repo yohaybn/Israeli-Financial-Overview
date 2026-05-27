@@ -341,6 +341,11 @@ export class DbService {
         return getSharedDb();
     }
 
+    /** Shared SQLite connection (read-only analyst SQL in super-privacy mode). */
+    getDatabase(): Database.Database {
+        return this.db;
+    }
+
     // --- Transactions ---
 
     /** @returns true if a new row was inserted (not a duplicate id). */

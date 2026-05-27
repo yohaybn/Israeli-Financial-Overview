@@ -486,10 +486,45 @@ export interface UserChartDefinition {
     merchantTopN?: number;
     /** AND filters; empty or omitted means no extra filtering. */
     filters?: UserChartFilterClause[];
+    /** Legend / tooltip name for the value series (default: localized “Value”). */
+    seriesLabel?: string;
 }
 
 /** Maximum saved custom charts per dashboard. */
 export const MAX_USER_CHARTS = 12;
+
+/** Chart visualization for SQL-backed analytic cards. */
+export type SqlAnalyticCardChartKind = 'bar' | 'line' | 'pie';
+
+export interface SqlAnalyticCardQuery {
+    key: string;
+    sql: string;
+}
+
+/** User-defined dashboard card: one or more read-only SQL queries, chart mapped from one query's rows. */
+export interface SqlAnalyticCardDefinition {
+    id: string;
+    title: string;
+    /** Optional subtitle shown under the title. */
+    description?: string;
+    chartKind: SqlAnalyticCardChartKind;
+    /** Which query key supplies rows for the chart. */
+    dataQueryKey: string;
+    /** Column used for category / X axis / pie labels. */
+    labelColumn: string;
+    /** Numeric column(s) for Y values; pie charts use the first column only. */
+    valueColumns: string[];
+    /**
+     * Display names for legend / tooltip (same order as valueColumns).
+     * Omitted or empty entries fall back to the column alias.
+     */
+    valueLabels?: string[];
+    queries: SqlAnalyticCardQuery[];
+    createdAt?: string;
+}
+
+/** Maximum saved SQL analytic cards per dashboard. */
+export const MAX_SQL_ANALYTIC_CARDS = 8;
 
 /** Main dashboard blocks the user can show or hide from dashboard settings. */
 export interface DashboardSectionsVisibility {
@@ -523,6 +558,8 @@ export interface DashboardConfig {
     forecastMonths: number; // How many months of history to use for forecasting (3, 6, or 12)
     customCCKeywords: string[]; // User-defined CC payment description keywords
     customCharts?: UserChartDefinition[];
+    /** AI-assisted SQL analytic cards (read-only queries, rendered as charts). */
+    sqlAnalyticCards?: SqlAnalyticCardDefinition[];
     /** Optional per-section visibility; omitted keys default to visible. */
     sectionsVisibility?: Partial<DashboardSectionsVisibility>;
 }
@@ -532,6 +569,7 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
     forecastMonths: 6,
     customCCKeywords: [],
     customCharts: [],
+    sqlAnalyticCards: [],
 };
 
 export interface Account {

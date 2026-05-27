@@ -84,6 +84,9 @@ export function useAnalystChat({
                     conversationHistory: turnsForApi.length > 0 ? turnsForApi : undefined,
                 });
 
+                const privacyNote = result.superPrivacyMode
+                    ? `\n\n_${t('ai_chat.super_privacy_note')}_`
+                    : '';
                 const memoryNote =
                     result.factsAdded > 0 ||
                     (result.factsReplaced ?? 0) > 0 ||
@@ -116,7 +119,7 @@ export function useAnalystChat({
                     {
                         id: (Date.now() + 1).toString(),
                         role: 'assistant',
-                        content: result.response + memoryNote,
+                        content: result.response + privacyNote + memoryNote,
                         ...(result.usedFallbackModel ? { usedFallbackModel: result.usedFallbackModel } : {}),
                     },
                 ]);

@@ -255,7 +255,7 @@ function buildPastMonthsTransactions(): Transaction[] {
 }
 
 /** Current calendar month — regenerated on each call (dates through today). */
-function buildCurrentMonthTransactions(): Transaction[] {
+export function getDemoCurrentMonthTransactions(): Transaction[] {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth();
@@ -273,12 +273,39 @@ function buildCurrentMonthTransactions(): Transaction[] {
     });
 }
 
+/** Result file name for the latest demo scrape run (one per calendar month). */
+export function getDemoCurrentMonthScrapeFilename(): string {
+    const now = new Date();
+    return `demo-scrape-${now.getFullYear()}-${pad(now.getMonth() + 1)}.json`;
+}
+
+let demoLastScrapeAt: string | null = null;
+
+/** Fresh mock scrape payload: current month only (through today). */
+export function demoScrapeResultCurrentMonth(): ScrapeResult {
+    const transactions = getDemoCurrentMonthTransactions();
+    demoLastScrapeAt = new Date().toISOString();
+    return {
+        success: true,
+        accounts: [
+            { accountNumber: '131', provider: 'hapoalim', balance: 12400, currency: 'ILS' },
+            { accountNumber: '5326', provider: 'isracard', currency: 'ILS' },
+        ],
+        transactions,
+        executionTimeMs: 900 + Math.floor(transactions.length * 12),
+    };
+}
+
+export function getDemoLastScrapeAt(): string | null {
+    return demoLastScrapeAt;
+}
+
 /** All demo transactions: five past months (cached) + current month (on the fly). */
 export function getDemoTransactions(): Transaction[] {
     if (!cachedPastMonths) {
         cachedPastMonths = buildPastMonthsTransactions();
     }
-    const all = [...cachedPastMonths, ...buildCurrentMonthTransactions()];
+    const all = [...cachedPastMonths, ...getDemoCurrentMonthTransactions()];
     all.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
     return all;
 }
@@ -321,6 +348,13 @@ export const demoAiSettings = {
     model: 'gemini-2.0-flash',
     chatModel: 'gemini-2.0-flash',
     enabled: true,
+    superPrivacyMode: false,
+    superPrivacySharePersona: false,
+    superPrivacyShareFacts: false,
+    superPrivacyShareInsights: false,
+    superPrivacyShareAlerts: false,
+    superPrivacyShareDashboardContext: false,
+    superPrivacyShareChatHistory: false,
     personaInjectionEnabled: true,
     userContext: {
         profile: { narrativeNotes: 'משפחה עם שני ילדים בגן' },
@@ -330,12 +364,21 @@ export const demoAiSettings = {
 
 export function getDemoScrapeResultList() {
     const txns = getDemoTransactions();
+    const monthTxns = getDemoCurrentMonthTransactions();
+    const monthFilename = getDemoCurrentMonthScrapeFilename();
+    const now = new Date().toISOString();
     return [
+        {
+            filename: monthFilename,
+            transactionCount: monthTxns.length,
+            accountCount: 2,
+            createdAt: demoLastScrapeAt ?? now,
+        },
         {
             filename: DEMO_SAMPLE_FILENAME,
             transactionCount: txns.length,
             accountCount: 2,
-            createdAt: new Date().toISOString(),
+            createdAt: now,
         },
     ];
 }

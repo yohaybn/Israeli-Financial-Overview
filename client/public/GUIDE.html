@@ -713,8 +713,17 @@ GEMINI_API_KEY=(optional)
                             <p>Persona steers <strong>tone and priorities</strong>; stored memory facts steers <strong>long-lived statements</strong> the model should remember. Both can appear in the same analyst prompt when enabled.</p>
                             <h3>Dashboard — Top insights</h3>
                             <p>On the <strong>Dashboard</strong>, top insights combine <strong>AI memory</strong> items and <strong>insight rules</strong> (see <strong>Configuration → Insight rules</strong>). Cards are labeled by source; you can dismiss items.</p>
+                            <h3>Super privacy mode (analyst chat)</h3>
+                            <p>Under <strong>Configuration → AI → Advanced</strong>, <strong>Super privacy mode</strong> keeps your <strong>transaction rows off Gemini</strong> for the indigo <strong>Analyst</strong> chat (and Telegram AI chat when enabled).</p>
+                            <ol>
+                                <li>Gemini sees the <strong>SQLite schema</strong> (table/column layout) and your <strong>question</strong>—not a CSV of transactions.</li>
+                                <li>It returns <strong>read-only SQL</strong> (<code>SELECT</code> / <code>WITH … SELECT</code>) plus a <strong>response template</strong> with placeholders like <code>{{q:total}}</code>.</li>
+                                <li>Your server <strong>runs those queries locally</strong> against <code>app.db</code> and merges the numbers into the reply you read.</li>
+                            </ol>
+                            <p><strong>Defaults:</strong> Nothing else is sent—no persona, stored facts, insights, alerts, dashboard month note, or prior chat turns. When super privacy is on, expand <strong>Also send to the AI (optional)</strong> to opt in to any of those. Persona sharing still requires <strong>Include persona in analyst prompts</strong>.</p>
+                            <p class="callout info"><strong>AI memory after a reply:</strong> The model may still return new facts/insights/alerts in JSON; the app can save them on your server. They are <strong>not</strong> sent back to Gemini on the next question unless you enable the matching share checkbox.</p>
                             <h3>Analyst chat</h3>
-                            <p>Ask natural-language questions about spending, trends, or anomalies. When memory is enabled, the chat may add facts, insights, or alerts (shown in the UI and AI logs). Use the explorer’s <strong>Categorize with AI</strong> for batch labeling.</p>
+                            <p>Ask natural-language questions about spending, trends, or anomalies. With super privacy off, the analyst may receive transaction rows (or a file upload) up to your <strong>max rows</strong> setting in Advanced. When memory is enabled, the chat may add facts, insights, or alerts (shown in the UI and AI logs). Use the explorer’s <strong>Categorize with AI</strong> for batch labeling.</p>
                         `
                     },
                     "fraud": {

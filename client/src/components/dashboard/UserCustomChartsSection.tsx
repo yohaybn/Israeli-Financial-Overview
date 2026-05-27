@@ -297,11 +297,21 @@ export function CustomChartCard({
                     />
                     <Tooltip
                         contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
-                        formatter={(value) => [formatValue(Number(value ?? 0)), t('dashboard.custom_charts_value')]}
+                        formatter={(value) => [
+                            formatValue(Number(value ?? 0)),
+                            spec.seriesLabel?.trim() || t('dashboard.custom_charts_value'),
+                        ]}
                         labelFormatter={(label) => String(label)}
                     />
                     <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
-                    <Line type="monotone" dataKey="value" name={t('dashboard.custom_charts_value')} stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line
+                        type="monotone"
+                        dataKey="value"
+                        name={spec.seriesLabel?.trim() || t('dashboard.custom_charts_value')}
+                        stroke="#6366f1"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                    />
                 </LineChart>
             </ResponsiveContainer>
         ) : (
@@ -329,11 +339,19 @@ export function CustomChartCard({
                     />
                     <Tooltip
                         contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
-                        formatter={(value) => [formatValue(Number(value ?? 0)), t('dashboard.custom_charts_value')]}
+                        formatter={(value) => [
+                            formatValue(Number(value ?? 0)),
+                            spec.seriesLabel?.trim() || t('dashboard.custom_charts_value'),
+                        ]}
                         labelFormatter={(label) => String(label)}
                     />
                     <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
-                    <Bar dataKey="value" name={t('dashboard.custom_charts_value')} fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    <Bar
+                        dataKey="value"
+                        name={spec.seriesLabel?.trim() || t('dashboard.custom_charts_value')}
+                        fill="#6366f1"
+                        radius={[4, 4, 0, 0]}
+                    />
                 </BarChart>
             </ResponsiveContainer>
         );

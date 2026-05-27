@@ -22,7 +22,7 @@ This manual describes how to use each major area of the application.
 *   **Server status:** If the API health check fails, a **server unreachable** indicator appears; ensure the Node server is running and the URL port matches **Configuration → Maintenance** (or `PORT` / `financial-overview.json`).
 *   **Activity chips:** Optional **Scrape** / **AI** indicators while work is running.
 *   **On Dashboard:** An **alerts** control lists items for the **selected month**.
-*   **AI Financial Analyst (chat):** The floating **indigo** button (bottom-right) on **every** main tab opens transaction-scoped analyst chat when Gemini is configured (same control from Dashboard, Scrape, Logs, or Configuration).
+*   **AI Financial Analyst (chat):** The floating **indigo** button (bottom-right) on **every** main tab opens analyst chat when Gemini is configured (same control from Dashboard, Scrape, Logs, or Configuration). Optional **Super privacy mode** (Configuration → AI → Advanced) answers from local SQL without sending transaction rows to the model—see **§4.1**.
 *   **Language:** Toggle English / Hebrew (RTL for Hebrew).
 *   **App Assistant:** Shown when Gemini is configured — contextual help chat.
 *   **Help docs / Feedback:** Open the static guide (`GUIDE.html`) or the feedback dialog (optional log excerpts with consent).
@@ -199,6 +199,15 @@ This is the control center of the app. It holds all automations, rules, AI promp
 *   **Categories Management:** Add, delete, or rename the custom budget categories you want the AI to use.
 *   **Bulk Recategorization:** A powerful tool with a single button to force the AI to re-evaluate all past transactions and apply your newest custom categories retroactively.
 *   **AI persona (user alignment):** A structured profile—household, housing, technical comfort, cards and charge days, income schedules, goals, savings targets, and how you want analyst answers styled (communication style, reporting depth). You can fill it manually or use onboarding / “extract from narrative” so Gemini proposes fields from free text. Use **Include persona in analyst prompts** to send this profile with **unified** analyst chat (the indigo FAB on any main tab), or turn it off to keep transaction-only prompts while still saving your persona for later.
+*   **Super privacy mode (analyst chat):** Under **Configuration → AI → Advanced**, enable **Super privacy mode** so the **Analyst** tab never sends your transaction rows to Gemini. Instead:
+    1. The model receives only the **SQLite schema** for your local database and your **question** (plus any optional context you explicitly opt in to below).
+    2. The model returns one or more **read-only `SELECT` queries** and a **response template** with placeholders such as `{{q:total_spend}}`.
+    3. This server **runs the SQL locally** against `app.db` and fills the template with real numbers before you see the answer.
+    *   **Default (maximum privacy):** No persona, stored facts, insights, alerts, dashboard month note, or prior chat messages are sent—only schema + question.
+    *   **Optional “Also send to the AI”** checkboxes (shown when super privacy is on): turn on only what you want in the prompt—**Persona & goals**, **Stored facts**, **Recent insights**, **Recent alerts**, **Dashboard context** (e.g. the month you are viewing on the dashboard), or **Prior messages in this chat**. Persona still requires **Include persona in analyst prompts** to be enabled.
+    *   **Scope:** File-scoped analyst chat still limits SQL to the relevant transaction ids on the server; that filter is applied locally and is not the same as uploading a CSV of transactions to the model.
+    *   **AI logs:** Super-privacy requests are labeled in **AI Logs**; prompts do not contain transaction rows. Replies may still add facts/insights/alerts to **AI memory** on the server when the model returns them—they are just not sent back to Gemini on the next turn unless you enable the matching share toggle.
+    *   **Telegram:** The bot’s AI chat mode uses the same setting when super privacy is enabled.
 
 ### 4.2 AI Memory Settings
 **Location:** `/?view=configuration&tab=ai` (open the **AI memory** section inside **Configuration → AI**; legacy link `tab=memory` opens the same tab)
@@ -341,7 +350,7 @@ The Logs Viewer helps you debug issues, verify automation success, and see what 
 
 *   **Server Logs (`/?view=logs&logType=server`):** Review internal backend logs and API errors. Look here if settings fail to save.
 *   **Client Logs (`/?view=logs&logType=client`):** Review front-end user interface activity. Useful if a button click fails on screen.
-*   **AI Logs (`/?view=logs&logType=ai`):** See transparently what prompts were generated and sent to Gemini, and read precisely how it responded to categorization requests.
+*   **AI Logs (`/?view=logs&logType=ai`):** See transparently what prompts were generated and sent to Gemini, and read precisely how it responded to categorization requests. With **Super privacy mode**, analyst entries show schema-based prompts (no transaction CSV); local SQL execution happens on the server and is not sent to the model.
 *   **Scrape Logs (`/?view=logs&logType=scrape`):** A full historical console log left by the headless browsers attempting bank logins. Look here if your bank refuses to connect.
 *   **Log Filtering:** Use the settings gear to filter by severity ranges (e.g., only show Errors), choose how many lines to fetch on screen, or clear outdated logs from your database instantly.
 
@@ -360,6 +369,7 @@ The Logs Viewer helps you debug issues, verify automation success, and see what 
 - **Without app lock:** Profile files may use a **fixed fallback key** from source—anyone who can read `data/profiles/` may recover credentials. **With app lock:** an attacker needs your **password**, an **unlocked** session, or offline cracking of stolen ciphertext.
 - **Remote access:** Prefer **TLS** (reverse proxy) when the UI is reachable beyond `127.0.0.1`; avoid exposing the service unnecessarily.
 - **Transactions and API keys:** **`app.db`**, **`data/results/`**, and config JSON are **not** hidden by app lock from someone with **filesystem access** to your data folder—only **disk/OS** protections help.
+- **Analyst chat (standard mode):** By default, unified analyst chat can send many transaction rows (or a CSV upload) to Gemini. Enable **Super privacy mode** under **Configuration → AI → Advanced** so only the **database schema** and your question go to the model; answers are built from **local SQL** on your server (see **§4.1**).
 
 ---
 

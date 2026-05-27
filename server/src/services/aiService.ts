@@ -18,6 +18,13 @@ import {
     shouldPreserveScrapedTransactionId,
     sliceTransactionsForAnalyst,
     type FinancialReportLocaleMode,
+    sanitizeSqlAnalyticCard,
+    type SqlAnalyticCardDefinition,
+    type UserChartDefinition,
+    type UserChartDataScope,
+    type UserChartGroupBy,
+    type UserChartKind,
+    type UserChartMeasure,
 } from '@app/shared';
 import { attachGeminiRateLimitToError } from '../utils/geminiRateLimitCapture.js';
 import { isGeminiRateLimitOrOverloadError } from '../utils/geminiRetryableError.js';
@@ -29,6 +36,9 @@ import { serverLogger } from '../utils/logger.js';
 import { maskSensitiveData } from '../utils/masking.js';
 import { logAICall, logAIError, withAILogging, runWithAILoadTracking } from '../utils/aiLogger.js';
 import { DbService } from './dbService.js';
+import { buildAnalystSqlSchemaDoc } from './analystSqlSchema.js';
+import { executeAnalystQueries } from './analystSqlExecutor.js';
+import { fillAnalystResponseTemplate } from './analystSqlTemplate.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'config', 'ai_settings.json');
@@ -81,6 +91,23 @@ export interface AiSettings {
     /** Optional max output tokens for analyst. */
     analyticsMaxOutputTokens?: number;
     categorizationMaxOutputTokens?: number;
+    /**
+     * Super privacy mode: analyst chat sends only the SQL schema and user question to the model.
+     * The model returns read-only SQL + a response template; results are computed locally and merged into the reply.
+     */
+    superPrivacyMode?: boolean;
+    /** Super privacy: send persona JSON to the model (default false). Requires personaInjectionEnabled. */
+    superPrivacySharePersona?: boolean;
+    /** Super privacy: send stored AI memory facts (default false). */
+    superPrivacyShareFacts?: boolean;
+    /** Super privacy: send stored insights (default false). */
+    superPrivacyShareInsights?: boolean;
+    /** Super privacy: send stored alerts (default false). */
+    superPrivacyShareAlerts?: boolean;
+    /** Super privacy: send dashboard month/scope note from the client (default false). */
+    superPrivacyShareDashboardContext?: boolean;
+    /** Super privacy: send prior chat turns to the model (default false). */
+    superPrivacyShareChatHistory?: boolean;
 }
 
 /** One turn in a conversation for multi-turn AI analysis */
@@ -109,6 +136,14 @@ export interface AnalyzeDataOptions {
      * When set, the `transactions` argument to analyzeData should be `[]`.
      */
     transactionSplit?: AnalyzeTransactionSplit;
+}
+
+/** Options for {@link AiService.analyzeDataSuperPrivacy}. */
+export interface SuperPrivacyChatOptions {
+    conversationHistory?: ConversationTurn[];
+    /** When set, queries must filter transactions to these ids (temp table _analyst_scope_ids). */
+    scopeTransactionIds?: string[];
+    scopeNote?: string;
 }
 
 /** Rows above this count are sent as an uploaded file instead of inline CSV. */
@@ -306,7 +341,14 @@ const DEFAULT_SETTINGS: AiSettings = {
     memoryAlertRetentionDays: 0,
     userContext: {},
     personaInjectionEnabled: true,
-    analystMaxTransactionRows: 0
+    analystMaxTransactionRows: 0,
+    superPrivacyMode: false,
+    superPrivacySharePersona: false,
+    superPrivacyShareFacts: false,
+    superPrivacyShareInsights: false,
+    superPrivacyShareAlerts: false,
+    superPrivacyShareDashboardContext: false,
+    superPrivacyShareChatHistory: false,
 };
 
 export class AiService {
@@ -1476,6 +1518,197 @@ Facts are user-editable persistent memory (stable context). Insights and alerts 
         }
     }
 
+    /**
+     * Super privacy analyst: schema + question go to the model; SQL runs locally; response is built from template + aggregates.
+     */
+    async analyzeDataSuperPrivacy(
+        query: string,
+        options?: SuperPrivacyChatOptions
+    ): Promise<StructuredChatResult> {
+        if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
+
+        await this.loadSettings();
+        const effectiveQuery = this.appendAnalyticsPromptExtra(query);
+        const schemaDoc = buildAnalystSqlSchemaDoc(this.settings.categoryMeta);
+        const scopeActive = Boolean(options?.scopeTransactionIds?.length);
+        const scopeBlock = scopeActive
+            ? `\nDATA_SCOPE_ACTIVE: true — ${options?.scopeTransactionIds!.length} transaction id(s) in temp table _analyst_scope_ids. Every query on \`transactions\` MUST include: AND id IN (SELECT id FROM _analyst_scope_ids)\n`
+            : '\nDATA_SCOPE_ACTIVE: false — all transactions in the database are in scope.\n';
+        const scopeNote = options?.scopeNote?.trim()
+            ? `\nAdditional scope context: ${options.scopeNote}\n`
+            : '';
+
+        const jsonSpec = `
+
+---
+OUTPUT FORMAT (super privacy — no transaction rows in this request)
+Respond with one JSON object only (no markdown fences). Schema:
+{"queries":[{"key":"snake_case_id","sql":"SELECT ..."}],"responseTemplate":"markdown text with {{q:key}} placeholders","facts":string[],"factsReplace":{"oldText":string,"newText":string}[],"insights":{"text":string,"score":number}[],"alerts":{"text":string,"score":number}[]}
+
+- "queries": 1–8 read-only SQLite SELECT (or WITH ... SELECT) statements. Use stable keys (letters, numbers, underscore). Each "sql" must obey the schema rules.
+- "responseTemplate": User-facing answer in markdown. Embed numeric results ONLY via placeholders:
+  - {{q:key}} — first column of the first row (format numbers naturally in surrounding text)
+  - {{q:key.count}} — number of rows returned
+  - {{q:key.table}} — markdown table when listing rows (keep query row count small)
+  Do not invent amounts; every number in the template must come from a placeholder.
+- "facts", "factsReplace", "insights", "alerts": same rules as standard analyst JSON when those blocks appear in the user message; otherwise use empty arrays.
+
+SQL SCHEMA:
+${schemaDoc}
+${scopeBlock}${scopeNote}
+
+User message (question + memory):
+${effectiveQuery}`;
+
+        const personaHint =
+            this.settings.superPrivacySharePersona === true &&
+            this.settings.personaInjectionEnabled !== false &&
+            this.settings.userContext &&
+            !isUserPersonaEmpty(this.settings.userContext)
+                ? ' Adapt tone using persona JSON in the user message when present.'
+                : '';
+        const systemInstructionBase =
+            'You are a financial analyst writing SQLite SELECT queries for a local privacy-preserving engine. ' +
+            'You never see raw transaction data—only the schema. Return JSON exactly as specified. ' +
+            'Do not wrap JSON in markdown fences.' +
+            personaHint;
+        const sysExtra = this.settings.analyticsSystemInstructionExtra?.trim();
+        const systemInstruction = sysExtra ? `${systemInstructionBase}\n\n${sysExtra}` : systemInstructionBase;
+
+        const primaryChat = this.settings.chatModel;
+        const generationConfig = this.analyticsGenerationConfigStructured(options);
+        const contents: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+        if (options?.conversationHistory?.length) {
+            for (const turn of options.conversationHistory) {
+                contents.push({ role: turn.role, parts: [{ text: turn.text }] });
+            }
+        }
+        contents.push({ role: 'user', parts: [{ text: jsonSpec }] });
+
+        const runGeneration = async (chatModelName: string) => {
+            const m = this.genAI!.getGenerativeModel({ model: chatModelName, systemInstruction });
+            const genStart = Date.now();
+            const result = await runWithAILoadTracking(() =>
+                m.generateContent({ contents, generationConfig })
+            );
+            const response = await result.response;
+            const text = response.text();
+            return { text, response, latencyMs: Date.now() - genStart, chatModelName };
+        };
+
+        let usedFallbackModel: string | undefined;
+        let outcome: Awaited<ReturnType<typeof runGeneration>>;
+        let startTime = Date.now();
+        try {
+            startTime = Date.now();
+            outcome = await runGeneration(primaryChat);
+        } catch (e1: unknown) {
+            const fb = this.effectiveFallbackModel(primaryChat);
+            const err1 = e1 instanceof Error ? e1 : new Error(String(e1));
+            if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                await logAIError(primaryChat, 'gemini', effectiveQuery, err1, {
+                    latencyMs: Date.now() - startTime,
+                    systemPrompt: systemInstruction,
+                });
+                attachGeminiRateLimitToError(e1);
+                throw e1;
+            }
+            await logAIError(primaryChat, 'gemini', effectiveQuery, err1, {
+                latencyMs: Date.now() - startTime,
+                systemPrompt: systemInstruction,
+            });
+            startTime = Date.now();
+            outcome = await runGeneration(fb);
+            usedFallbackModel = fb;
+        }
+
+        const { text, response, latencyMs, chatModelName } = outcome;
+        const usageMetadata = response.usageMetadata;
+        await logAICall({
+            model: chatModelName,
+            provider: 'gemini',
+            requestInfo: {
+                systemPrompt: systemInstruction,
+                userInput: '[super-privacy] schema + query (no transaction rows)',
+                inputLength: jsonSpec.length,
+            },
+            responseInfo: {
+                rawOutput: text,
+                finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                success: true,
+            },
+            metadata: {
+                promptTokens: usageMetadata?.promptTokenCount,
+                completionTokens: usageMetadata?.candidatesTokenCount,
+                totalTokens: usageMetadata?.totalTokenCount,
+                latencyMs,
+            },
+        });
+
+        let parsed: Record<string, unknown>;
+        try {
+            parsed = this.extractJson(text);
+        } catch {
+            return {
+                response: text,
+                facts: [],
+                factsReplace: [],
+                insights: [],
+                alerts: [],
+                ...(usedFallbackModel ? { usedFallbackModel } : {}),
+            };
+        }
+
+        const rawQueries = Array.isArray(parsed.queries) ? parsed.queries : [];
+        const queries: { key: string; sql: string }[] = [];
+        for (const item of rawQueries) {
+            if (!item || typeof item !== 'object') continue;
+            const o = item as Record<string, unknown>;
+            const key = typeof o.key === 'string' ? o.key.trim() : '';
+            const sql = typeof o.sql === 'string' ? o.sql.trim() : '';
+            if (key && sql) queries.push({ key, sql });
+        }
+
+        const template =
+            typeof parsed.responseTemplate === 'string'
+                ? parsed.responseTemplate
+                : typeof parsed.response === 'string'
+                  ? parsed.response
+                  : '';
+
+        const db = this.dbService.getDatabase();
+        let responseText = template;
+        if (queries.length > 0) {
+            try {
+                const results = executeAnalystQueries(db, queries, {
+                    scopeTransactionIds: options?.scopeTransactionIds,
+                });
+                responseText = fillAnalystResponseTemplate(
+                    template || 'Results:\n\n{{q:' + queries[0]!.key + '.table}}',
+                    results
+                );
+            } catch (execErr: unknown) {
+                const msg = execErr instanceof Error ? execErr.message : String(execErr);
+                serverLogger.warn('Super privacy SQL execution failed', { error: msg });
+                responseText = `${template}\n\n_(Could not run queries locally: ${msg})_`;
+            }
+        } else if (!responseText.trim()) {
+            responseText = 'No SQL queries were returned for your question.';
+        }
+
+        const facts = Array.isArray(parsed.facts)
+            ? parsed.facts.filter((x: unknown) => typeof x === 'string' && (x as string).trim())
+            : [];
+        return {
+            response: responseText,
+            facts,
+            factsReplace: normalizeFactReplacements(parsed.factsReplace),
+            insights: normalizeScoredItems(parsed.insights, 50),
+            alerts: normalizeScoredItems(parsed.alerts, 70),
+            ...(usedFallbackModel ? { usedFallbackModel } : {}),
+        };
+    }
+
     private personaContextForFinancialReport(): string {
         if (this.settings.personaInjectionEnabled === false) return '';
         const ctx = this.settings.userContext;
@@ -2368,5 +2601,374 @@ The top-level "name" string must be a short human-readable rule title in the sam
             },
         });
         return { name: obj.name.trim(), definition: defParsed.value };
+    }
+
+    /**
+     * Natural-language description → transaction-based custom chart definition.
+     */
+    async generateUserChart(
+        userDescription: string,
+        options?: { locale?: 'en' | 'he'; hints?: Partial<UserChartDefinition> }
+    ): Promise<{ chart: UserChartDefinition; usedFallbackModel?: string }> {
+        if (!this.genAI) {
+            throw new Error('GEMINI_API_KEY not configured');
+        }
+        await this.loadSettings();
+        const trimmed = userDescription.trim();
+        if (!trimmed) {
+            throw new Error('Description required');
+        }
+        const locale = options?.locale === 'he' ? 'he' : 'en';
+        const hints = options?.hints;
+        const hintsBlock = hints
+            ? `\nUser preferences (apply when compatible with the request):\n${JSON.stringify(hints, null, 2)}\n`
+            : '';
+        const langHint =
+            locale === 'he'
+                ? 'Write title in Hebrew.'
+                : 'Write title in English.';
+
+        const jsonSpec = `Design a dashboard chart from in-memory transaction data (not SQL).
+
+${langHint}
+${hintsBlock}
+User request:
+${trimmed}
+
+---
+OUTPUT: one JSON object only (no markdown fences):
+{
+  "title": "short chart title",
+  "chartKind": "bar" | "line" | "pie",
+  "groupBy": "month" | "category" | "weekday" | "merchant",
+  "measure": "sum_expense" | "sum_income" | "net" | "count",
+  "dataScope": "follow_analytics" | "all_time" | "single_month" | "last_n_days" | "last_n_months" | "custom_range",
+  "singleMonth": "YYYY-MM (when dataScope is single_month)",
+  "lastN": number (when last_n_days or last_n_months),
+  "customDateFrom": "YYYY-MM-DD",
+  "customDateTo": "YYYY-MM-DD",
+  "merchantTopN": number (1-25 when groupBy is merchant, default 10),
+  "seriesLabel": "optional legend / tooltip name for the value (e.g. Total expenses)",
+  "filters": [
+    {"kind":"category_in","categories":["Food"]},
+    {"kind":"description_contains","text":"uber"},
+    {"kind":"amount_min","value":100}
+  ]
+}
+
+Rules:
+- pie is not allowed when measure is net (use bar instead).
+- filters: optional array; each item needs kind and fields for that kind (no id field).
+- Prefer follow_analytics unless the user asks for a specific period.`;
+
+        const systemInstruction =
+            'You configure financial dashboard charts from transaction lists. Return JSON exactly as specified.';
+
+        const primaryChat = this.settings.chatModel;
+        const startTime = Date.now();
+
+        const runGen = async (chatModelName: string) => {
+            const m = this.genAI!.getGenerativeModel({ model: chatModelName, systemInstruction });
+            const genResult = await runWithAILoadTracking(() =>
+                m.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: jsonSpec }] }],
+                    generationConfig: {
+                        temperature: 0.25,
+                        maxOutputTokens: 4096,
+                        responseMimeType: 'application/json',
+                    },
+                } as Parameters<typeof m.generateContent>[0])
+            );
+            const response = await genResult.response;
+            return { text: response.text(), response, chatModelName };
+        };
+
+        let usedFallbackModel: string | undefined;
+        let outcome: Awaited<ReturnType<typeof runGen>>;
+        try {
+            outcome = await runGen(primaryChat);
+        } catch (e1: unknown) {
+            const fb = this.effectiveFallbackModel(primaryChat);
+            if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                attachGeminiRateLimitToError(e1);
+                throw e1;
+            }
+            outcome = await runGen(fb);
+            usedFallbackModel = fb;
+        }
+
+        const { text, response, chatModelName } = outcome;
+        let parsed: Record<string, unknown>;
+        try {
+            parsed = this.extractJson(text) as Record<string, unknown>;
+        } catch {
+            parsed = JSON.parse(text.trim()) as Record<string, unknown>;
+        }
+
+        const chart = this.normalizeUserChartFromAi(parsed, uuidv4());
+        const usageMetadata = response.usageMetadata;
+        await logAICall({
+            model: chatModelName,
+            provider: 'gemini',
+            requestInfo: {
+                systemPrompt: systemInstruction,
+                userInput: `[user chart] ${trimmed.length} chars`,
+                inputLength: trimmed.length,
+            },
+            responseInfo: {
+                rawOutput: JSON.stringify(chart),
+                finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                success: true,
+            },
+            metadata: {
+                promptTokens: usageMetadata?.promptTokenCount,
+                completionTokens: usageMetadata?.candidatesTokenCount,
+                totalTokens: usageMetadata?.totalTokenCount,
+                latencyMs: Date.now() - startTime,
+            },
+        });
+
+        return { chart, ...(usedFallbackModel ? { usedFallbackModel } : {}) };
+    }
+
+    private normalizeUserChartFromAi(raw: Record<string, unknown>, id: string): UserChartDefinition {
+        const title = typeof raw.title === 'string' ? raw.title.trim() : 'Chart';
+        const chartKinds: UserChartKind[] = ['bar', 'line', 'pie'];
+        const groupBys: UserChartGroupBy[] = ['month', 'category', 'weekday', 'merchant'];
+        const measures: UserChartMeasure[] = ['sum_expense', 'sum_income', 'net', 'count'];
+        const scopes: UserChartDataScope[] = [
+            'follow_analytics',
+            'all_time',
+            'single_month',
+            'last_n_days',
+            'last_n_months',
+            'custom_range',
+        ];
+        let chartKind = chartKinds.includes(raw.chartKind as UserChartKind) ? (raw.chartKind as UserChartKind) : 'bar';
+        const measure = measures.includes(raw.measure as UserChartMeasure) ? (raw.measure as UserChartMeasure) : 'sum_expense';
+        if (measure === 'net' && chartKind === 'pie') chartKind = 'bar';
+        const groupBy = groupBys.includes(raw.groupBy as UserChartGroupBy) ? (raw.groupBy as UserChartGroupBy) : 'category';
+        const dataScope = scopes.includes(raw.dataScope as UserChartDataScope)
+            ? (raw.dataScope as UserChartDataScope)
+            : 'follow_analytics';
+
+        const base: UserChartDefinition = {
+            id,
+            title: title.slice(0, 120) || 'Chart',
+            chartKind,
+            groupBy,
+            measure,
+            merchantTopN:
+                groupBy === 'merchant'
+                    ? Math.min(25, Math.max(1, Math.floor(Number(raw.merchantTopN)) || 10))
+                    : undefined,
+        };
+
+        const filtersRaw = Array.isArray(raw.filters) ? raw.filters : [];
+        const filters: UserChartDefinition['filters'] = [];
+        for (const item of filtersRaw) {
+            if (!item || typeof item !== 'object') continue;
+            const o = item as Record<string, unknown>;
+            const kind = o.kind;
+            const fid = uuidv4();
+            if (kind === 'category_in' || kind === 'category_not_in') {
+                const categories = Array.isArray(o.categories)
+                    ? o.categories.filter((c): c is string => typeof c === 'string').map((c) => c.trim()).filter(Boolean)
+                    : [];
+                if (categories.length) filters.push({ id: fid, kind, categories });
+            } else if (kind === 'description_contains' || kind === 'description_not_contains') {
+                const text = typeof o.text === 'string' ? o.text.trim() : '';
+                if (text) filters.push({ id: fid, kind, text });
+            } else if (kind === 'amount_min' || kind === 'amount_max') {
+                const value = Number(o.value);
+                if (Number.isFinite(value) && value >= 0) filters.push({ id: fid, kind, value });
+            }
+        }
+        if (filters.length) base.filters = filters;
+
+        const seriesLabel = typeof raw.seriesLabel === 'string' ? raw.seriesLabel.trim().slice(0, 80) : '';
+        if (seriesLabel) base.seriesLabel = seriesLabel;
+
+        switch (dataScope) {
+            case 'all_time':
+                return { ...base, dataScope };
+            case 'single_month': {
+                const ym = typeof raw.singleMonth === 'string' ? raw.singleMonth.trim() : '';
+                if (/^\d{4}-\d{2}$/.test(ym)) return { ...base, dataScope, singleMonth: ym };
+                return base;
+            }
+            case 'last_n_days': {
+                const n = Math.min(3660, Math.max(1, Math.floor(Number(raw.lastN)) || 30));
+                return { ...base, dataScope, lastN: n };
+            }
+            case 'last_n_months': {
+                const n = Math.min(120, Math.max(1, Math.floor(Number(raw.lastN)) || 3));
+                return { ...base, dataScope, lastN: n };
+            }
+            case 'custom_range': {
+                const from = typeof raw.customDateFrom === 'string' ? raw.customDateFrom : '';
+                const to = typeof raw.customDateTo === 'string' ? raw.customDateTo : '';
+                if (from && to && from <= to) return { ...base, dataScope, customDateFrom: from, customDateTo: to };
+                return base;
+            }
+            default:
+                return dataScope === 'follow_analytics' ? base : { ...base, dataScope };
+        }
+    }
+
+    /**
+     * Natural-language description → SQL analytic card definition (read-only queries + chart mapping).
+     */
+    async generateSqlAnalyticCard(
+        userDescription: string,
+        options?: { locale?: 'en' | 'he' }
+    ): Promise<{ card: SqlAnalyticCardDefinition; usedFallbackModel?: string }> {
+        if (!this.genAI) {
+            throw new Error('GEMINI_API_KEY not configured');
+        }
+        await this.loadSettings();
+        const trimmed = userDescription.trim();
+        if (!trimmed) {
+            throw new Error('Description required');
+        }
+        const locale = options?.locale === 'he' ? 'he' : 'en';
+        const schemaDoc = buildAnalystSqlSchemaDoc(this.settings.categoryMeta);
+        const langHint =
+            locale === 'he'
+                ? 'Write title and description in Hebrew. Use ILS formatting in descriptions.'
+                : 'Write title and description in English.';
+
+        const jsonSpec = `You design a single dashboard chart card backed by read-only SQLite queries on local transaction data.
+
+${langHint}
+
+User request:
+${trimmed}
+
+---
+OUTPUT: one JSON object only (no markdown fences). Schema:
+{
+  "title": "short chart title",
+  "description": "one sentence explaining the chart (optional)",
+  "chartKind": "bar" | "line" | "pie",
+  "dataQueryKey": "main",
+  "labelColumn": "column_alias_for_labels",
+  "valueColumns": ["numeric_column_alias"],
+  "valueLabels": ["optional display name for legend, same order as valueColumns"],
+  "queries": [{"key":"main","sql":"SELECT ..."}]
+}
+
+Rules:
+- "queries": 1–4 SELECT (or WITH ... SELECT) statements. Keys: snake_case, unique. Each sql obeys schema rules below.
+- "dataQueryKey" must match the query that returns chart rows (usually one row per category/month).
+- "labelColumn" and "valueColumns" must be column aliases present in that query's result.
+- Prefer aggregated results (GROUP BY) with ≤ 24 rows for bar/line; ≤ 12 slices for pie.
+- For spending: (isIgnored = 0 OR isIgnored IS NULL) AND (isInternalTransfer = 0 OR isInternalTransfer IS NULL) unless the user asks otherwise.
+- pie: use exactly one valueColumns entry with non-negative values when possible.
+- bar/line: time series → line; categories comparison → bar.
+
+SQL SCHEMA:
+${schemaDoc}
+
+DATA_SCOPE_ACTIVE: false — all transactions in the database are in scope.`;
+
+        const systemInstruction =
+            'You are a financial data visualization designer. You write SQLite SELECT queries for a local engine. ' +
+            'You never see raw rows—only the schema. Return JSON exactly as specified.';
+
+        const primaryChat = this.settings.chatModel;
+        const startTime = Date.now();
+
+        const runGen = async (chatModelName: string) => {
+            const m = this.genAI!.getGenerativeModel({ model: chatModelName, systemInstruction });
+            const genResult = await runWithAILoadTracking(() =>
+                m.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: jsonSpec }] }],
+                    generationConfig: {
+                        temperature: 0.25,
+                        maxOutputTokens: 8192,
+                        responseMimeType: 'application/json',
+                    },
+                } as Parameters<typeof m.generateContent>[0])
+            );
+            const response = await genResult.response;
+            return { text: response.text(), response, chatModelName };
+        };
+
+        let usedFallbackModel: string | undefined;
+        let outcome: Awaited<ReturnType<typeof runGen>>;
+        try {
+            outcome = await runGen(primaryChat);
+        } catch (e1: unknown) {
+            const fb = this.effectiveFallbackModel(primaryChat);
+            if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
+                attachGeminiRateLimitToError(e1);
+                throw e1;
+            }
+            outcome = await runGen(fb);
+            usedFallbackModel = fb;
+        }
+
+        const { text, response, chatModelName } = outcome;
+        let parsed: unknown;
+        try {
+            parsed = this.extractJson(text);
+        } catch {
+            try {
+                parsed = JSON.parse(text.trim());
+            } catch {
+                throw new Error('AI did not return valid JSON for the analytic card');
+            }
+        }
+
+        const withId = {
+            ...(typeof parsed === 'object' && parsed !== null ? parsed : {}),
+            id: uuidv4(),
+            createdAt: new Date().toISOString(),
+        };
+        const sanitized = sanitizeSqlAnalyticCard(withId);
+        if (!sanitized.ok) {
+            throw new Error(sanitized.error);
+        }
+
+        const db = this.dbService.getDatabase();
+        const results = executeAnalystQueries(
+            db,
+            sanitized.value.queries.map((q) => ({ key: q.key, sql: q.sql }))
+        );
+        const dataResult = results[sanitized.value.dataQueryKey];
+        if (!dataResult || dataResult.error) {
+            throw new Error(
+                dataResult?.error ||
+                    `Chart query "${sanitized.value.dataQueryKey}" failed — try rephrasing your request`
+            );
+        }
+
+        const usageMetadata = response.usageMetadata;
+        await logAICall({
+            model: chatModelName,
+            provider: 'gemini',
+            requestInfo: {
+                systemPrompt: systemInstruction,
+                userInput: `[sql analytic card] ${trimmed.length} chars`,
+                inputLength: trimmed.length,
+            },
+            responseInfo: {
+                rawOutput: JSON.stringify(sanitized.value),
+                finishReason: response.candidates?.[0]?.finishReason?.toString() || 'STOP',
+                success: true,
+            },
+            metadata: {
+                promptTokens: usageMetadata?.promptTokenCount,
+                completionTokens: usageMetadata?.candidatesTokenCount,
+                totalTokens: usageMetadata?.totalTokenCount,
+                latencyMs: Date.now() - startTime,
+            },
+        });
+
+        return {
+            card: sanitized.value,
+            ...(usedFallbackModel ? { usedFallbackModel } : {}),
+        };
     }
 }

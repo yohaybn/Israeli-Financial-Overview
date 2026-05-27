@@ -3,11 +3,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { AiService } from '../services/aiService.js';
 import { StorageService } from '../services/storageService.js';
 import { DbService } from '../services/dbService.js';
-import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from '../services/unifiedAiChatMemory.js';
+import {
+    buildUnifiedChatQueryWithMemory,
+    mergeAndPersistAiMemory,
+    superPrivacyIncludesChatHistory,
+    superPrivacyPromptShareFromSettings,
+} from '../services/unifiedAiChatMemory.js';
 import { telegramBotService } from '../services/telegramBotService.js';
 import { runAiMemoryRetentionPrune } from '../services/aiMemoryRetention.js';
 import { AI_MODEL_HIGH_DEMAND_ERROR_KEY, isAiModelHighDemandMessage } from '../utils/aiModelHighDemand.js';
-import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
+import { isUserPersonaEmpty, sliceTransactionsForAnalyst, sanitizeSqlAnalyticCard } from '@app/shared';
+import { runSqlAnalyticCard } from '../services/sqlAnalyticCardService.js';
 import { refreshInsightRuleFires, mergeTopInsights } from '../services/insightRulesService.js';
 
 function parseInsightTopLocale(raw: unknown): 'en' | 'he' {
@@ -71,11 +77,56 @@ router.post('/chat/unified', async (req, res) => {
             }
         }
 
+        const aiSettings = await aiService.getSettings();
+
+        if (aiSettings.superPrivacyMode) {
+            let scopeTransactionIds: string[] | undefined;
+            if (filename && scope !== 'all') {
+                const scoped = await storageService.getScrapeResult(filename);
+                scopeTransactionIds = scoped?.transactions?.map((t) => t.id).filter(Boolean) ?? [];
+            }
+            const share = superPrivacyPromptShareFromSettings(aiSettings);
+            const personaForPrompt =
+                share.includePersona &&
+                aiSettings.userContext &&
+                !isUserPersonaEmpty(aiSettings.userContext)
+                    ? aiSettings.userContext
+                    : undefined;
+            const contextQuery = buildUnifiedChatQueryWithMemory(
+                share.includeHistoryNote ? historyNote : undefined,
+                query,
+                personaForPrompt,
+                share
+            );
+            const structured = await aiService.analyzeDataSuperPrivacy(contextQuery, {
+                conversationHistory:
+                    superPrivacyIncludesChatHistory(aiSettings) && Array.isArray(conversationHistory)
+                        ? conversationHistory
+                        : undefined,
+                scopeTransactionIds,
+                scopeNote: share.includeHistoryNote ? historyNote : undefined,
+            });
+            const { factsAdded, factsReplaced, insightsAdded, alertsAdded, newAlerts } =
+                mergeAndPersistAiMemory(structured);
+            void telegramBotService.notifyNewAiMemoryAlerts(newAlerts);
+            return res.json({
+                success: true,
+                data: {
+                    response: structured.response,
+                    factsAdded,
+                    factsReplaced,
+                    insightsAdded,
+                    alertsAdded,
+                    superPrivacyMode: true,
+                    ...(structured.usedFallbackModel ? { usedFallbackModel: structured.usedFallbackModel } : {}),
+                },
+            });
+        }
+
         if (!transactions || !Array.isArray(transactions)) {
             return res.status(400).json({ success: false, error: 'Transactions data or source (scope/filename) required' });
         }
 
-        const aiSettings = await aiService.getSettings();
         const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
         transactions = sliceTransactionsForAnalyst(transactions, maxRows);
         const personaForPrompt =
@@ -289,6 +340,91 @@ router.delete('/memory/insights/:id', (req, res) => {
         res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/** Natural-language → transaction custom chart (Gemini). */
+router.post('/custom-charts/generate', async (req, res) => {
+    try {
+        const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+        if (!prompt) {
+            return res.status(400).json({ success: false, error: 'prompt required' });
+        }
+        const locale = req.body?.locale === 'he' ? 'he' : 'en';
+        const hints =
+            req.body?.hints && typeof req.body.hints === 'object' ? req.body.hints : undefined;
+        const { chart, usedFallbackModel } = await aiService.generateUserChart(prompt, { locale, hints });
+        res.json({
+            success: true,
+            data: { chart, ...(usedFallbackModel ? { usedFallbackModel } : {}) },
+        });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        res.status(500).json({
+            success: false,
+            error: msg,
+            ...(isAiModelHighDemandMessage(msg) ? { errorKey: AI_MODEL_HIGH_DEMAND_ERROR_KEY } : {}),
+        });
+    }
+});
+
+/** Natural-language → SQL analytic card definition (Gemini + local SQL validation). */
+router.post('/sql-analytic-cards/generate', async (req, res) => {
+    try {
+        const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+        if (!prompt) {
+            return res.status(400).json({ success: false, error: 'prompt required' });
+        }
+        const locale = req.body?.locale === 'he' ? 'he' : 'en';
+        const { card, usedFallbackModel } = await aiService.generateSqlAnalyticCard(prompt, { locale });
+        const run = runSqlAnalyticCard(dbService, card);
+        if (!run.ok) {
+            return res.status(400).json({ success: false, error: run.error });
+        }
+        res.json({
+            success: true,
+            data: {
+                card: run.result.card,
+                queryResults: run.result.queryResults,
+                chartRows: run.result.chartRows,
+                chartError: run.result.chartError,
+                ...(usedFallbackModel ? { usedFallbackModel } : {}),
+            },
+        });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        const status = (error as { status?: number }).status || 500;
+        res.status(status).json({
+            success: false,
+            error: msg,
+            ...(isAiModelHighDemandMessage(msg) ? { errorKey: AI_MODEL_HIGH_DEMAND_ERROR_KEY } : {}),
+        });
+    }
+});
+
+/** Execute a saved SQL analytic card (read-only queries). */
+router.post('/sql-analytic-cards/run', async (req, res) => {
+    try {
+        const cardRaw = req.body?.card ?? req.body;
+        const sanitized = sanitizeSqlAnalyticCard(cardRaw);
+        if (!sanitized.ok) {
+            return res.status(400).json({ success: false, error: sanitized.error });
+        }
+        const run = runSqlAnalyticCard(dbService, sanitized.value);
+        if (!run.ok) {
+            return res.status(400).json({ success: false, error: run.error });
+        }
+        res.json({
+            success: true,
+            data: {
+                queryResults: run.result.queryResults,
+                chartRows: run.result.chartRows,
+                chartError: run.result.chartError,
+            },
+        });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: msg });
     }
 });
 

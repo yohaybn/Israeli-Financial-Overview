@@ -30,7 +30,12 @@ import { renderCategorySpendingPiePng } from './categoryPieImageService.js';
 import { postScrapeService } from './postScrapeService.js';
 import { notifySchedulerScrapeAfterUnlockOrStartup } from './schedulerUnlockCoordinator.js';
 import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
-import { buildUnifiedChatQueryWithMemory, mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
+import {
+  buildUnifiedChatQueryWithMemory,
+  mergeAndPersistAiMemory,
+  superPrivacyIncludesChatHistory,
+  superPrivacyPromptShareFromSettings,
+} from './unifiedAiChatMemory.js';
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
 import { isSafeTelegramRelativeFilePath } from '../utils/safeTelegramBotFileUrl.js';
 import { getBoundSessionIdForProfile } from './oneZeroOtpSessionStore.js';
@@ -1625,16 +1630,22 @@ export class TelegramBotService {
       // Send quick 'thinking' message and later edit it with the final AI response
       const thinkingMsg = await ctx.reply(this.t('thinkingMsg'));
 
-      const transactions = await this.loadUnifiedTransactionsForAiChat();
-
       const aiSettings = await this.getAiService().getSettings();
+      const privacyShare = aiSettings.superPrivacyMode
+        ? superPrivacyPromptShareFromSettings(aiSettings)
+        : undefined;
       const personaForPrompt =
-          aiSettings.personaInjectionEnabled !== false &&
+          (privacyShare?.includePersona ?? aiSettings.personaInjectionEnabled !== false) &&
           aiSettings.userContext &&
           !isUserPersonaEmpty(aiSettings.userContext)
               ? aiSettings.userContext
               : undefined;
-      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message, personaForPrompt);
+      const contextQuery = buildUnifiedChatQueryWithMemory(
+        undefined,
+        message,
+        personaForPrompt,
+        privacyShare
+      );
 
       const state = this.chatStates.get(chatIdNum.toString());
       const chatHistory = state?.chatHistory ?? [];
@@ -1642,9 +1653,15 @@ export class TelegramBotService {
       const aiService = this.getAiService();
       let response = '';
       try {
-        const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
-          conversationHistory: chatHistory,
-        });
+        const structured = aiSettings.superPrivacyMode
+          ? await aiService.analyzeDataSuperPrivacy(contextQuery, {
+              conversationHistory: superPrivacyIncludesChatHistory(aiSettings) ? chatHistory : undefined,
+            })
+          : await aiService.analyzeDataStructured(
+                contextQuery,
+                await this.loadUnifiedTransactionsForAiChat(),
+                { conversationHistory: chatHistory }
+            );
         const { newAlerts } = mergeAndPersistAiMemory(structured);
         void this.notifyNewAiMemoryAlerts(newAlerts, { includeChatId: chatIdNum.toString() });
         response = structured.response;
@@ -1697,21 +1714,34 @@ export class TelegramBotService {
   private async getAIResponse(message: string, _chatId: string): Promise<string> {
     try {
       const aiService = this.getAiService();
-      let transactions = await this.loadUnifiedTransactionsForAiChat();
       const aiSettings = await aiService.getSettings();
-      const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
-      transactions = sliceTransactionsForAnalyst(transactions, maxRows);
+      const privacyShare = aiSettings.superPrivacyMode
+        ? superPrivacyPromptShareFromSettings(aiSettings)
+        : undefined;
       const personaForPrompt =
-          aiSettings.personaInjectionEnabled !== false &&
+          (privacyShare?.includePersona ?? aiSettings.personaInjectionEnabled !== false) &&
           aiSettings.userContext &&
           !isUserPersonaEmpty(aiSettings.userContext)
               ? aiSettings.userContext
               : undefined;
-      const contextQuery = buildUnifiedChatQueryWithMemory(undefined, message, personaForPrompt);
+      const contextQuery = buildUnifiedChatQueryWithMemory(
+        undefined,
+        message,
+        personaForPrompt,
+        privacyShare
+      );
 
       // Same unified context as /chat mode; on failure return code + details (no financial-tip fallback).
       try {
-        const structured = await aiService.analyzeDataStructured(contextQuery, transactions);
+        const structured = aiSettings.superPrivacyMode
+          ? await aiService.analyzeDataSuperPrivacy(contextQuery)
+          : await aiService.analyzeDataStructured(
+                contextQuery,
+                sliceTransactionsForAnalyst(
+                    await this.loadUnifiedTransactionsForAiChat(),
+                    aiSettings.analystMaxTransactionRows ?? 0
+                )
+            );
         mergeAndPersistAiMemory(structured);
         const aiResponse = structured.response;
         if (aiResponse && aiResponse.trim().length > 0) {

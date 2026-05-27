@@ -53,6 +53,14 @@ export {
     getTransactionsForUserChart,
     passesUserChartFilters,
 } from './analytics/userChartSeries.js';
+export {
+    assertSqlAnalyticCardsWithinLimit,
+    mapSqlResultToChartRows,
+    resolveSqlValueDisplayLabel,
+    sanitizeSqlAnalyticCard,
+    validateChartColumnsAgainstResult,
+} from './sqlAnalyticCard.js';
+export type { SqlChartSeriesRow, SqlQueryResultShape } from './sqlAnalyticCard.js';
 export type {
     CategoryTreemapAggregatedPart,
     CategoryTreemapGroup,

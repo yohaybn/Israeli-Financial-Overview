@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { UserPersonaContext } from '@app/shared';
 import { isUserPersonaEmpty } from '@app/shared';
 import { DbService } from './dbService.js';
-import type { FactReplacement, StructuredChatResult } from './aiService.js';
+import type { AiSettings, FactReplacement, StructuredChatResult } from './aiService.js';
 import type { ConversationTurn } from './aiService.js';
 import { normalizeAiMemoryKey } from '../utils/aiMemoryNormalize.js';
 
@@ -24,48 +24,120 @@ App documentation — Google Drive & Google Sheets (OAuth):
 - DRIVE_FOLDER_ID is optional: ID from a Drive folder URL (after /folders/) for default upload location; can be set later.
 `.trim();
 
+/** Controls which non-schema context is included in the analyst user prompt. Omit = include all (standard analyst mode). */
+export interface UnifiedChatPromptShareOptions {
+    includePersona?: boolean;
+    includeFacts?: boolean;
+    includeInsights?: boolean;
+    includeAlerts?: boolean;
+    /** Static in-app documentation (Google OAuth, etc.). */
+    includeAppDocs?: boolean;
+    /** Generic transaction/dashboard context rules (not used in super-privacy by default). */
+    includeContextRules?: boolean;
+    /** Dashboard month / scope note from the client. */
+    includeHistoryNote?: boolean;
+}
+
+/** Super-privacy defaults: share nothing unless the user explicitly enables each toggle. */
+export function superPrivacyPromptShareFromSettings(
+    settings: Pick<
+        AiSettings,
+        | 'superPrivacySharePersona'
+        | 'superPrivacyShareFacts'
+        | 'superPrivacyShareInsights'
+        | 'superPrivacyShareAlerts'
+        | 'superPrivacyShareDashboardContext'
+        | 'superPrivacyShareChatHistory'
+        | 'personaInjectionEnabled'
+    >
+): UnifiedChatPromptShareOptions {
+    return {
+        includePersona:
+            settings.superPrivacySharePersona === true && settings.personaInjectionEnabled !== false,
+        includeFacts: settings.superPrivacyShareFacts === true,
+        includeInsights: settings.superPrivacyShareInsights === true,
+        includeAlerts: settings.superPrivacyShareAlerts === true,
+        includeHistoryNote: settings.superPrivacyShareDashboardContext === true,
+        includeAppDocs: false,
+        includeContextRules: false,
+    };
+}
+
+export function superPrivacyIncludesChatHistory(settings: Pick<AiSettings, 'superPrivacyShareChatHistory'>): boolean {
+    return settings.superPrivacyShareChatHistory === true;
+}
+
 /**
  * Builds the unified chat prompt including stored facts and recent insights (single shared workspace).
  */
 export function buildUnifiedChatQueryWithMemory(
     historyNote: string | undefined,
     userQuery: string,
-    userContext?: UserPersonaContext | null
+    userContext?: UserPersonaContext | null,
+    share?: UnifiedChatPromptShareOptions
 ): string {
-    const facts = db.listAiMemoryFacts();
-    const insights = db.listAiMemoryInsights(40);
-    const alerts = db.listAiMemoryAlerts(25);
+    const includeAll = share === undefined;
+    const includeFacts = includeAll || share.includeFacts === true;
+    const includeInsights = includeAll || share.includeInsights === true;
+    const includeAlerts = includeAll || share.includeAlerts === true;
+    const includePersona = includeAll || share.includePersona === true;
+    const includeAppDocs = includeAll || share.includeAppDocs === true;
+    const includeContextRules = includeAll || share.includeContextRules === true;
+    const includeHistoryNote = includeAll || share.includeHistoryNote === true;
 
-    const factsBlock = facts.length === 0 ? '(none)' : facts.map((f) => `- ${f.text}`).join('\n');
-    const insightsBlock =
-        insights.length === 0 ? '(none)' : insights.map((i) => `- [score ${i.score}] ${i.text}`).join('\n');
-    const alertsBlock =
-        alerts.length === 0 ? '(none)' : alerts.map((a) => `- [score ${a.score}] ${a.text}`).join('\n');
+    const parts: string[] = [];
 
-    const personaBlock =
-        userContext && !isUserPersonaEmpty(userContext)
-            ? `User persona alignment (JSON; respect for tone and priorities):\n${JSON.stringify(userContext)}\n\n`
-            : '';
-
-    return `Context Rules:
+    if (includeContextRules) {
+        parts.push(
+            `Context Rules:
 - History transactions: Older than the current month. Used for baselines and averages.
 - Current month transactions: The focus of immediate budget tracking.
 - Internal transfers/credit card payments should ideally be marked as "Internal Transfer" using the category/type tools to avoid double counting expenses.
-- Ignored transactions: should be fully excluded from calculations.
-${historyNote ? `- Additional context: ${historyNote}` : ''}
+- Ignored transactions: should be fully excluded from calculations.`,
+            includeHistoryNote && historyNote ? `- Additional context: ${historyNote}` : ''
+        );
+    } else if (includeHistoryNote && historyNote) {
+        parts.push(`Additional context: ${historyNote}`);
+    }
 
-${personaBlock}${STATIC_APP_DOCS_FOR_AI}
+    if (includePersona && userContext && !isUserPersonaEmpty(userContext)) {
+        parts.push(
+            `User persona alignment (JSON; respect for tone and priorities):\n${JSON.stringify(userContext)}`
+        );
+    }
 
-Stored facts (persistent stable context—household, income structure, goals, preferences; NOT time-bound monthly observations. User-editable in Configuration. Copy a line verbatim into factsReplace.oldText when updating; add only genuinely new stable lines in JSON "facts"):
-${factsBlock}
+    if (includeAppDocs) {
+        parts.push(STATIC_APP_DOCS_FOR_AI);
+    }
 
-Recent insights (already recorded with importance score; do not repeat the same observation or duplicate in JSON "insights"):
-${insightsBlock}
+    if (includeFacts) {
+        const facts = db.listAiMemoryFacts();
+        const factsBlock = facts.length === 0 ? '(none)' : facts.map((f) => `- ${f.text}`).join('\n');
+        parts.push(
+            `Stored facts (persistent stable context—household, income structure, goals, preferences; NOT time-bound monthly observations. User-editable in Configuration. Copy a line verbatim into factsReplace.oldText when updating; add only genuinely new stable lines in JSON "facts"):\n${factsBlock}`
+        );
+    }
 
-Recent alerts (already recorded; do not duplicate in JSON "alerts"):
-${alertsBlock}
+    if (includeInsights) {
+        const insights = db.listAiMemoryInsights(40);
+        const insightsBlock =
+            insights.length === 0 ? '(none)' : insights.map((i) => `- [score ${i.score}] ${i.text}`).join('\n');
+        parts.push(
+            `Recent insights (already recorded with importance score; do not repeat the same observation or duplicate in JSON "insights"):\n${insightsBlock}`
+        );
+    }
 
-User Query: ${userQuery}`;
+    if (includeAlerts) {
+        const alerts = db.listAiMemoryAlerts(25);
+        const alertsBlock =
+            alerts.length === 0 ? '(none)' : alerts.map((a) => `- [score ${a.score}] ${a.text}`).join('\n');
+        parts.push(
+            `Recent alerts (already recorded; do not duplicate in JSON "alerts"):\n${alertsBlock}`
+        );
+    }
+
+    const body = parts.filter(Boolean).join('\n\n');
+    return body ? `${body}\n\nUser Query: ${userQuery}` : `User Query: ${userQuery}`;
 }
 
 function findStoredFactIdForReplacement(
