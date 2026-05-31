@@ -207,6 +207,7 @@ export class SchedulerService {
         }) as SchedulerConfigStored;
         delete (this.config as { runInsightRules?: boolean }).runInsightRules;
         this.saveConfig();
+        void import('./haMqttStateService.js').then(({ publishSchedulerState }) => publishSchedulerState());
 
         if (this.config.enabled) {
             this.startScrapeJob();

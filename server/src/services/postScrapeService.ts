@@ -1312,6 +1312,16 @@ export class PostScrapeService {
         : undefined,
       actions: [...postActions, notifAction, flushAction],
     });
+
+    void import('./haMqttStateService.js').then(({ publishReviewState, publishInsightsTopState, publishScrapeState }) => {
+      void publishScrapeState({
+        lastStatus: syntheticResult.success ? 'success' : 'failure',
+        lastRunAt: new Date().toISOString(),
+        transactionCount: combinedTransactions.length,
+      });
+      void publishReviewState();
+      void publishInsightsTopState();
+    });
   }
 
   /**

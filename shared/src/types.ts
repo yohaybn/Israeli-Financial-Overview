@@ -34,6 +34,16 @@ export interface MqttConfig {
      * (then userId must match allowedUsers). Prefer always setting a strong secret.
      */
     commandSecret?: string;
+    /** Base device id for HA state + discovery topics (default `bank_scraper`). */
+    deviceId?: string;
+    /** HA MQTT discovery prefix (default `homeassistant`). */
+    discoveryPrefix?: string;
+    /** Publish HA MQTT Discovery entity configs when true. */
+    enableHaDiscovery?: boolean;
+    /** Retained JSON state topic prefix (default `{deviceId}/state`). */
+    stateTopicPrefix?: string;
+    /** Optional client ids allowed in command `userId` when Telegram allowedUsers is not used. */
+    allowedClientIds?: string[];
 }
 
 /**

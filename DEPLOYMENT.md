@@ -121,7 +121,25 @@ In the add-on **Configuration** tab, fill in Google OAuth / Drive and optional k
 - `google_redirect_uri` (optional)
 - `gemini_api_key` (optional; for AI features)
 - `telegram_bot_token`, `eodhd_api_token` (optional)
+- `mqtt_broker`, `mqtt_username`, `mqtt_password`, `mqtt_command_secret`, `mqtt_enable_ha_discovery` (optional; seeds MQTT config on first run — see **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**)
 
 **Internal HTTP port (add-on only):** **9203** — `ingress_port` in [`ha-addon/config.yaml`](ha-addon/config.yaml) and `ENV PORT=9203` in the root [`Dockerfile`](Dockerfile) for the add-on image (must match for Ingress; different from port **3000** used by `Dockerfile.app` / vanilla Docker).
 
 Start the add-on and open the Web UI from the sidebar.
+
+### MQTT & Home Assistant automations
+
+Financial Overview publishes **notifications**, **retained state**, and accepts **JSON commands** over MQTT (many of the same actions as the Telegram bot). Typical setup on HA:
+
+1. Install the **Mosquitto broker** add-on (hostname `core-mosquitto` inside Supervisor).
+2. In the app: **Configuration → MQTT** → **Use Home Assistant defaults** → set a **command secret** → save.
+3. Optional: enable **Home Assistant MQTT Discovery** for buttons/sensors, import blueprints from [`ha-blueprints/`](../ha-blueprints/), or install [`custom_components/financial_overview/`](../custom_components/financial_overview/).
+
+| Variable | Purpose |
+|----------|---------|
+| `MQTT_BROKER` | Broker hostname |
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | Mosquitto credentials |
+| `MQTT_COMMAND_SECRET` | Shared secret for command JSON |
+| `MQTT_ENABLE_HA_DISCOVERY` | `true` to auto-create HA entities |
+
+Full reference: **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**

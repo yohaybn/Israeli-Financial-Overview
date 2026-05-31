@@ -20,7 +20,33 @@ export class MqttNotifier extends BaseNotifier {
       return;
     }
     const body = toJson(payload);
+    const baseTopic = c.topic!.trim().replace(/\/+$/, '');
+    await mqttClientService.publish(`${baseTopic}/event`, body, { qos: 1 });
+    // Legacy: also publish to primary topic for backward compatibility
     await mqttClientService.publishNotify(body);
+
+    if (payload.summary?.insights?.length) {
+      const segment = payload.telegramSegment || payload.pipelineId.replace(/\s+/g, '_').toLowerCase();
+      const insightPayload = JSON.stringify({
+        pipelineId: payload.pipelineId,
+        status: payload.status,
+        timestamp: payload.timestamp instanceof Date ? payload.timestamp.toISOString() : payload.timestamp,
+        summary: payload.summary,
+      });
+      await mqttClientService.publish(`${baseTopic}/insight/${segment}`, insightPayload, { qos: 1 });
+    }
+
+    if (payload.pipelineId && !payload.telegramSegment) {
+      const slim = JSON.stringify({
+        pipelineId: payload.pipelineId,
+        status: payload.status,
+        transactionCount: payload.summary.transactionCount,
+        durationMs: payload.summary.durationMs,
+        insights: payload.summary.insights,
+        timestamp: payload.timestamp instanceof Date ? payload.timestamp.toISOString() : payload.timestamp,
+      });
+      await mqttClientService.publish(`${baseTopic}/scrape/summary`, slim, { qos: 1 });
+    }
   }
 
   /**

@@ -11,13 +11,17 @@ const MQTT_FORM_DEFAULTS: Partial<MqttConfig> = {
     brokerUrl: '',
     useTls: false,
     rejectUnauthorized: true,
-    topic: 'bank-scraper/notify',
-    commandTopic: '',
-    commandResponseTopic: '',
+    topic: 'bank_scraper/notify',
+    commandTopic: 'bank_scraper/command',
+    commandResponseTopic: 'bank_scraper/command/response',
     clientId: '',
     username: '',
-    willTopic: '',
+    willTopic: 'bank_scraper/status',
     willMessage: 'offline',
+    deviceId: 'bank_scraper',
+    discoveryPrefix: 'homeassistant',
+    enableHaDiscovery: false,
+    stateTopicPrefix: 'bank_scraper/state',
 };
 
 function mergeConfigIntoForm(api: MqttConfig): Partial<MqttConfig> {
@@ -89,6 +93,31 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
         refetchInterval: 5000,
     });
 
+    const { data: haPresets } = useQuery({
+        queryKey: ['mqttHaPresets'],
+        queryFn: async () => {
+            const res = await fetch(`${getApiRoot()}/mqtt/ha-presets`);
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error);
+            return json.data as {
+                isHomeAssistantAddon: boolean;
+                preset: Partial<MqttConfig>;
+                exampleScrapePayload: string;
+            };
+        },
+        enabled,
+    });
+
+    const applyHaPreset = () => {
+        if (!haPresets?.preset) return;
+        setForm((prev) => ({
+            ...prev,
+            ...mergeConfigIntoForm(haPresets.preset as MqttConfig),
+            enabled: true,
+        }));
+        showNotification('success', t('mqtt.ha_preset_applied'));
+    };
+
     const saveMutation = useMutation({
         mutationFn: async (body: Partial<MqttConfig>) => {
             const res = await fetch(`${getApiRoot()}/mqtt/config`, {
@@ -155,7 +184,67 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                 </div>
             </div>
 
+            <div className="flex flex-wrap gap-2 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <button
+                    type="button"
+                    onClick={applyHaPreset}
+                    className="px-4 py-2 rounded-xl bg-white border border-indigo-200 text-sm font-bold text-indigo-800 hover:bg-indigo-100"
+                >
+                    {t('mqtt.ha_preset_button')}
+                </button>
+                {haPresets?.isHomeAssistantAddon && (
+                    <span className="text-xs text-indigo-700 self-center">{t('mqtt.ha_addon_detected')}</span>
+                )}
+                <a
+                    href="https://github.com/yohaybn/Israeli-Financial-Overview/blob/main/docs/HOME_ASSISTANT.md"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-indigo-600 underline self-center"
+                >
+                    {t('mqtt.ha_guide_link')}
+                </a>
+            </div>
+
             <div className="grid gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <label className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        checked={!!form.enableHaDiscovery}
+                        onChange={(e) => updateField('enableHaDiscovery', e.target.checked)}
+                        className="rounded border-gray-300"
+                    />
+                    <span className="text-sm font-semibold text-gray-800">{t('mqtt.enable_ha_discovery')}</span>
+                </label>
+                {form.enableHaDiscovery && !form.commandSecret?.trim() && (
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('mqtt.ha_discovery_secret_warning')}</p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                        <span className="text-xs font-bold text-gray-600">{t('mqtt.device_id')}</span>
+                        <input
+                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                            value={form.deviceId || ''}
+                            onChange={(e) => updateField('deviceId', e.target.value)}
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="text-xs font-bold text-gray-600">{t('mqtt.state_topic_prefix')}</span>
+                        <input
+                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                            value={form.stateTopicPrefix || ''}
+                            onChange={(e) => updateField('stateTopicPrefix', e.target.value)}
+                        />
+                    </label>
+                </div>
+
+                {haPresets?.exampleScrapePayload && (
+                    <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
+                        <div className="text-xs font-bold text-gray-500 mb-1">{t('mqtt.example_scrape_payload')}</div>
+                        <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap break-all">{haPresets.exampleScrapePayload}</pre>
+                    </div>
+                )}
+
                 <label className="flex items-center gap-2">
                     <input
                         type="checkbox"

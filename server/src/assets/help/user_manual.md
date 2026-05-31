@@ -8,7 +8,7 @@ This manual describes how to use each major area of the application.
 
 *   **Architecture:** Recent **64-bit** OS; the **web UI** uses a **local Node.js server** (bundled in the Windows installer, Docker image, and Home Assistant add-on—no separate Node install for those packages).
 *   **Client:** A **modern browser** with **JavaScript** enabled, **or** on Windows the **Electron** desktop app (`FinancialOverview.exe`) with the same UI embedded.
-*   **Network:** Internet for **bank scrapes**; optional **Gemini**, **Telegram**, and **Google** when you enable them.
+*   **Network:** Internet for **bank scrapes**; optional **Gemini**, **Telegram**, **MQTT**, and **Google** when you enable them.
 *   **Disk:** Space for `DATA_DIR` (grows with transactions and scrape history).
 *   **Windows bank automation:** **Google Chrome** or **Microsoft Edge** (Chromium) for the scraper; not bundled by default in the Windows package.
 *   **Windows packages:** **`FinancialOverview-Windows-Setup-<version>.exe`** — single NSIS installer with **Electron**, tray, and close-to-tray (recommended; version in the filename matches the release). **`windows-package.zip`** — portable folder, run `launch-FinancialOverview.cmd`, **no Electron** / **no tray**; keep the console open.
@@ -189,7 +189,7 @@ Use this when users ask what to map from a bank/card export or how these three d
 
 This is the control center of the app. It holds all automations, rules, AI prompts, and integrations.
 
-**Tabs** include **AI** (and memory), **Categories**, **Insight rules**, **Scheduler**, **Scrape** (fraud & alerts), **Google** (OAuth, Sheets, Drive), **Budget exports**, **Telegram**, and **Maintenance**. Deep links: `?view=configuration&tab=<id>` (e.g. `tab=insight-rules`, `tab=sheets`, `tab=budget-exports`).
+**Tabs** include **AI** (and memory), **Categories**, **Insight rules**, **Scheduler**, **Scrape** (fraud & alerts), **Google** (OAuth, Sheets, Drive), **Budget exports**, **Telegram**, **MQTT**, and **Maintenance**. Deep links: `?view=configuration&tab=<id>` (e.g. `tab=insight-rules`, `tab=sheets`, `tab=budget-exports`, `tab=mqtt`).
 
 ### 4.1 AI Settings
 **Location:** `/?view=configuration&tab=ai`
@@ -300,14 +300,42 @@ Link a Telegram chatbot to your app to receive daily digests or control it remot
 *   **Users Management:** The bot is strictly private. Add your specific Telegram User ID to the "Allowed Users" whitelist here to grant access. Toggle checkboxes per user to allow chat interactions and/or receive automated notification broadcasts.
 *   **Download User Manifest:** Export the whitelist setup for backup purposes.
 
-### 4.8 Runtime settings (`runtime-settings.json`)
+### 4.8 MQTT & Home Assistant
+**Location:** `/?view=configuration&tab=mqtt`
+
+Connect Financial Overview to an **MQTT broker** (for example the **Mosquitto** add-on on Home Assistant) to receive scrape notifications, publish retained state for automations, and run remote commands (scrape, report, AI chat, and more).
+
+*   **Connection panel:** Shows whether the client is connected to the broker.
+*   **Use Home Assistant defaults:** One-click preset for typical HA installs (`core-mosquitto`, port `1883`, topics under `bank_scraper/`).
+*   **Enable MQTT:** Turn notification and command delivery on or off.
+*   **Broker URL / port / TLS:** Point at your Mosquitto instance (or any MQTT 3.1.1 broker).
+*   **Notification topic:** JSON pipeline messages (also published under `{topic}/event`, plus slim `/scrape/summary` and `/insight/...` subtopics for automations).
+*   **Command topic:** Subscribe here; send JSON commands (same intent as Telegram slash commands). Responses go to `{commandTopic}/response` unless you set a custom response topic.
+*   **Command secret:** Required for HA Discovery and recommended for all automations. Store in Home Assistant `secrets.yaml` and reference as `!secret` in automations.
+*   **Home Assistant MQTT Discovery:** When enabled, the app publishes HA entity configs (buttons: scrape all, run scheduler, generate report, refresh insights; sensors: review count, insight score, alert count; binary sensors: scrape running, app locked).
+*   **Device ID & state topic prefix:** Customize MQTT topic layout (default device id `bank_scraper`).
+*   **Test publish:** Sends a small JSON test message to the notification topic.
+
+**Example command** (publish to `bank_scraper/command`):
+
+```json
+{"command":"scrape","args":{"all":true},"secret":"<your-secret>","requestId":"ha-1"}
+```
+
+**Commands available over MQTT** include: `scrape`, `scheduler_run_now`, `status`, `profiles`, `chat`, `insights_top`, `alerts_list`, `refresh_rules`, `review`, `export`, `report`, `card_categories`, `memo`, `unlock`, `help`.
+
+**Documentation:** [docs/HOME_ASSISTANT.md](https://github.com/yohaybn/Israeli-Financial-Overview/blob/main/docs/HOME_ASSISTANT.md) · Automation blueprints: `ha-blueprints/` in the repository · Optional native integration: `custom_components/financial_overview/`.
+
+On the **Home Assistant add-on**, you can pre-fill MQTT via Supervisor options: `mqtt_broker`, `mqtt_username`, `mqtt_password`, `mqtt_command_secret`, `mqtt_enable_ha_discovery`.
+
+### 4.9 Runtime settings (`runtime-settings.json`)
 Values persist under your data folder (`data/config/runtime-settings.json`). The UI is split by topic:
 *   **Configuration → AI:** Gemini API key.
 *   **Configuration → Google:** OAuth Client ID, Client Secret, redirect URI, optional default Drive folder ID (`DRIVE_FOLDER_ID`).
 *   **Configuration → Maintenance:** Server **port** and **data directory** (`PORT`, `DATA_DIR`).
 *   **Save & restart:** Many changes require a backend restart to take effect.
 
-### 4.9 System Maintenance
+### 4.10 System Maintenance
 **Location:** `/?view=configuration&tab=maintenance`
 
 **Port** and **data directory** (`PORT`, `DATA_DIR`) are edited here (same persistence as `runtime-settings.json`; environment variables override when set).
@@ -323,7 +351,7 @@ Values persist under your data folder (`data/config/runtime-settings.json`). The
 *   **GitHub release check:** If the client was built with a GitHub repository id, the app can compare the current build to the **latest GitHub release** and link to the release page.
 *   **Clear browser site data:** Clears site storage for this origin (client cache/session storage) if you need a clean client state.
 
-### 4.10 Google Cloud OAuth — Drive & Sheets (optional)
+### 4.11 Google Cloud OAuth — Drive & Sheets (optional)
 
 Connecting Google is **optional**. It enables **Google Sheets sync**, **Google Drive backups**, and related exports. Scraping, the dashboard, and Gemini AI features work without it. The setup is **somewhat involved**—you can skip it and add credentials later under Configuration.
 

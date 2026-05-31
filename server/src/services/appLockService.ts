@@ -166,6 +166,7 @@ export class AppLockService {
         const encSalt = this.ensureEncSaltInLockFile();
         this.profileEncryptionKey = deriveProfileEncryptionKey(password, encSalt);
         this.memoryUnlocked = true;
+        void import('./haMqttStateService.js').then(({ publishAppLockState }) => publishAppLockState());
         return true;
     }
 
@@ -175,6 +176,7 @@ export class AppLockService {
             this.profileEncryptionKey.fill(0);
             this.profileEncryptionKey = null;
         }
+        void import('./haMqttStateService.js').then(({ publishAppLockState }) => publishAppLockState());
     }
 }
 

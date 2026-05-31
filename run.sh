@@ -25,6 +25,11 @@ if [ -f "$CONFIG_PATH" ]; then
     export_json_key "gemini_api_key" "GEMINI_API_KEY"
     export_json_key "telegram_bot_token" "TELEGRAM_BOT_TOKEN"
     export_json_key "eodhd_api_token" "EODHD_API_TOKEN"
+    export_json_key "mqtt_broker" "MQTT_BROKER"
+    export_json_key "mqtt_username" "MQTT_USERNAME"
+    export_json_key "mqtt_password" "MQTT_PASSWORD"
+    export_json_key "mqtt_command_secret" "MQTT_COMMAND_SECRET"
+    export_json_key "mqtt_enable_ha_discovery" "MQTT_ENABLE_HA_DISCOVERY"
 
 fi
 

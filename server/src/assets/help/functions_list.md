@@ -33,6 +33,7 @@ Here is a comprehensive list of all functionalities available to the user in the
 *   **Fraud & alerts (under Scrape, `/?view=configuration&tab=scrape`):** Threshold alerts for potential duplicate charges or fraudulent activity warnings.
 *   **Google Sheets Sync (`/?view=configuration&configTab=sheets`):** Link the app to Google Sheets to automatically export matched and categorized transactions to the cloud.
 *   **Telegram Settings (`/?view=configuration&configTab=telegram`):** Set up chatbot integration so the app can send you daily summaries or scraping results via Telegram.
+*   **MQTT Settings (`/?view=configuration&tab=mqtt`):** Connect to Mosquitto (or any MQTT broker) for Home Assistant automations — scrape commands, notifications, retained state, and optional MQTT Discovery entities.
 *   **Runtime settings** are edited in-app under **AI** (Gemini), **Google** (OAuth / Drive folder id), and **Maintenance** (port, data directory); values persist in `runtime-settings.json` under your data folder.
 *   **System Maintenance (`/?view=configuration&configTab=maintenance`):** Tools for re-running global transaction recategorizations or wiping local databases.
 

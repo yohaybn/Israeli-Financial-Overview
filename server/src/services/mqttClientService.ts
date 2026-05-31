@@ -6,6 +6,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import mqtt, { type MqttClient, type IClientOptions } from 'mqtt';
 import type { MqttConfig } from '@app/shared';
+import { buildHaMqttPreset, isHomeAssistantAddonEnv } from '@app/shared';
 import { serviceLogger as logger } from '../utils/logger.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
@@ -74,12 +75,49 @@ export class MqttClientService {
         this.config = { ...DEFAULT_MQTT_CONFIG, ...raw };
       } else {
         this.config = { ...DEFAULT_MQTT_CONFIG };
+        this.seedConfigFromEnvIfMissing();
       }
     } catch (e) {
       logger.error('Failed to load mqtt_config.json', { error: (e as Error).message });
       this.config = { ...DEFAULT_MQTT_CONFIG };
     }
     return this.getConfig();
+  }
+
+  /**
+   * Seed mqtt_config.json from HA add-on env vars when the file does not exist yet.
+   */
+  private seedConfigFromEnvIfMissing(): void {
+    const broker = (process.env.MQTT_BROKER || '').trim();
+    const enableDiscovery = String(process.env.MQTT_ENABLE_HA_DISCOVERY || '').toLowerCase() === 'true';
+    const secret = (process.env.MQTT_COMMAND_SECRET || '').trim();
+    const username = (process.env.MQTT_USERNAME || '').trim();
+    const password = (process.env.MQTT_PASSWORD || '').trim();
+
+    if (!broker && !enableDiscovery && !secret && !username) {
+      if (isHomeAssistantAddonEnv(DATA_DIR)) {
+        const preset = buildHaMqttPreset({ enabled: false });
+        this.config = { ...DEFAULT_MQTT_CONFIG, ...preset };
+      }
+      return;
+    }
+
+    const preset = buildHaMqttPreset({
+      enabled: !!broker,
+      brokerUrl: broker || undefined,
+      username: username || undefined,
+      password: password || undefined,
+      commandSecret: secret || undefined,
+      enableHaDiscovery: enableDiscovery,
+    });
+    this.config = { ...DEFAULT_MQTT_CONFIG, ...preset };
+    try {
+      fs.ensureDirSync(path.dirname(MQTT_CONFIG_PATH));
+      fs.writeFileSync(MQTT_CONFIG_PATH, JSON.stringify(this.config, null, 2), 'utf-8');
+      logger.info('Seeded mqtt_config.json from environment');
+    } catch (e) {
+      logger.warn('Failed to seed mqtt_config.json', { error: (e as Error).message });
+    }
   }
 
   saveToDisk(partial: Partial<MqttConfig>): MqttConfig {
@@ -250,9 +288,7 @@ export class MqttClientService {
     this.connected = false;
   }
 
-  /**
-   * Publish UTF-8 payload with QoS 1 (pipeline notifications).
-   */
+  /** Publish UTF-8 payload with QoS 1 (pipeline notifications). */
   async publish(topic: string, payload: string, opts?: { qos?: 0 | 1 | 2; retain?: boolean }): Promise<void> {
     const qos = opts?.qos ?? 1;
     const retain = opts?.retain ?? false;
@@ -268,6 +304,18 @@ export class MqttClientService {
         else resolve();
       });
     });
+  }
+
+  /** Publish retained JSON state (QoS 1, retain true). */
+  async publishRetainedState(topic: string, payload: unknown): Promise<void> {
+    const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    await this.publish(topic, body, { qos: 1, retain: true });
+  }
+
+  /** Clear a retained topic by publishing empty payload with retain. */
+  async clearRetained(topic: string): Promise<void> {
+    if (!this.client || !this.connected) return;
+    await this.publish(topic, '', { qos: 1, retain: true });
   }
 
   /** Publish notification topic from config when set */

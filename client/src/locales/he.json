@@ -136,7 +136,16 @@
         "will_message": "תוכן LWT",
         "test_publish": "שליחת בדיקה",
         "save_ok": "הגדרות MQTT נשמרו",
-        "test_ok": "הודעת הבדיקה פורסמה"
+        "test_ok": "הודעת הבדיקה פורסמה",
+        "ha_preset_button": "ברירות מחדל ל-Home Assistant",
+        "ha_preset_applied": "הוחלו ברירות MQTT ל-Home Assistant (שמרו להחלה)",
+        "ha_addon_detected": "זוהה סביבת תוסף Home Assistant",
+        "ha_guide_link": "מדריך אוטומציה ל-Home Assistant",
+        "enable_ha_discovery": "הפעלת MQTT Discovery של Home Assistant",
+        "ha_discovery_secret_warning": "הגדירו סוד פקודות לפני הפעלת Discovery — כפתורי HA דורשים זאת.",
+        "device_id": "מזהה מכשיר",
+        "state_topic_prefix": "קידומת נושא state",
+        "example_scrape_payload": "דוגמת פקודת scrape (mqtt.publish)"
     },
     "report": {
         "subtitle": "יצירת PDF דו־לשוני של המבט הכלכלי, תובנות AI אופציונליות, ותזמון שליחה לטלגרם.",

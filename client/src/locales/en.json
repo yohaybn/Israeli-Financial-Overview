@@ -136,7 +136,16 @@
         "will_message": "LWT payload when connection drops",
         "test_publish": "Send test message",
         "save_ok": "MQTT settings saved",
-        "test_ok": "Test message published"
+        "test_ok": "Test message published",
+        "ha_preset_button": "Use Home Assistant defaults",
+        "ha_preset_applied": "Home Assistant MQTT preset applied (save to apply)",
+        "ha_addon_detected": "Home Assistant add-on environment detected",
+        "ha_guide_link": "Home Assistant automation guide",
+        "enable_ha_discovery": "Enable Home Assistant MQTT Discovery",
+        "ha_discovery_secret_warning": "Set a command secret before enabling discovery — HA buttons require it.",
+        "device_id": "Device ID",
+        "state_topic_prefix": "State topic prefix",
+        "example_scrape_payload": "Example scrape command (mqtt.publish)"
     },
     "report": {
         "subtitle": "Generate a bilingual PDF of your financial overview, optional AI narrative, and schedule delivery to Telegram.",

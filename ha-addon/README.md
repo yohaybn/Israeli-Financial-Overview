@@ -30,8 +30,18 @@
 | `gemini_api_key` | מפתח API של Google Gemini (סיווג AI / צ'אט) |
 | `telegram_bot_token` | טוקן בוט טלגרם להתראות / פקודות בוט |
 | `eodhd_api_token` | טוקן API של EODHD (השקעות / פורטפוליו) |
+| `mqtt_broker` | שם מארח Mosquitto (בדרך כלל `core-mosquitto`) |
+| `mqtt_username` / `mqtt_password` | פרטי Mosquitto (אופציונלי) |
+| `mqtt_command_secret` | סוד משותף לפקודות MQTT |
+| `mqtt_enable_ha_discovery` | יצירת entities ב-HA דרך MQTT Discovery |
 
 לאחר מכן לחצו על **Start** והשתמשו בלחצן **Open Web UI** או בכניסה מתפריט הצד.
+
+## אוטומציות Home Assistant (MQTT)
+
+ניתן להפעיל סריקות, דוחות וצ'אט AI מ-Home Assistant דרך MQTT. התקינו את תוסף **Mosquitto**, הגדירו MQTT באפליקציה (**הגדרות → MQTT**) או בלשונית התוסף.
+
+ראו [docs/HOME_ASSISTANT.md](https://github.com/yohaybn/Israeli-Financial-Overview/blob/main/docs/HOME_ASSISTANT.md) ו-blueprints בתיקייה [`ha-blueprints/`](https://github.com/yohaybn/Israeli-Financial-Overview/tree/main/ha-blueprints).
 
 ## Ingress ופורטים
 
@@ -78,8 +88,29 @@ If you want to pre-fill values here, open the add-on **Configuration** tab (thes
 | `gemini_api_key` | Google Gemini API key (AI categorization / chat) |
 | `telegram_bot_token` | Telegram bot token for notifications / bot commands |
 | `eodhd_api_token` | EODHD API token (investments / portfolio) |
+| `mqtt_broker` | Mosquitto hostname (usually `core-mosquitto`) |
+| `mqtt_username` / `mqtt_password` | Mosquitto credentials (optional) |
+| `mqtt_command_secret` | Shared secret for MQTT automation commands |
+| `mqtt_enable_ha_discovery` | Auto-create Home Assistant entities via MQTT Discovery |
 
 Then **Start** the add-on and use **Open Web UI** or the sidebar entry.
+
+## Home Assistant automations (MQTT)
+
+Financial Overview can trigger scrapes, reports, and AI chat from HA automations via MQTT. Enable the **Mosquitto broker** add-on, configure MQTT in the app (**Configuration → MQTT**), or use the Supervisor options above.
+
+See [docs/HOME_ASSISTANT.md](https://github.com/yohaybn/Israeli-Financial-Overview/blob/main/docs/HOME_ASSISTANT.md) and import blueprints from [`ha-blueprints/`](https://github.com/yohaybn/Israeli-Financial-Overview/tree/main/ha-blueprints).
+
+Example morning scrape:
+
+```yaml
+action:
+  - service: mqtt.publish
+    data:
+      topic: bank_scraper/command
+      payload: >-
+        {"command":"scrape","args":{"all":true},"secret":"!secret bank_scraper_mqtt_secret","requestId":"ha-morning"}
+```
 
 ## Ingress & port
 

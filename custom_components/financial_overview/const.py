@@ -1,0 +1,15 @@
+DOMAIN = "financial_overview"
+DEFAULT_DEVICE_ID = "bank_scraper"
+DEFAULT_COMMAND_TOPIC = "bank_scraper/command"
+DEFAULT_RESPONSE_TOPIC = "bank_scraper/command/response"
+DEFAULT_STATE_PREFIX = "bank_scraper/state"
+
+CONF_COMMAND_SECRET = "command_secret"
+CONF_DEVICE_ID = "device_id"
+CONF_COMMAND_TOPIC = "command_topic"
+CONF_STATE_PREFIX = "state_prefix"
+
+SERVICE_SCRAPE = "scrape"
+SERVICE_CHAT = "chat"
+SERVICE_GENERATE_REPORT = "generate_report"
+SERVICE_REFRESH_INSIGHTS = "refresh_insights"

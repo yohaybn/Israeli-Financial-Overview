@@ -45,6 +45,7 @@ The idea is straightforward: less juggling spreadsheets and scattered exports, a
 - **Export** — to **CSV**, **JSON**, or **Google Sheets** so you can keep working where you prefer.
 - **Languages** — **English** and **Hebrew** with proper LTR/RTL layout.
 - **Telegram** (optional) — updates and bot commands, depending on how you configure it.
+- **MQTT & Home Assistant** (optional) — automate scrapes, reports, and notifications via Mosquitto; MQTT Discovery entities and automation blueprints (see **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**).
 - **App lock** — a password that protects your session and helps **encrypt saved bank profile credentials** on disk (see the user guide and security notes below).
 - **Investments / portfolio** (optional) — track tickers and holdings; connect an **EODHD** API token under **Configuration → Investments** (see **[#eodhd-api-token](#eodhd-api-token)** below).
 
@@ -95,7 +96,7 @@ On **Windows**, the straightforward path is to download the **installer** (a fil
 | **Web UI** | Dashboard (monthly income/expenses, subscriptions, analytics), Scrape with live progress, Results explorer (multi-file, filters, AI categorization), structured **Logs** (server/client/AI/scrape), **Configuration** (AI with **persona** alignment and **AI memory** — stored facts, insights, alerts; **super privacy** analyst mode runs SQL locally so Gemini sees schema + question only; scheduler, scrape/fraud, Google, Telegram, **Investments** with optional **EODHD** token, maintenance). **AI analyst chat** opens from the floating indigo button on **any** main tab when Gemini is configured. **Insight rules** include import review (tune categories/amounts before apply), optional **share to community catalog**, and **browse/import** from the catalog using the same editor as creating a rule. |
 | **Languages** | English and Hebrew with LTR/RTL. |
 | **App lock & profiles** | **App lock** (min. 8 characters) protects the session and **encrypts stored profile credentials**. You can use most of the app (dashboard, logs, configuration, exploring results) **without** unlocking; **running scrapes** and **creating/editing saved bank profiles** require the app to be **unlocked** when app lock is enabled. **Forgot password:** encrypted profiles cannot be recovered — you must **delete those profiles** and **re-enter** bank credentials after resetting lock (see **[GUIDE.html](client/public/GUIDE.html)**). |
-| **Integrations** | Google OAuth → Drive/Sheets; **Gemini** for categorization and analyst chat; **Telegram** bot — see **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** (commands, notifications, optional `/unlock` when the UI is locked). |
+| **Integrations** | Google OAuth → Drive/Sheets; **Gemini** for categorization and analyst chat; **Telegram** bot — see **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** (commands, notifications, optional `/unlock` when the UI is locked); **MQTT / Home Assistant** — scrape, insights, and alerts via Mosquitto — see **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**. |
 | **Deployment** | Docker / Compose, **Home Assistant** add-on, **Windows** installer (see below), local **Node** monorepo for development. |
 
 ### Repository layout
@@ -146,6 +147,8 @@ The add-on definition lives under [`ha-addon/`](ha-addon/) (`config.yaml`, store
 1. Add this repository in **Settings → Add-ons → Add-on Store → Repositories**.
 2. Install **Financial Overview** and configure OAuth/Drive (and other options) in the add-on **Configuration** tab.
 3. Start the add-on and open the Web UI from the sidebar (Ingress uses **`mdi:finance`** in the sidebar).
+
+**MQTT automations:** Install the **Mosquitto broker** add-on, then configure **Configuration → MQTT** in the app (or use `mqtt_*` options in the add-on Configuration tab). Enable **Home Assistant MQTT Discovery** for buttons and sensors, or use [`ha-blueprints/`](ha-blueprints/) and **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**.
 
 **Port / Ingress:** Home Assistant’s sidebar proxy (Ingress) always uses the **internal** port defined in [`ha-addon/config.yaml`](ha-addon/config.yaml) (`ingress_port`, currently **9203**). There is no separate **port** option in the UI — changing it would break Ingress. To use another internal port, fork and change `ingress_port`, `PORT` in the root [`Dockerfile`](Dockerfile), and publish new images.
 
@@ -202,6 +205,8 @@ The optional **Investments** feature can use **[EOD Historical Data (EODHD)](htt
 | **[server/src/assets/help/user_manual.md](server/src/assets/help/user_manual.md)** | Source text for the documentation-grounded **Help Assistant**; includes import / import-profile / AI-import caution and **export to other applications** in Markdown. |
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior (English). |
+| **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)** | **MQTT & Home Assistant** — Mosquitto setup, command topics, MQTT Discovery, automation examples, blueprints, optional custom component. |
+| **[ha-blueprints/](ha-blueprints/)** | Importable Home Assistant automation blueprints (scrape on button, review reminder, weekly report, high-insight notify). |
 | **[client/public/guides/TELEGRAM_BOT_GUIDE.he.md](client/public/guides/TELEGRAM_BOT_GUIDE.he.md)** | Hebrew Telegram guide — embedded in **עברית** in [`client/public/GUIDE.html`](client/public/GUIDE.html); regenerate with `npm run guide:embed-telegram`. |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
 | **This README → [#eodhd-api-token](#eodhd-api-token)** | Step-by-step: obtain an **EODHD** API token for optional **Investments** / portfolio (also configurable in-app under **Configuration → Investments**). |

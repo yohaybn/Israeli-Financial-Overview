@@ -1,0 +1,42 @@
+blueprint:
+  name: Financial Overview — High insight score notification
+  description: Notify when top insight score exceeds a threshold (retained state topic).
+  domain: automation
+  input:
+    threshold:
+      name: Minimum score
+      default: 80
+      selector:
+        number:
+          min: 1
+          max: 100
+    state_topic:
+      name: Insights state topic
+      default: bank_scraper/state/insights/top
+    notify_service:
+      name: Notification service
+      description: e.g. notify.mobile_app
+      selector:
+        text:
+  source_url: https://github.com/yohaybn/Israeli-Financial-Overview/blob/main/ha-blueprints/notify_high_insight.yaml
+
+trigger:
+  - platform: mqtt
+    topic: !input state_topic
+
+condition:
+  - condition: template
+    value_template: >-
+      {{ (trigger.payload_json.items[0].score | default(0) | int) >= threshold }}
+
+action:
+  - service: "{{ notify_service }}"
+    data:
+      title: "Financial insight"
+      message: "{{ trigger.payload_json.items[0].text }} (score {{ trigger.payload_json.items[0].score }})"
+
+mode: single
+
+variables:
+  threshold: !input threshold
+  notify_service: !input notify_service

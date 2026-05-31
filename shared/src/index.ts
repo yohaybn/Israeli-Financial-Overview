@@ -1,5 +1,17 @@
 export * from './types.js';
 export {
+    MQTT_HA_DEVICE_ID,
+    MQTT_HA_DISCOVERY_PREFIX,
+    MQTT_HA_DEFAULT_BROKER_HOST,
+    MQTT_HA_DEFAULT_PORT,
+    buildHaMqttPreset,
+    defaultHaMqttTopics,
+    isHomeAssistantAddonEnv,
+    resolveDeviceId,
+    resolveDiscoveryPrefix,
+    resolveStateTopicPrefix,
+} from './mqttHaDefaults.js';
+export {
     buildCronFromScheduleFields,
     buildSchedulerCronExpression,
     intervalDaysShouldRun,

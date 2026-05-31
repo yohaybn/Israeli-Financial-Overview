@@ -1,0 +1,41 @@
+blueprint:
+  name: Financial Overview — Weekly PDF report
+  description: Trigger financial PDF report via MQTT every week.
+  domain: automation
+  input:
+    command_topic:
+      name: MQTT command topic
+      default: bank_scraper/command
+    mqtt_secret:
+      name: Command secret
+    weekday:
+      name: Weekday (mon,tue,wed,thu,fri,sat,sun)
+      default: sun
+      selector:
+        select:
+          options: [mon, tue, wed, thu, fri, sat, sun]
+    time_at:
+      name: Time
+      default: "09:00:00"
+  source_url: https://github.com/yohaybn/Israeli-Financial-Overview/blob/main/ha-blueprints/weekly_report.yaml
+
+trigger:
+  - platform: time
+    at: !input time_at
+
+condition:
+  - condition: template
+    value_template: "{{ now().strftime('%a') | lower == weekday }}"
+
+action:
+  - service: mqtt.publish
+    data:
+      topic: !input command_topic
+      payload: >-
+        {"command":"report","args":{"scope":"month"},"secret":"{{ mqtt_secret }}","requestId":"ha-weekly-{{ now().timestamp }}"}
+
+mode: single
+
+variables:
+  mqtt_secret: !input mqtt_secret
+  weekday: !input weekday

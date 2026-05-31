@@ -29,6 +29,7 @@ import {
     removeOneZeroOtpSession,
     resolveOneZeroOtpSessionId,
 } from './oneZeroOtpSessionStore.js';
+import { publishScrapeState } from './haMqttStateService.js';
 
 // Progress event types matching the library
 export enum ScraperProgressTypes {
@@ -318,6 +319,7 @@ export class ScraperService {
 
         try {
             activeScrapeCount++;
+            void publishScrapeState({ running: true });
             this.emitProgress(ScraperProgressTypes.Initializing, 'Initializing scraper...');
             addLog(`Starting scrape for ${request.companyId}...`);
             addLog(`Options: startDate=${libOptions.startDate.toISOString().split('T')[0]}, showBrowser=${libOptions.showBrowser}`);
@@ -575,6 +577,7 @@ export class ScraperService {
             return errorResult;
         } finally {
             activeScrapeCount--;
+            void publishScrapeState({ running: getActiveScrapeCount() > 0 });
         }
     }
 

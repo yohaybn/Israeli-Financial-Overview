@@ -28,3 +28,8 @@ schema:
   gemini_api_key: password?
   telegram_bot_token: password?
   eodhd_api_token: password?
+  mqtt_broker: str?
+  mqtt_username: str?
+  mqtt_password: password?
+  mqtt_command_secret: password?
+  mqtt_enable_ha_discovery: bool?

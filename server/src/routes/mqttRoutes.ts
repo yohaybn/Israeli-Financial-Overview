@@ -4,11 +4,15 @@
 
 import { Router, Request, Response } from 'express';
 import type { MqttConfig } from '@app/shared';
+import { buildHaMqttPreset, isHomeAssistantAddonEnv } from '@app/shared';
 import { mqttClientService } from '../services/mqttClientService.js';
 import { MqttNotifier } from '../services/notifications/mqttNotifier.js';
 import { notificationService } from '../services/notifications/notificationService.js';
 import { serverLogger } from '../utils/logger.js';
 import { initMqttCommandService } from '../services/mqttCommandService.js';
+import { initHaMqttIntegration, installHaMqttConnectHook } from '../services/haMqttCoordinator.js';
+
+installHaMqttConnectHook();
 
 const router = Router();
 
@@ -88,6 +92,7 @@ router.post('/config', async (req: Request, res: Response) => {
     mqttClientService.saveToDisk(merged);
     await mqttClientService.connectWithCurrentConfig();
     registerMqttNotifier();
+    void initHaMqttIntegration();
     res.json({
       success: true,
       message: 'MQTT configuration saved',
@@ -166,6 +171,32 @@ router.post('/test', async (_req: Request, res: Response) => {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     serverLogger.warn('MQTT test publish failed', { error: msg });
+    res.status(500).json({ success: false, error: msg });
+  }
+});
+
+/**
+ * GET /api/mqtt/ha-presets — suggested Home Assistant + Mosquitto defaults
+ */
+router.get('/ha-presets', (_req: Request, res: Response) => {
+  try {
+    const isHa = isHomeAssistantAddonEnv(process.env.DATA_DIR);
+    const preset = buildHaMqttPreset();
+    res.json({
+      success: true,
+      data: {
+        isHomeAssistantAddon: isHa,
+        preset: maskPassword(preset as MqttConfig),
+        exampleScrapePayload: JSON.stringify({
+          command: 'scrape',
+          all: true,
+          secret: '<your-command-secret>',
+          requestId: 'ha-example',
+        }),
+      },
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ success: false, error: msg });
   }
 });

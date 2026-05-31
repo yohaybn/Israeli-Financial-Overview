@@ -82,6 +82,8 @@ async function startServer() {
 
   const schedulerService = new SchedulerService(scraperService, profileService);
   registerSchedulerForUnlockScrape(schedulerService);
+  const { registerMqttScheduler } = await import('./services/mqttSchedulerRegistry.js');
+  registerMqttScheduler(schedulerService);
 
   // Supervisor / some proxies forward paths like `//assets/...`, which breaks express.static and routing.
   app.use((req, _res, next) => {

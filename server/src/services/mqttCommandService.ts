@@ -8,6 +8,7 @@ import fs from 'fs-extra';
 import {
   DEFAULT_FINANCIAL_REPORT_SCHEDULE,
   normalizeFinancialReportSchedule,
+  buildCategoryExpenseSlices,
   type Profile,
   type ScrapeRequest,
   type ScrapeResult,
@@ -15,6 +16,7 @@ import {
   transactionNeedsReview,
   transactionsToCsv,
   transactionsToJson,
+  type DigestLocale,
 } from '@app/shared';
 import { mqttClientService } from './mqttClientService.js';
 import { telegramBotService } from './telegramBotService.js';
@@ -28,6 +30,20 @@ import { AiService } from './aiService.js';
 import { generateFinancialPdfBuffer } from './financialPdfReportService.js';
 import { serverLogger as logger } from '../utils/logger.js';
 import { PROJECT_ROOT } from '../runtimeEnv.js';
+import { getMqttScheduler } from './mqttSchedulerRegistry.js';
+import { runUnifiedAnalystChat } from './analystUnifiedChat.js';
+import { mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
+import { refreshInsightRuleFires, mergeTopInsights } from './insightRulesService.js';
+import { DbService } from './dbService.js';
+import { renderCategorySpendingPiePng } from './categoryPieImageService.js';
+import {
+  publishScrapeState,
+  publishReviewState,
+  publishInsightsTopState,
+  publishAlertsState,
+  publishAppLockState,
+  publishSchedulerState,
+} from './haMqttStateService.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SCHEDULER_CONFIG_PATH = path.join(DATA_DIR, 'config', 'scheduler_config.json');
@@ -75,28 +91,40 @@ function responseTopicFor(cfg: ReturnType<typeof mqttClientService.getConfig>): 
 function authorizeCommand(cfg: ReturnType<typeof mqttClientService.getConfig>, env: MqttCommandEnvelope): { ok: true } | { ok: false; error: string } {
   const secret = (cfg.commandSecret || '').trim();
   const hasTelegramUsers = telegramBotService.isAllowedUsersConfigured();
+  const allowedClientIds = (cfg.allowedClientIds || []).map((x) => String(x).trim()).filter(Boolean);
+
+  if (cfg.enableHaDiscovery && !secret) {
+    return { ok: false, error: 'command_secret_required_when_ha_discovery_enabled' };
+  }
+
+  if (secret && env.secret === secret) {
+    return { ok: true };
+  }
+
   if (secret) {
-    if (env.secret !== secret) {
-      return { ok: false, error: 'invalid_or_missing_secret' };
-    }
-  } else if (hasTelegramUsers) {
+    return { ok: false, error: 'invalid_or_missing_secret' };
+  }
+
+  if (hasTelegramUsers) {
     const uid = (env.userId || '').trim();
     if (!uid || !telegramBotService.isTelegramUserAllowed(uid)) {
       return { ok: false, error: 'user_not_authorized_set_command_secret_or_valid_userId' };
     }
-  } else {
-    return {
-      ok: false,
-      error: 'configure_command_secret_or_telegram_allowed_users',
-    };
+    return { ok: true };
   }
-  if (hasTelegramUsers) {
+
+  if (allowedClientIds.length) {
     const uid = (env.userId || '').trim();
-    if (!uid || !telegramBotService.isTelegramUserAllowed(uid)) {
-      return { ok: false, error: 'user_not_authorized' };
+    if (!uid || !allowedClientIds.includes(uid)) {
+      return { ok: false, error: 'user_not_authorized_allowed_client_ids' };
     }
+    return { ok: true };
   }
-  return { ok: true };
+
+  return {
+    ok: false,
+    error: 'configure_command_secret_or_telegram_allowed_users',
+  };
 }
 
 async function publishResponse(
@@ -139,11 +167,20 @@ function helpPayload(): Record<string, unknown> {
     commands: [
       { name: 'status', args: {} },
       { name: 'help', args: {} },
+      { name: 'profiles', args: {} },
       { name: 'scrape', args: { profileId: '<id>' } },
       { name: 'scrape', args: { all: true, startDate: 'YYYY-MM-DD optional' } },
+      { name: 'scheduler_run_now', args: {} },
       { name: 'export', args: { format: 'csv|json', month: 'YYYY-MM optional' } },
       { name: 'review', args: {} },
       { name: 'report', args: { scope: 'month|all', monthYm: 'YYYY-MM when scope=month' } },
+      { name: 'chat', args: { message: 'string', locale: 'en|he optional' } },
+      { name: 'insights_top', args: { limit: 'number optional', locale: 'en|he optional' } },
+      { name: 'alerts_list', args: { limit: 'number optional' } },
+      { name: 'refresh_rules', args: {} },
+      { name: 'card_categories', args: { month: 'YYYY-MM optional' } },
+      { name: 'memo', args: { transactionId: 'string', memo: 'optional', category: 'optional' } },
+      { name: 'unlock', args: { password: 'string' } },
     ],
     note: 'Include secret when commandSecret is set; include userId when Telegram allowedUsers is configured.',
   };
@@ -340,6 +377,13 @@ async function handleScrape(args: Record<string, unknown> | undefined, userId: s
         logger.warn('MQTT scrape-all post-batch failed', { error: (e as Error).message });
       }
     }
+    void publishScrapeState({
+      lastStatus: results.every((r) => r.success) ? 'success' : 'failure',
+      lastRunAt: new Date().toISOString(),
+      transactionCount: results.reduce((n, r) => n + (r.transactions?.length ?? 0), 0),
+    });
+    void publishReviewState();
+    void publishInsightsTopState();
     return { ok: true, command: 'scrape', mode: 'all', summary: lines };
   }
 
@@ -351,6 +395,16 @@ async function handleScrape(args: Record<string, unknown> | undefined, userId: s
     return { ok: false, error: 'profile_not_found' };
   }
   const { result, newTransactionIds } = await executeScrapeOne(profile, userId, startDate, false);
+  void publishScrapeState({
+    lastStatus: result?.success ? 'success' : 'failure',
+    lastRunAt: new Date().toISOString(),
+    transactionCount: result?.transactions?.length ?? 0,
+    profileId,
+    profileName: profile.name,
+    error: result?.success ? undefined : result?.error,
+  });
+  void publishReviewState();
+  void publishInsightsTopState();
   return {
     ok: !!result?.success,
     command: 'scrape',
@@ -361,11 +415,173 @@ async function handleScrape(args: Record<string, unknown> | undefined, userId: s
   };
 }
 
+async function handleProfiles(): Promise<Record<string, unknown>> {
+  const profiles = await profileService.getProfiles();
+  return {
+    ok: true,
+    command: 'profiles',
+    data: profiles.map((p) => ({ id: p.id, name: p.name, companyId: p.companyId })),
+  };
+}
+
+async function handleSchedulerRunNow(): Promise<Record<string, unknown>> {
+  const scheduler = getMqttScheduler();
+  if (!scheduler) {
+    return { ok: false, error: 'scheduler_not_available' };
+  }
+  void scheduler.runScheduledScrape().then(() => {
+    void publishSchedulerState();
+    void publishScrapeState({ lastRunAt: new Date().toISOString() });
+  });
+  return { ok: true, command: 'scheduler_run_now', data: { started: true } };
+}
+
+function parseLocale(raw: unknown): DigestLocale {
+  const s = String(raw || 'en').toLowerCase();
+  return s === 'he' ? 'he' : 'en';
+}
+
+async function handleChat(args: Record<string, unknown> | undefined): Promise<Record<string, unknown>> {
+  const message = String(args?.message || '').trim();
+  if (!message) return { ok: false, error: 'chat_requires_message' };
+  const aiService = new AiService();
+  const aiSettings = await aiService.getSettings();
+  const storage = new StorageService();
+  const transactions = await storage.getAllTransactions(true);
+  const structured = await runUnifiedAnalystChat(aiService, aiSettings, {
+    query: message,
+    transactions,
+  });
+  const { insightsAdded, alertsAdded } = mergeAndPersistAiMemory(structured);
+  void publishInsightsTopState(parseLocale(args?.locale));
+  void publishAlertsState();
+  return {
+    ok: true,
+    command: 'chat',
+    data: {
+      reply: structured.response,
+      insights: structured.insights || [],
+      alerts: structured.alerts || [],
+      insightsAdded,
+      alertsAdded,
+    },
+  };
+}
+
+async function handleInsightsTop(args: Record<string, unknown> | undefined): Promise<Record<string, unknown>> {
+  const limit = Math.min(20, Math.max(1, parseInt(String(args?.limit ?? 5), 10) || 5));
+  const locale = parseLocale(args?.locale);
+  const db = new DbService();
+  const storage = new StorageService();
+  const txns = await storage.getAllTransactions(true);
+  refreshInsightRuleFires(txns, db);
+  const data = mergeTopInsights(db, limit, locale);
+  void publishInsightsTopState(locale, limit);
+  return { ok: true, command: 'insights_top', data };
+}
+
+async function handleAlertsList(args: Record<string, unknown> | undefined): Promise<Record<string, unknown>> {
+  const limit = Math.min(100, Math.max(1, parseInt(String(args?.limit ?? 20), 10) || 20));
+  const db = new DbService();
+  const alerts = db.listAiMemoryAlerts(limit);
+  void publishAlertsState();
+  return { ok: true, command: 'alerts_list', data: alerts };
+}
+
+async function handleRefreshRules(): Promise<Record<string, unknown>> {
+  const storage = new StorageService();
+  const db = new DbService();
+  const txns = await storage.getAllTransactions(true);
+  const result = refreshInsightRuleFires(txns, db);
+  void publishInsightsTopState();
+  return { ok: true, command: 'refresh_rules', data: result };
+}
+
+async function handleCardCategories(args: Record<string, unknown> | undefined): Promise<Record<string, unknown>> {
+  const maybeMonth = args?.month != null ? String(args.month).trim() : '';
+  let monthKey: string;
+  if (maybeMonth) {
+    if (!/^\d{4}-\d{2}$/.test(maybeMonth)) return { ok: false, error: 'invalid_month_use_YYYY-MM' };
+    monthKey = maybeMonth;
+  } else {
+    const d = new Date();
+    monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const storage = new StorageService();
+  let transactions = (await storage.getAllTransactions(true)) as Transaction[];
+  transactions = transactions.filter((t) => typeof t.date === 'string' && t.date.startsWith(monthKey));
+  const configService = new ConfigService();
+  const dash = await configService.getDashboardConfig();
+  const slices = buildCategoryExpenseSlices(transactions, dash.customCCKeywords ?? []);
+  const totalExpenses = slices.reduce((s, x) => s + x.value, 0);
+  if (totalExpenses <= 0 || slices.length === 0) {
+    return { ok: false, error: 'no_expense_data_for_month' };
+  }
+  const png = await renderCategorySpendingPiePng({
+    slices,
+    title: 'Spending by category',
+    subtitle: monthKey,
+    otherLabel: 'Other',
+  });
+  return {
+    ok: true,
+    command: 'card_categories',
+    data: { month: monthKey, totalExpenses, pngBase64: png.toString('base64') },
+  };
+}
+
+async function handleMemo(args: Record<string, unknown> | undefined): Promise<Record<string, unknown>> {
+  const txnId = String(args?.transactionId || '').trim();
+  const memo = args?.memo != null ? String(args.memo).trim() : '';
+  const category = args?.category != null ? String(args.category).trim() : '';
+  if (!txnId) return { ok: false, error: 'memo_requires_transactionId' };
+  const storage = new StorageService();
+  if (category) {
+    const ok = await storage.updateTransactionCategoryUnified(txnId, category);
+    if (!ok) return { ok: false, error: 'transaction_not_found' };
+    void publishReviewState();
+    return { ok: true, command: 'memo', data: { transactionId: txnId, category } };
+  }
+  if (!memo) return { ok: false, error: 'memo_requires_memo_or_category' };
+  const aiService = new AiService();
+  const settings = await aiService.getSettings();
+  const matchedCategory = settings.categories.find((c) => c === memo);
+  if (matchedCategory) {
+    const ok = await storage.updateTransactionCategoryUnified(txnId, matchedCategory);
+    if (!ok) return { ok: false, error: 'transaction_not_found' };
+    void publishReviewState();
+    return { ok: true, command: 'memo', data: { transactionId: txnId, category: matchedCategory } };
+  }
+  const ok = await storage.updateTransactionMemoUnified(txnId, memo);
+  if (!ok) return { ok: false, error: 'transaction_not_found' };
+  void publishReviewState();
+  return { ok: true, command: 'memo', data: { transactionId: txnId, memo } };
+}
+
+async function handleUnlock(args: Record<string, unknown> | undefined, cfg: ReturnType<typeof mqttClientService.getConfig>): Promise<Record<string, unknown>> {
+  if (!(cfg.commandSecret || '').trim()) {
+    return { ok: false, error: 'unlock_requires_command_secret' };
+  }
+  const password = String(args?.password || '').trim();
+  if (!password) return { ok: false, error: 'unlock_requires_password' };
+  const ok = appLockService.tryUnlock(password);
+  void publishAppLockState();
+  return ok
+    ? { ok: true, command: 'unlock', data: { unlocked: true } }
+    : { ok: false, error: 'wrong_password' };
+}
+
 async function dispatchCommand(env: MqttCommandEnvelope): Promise<Record<string, unknown>> {
   const cmd = (env.command || '').trim().toLowerCase();
   if (!cmd) return { ok: false, error: 'missing_command' };
 
-  if (appLockService.isLockConfigured() && !appLockService.isUnlocked()) {
+  const cfg = mqttClientService.getConfig();
+
+  if (cmd === 'unlock') {
+    return handleUnlock(env.args, cfg);
+  }
+
+  if (cmd !== 'status' && appLockService.isLockConfigured() && !appLockService.isUnlocked()) {
     return { ok: false, error: 'app_locked_unlock_in_web_ui' };
   }
 
@@ -374,6 +590,8 @@ async function dispatchCommand(env: MqttCommandEnvelope): Promise<Record<string,
       return handleStatus();
     case 'help':
       return helpPayload();
+    case 'profiles':
+      return handleProfiles();
     case 'export':
       return handleExport(env.args);
     case 'review':
@@ -381,7 +599,32 @@ async function dispatchCommand(env: MqttCommandEnvelope): Promise<Record<string,
     case 'report':
       return handleReport(env.args);
     case 'scrape':
-      return handleScrape(env.args, env.userId);
+      return handleScrape(
+        {
+          ...(env.args || {}),
+          ...((env as MqttCommandEnvelope & { all?: unknown }).all !== undefined
+            ? { all: (env as MqttCommandEnvelope & { all?: unknown }).all }
+            : {}),
+          ...((env as MqttCommandEnvelope & { profileId?: unknown }).profileId !== undefined
+            ? { profileId: (env as MqttCommandEnvelope & { profileId?: unknown }).profileId }
+            : {}),
+        },
+        env.userId
+      );
+    case 'scheduler_run_now':
+      return handleSchedulerRunNow();
+    case 'chat':
+      return handleChat(env.args);
+    case 'insights_top':
+      return handleInsightsTop(env.args);
+    case 'alerts_list':
+      return handleAlertsList(env.args);
+    case 'refresh_rules':
+      return handleRefreshRules();
+    case 'card_categories':
+      return handleCardCategories(env.args);
+    case 'memo':
+      return handleMemo(env.args);
     default:
       return { ok: false, error: `unknown_command_${cmd}` };
   }
