@@ -13,6 +13,7 @@ interface AILogEntry {
   requestInfo: {
     systemPrompt?: string;
     userInput: string;
+    rawRequest?: string;
     inputLength: number;
   };
   responseInfo: {
@@ -177,6 +178,17 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
   const formatTokens = (value?: number) => {
     if (!value) return '0';
     return value.toLocaleString();
+  };
+
+  const tableInputLabel = (log: AILogEntry) => log.requestInfo.userInput;
+
+  const rawRequestBody = (log: AILogEntry) =>
+    log.requestInfo.rawRequest ?? log.requestInfo.userInput;
+
+  const truncateTableInput = (text: string, maxLen = 80) => {
+    const t = text.trim();
+    if (t.length <= maxLen) return t;
+    return `${t.slice(0, maxLen)}…`;
   };
 
   return (
@@ -375,8 +387,8 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                           {log.provider}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-700 truncate max-w-[200px]" title={log.requestInfo.userInput}>
-                        {log.requestInfo.userInput.substring(0, 40)}...
+                      <td className="px-4 py-3 text-gray-700 truncate max-w-[240px]" title={tableInputLabel(log)}>
+                        {truncateTableInput(tableInputLabel(log))}
                       </td>
                       <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{formatTokens(log.metadata.totalTokens)}</td>
                       <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{log.metadata.latencyMs}</td>
@@ -509,7 +521,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                         </svg>
                       </summary>
                       <div className="mt-2 relative">
-                        <pre className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[400px] whitespace-pre-wrap">{formatJsonOrText(selectedLog.requestInfo.userInput)}</pre>
+                        <pre className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[400px] whitespace-pre-wrap">{formatJsonOrText(rawRequestBody(selectedLog))}</pre>
                       </div>
                     </details>
                   </div>

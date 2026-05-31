@@ -68,13 +68,15 @@ Rules:
         const latencyMs = Date.now() - startTime;
         const usageMetadata = response.usageMetadata;
 
+        const rawRequestLog = JSON.stringify(chatContext, null, 2);
         await logAICall({
             model: HELP_ASSISTANT_MODEL,
             provider: 'gemini',
             requestInfo: {
                 systemPrompt: HELP_ASSISTANT_LOG_SYSTEM,
-                userInput: latestMessage,
-                inputLength: latestMessage.length
+                userInput: latestMessage.length > 120 ? `${latestMessage.slice(0, 120)}…` : latestMessage,
+                rawRequest: rawRequestLog,
+                inputLength: rawRequestLog.length,
             },
             responseInfo: {
                 rawOutput: responseText,
@@ -96,9 +98,14 @@ Rules:
             typeof req.body?.messages?.[req.body.messages.length - 1]?.content === 'string'
                 ? req.body.messages[req.body.messages.length - 1].content
                 : '(help chat)';
+        const errRaw =
+            typeof req.body?.messages === 'object'
+                ? JSON.stringify(req.body.messages, null, 2)
+                : undefined;
         await logAIError(HELP_ASSISTANT_MODEL, 'gemini', userMsg, error instanceof Error ? error : new Error(String(error)), {
             latencyMs: 0,
-            systemPrompt: HELP_ASSISTANT_LOG_SYSTEM
+            systemPrompt: HELP_ASSISTANT_LOG_SYSTEM,
+            ...(errRaw !== undefined && { rawRequest: errRaw }),
         });
         console.error('Help Chat API Error:', error);
         return res.status(500).json({ error: error.message || 'Help Chat processing failed' });

@@ -14,7 +14,10 @@ export interface AILogEntry {
   provider: 'gemini' | 'openai' | 'ollama';
   requestInfo: {
     systemPrompt?: string;
+    /** Short label shown in the AI logs table */
     userInput: string;
+    /** Full request body (user message / API contents) shown in the detail modal */
+    rawRequest?: string;
     inputLength: number;
   };
   responseInfo: {
@@ -150,11 +153,17 @@ export async function logAICall(entry: Omit<AILogEntry, 'id' | 'timestamp'>): Pr
 
     // Determine if data was redacted
     const originalInput = entry.requestInfo.userInput;
+    const originalRaw = entry.requestInfo.rawRequest;
     const maskedInput = maskSensitiveData(originalInput);
-    logEntry.redactedData = originalInput !== maskedInput;
+    const maskedRaw = originalRaw != null ? maskSensitiveData(originalRaw) : undefined;
+    logEntry.redactedData =
+      originalInput !== maskedInput || (originalRaw != null && originalRaw !== maskedRaw);
 
     if (logEntry.redactedData) {
       logEntry.requestInfo.userInput = maskedInput;
+      if (maskedRaw != null) {
+        logEntry.requestInfo.rawRequest = maskedRaw;
+      }
       if (logEntry.requestInfo.systemPrompt) {
         logEntry.requestInfo.systemPrompt = maskSensitiveData(logEntry.requestInfo.systemPrompt);
       }
@@ -192,7 +201,7 @@ export async function logAIError(
   provider: 'gemini' | 'openai' | 'ollama',
   userInput: string,
   error: Error,
-  metadata?: { latencyMs?: number; systemPrompt?: string }
+  metadata?: { latencyMs?: number; systemPrompt?: string; rawRequest?: string }
 ): Promise<string | undefined> {
   try {
     await ensureLogsDirectory();
@@ -207,6 +216,10 @@ export async function logAIError(
     const origUser = userInput;
     const maskedUser = maskSensitiveData(userInput);
     const userRedacted = origUser !== maskedUser;
+
+    const origRaw = metadata?.rawRequest;
+    const maskedRaw = origRaw != null ? maskSensitiveData(origRaw) : undefined;
+    const rawRedacted = origRaw != null && origRaw !== maskedRaw;
 
     let systemPromptField: string | undefined;
     let systemRedacted = false;
@@ -224,7 +237,8 @@ export async function logAIError(
       provider,
       requestInfo: {
         userInput: userRedacted ? maskedUser : origUser,
-        inputLength: userInput.length,
+        inputLength: (origRaw ?? userInput).length,
+        ...(origRaw != null && { rawRequest: rawRedacted ? maskedRaw : origRaw }),
         ...(systemPromptField !== undefined && { systemPrompt: systemPromptField })
       },
       responseInfo: {
@@ -238,7 +252,7 @@ export async function logAIError(
         message: errorMessage,
         timestamp
       },
-      redactedData: userRedacted || systemRedacted
+      redactedData: userRedacted || rawRedacted || systemRedacted
     };
 
     // Write individual JSON file for this error
@@ -581,6 +595,20 @@ export async function withAILoggingBatch<T>(
   }
 
   return results;
+}
+
+/** Serialize Gemini `contents` for AI log detail view (file URIs kept as references). */
+export function serializeGeminiContentsForLog(
+  contents: Array<{
+    role: string;
+    parts: Array<{ text?: string; fileData?: { mimeType: string; fileUri: string } }>;
+  }>
+): string {
+  try {
+    return JSON.stringify(contents, null, 2);
+  } catch {
+    return String(contents);
+  }
 }
 
 export { calculateEstimatedCost };

@@ -34,7 +34,13 @@ import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { serverLogger } from '../utils/logger.js';
 import { maskSensitiveData } from '../utils/masking.js';
-import { logAICall, logAIError, withAILogging, runWithAILoadTracking } from '../utils/aiLogger.js';
+import {
+    logAICall,
+    logAIError,
+    withAILogging,
+    runWithAILoadTracking,
+    serializeGeminiContentsForLog,
+} from '../utils/aiLogger.js';
 import { DbService } from './dbService.js';
 import { buildAnalystSqlSchemaDoc } from './analystSqlSchema.js';
 import { executeAnalystQueries, type AnalystQueryResult } from './analystSqlExecutor.js';
@@ -734,7 +740,8 @@ export class AiService {
                     const latencyMs = Date.now() - startTime;
                     const errId = await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
                         latencyMs,
-                        systemPrompt: categorizationSystemPrompt
+                        systemPrompt: categorizationSystemPrompt,
+                        rawRequest: prompt,
                     });
                     if (errId) aiLogIds.push(errId);
                     serverLogger.error(`Categorization failed: ${e1.message}`);
@@ -749,7 +756,8 @@ export class AiService {
                 const latencyMsPrimary = Date.now() - startTime;
                 const primaryErrId = await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, e1, {
                     latencyMs: latencyMsPrimary,
-                    systemPrompt: categorizationSystemPrompt
+                    systemPrompt: categorizationSystemPrompt,
+                    rawRequest: prompt,
                 });
                 if (primaryErrId) aiLogIds.push(primaryErrId);
                 serverLogger.warn(`Categorization: retrying with fallback model ${fb} after ${primary} was rate limited or overloaded`);
@@ -761,7 +769,8 @@ export class AiService {
                     const latencyMs = Date.now() - startTime;
                     const fbErrId = await logAIError(fb, 'gemini', `Categorize ${descriptions.length} descriptions`, e2, {
                         latencyMs,
-                        systemPrompt: categorizationSystemPrompt
+                        systemPrompt: categorizationSystemPrompt,
+                        rawRequest: prompt,
                     });
                     if (fbErrId) aiLogIds.push(fbErrId);
                     serverLogger.error(`Categorization failed (fallback): ${e2.message}`);
@@ -777,14 +786,14 @@ export class AiService {
 
             const { categoriesMap, response, latencyMs, modelName } = outcome;
 
-            const descriptionsStr = descriptions.join(', ');
             const successId = await logAICall({
                 model: modelName,
                 provider: 'gemini',
                 requestInfo: {
                     systemPrompt: categorizationSystemPrompt,
-                    userInput: descriptionsStr,
-                    inputLength: descriptions.length
+                    userInput: `Categorize ${descriptions.length} descriptions`,
+                    rawRequest: prompt,
+                    inputLength: prompt.length,
                 },
                 responseInfo: {
                     rawOutput: `Successfully categorized ${Object.keys(categoriesMap).length} descriptions`,
@@ -817,7 +826,8 @@ export class AiService {
             const latencyMs = Date.now() - (startTime || Date.now());
             const outerErrId = await logAIError(primary, 'gemini', `Categorize ${descriptions.length} descriptions`, error, {
                 latencyMs,
-                systemPrompt: categorizationSystemPrompt
+                systemPrompt: categorizationSystemPrompt,
+                rawRequest: prompt,
             });
             if (outerErrId) aiLogIds.push(outerErrId);
             serverLogger.error(`Categorization failed: ${error.message}`);
@@ -891,21 +901,11 @@ export class AiService {
     }
 
     /** Log: prompt text first; when files were uploaded, append their UTF-8 size and row counts (no section headers). */
-    private buildAnalyzeDataLogUserInput(
-        promptText: string,
-        uploadedFiles: { displayName: string; utf8Bytes: number; rows: number }[]
-    ): string {
-        if (uploadedFiles.length === 0) {
-            return promptText;
-        }
-        const fileLines = uploadedFiles
-            .map(
-                (f, i) =>
-                    `${i + 1}. ${f.displayName} — UTF-8 bytes: ${f.utf8Bytes}, rows: ${f.rows}`
-            )
-            .join('\n');
-        const totalRows = uploadedFiles.reduce((sum, f) => sum + f.rows, 0);
-        return `${promptText}\n\n${fileLines}\n\nTotal rows (all attachments): ${totalRows}`;
+    /** Short label for the AI logs table (full payload goes in rawRequest). */
+    private aiLogTableSummary(text: string, maxLen = 120): string {
+        const t = text.trim();
+        if (t.length <= maxLen) return t;
+        return `${t.slice(0, maxLen)}…`;
     }
 
     async analyzeData(query: string, transactions: Transaction[], options?: AnalyzeDataOptions): Promise<AnalyzeDataResult> {
@@ -1200,18 +1200,20 @@ export class AiService {
                 const fb = this.effectiveFallbackModel(primaryChat);
                 if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
                     const latencyMs = Date.now() - startTime;
-                    const errId = await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                    const errId = await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(effectiveQuery), e1, {
                         latencyMs,
-                        systemPrompt: systemInstruction
+                        systemPrompt: systemInstruction,
+                        rawRequest: serializeGeminiContentsForLog(contents),
                     });
                     if (errId) aiLogIds.push(errId);
                     attachGeminiRateLimitToError(e1);
                     throw e1;
                 }
                 const latencyMsPrimary = Date.now() - startTime;
-                const primaryErrId = await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                const primaryErrId = await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(effectiveQuery), e1, {
                     latencyMs: latencyMsPrimary,
-                    systemPrompt: systemInstruction
+                    systemPrompt: systemInstruction,
+                    rawRequest: serializeGeminiContentsForLog(contents),
                 });
                 if (primaryErrId) aiLogIds.push(primaryErrId);
                 serverLogger.warn(`analyzeData: retrying with fallback model ${fb} after ${primaryChat} was rate limited or overloaded`);
@@ -1221,9 +1223,10 @@ export class AiService {
                     usedFallbackModel = fb;
                 } catch (e2: any) {
                     const latencyMs = Date.now() - startTime;
-                    const fbErrId = await logAIError(fb, 'gemini', effectiveQuery, e2, {
+                    const fbErrId = await logAIError(fb, 'gemini', this.aiLogTableSummary(effectiveQuery), e2, {
                         latencyMs,
-                        systemPrompt: systemInstruction
+                        systemPrompt: systemInstruction,
+                        rawRequest: serializeGeminiContentsForLog(contents),
                     });
                     if (fbErrId) aiLogIds.push(fbErrId);
                     attachGeminiRateLimitToError(e2);
@@ -1233,7 +1236,7 @@ export class AiService {
 
             const { text, response, latencyMs, chatModelName } = outcome;
 
-            const logInputSummary = this.buildAnalyzeDataLogUserInput(currentPrompt, uploadedFileLog);
+            const logRawRequest = serializeGeminiContentsForLog(contents);
 
             const usageMetadata = response.usageMetadata;
             const successId = await logAICall({
@@ -1241,8 +1244,9 @@ export class AiService {
                 provider: 'gemini',
                 requestInfo: {
                     systemPrompt: systemInstruction,
-                    userInput: logInputSummary,
-                    inputLength: logInputSummary.length
+                    userInput: this.aiLogTableSummary(effectiveQuery),
+                    rawRequest: logRawRequest,
+                    inputLength: logRawRequest.length,
                 },
                 responseInfo: {
                     rawOutput: text,
@@ -1446,17 +1450,19 @@ Facts are user-editable persistent memory (stable context). Insights and alerts 
                 const fb = this.effectiveFallbackModel(primaryChat);
                 if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
                     const latencyMs = Date.now() - startTime;
-                    await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                    await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(effectiveQuery), e1, {
                         latencyMs,
-                        systemPrompt: systemInstruction
+                        systemPrompt: systemInstruction,
+                        rawRequest: serializeGeminiContentsForLog(contents),
                     });
                     attachGeminiRateLimitToError(e1);
                     throw e1;
                 }
                 const latencyMsPrimary = Date.now() - startTime;
-                await logAIError(primaryChat, 'gemini', effectiveQuery, e1, {
+                await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(effectiveQuery), e1, {
                     latencyMs: latencyMsPrimary,
-                    systemPrompt: systemInstruction
+                    systemPrompt: systemInstruction,
+                    rawRequest: serializeGeminiContentsForLog(contents),
                 });
                 serverLogger.warn(`analyzeDataStructured: retrying with fallback model ${fb} after ${primaryChat} was rate limited or overloaded`);
                 startTime = Date.now();
@@ -1465,9 +1471,10 @@ Facts are user-editable persistent memory (stable context). Insights and alerts 
                     usedFallbackModel = fb;
                 } catch (e2: any) {
                     const latencyMs = Date.now() - startTime;
-                    await logAIError(fb, 'gemini', effectiveQuery, e2, {
+                    await logAIError(fb, 'gemini', this.aiLogTableSummary(effectiveQuery), e2, {
                         latencyMs,
-                        systemPrompt: systemInstruction
+                        systemPrompt: systemInstruction,
+                        rawRequest: serializeGeminiContentsForLog(contents),
                     });
                     attachGeminiRateLimitToError(e2);
                     throw e2;
@@ -1476,7 +1483,7 @@ Facts are user-editable persistent memory (stable context). Insights and alerts 
 
             const { text, response, latencyMs, chatModelName } = outcome;
 
-            const logInputSummary = this.buildAnalyzeDataLogUserInput(currentPrompt, uploadedFileLog);
+            const logRawRequest = serializeGeminiContentsForLog(contents);
 
             const usageMetadata = response.usageMetadata;
             await logAICall({
@@ -1484,8 +1491,9 @@ Facts are user-editable persistent memory (stable context). Insights and alerts 
                 provider: 'gemini',
                 requestInfo: {
                     systemPrompt: systemInstruction,
-                    userInput: logInputSummary,
-                    inputLength: logInputSummary.length
+                    userInput: this.aiLogTableSummary(effectiveQuery),
+                    rawRequest: logRawRequest,
+                    inputLength: logRawRequest.length,
                 },
                 responseInfo: {
                     rawOutput: text,
@@ -1625,16 +1633,18 @@ ${effectiveQuery}`;
             const fb = this.effectiveFallbackModel(primaryChat);
             const err1 = e1 instanceof Error ? e1 : new Error(String(e1));
             if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
-                await logAIError(primaryChat, 'gemini', effectiveQuery, err1, {
+                await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(effectiveQuery), err1, {
                     latencyMs: Date.now() - startTime,
                     systemPrompt: systemInstruction,
+                    rawRequest: jsonSpec,
                 });
                 attachGeminiRateLimitToError(e1);
                 throw e1;
             }
-            await logAIError(primaryChat, 'gemini', effectiveQuery, err1, {
+            await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(effectiveQuery), err1, {
                 latencyMs: Date.now() - startTime,
                 systemPrompt: systemInstruction,
+                rawRequest: jsonSpec,
             });
             startTime = Date.now();
             outcome = await runGeneration(fb);
@@ -1648,7 +1658,8 @@ ${effectiveQuery}`;
             provider: 'gemini',
             requestInfo: {
                 systemPrompt: systemInstruction,
-                userInput: '[super-privacy] schema + query (no transaction rows)',
+                userInput: this.aiLogTableSummary(effectiveQuery),
+                rawRequest: jsonSpec,
                 inputLength: jsonSpec.length,
             },
             responseInfo: {
@@ -1867,7 +1878,8 @@ ${effectiveQuery}`;
                 provider: 'gemini',
                 requestInfo: {
                     systemPrompt: systemInstruction,
-                    userInput: userText.slice(0, 8000),
+                    userInput: 'financial-report-narrative',
+                    rawRequest: userText,
                     inputLength: userText.length,
                 },
                 responseInfo: {
@@ -1906,6 +1918,7 @@ ${effectiveQuery}`;
             await logAIError(primaryChat, 'gemini', 'financial-report-narrative', e, {
                 latencyMs: 0,
                 systemPrompt: systemInstruction,
+                rawRequest: userText,
             });
             return null;
         }
@@ -1980,7 +1993,8 @@ ${effectiveQuery}`;
                 provider: 'gemini',
                 requestInfo: {
                     systemPrompt: systemInstruction,
-                    userInput: userText.slice(0, 8000),
+                    userInput: 'financial-report-month-comparison',
+                    rawRequest: userText,
                     inputLength: userText.length,
                 },
                 responseInfo: {
@@ -2009,6 +2023,7 @@ ${effectiveQuery}`;
                 latencyMs: 0,
                 systemPrompt:
                     'You are a financial analyst for Israeli household cashflow (ILS). Output ONLY valid JSON: {"narrative":{"he":"...","en":"..."}}.',
+                rawRequest: userText,
             });
             return null;
         }
@@ -2430,14 +2445,16 @@ ${trimmed}
                 const err = e1 instanceof Error ? e1 : new Error(String(e1));
                 await logAIError(primaryChat, 'gemini', '[persona extract]', err, {
                     latencyMs: Date.now() - startTime,
-                    systemPrompt: systemInstruction
+                    systemPrompt: systemInstruction,
+                    rawRequest: userPrompt,
                 });
                 attachGeminiRateLimitToError(err);
                 throw err;
             }
             await logAIError(primaryChat, 'gemini', '[persona extract]', e1 instanceof Error ? e1 : new Error(String(e1)), {
                 latencyMs: Date.now() - startTime,
-                systemPrompt: systemInstruction
+                systemPrompt: systemInstruction,
+                rawRequest: userPrompt,
             });
             serverLogger.warn(`extractPersonaFromNarrative: retrying with fallback model ${fb}`);
             try {
@@ -2446,7 +2463,8 @@ ${trimmed}
                 const err = e2 instanceof Error ? e2 : new Error(String(e2));
                 await logAIError(fb, 'gemini', '[persona extract]', err, {
                     latencyMs: Date.now() - startTime,
-                    systemPrompt: systemInstruction
+                    systemPrompt: systemInstruction,
+                    rawRequest: userPrompt,
                 });
                 attachGeminiRateLimitToError(err);
                 throw err;
@@ -2468,8 +2486,9 @@ ${trimmed}
             provider: 'gemini',
             requestInfo: {
                 systemPrompt: systemInstruction,
-                userInput: `[persona extract] ${trimmed.length} chars`,
-                inputLength: trimmed.length
+                userInput: '[persona extract]',
+                rawRequest: userPrompt,
+                inputLength: userPrompt.length,
             },
             responseInfo: {
                 rawOutput: JSON.stringify(normalized),
@@ -2593,25 +2612,28 @@ The top-level "name" string must be a short human-readable rule title in the sam
             const fb = this.effectiveFallbackModel(primaryChat);
             if (!fb || !isGeminiRateLimitOrOverloadError(e1)) {
                 const err = e1 instanceof Error ? e1 : new Error(String(e1));
-                await logAIError(primaryChat, 'gemini', '[insight rule draft]', err, {
+                await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(trimmed), err, {
                     latencyMs: Date.now() - startTime,
                     systemPrompt: systemInstruction,
+                    rawRequest: userPrompt,
                 });
                 attachGeminiRateLimitToError(err);
                 throw err;
             }
-            await logAIError(primaryChat, 'gemini', '[insight rule draft]', e1 instanceof Error ? e1 : new Error(String(e1)), {
+            await logAIError(primaryChat, 'gemini', this.aiLogTableSummary(trimmed), e1 instanceof Error ? e1 : new Error(String(e1)), {
                 latencyMs: Date.now() - startTime,
                 systemPrompt: systemInstruction,
+                rawRequest: userPrompt,
             });
             serverLogger.warn(`suggestInsightRuleDraft: retrying with fallback model ${fb}`);
             try {
                 outcome = await runDraftGen(fb);
             } catch (e2: any) {
                 const err = e2 instanceof Error ? e2 : new Error(String(e2));
-                await logAIError(fb, 'gemini', '[insight rule draft]', err, {
+                await logAIError(fb, 'gemini', this.aiLogTableSummary(trimmed), err, {
                     latencyMs: Date.now() - startTime,
                     systemPrompt: systemInstruction,
+                    rawRequest: userPrompt,
                 });
                 attachGeminiRateLimitToError(err);
                 throw err;
@@ -2640,8 +2662,9 @@ The top-level "name" string must be a short human-readable rule title in the sam
             provider: 'gemini',
             requestInfo: {
                 systemPrompt: systemInstruction,
-                userInput: `[insight rule draft] ${trimmed.length} chars`,
-                inputLength: trimmed.length,
+                userInput: this.aiLogTableSummary(trimmed),
+                rawRequest: userPrompt,
+                inputLength: userPrompt.length,
             },
             responseInfo: {
                 rawOutput: JSON.stringify({ name: obj.name, definition: defParsed.value }),
@@ -2767,8 +2790,9 @@ Rules:
             provider: 'gemini',
             requestInfo: {
                 systemPrompt: systemInstruction,
-                userInput: `[user chart] ${trimmed.length} chars`,
-                inputLength: trimmed.length,
+                userInput: this.aiLogTableSummary(trimmed),
+                rawRequest: jsonSpec,
+                inputLength: jsonSpec.length,
             },
             responseInfo: {
                 rawOutput: JSON.stringify(chart),
@@ -3005,8 +3029,9 @@ DATA_SCOPE_ACTIVE: false — all transactions in the database are in scope.`;
             provider: 'gemini',
             requestInfo: {
                 systemPrompt: systemInstruction,
-                userInput: `[sql analytic card] ${trimmed.length} chars`,
-                inputLength: trimmed.length,
+                userInput: this.aiLogTableSummary(trimmed),
+                rawRequest: jsonSpec,
+                inputLength: jsonSpec.length,
             },
             responseInfo: {
                 rawOutput: JSON.stringify(sanitized.value),
