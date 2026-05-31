@@ -3,12 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { AiService } from '../services/aiService.js';
 import { StorageService } from '../services/storageService.js';
 import { DbService } from '../services/dbService.js';
-import {
-    buildUnifiedChatQueryWithMemory,
-    mergeAndPersistAiMemory,
-    superPrivacyIncludesChatHistory,
-    superPrivacyPromptShareFromSettings,
-} from '../services/unifiedAiChatMemory.js';
+import { mergeAndPersistAiMemory } from '../services/unifiedAiChatMemory.js';
+import { runUnifiedAnalystChat } from '../services/analystUnifiedChat.js';
+import { normalizeAnalystPrivacyMode } from '../services/analystPrivacyMode.js';
 import { telegramBotService } from '../services/telegramBotService.js';
 import { runAiMemoryRetentionPrune } from '../services/aiMemoryRetention.js';
 import { AI_MODEL_HIGH_DEMAND_ERROR_KEY, isAiModelHighDemandMessage } from '../utils/aiModelHighDemand.js';
@@ -79,67 +76,32 @@ router.post('/chat/unified', async (req, res) => {
 
         const aiSettings = await aiService.getSettings();
 
-        if (aiSettings.superPrivacyMode) {
-            let scopeTransactionIds: string[] | undefined;
-            if (filename && scope !== 'all') {
-                const scoped = await storageService.getScrapeResult(filename);
-                scopeTransactionIds = scoped?.transactions?.map((t) => t.id).filter(Boolean) ?? [];
-            }
-            const share = superPrivacyPromptShareFromSettings(aiSettings);
-            const personaForPrompt =
-                share.includePersona &&
-                aiSettings.userContext &&
-                !isUserPersonaEmpty(aiSettings.userContext)
-                    ? aiSettings.userContext
-                    : undefined;
-            const contextQuery = buildUnifiedChatQueryWithMemory(
-                share.includeHistoryNote ? historyNote : undefined,
-                query,
-                personaForPrompt,
-                share
-            );
-            const structured = await aiService.analyzeDataSuperPrivacy(contextQuery, {
-                conversationHistory:
-                    superPrivacyIncludesChatHistory(aiSettings) && Array.isArray(conversationHistory)
-                        ? conversationHistory
-                        : undefined,
-                scopeTransactionIds,
-                scopeNote: share.includeHistoryNote ? historyNote : undefined,
-            });
-            const { factsAdded, factsReplaced, insightsAdded, alertsAdded, newAlerts } =
-                mergeAndPersistAiMemory(structured);
-            void telegramBotService.notifyNewAiMemoryAlerts(newAlerts);
-            return res.json({
-                success: true,
-                data: {
-                    response: structured.response,
-                    factsAdded,
-                    factsReplaced,
-                    insightsAdded,
-                    alertsAdded,
-                    superPrivacyMode: true,
-                    ...(structured.usedFallbackModel ? { usedFallbackModel: structured.usedFallbackModel } : {}),
-                },
-            });
+        let scopeTransactionIds: string[] | undefined;
+        const filenameScoped = Boolean(filename && scope !== 'all');
+        if (filenameScoped) {
+            const scoped = await storageService.getScrapeResult(filename);
+            scopeTransactionIds = scoped?.transactions?.map((t) => t.id).filter(Boolean) ?? [];
         }
 
         if (!transactions || !Array.isArray(transactions)) {
-            return res.status(400).json({ success: false, error: 'Transactions data or source (scope/filename) required' });
+            if (normalizeAnalystPrivacyMode(aiSettings) === 'full_ai') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Transactions data or source (scope/filename) required',
+                });
+            }
+            transactions = [];
         }
 
-        const maxRows = aiSettings.analystMaxTransactionRows ?? 0;
-        transactions = sliceTransactionsForAnalyst(transactions, maxRows);
-        const personaForPrompt =
-            aiSettings.personaInjectionEnabled !== false &&
-            aiSettings.userContext &&
-            !isUserPersonaEmpty(aiSettings.userContext)
-                ? aiSettings.userContext
-                : undefined;
-        const contextQuery = buildUnifiedChatQueryWithMemory(historyNote, query, personaForPrompt);
-
-        const structured = await aiService.analyzeDataStructured(contextQuery, transactions, {
+        const structured = await runUnifiedAnalystChat(aiService, aiSettings, {
+            query,
+            historyNote,
+            transactions,
             conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : undefined,
+            scopeTransactionIds,
+            filenameScoped,
         });
+
         const { factsAdded, factsReplaced, insightsAdded, alertsAdded, newAlerts } =
             mergeAndPersistAiMemory(structured);
         void telegramBotService.notifyNewAiMemoryAlerts(newAlerts);
@@ -152,8 +114,11 @@ router.post('/chat/unified', async (req, res) => {
                 factsReplaced,
                 insightsAdded,
                 alertsAdded,
-                ...(structured.usedFallbackModel ? { usedFallbackModel: structured.usedFallbackModel } : {})
-            }
+                analystPath: structured.analystPath,
+                superPrivacyAttempted: structured.superPrivacyAttempted,
+                superPrivacyFailureReason: structured.superPrivacyFailureReason,
+                ...(structured.usedFallbackModel ? { usedFallbackModel: structured.usedFallbackModel } : {}),
+            },
         });
     } catch (error: any) {
         const status = error.status || error.response?.status || 500;

@@ -37,8 +37,9 @@ import { maskSensitiveData } from '../utils/masking.js';
 import { logAICall, logAIError, withAILogging, runWithAILoadTracking } from '../utils/aiLogger.js';
 import { DbService } from './dbService.js';
 import { buildAnalystSqlSchemaDoc } from './analystSqlSchema.js';
-import { executeAnalystQueries } from './analystSqlExecutor.js';
-import { fillAnalystResponseTemplate } from './analystSqlTemplate.js';
+import { executeAnalystQueries, type AnalystQueryResult } from './analystSqlExecutor.js';
+import type { AnalystPrivacyMode } from './analystPrivacyMode.js';
+import { ANALYST_CHAT_TEMPLATE_FORMAT_RULES, fillAnalystResponseTemplate } from './analystSqlTemplate.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'config', 'ai_settings.json');
@@ -92,9 +93,11 @@ export interface AiSettings {
     analyticsMaxOutputTokens?: number;
     categorizationMaxOutputTokens?: number;
     /**
-     * Super privacy mode: analyst chat sends only the SQL schema and user question to the model.
-     * The model returns read-only SQL + a response template; results are computed locally and merged into the reply.
+     * Analyst chat privacy: super_privacy (SQL only), full_ai (transaction rows), hybrid (SQL first, full AI on failure).
+     * @default hybrid
      */
+    analystPrivacyMode?: AnalystPrivacyMode;
+    /** @deprecated Migrated to analystPrivacyMode on load */
     superPrivacyMode?: boolean;
     /** Super privacy: send persona JSON to the model (default false). Requires personaInjectionEnabled. */
     superPrivacySharePersona?: boolean;
@@ -239,6 +242,16 @@ export interface StructuredChatResult {
     usedFallbackModel?: string;
 }
 
+/** Super-privacy SQL step (includes execution metadata for hybrid routing). */
+export interface SuperPrivacyChatResult extends StructuredChatResult {
+    parsedRaw?: Record<string, unknown>;
+    queries?: { key: string; sql: string }[];
+    sqlResults?: Record<string, AnalystQueryResult>;
+    jsonParseFailed?: boolean;
+}
+
+export type { AnalystPrivacyMode } from './analystPrivacyMode.js';
+
 /** Result of {@link AiService.analyzeData} including optional fallback metadata. */
 export interface AnalyzeDataResult {
     text: string;
@@ -342,7 +355,7 @@ const DEFAULT_SETTINGS: AiSettings = {
     userContext: {},
     personaInjectionEnabled: true,
     analystMaxTransactionRows: 0,
-    superPrivacyMode: false,
+    analystPrivacyMode: 'hybrid',
     superPrivacySharePersona: false,
     superPrivacyShareFacts: false,
     superPrivacyShareInsights: false,
@@ -419,6 +432,12 @@ export class AiService {
             );
             const maxRows = Math.floor(Number(raw.analystMaxTransactionRows ?? DEFAULT_SETTINGS.analystMaxTransactionRows) || 0);
             raw.analystMaxTransactionRows = Math.max(0, Math.min(500_000, maxRows));
+            if (
+                !raw.analystPrivacyMode ||
+                !['super_privacy', 'full_ai', 'hybrid'].includes(raw.analystPrivacyMode)
+            ) {
+                raw.analystPrivacyMode = raw.superPrivacyMode === true ? 'super_privacy' : 'hybrid';
+            }
             this.settings = raw;
         } else {
             this.settings = { ...DEFAULT_SETTINGS };
@@ -1524,7 +1543,7 @@ Facts are user-editable persistent memory (stable context). Insights and alerts 
     async analyzeDataSuperPrivacy(
         query: string,
         options?: SuperPrivacyChatOptions
-    ): Promise<StructuredChatResult> {
+    ): Promise<SuperPrivacyChatResult> {
         if (!this.genAI) throw new Error('GEMINI_API_KEY not configured');
 
         await this.loadSettings();
@@ -1543,15 +1562,15 @@ Facts are user-editable persistent memory (stable context). Insights and alerts 
 ---
 OUTPUT FORMAT (super privacy — no transaction rows in this request)
 Respond with one JSON object only (no markdown fences). Schema:
-{"queries":[{"key":"snake_case_id","sql":"SELECT ..."}],"responseTemplate":"markdown text with {{q:key}} placeholders","facts":string[],"factsReplace":{"oldText":string,"newText":string}[],"insights":{"text":string,"score":number}[],"alerts":{"text":string,"score":number}[]}
+{"sqlNotPossible":boolean,"sqlNotPossibleReason":string,"requiresFullAnalyst":boolean,"requiresFullAnalystReason":string,"queries":[{"key":"snake_case_id","sql":"SELECT ..."}],"responseTemplate":"markdown text with {{q:key}} placeholders","facts":string[],"factsReplace":{"oldText":string,"newText":string}[],"insights":{"text":string,"score":number}[],"alerts":{"text":string,"score":number}[]}
 
-- "queries": 1–8 read-only SQLite SELECT (or WITH ... SELECT) statements. Use stable keys (letters, numbers, underscore). Each "sql" must obey the schema rules.
-- "responseTemplate": User-facing answer in markdown. Embed numeric results ONLY via placeholders:
-  - {{q:key}} — first column of the first row (format numbers naturally in surrounding text)
-  - {{q:key.count}} — number of rows returned
-  - {{q:key.table}} — markdown table when listing rows (keep query row count small)
-  Do not invent amounts; every number in the template must come from a placeholder.
+- "sqlNotPossible": true when you cannot produce a correct read-only SQL plan (question needs row-level memos/descriptions, data is outside the schema tables, fuzzy text matching, or subjective judgment on individual charges). Set "sqlNotPossibleReason" to a short user-facing explanation. Use queries: [] and a minimal responseTemplate when true.
+- "requiresFullAnalyst": alias for the same idea when transaction rows are required; if true, set sqlNotPossible true as well and explain in sqlNotPossibleReason.
+- "queries": 1–8 read-only SQLite SELECT (or WITH ... SELECT) statements when sqlNotPossible is false. Use stable keys (letters, numbers, underscore). Each "sql" must obey the schema rules. For {{q:key.list}} placeholders, return at most 15 rows and prefer 2 columns (label + amount) or (category + total).
+- "responseTemplate": User-facing answer formatted for the in-app chat UI (see CHAT FORMAT below). Embed numeric results ONLY via placeholders; do not invent amounts.
 - "facts", "factsReplace", "insights", "alerts": same rules as standard analyst JSON when those blocks appear in the user message; otherwise use empty arrays.
+
+${ANALYST_CHAT_TEMPLATE_FORMAT_RULES}
 
 SQL SCHEMA:
 ${schemaDoc}
@@ -1646,15 +1665,45 @@ ${effectiveQuery}`;
         });
 
         let parsed: Record<string, unknown>;
+        let jsonParseFailed = false;
         try {
             parsed = this.extractJson(text);
         } catch {
+            jsonParseFailed = true;
+            parsed = {};
             return {
                 response: text,
                 facts: [],
                 factsReplace: [],
                 insights: [],
                 alerts: [],
+                jsonParseFailed: true,
+                parsedRaw: parsed,
+                queries: [],
+                ...(usedFallbackModel ? { usedFallbackModel } : {}),
+            };
+        }
+
+        const sqlNotPossible = parsed.sqlNotPossible === true || parsed.requiresFullAnalyst === true;
+        const sqlNotPossibleReason =
+            (typeof parsed.sqlNotPossibleReason === 'string' ? parsed.sqlNotPossibleReason.trim() : '') ||
+            (typeof parsed.requiresFullAnalystReason === 'string' ? parsed.requiresFullAnalystReason.trim() : '');
+
+        if (sqlNotPossible) {
+            const facts = Array.isArray(parsed.facts)
+                ? parsed.facts.filter((x: unknown) => typeof x === 'string' && (x as string).trim())
+                : [];
+            return {
+                response:
+                    sqlNotPossibleReason ||
+                    'This question cannot be answered with read-only SQL on the local database schema.',
+                facts,
+                factsReplace: normalizeFactReplacements(parsed.factsReplace),
+                insights: normalizeScoredItems(parsed.insights, 50),
+                alerts: normalizeScoredItems(parsed.alerts, 70),
+                parsedRaw: parsed,
+                queries: [],
+                jsonParseFailed: false,
                 ...(usedFallbackModel ? { usedFallbackModel } : {}),
             };
         }
@@ -1678,14 +1727,16 @@ ${effectiveQuery}`;
 
         const db = this.dbService.getDatabase();
         let responseText = template;
+        let sqlResults: Record<string, AnalystQueryResult> | undefined;
         if (queries.length > 0) {
             try {
-                const results = executeAnalystQueries(db, queries, {
+                sqlResults = executeAnalystQueries(db, queries, {
                     scopeTransactionIds: options?.scopeTransactionIds,
                 });
                 responseText = fillAnalystResponseTemplate(
-                    template || 'Results:\n\n{{q:' + queries[0]!.key + '.table}}',
-                    results
+                    template ||
+                        '**Results**\n\n{{q:' + queries[0]!.key + '.list}}',
+                    sqlResults
                 );
             } catch (execErr: unknown) {
                 const msg = execErr instanceof Error ? execErr.message : String(execErr);
@@ -1705,6 +1756,10 @@ ${effectiveQuery}`;
             factsReplace: normalizeFactReplacements(parsed.factsReplace),
             insights: normalizeScoredItems(parsed.insights, 50),
             alerts: normalizeScoredItems(parsed.alerts, 70),
+            parsedRaw: parsed,
+            queries,
+            sqlResults,
+            jsonParseFailed,
             ...(usedFallbackModel ? { usedFallbackModel } : {}),
         };
     }

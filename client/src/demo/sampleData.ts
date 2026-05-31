@@ -348,7 +348,7 @@ export const demoAiSettings = {
     model: 'gemini-2.0-flash',
     chatModel: 'gemini-2.0-flash',
     enabled: true,
-    superPrivacyMode: false,
+    analystPrivacyMode: 'hybrid',
     superPrivacySharePersona: false,
     superPrivacyShareFacts: false,
     superPrivacyShareInsights: false,

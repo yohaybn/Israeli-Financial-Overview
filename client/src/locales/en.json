@@ -648,6 +648,14 @@
         "fallback_model_label": "Fallback model (optional)",
         "fallback_model_none": "None — do not retry with another model",
         "fallback_model_help": "When Google returns HTTP 429 (rate limit / quota) or 503 (service busy or model overload), the app can retry the same request once using this model. That often succeeds because different models have separate limits and load. Choose a model that is not the same as your primary analyst or categorization model (for example a smaller or alternate Flash tier). This is optional; if you leave it unset, failed calls surface the error as before.",
+        "analyst_privacy_heading": "Analyst privacy mode",
+        "analyst_privacy_intro": "Controls how the Analyst chat (and Telegram AI chat) uses Gemini versus local SQL on your database.",
+        "analyst_privacy_hybrid": "Hybrid (recommended)",
+        "analyst_privacy_hybrid_help": "Try local SQL first (schema + question only). If SQL cannot answer, automatically run full analyst with your transactions.",
+        "analyst_privacy_super": "Super privacy only",
+        "analyst_privacy_super_help": "Never send transaction rows. Answers come only from local SQL; you get a clear message if SQL cannot answer.",
+        "analyst_privacy_full": "Full AI only",
+        "analyst_privacy_full_help": "Always send transaction data to Gemini (previous default behavior).",
         "super_privacy_label": "Super privacy mode (analyst chat)",
         "super_privacy_help": "When enabled, your transaction rows are never sent to the AI. The model only sees the database schema and your question, returns read-only SQL and a reply template, and this server runs the queries locally to fill in the answer.",
         "super_privacy_share_heading": "Also send to the AI (optional)",
@@ -1538,7 +1546,9 @@
         "greeting": "Hello! I am your AI financial analyst. I can help answer questions about your spending habits, trends, or anomalies. What would you like to know?",
         "error": "Sorry — I hit an error while analyzing your data. Please try again.",
         "memory_saved": "Memory: +{{facts}} fact(s), {{factsReplaced}} fact(s) updated, +{{insights}} insight(s), +{{alerts}} alert(s) saved",
-        "super_privacy_note": "Answer computed locally from SQL (super privacy mode — no transaction data was sent to the AI).",
+        "super_privacy_note": "Answer computed locally from SQL (no transaction data was sent to the AI).",
+        "hybrid_fallback_note": "Local SQL could not answer: {{reason}} Full analyst with transaction data was used.",
+        "hybrid_fallback_default_reason": "This question needs full transaction context.",
         "fallback_used": "This reply used your fallback model ({{model}}) after a temporary rate limit or overload on the primary model."
     },
     "ai_errors": {
@@ -2260,6 +2270,7 @@
         "subtitle_help": "How to use the app",
         "powered_by": "Powered by",
         "subtitle_super_privacy": "Super privacy — schema + SQL only to AI",
+        "subtitle_hybrid": "Hybrid — local SQL first, full AI if needed",
         "tab_help": "Help",
         "tab_analyst": "Analyst",
         "tablist_aria": "Chat mode"

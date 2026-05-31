@@ -234,13 +234,14 @@ export function AnalystChatBody({
                                     </div>
                                 )}
                                 <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
                                     components={{
                                         p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
                                         strong: ({ children }) => <span className="font-bold">{children}</span>,
                                         em: ({ children }) => <span className="italic">{children}</span>,
                                         ul: ({ children }) => (
                                             <ul
-                                                className={`list-disc pl-4 mb-2 ${
+                                                className={`list-disc pl-4 mb-2 space-y-0.5 ${
                                                     msg.role === 'user' ? 'border-white/20' : 'border-gray-200'
                                                 }`}
                                             >
@@ -249,14 +250,32 @@ export function AnalystChatBody({
                                         ),
                                         ol: ({ children }) => (
                                             <ol
-                                                className={`list-decimal pl-4 mb-2 ${
+                                                className={`list-decimal pl-4 mb-2 space-y-0.5 ${
                                                     msg.role === 'user' ? 'border-white/20' : 'border-gray-200'
                                                 }`}
                                             >
                                                 {children}
                                             </ol>
                                         ),
-                                        li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                                        li: ({ children }) => <li className="mb-0.5 leading-snug">{children}</li>,
+                                        table: ({ children }) => (
+                                            <div className="my-2 max-w-full overflow-x-auto rounded-lg border border-gray-200">
+                                                <table className="min-w-full text-xs divide-y divide-gray-200">
+                                                    {children}
+                                                </table>
+                                            </div>
+                                        ),
+                                        thead: ({ children }) => (
+                                            <thead className="bg-gray-50 text-gray-700">{children}</thead>
+                                        ),
+                                        th: ({ children }) => (
+                                            <th className="px-2 py-1 text-left font-semibold whitespace-nowrap">
+                                                {children}
+                                            </th>
+                                        ),
+                                        td: ({ children }) => (
+                                            <td className="px-2 py-1 whitespace-nowrap">{children}</td>
+                                        ),
                                         code: ({ children }) => (
                                             <code
                                                 className={`px-1 rounded text-xs font-mono ${

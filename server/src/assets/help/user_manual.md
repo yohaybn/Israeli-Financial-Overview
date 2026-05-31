@@ -199,15 +199,13 @@ This is the control center of the app. It holds all automations, rules, AI promp
 *   **Categories Management:** Add, delete, or rename the custom budget categories you want the AI to use.
 *   **Bulk Recategorization:** A powerful tool with a single button to force the AI to re-evaluate all past transactions and apply your newest custom categories retroactively.
 *   **AI persona (user alignment):** A structured profile—household, housing, technical comfort, cards and charge days, income schedules, goals, savings targets, and how you want analyst answers styled (communication style, reporting depth). You can fill it manually or use onboarding / “extract from narrative” so Gemini proposes fields from free text. Use **Include persona in analyst prompts** to send this profile with **unified** analyst chat (the indigo FAB on any main tab), or turn it off to keep transaction-only prompts while still saving your persona for later.
-*   **Super privacy mode (analyst chat):** Under **Configuration → AI → Advanced**, enable **Super privacy mode** so the **Analyst** tab never sends your transaction rows to Gemini. Instead:
-    1. The model receives only the **SQLite schema** for your local database and your **question** (plus any optional context you explicitly opt in to below).
-    2. The model returns one or more **read-only `SELECT` queries** and a **response template** with placeholders such as `{{q:total_spend}}`.
-    3. This server **runs the SQL locally** against `app.db` and fills the template with real numbers before you see the answer.
-    *   **Default (maximum privacy):** No persona, stored facts, insights, alerts, dashboard month note, or prior chat messages are sent—only schema + question.
-    *   **Optional “Also send to the AI”** checkboxes (shown when super privacy is on): turn on only what you want in the prompt—**Persona & goals**, **Stored facts**, **Recent insights**, **Recent alerts**, **Dashboard context** (e.g. the month you are viewing on the dashboard), or **Prior messages in this chat**. Persona still requires **Include persona in analyst prompts** to be enabled.
-    *   **Scope:** File-scoped analyst chat still limits SQL to the relevant transaction ids on the server; that filter is applied locally and is not the same as uploading a CSV of transactions to the model.
-    *   **AI logs:** Super-privacy requests are labeled in **AI Logs**; prompts do not contain transaction rows. Replies may still add facts/insights/alerts to **AI memory** on the server when the model returns them—they are just not sent back to Gemini on the next turn unless you enable the matching share toggle.
-    *   **Telegram:** The bot’s AI chat mode uses the same setting when super privacy is enabled.
+*   **Analyst privacy mode (analyst chat):** Under **Configuration → AI → Advanced**, choose one of three modes (default **Hybrid**):
+    *   **Hybrid (recommended):** Step 1 — Gemini receives only the **SQLite schema** and your **question** (plus optional share toggles below) and returns SQL + a template, or flags that SQL is **not possible** / data is **not in the schema**. The server runs SQL locally. Step 2 — If SQL cannot answer, the app runs **full analyst** with **standard** context (memory, persona, transaction rows) and shows a short note that local SQL failed.
+    *   **Super privacy only:** Same SQL path as hybrid step 1, but **no fallback** — you see a clear failure message if SQL cannot answer.
+    *   **Full AI only:** Always sends transaction data to Gemini (classic analyst behavior).
+    *   SQL path details: read-only `SELECT` queries, placeholders such as `{{q:total_spend}}`, local execution on `app.db`.
+    *   **Optional “Also send to the AI”** (Hybrid + Super privacy): opt in to **Persona**, **Stored facts**, **Insights**, **Alerts**, **Dashboard context**, or **Prior chat messages** for the SQL step only. Full AI fallback always uses standard analyst context.
+    *   **Telegram:** Uses the same analyst privacy mode.
 
 ### 4.2 AI Memory Settings
 **Location:** `/?view=configuration&tab=ai` (open the **AI memory** section inside **Configuration → AI**; legacy link `tab=memory` opens the same tab)

@@ -344,7 +344,9 @@ export function useUnifiedAIChat() {
                     insightsAdded: number;
                     alertsAdded: number;
                     usedFallbackModel?: string;
-                    superPrivacyMode?: boolean;
+                    analystPath?: 'super_privacy' | 'full_ai' | 'hybrid_super_then_full';
+                    superPrivacyAttempted?: boolean;
+                    superPrivacyFailureReason?: string;
                 };
             }>('/ai/chat/unified', { query, scope, filename, historyNote, conversationHistory });
             return data.data;

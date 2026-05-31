@@ -22,4 +22,19 @@ describe('fillAnalystResponseTemplate', () => {
         });
         assert.equal(text, 'Total: -100');
     });
+
+    it('renders .list as chat bullets not pipe tables', () => {
+        const text = fillAnalystResponseTemplate('Top:\n{{q:top.list}}', {
+            top: {
+                rows: [
+                    { category: 'Food', total: 500 },
+                    { category: 'Fuel', total: 200 },
+                ],
+                columns: ['category', 'total'],
+            },
+        });
+        assert.match(text, /\*\*Food\*\*: 500/);
+        assert.match(text, /\*\*Fuel\*\*: 200/);
+        assert.doesNotMatch(text, /\|/);
+    });
 });

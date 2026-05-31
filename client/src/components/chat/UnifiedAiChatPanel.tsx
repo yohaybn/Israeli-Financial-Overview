@@ -40,11 +40,22 @@ export function UnifiedAiChatPanel({
     const help = useHelpChat();
     const analyst = useAnalystChat({ scope, contextMonth });
 
+    const privacyMode =
+        aiSettings?.analystPrivacyMode === 'super_privacy' ||
+        aiSettings?.analystPrivacyMode === 'full_ai' ||
+        aiSettings?.analystPrivacyMode === 'hybrid'
+            ? aiSettings.analystPrivacyMode
+            : aiSettings?.superPrivacyMode
+              ? 'super_privacy'
+              : 'hybrid';
+
     const subtitle =
         activeTab === 'analyst'
-            ? aiSettings?.superPrivacyMode
+            ? privacyMode === 'super_privacy'
                 ? t('unified_ai.subtitle_super_privacy')
-                : `${t('unified_ai.powered_by', 'Powered by')} ${aiSettings?.chatModel || 'Gemini'}`
+                : privacyMode === 'hybrid'
+                  ? t('unified_ai.subtitle_hybrid')
+                  : `${t('unified_ai.powered_by', 'Powered by')} ${aiSettings?.chatModel || 'Gemini'}`
             : t('unified_ai.subtitle_help', 'How to use the app');
 
     if (!isOpen) return null;

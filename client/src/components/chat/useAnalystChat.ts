@@ -84,9 +84,14 @@ export function useAnalystChat({
                     conversationHistory: turnsForApi.length > 0 ? turnsForApi : undefined,
                 });
 
-                const privacyNote = result.superPrivacyMode
-                    ? `\n\n_${t('ai_chat.super_privacy_note')}_`
-                    : '';
+                let privacyNote = '';
+                if (result.analystPath === 'super_privacy') {
+                    privacyNote = `\n\n_${t('ai_chat.super_privacy_note')}_`;
+                } else if (result.analystPath === 'hybrid_super_then_full') {
+                    privacyNote = `\n\n_${t('ai_chat.hybrid_fallback_note', {
+                        reason: result.superPrivacyFailureReason || t('ai_chat.hybrid_fallback_default_reason'),
+                    })}_`;
+                }
                 const memoryNote =
                     result.factsAdded > 0 ||
                     (result.factsReplaced ?? 0) > 0 ||

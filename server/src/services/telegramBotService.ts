@@ -29,13 +29,8 @@ import { ConfigService } from './configService.js';
 import { renderCategorySpendingPiePng } from './categoryPieImageService.js';
 import { postScrapeService } from './postScrapeService.js';
 import { notifySchedulerScrapeAfterUnlockOrStartup } from './schedulerUnlockCoordinator.js';
-import { isUserPersonaEmpty, sliceTransactionsForAnalyst } from '@app/shared';
-import {
-  buildUnifiedChatQueryWithMemory,
-  mergeAndPersistAiMemory,
-  superPrivacyIncludesChatHistory,
-  superPrivacyPromptShareFromSettings,
-} from './unifiedAiChatMemory.js';
+import { mergeAndPersistAiMemory } from './unifiedAiChatMemory.js';
+import { runUnifiedAnalystChat } from './analystUnifiedChat.js';
 import { getTelegramMaxMessageChars, splitTelegramHtmlChunks, splitTelegramPlainText } from '../utils/telegramTextSplit.js';
 import { isSafeTelegramRelativeFilePath } from '../utils/safeTelegramBotFileUrl.js';
 import { getBoundSessionIdForProfile } from './oneZeroOtpSessionStore.js';
@@ -1631,37 +1626,18 @@ export class TelegramBotService {
       const thinkingMsg = await ctx.reply(this.t('thinkingMsg'));
 
       const aiSettings = await this.getAiService().getSettings();
-      const privacyShare = aiSettings.superPrivacyMode
-        ? superPrivacyPromptShareFromSettings(aiSettings)
-        : undefined;
-      const personaForPrompt =
-          (privacyShare?.includePersona ?? aiSettings.personaInjectionEnabled !== false) &&
-          aiSettings.userContext &&
-          !isUserPersonaEmpty(aiSettings.userContext)
-              ? aiSettings.userContext
-              : undefined;
-      const contextQuery = buildUnifiedChatQueryWithMemory(
-        undefined,
-        message,
-        personaForPrompt,
-        privacyShare
-      );
-
       const state = this.chatStates.get(chatIdNum.toString());
       const chatHistory = state?.chatHistory ?? [];
 
       const aiService = this.getAiService();
       let response = '';
       try {
-        const structured = aiSettings.superPrivacyMode
-          ? await aiService.analyzeDataSuperPrivacy(contextQuery, {
-              conversationHistory: superPrivacyIncludesChatHistory(aiSettings) ? chatHistory : undefined,
-            })
-          : await aiService.analyzeDataStructured(
-                contextQuery,
-                await this.loadUnifiedTransactionsForAiChat(),
-                { conversationHistory: chatHistory }
-            );
+        const transactions = await this.loadUnifiedTransactionsForAiChat();
+        const structured = await runUnifiedAnalystChat(aiService, aiSettings, {
+          query: message,
+          transactions,
+          conversationHistory: chatHistory,
+        });
         const { newAlerts } = mergeAndPersistAiMemory(structured);
         void this.notifyNewAiMemoryAlerts(newAlerts, { includeChatId: chatIdNum.toString() });
         response = structured.response;
@@ -1715,33 +1691,14 @@ export class TelegramBotService {
     try {
       const aiService = this.getAiService();
       const aiSettings = await aiService.getSettings();
-      const privacyShare = aiSettings.superPrivacyMode
-        ? superPrivacyPromptShareFromSettings(aiSettings)
-        : undefined;
-      const personaForPrompt =
-          (privacyShare?.includePersona ?? aiSettings.personaInjectionEnabled !== false) &&
-          aiSettings.userContext &&
-          !isUserPersonaEmpty(aiSettings.userContext)
-              ? aiSettings.userContext
-              : undefined;
-      const contextQuery = buildUnifiedChatQueryWithMemory(
-        undefined,
-        message,
-        personaForPrompt,
-        privacyShare
-      );
 
       // Same unified context as /chat mode; on failure return code + details (no financial-tip fallback).
       try {
-        const structured = aiSettings.superPrivacyMode
-          ? await aiService.analyzeDataSuperPrivacy(contextQuery)
-          : await aiService.analyzeDataStructured(
-                contextQuery,
-                sliceTransactionsForAnalyst(
-                    await this.loadUnifiedTransactionsForAiChat(),
-                    aiSettings.analystMaxTransactionRows ?? 0
-                )
-            );
+        const transactions = await this.loadUnifiedTransactionsForAiChat();
+        const structured = await runUnifiedAnalystChat(aiService, aiSettings, {
+          query: message,
+          transactions,
+        });
         mergeAndPersistAiMemory(structured);
         const aiResponse = structured.response;
         if (aiResponse && aiResponse.trim().length > 0) {

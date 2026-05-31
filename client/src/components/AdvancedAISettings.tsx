@@ -8,6 +8,15 @@ import { CollapsibleCard } from './CollapsibleCard';
 
 type LocalAiSettings = Record<string, unknown>;
 
+type AnalystPrivacyMode = 'super_privacy' | 'full_ai' | 'hybrid';
+
+function resolveAnalystPrivacyMode(ls: LocalAiSettings): AnalystPrivacyMode {
+    const m = ls.analystPrivacyMode;
+    if (m === 'super_privacy' || m === 'full_ai' || m === 'hybrid') return m;
+    if (ls.superPrivacyMode === true) return 'super_privacy';
+    return 'hybrid';
+}
+
 interface AdvancedAISettingsProps {
     localSettings: LocalAiSettings;
     persistSettings: (next: LocalAiSettings) => void;
@@ -78,6 +87,14 @@ export function AdvancedAISettings({
         totalUnifiedRows === 0 ? null : estimateTypicalAnalystCallInputTokens(rowsSent);
 
     const base = localSettings;
+    const privacyMode = resolveAnalystPrivacyMode(localSettings);
+    const shareTogglesVisible = privacyMode === 'super_privacy' || privacyMode === 'hybrid';
+
+    const privacyModes: { id: AnalystPrivacyMode; labelKey: string; helpKey: string }[] = [
+        { id: 'hybrid', labelKey: 'ai_settings.analyst_privacy_hybrid', helpKey: 'ai_settings.analyst_privacy_hybrid_help' },
+        { id: 'super_privacy', labelKey: 'ai_settings.analyst_privacy_super', helpKey: 'ai_settings.analyst_privacy_super_help' },
+        { id: 'full_ai', labelKey: 'ai_settings.analyst_privacy_full', helpKey: 'ai_settings.analyst_privacy_full_help' },
+    ];
 
     return (
         <CollapsibleCard
@@ -86,28 +103,41 @@ export function AdvancedAISettings({
             defaultOpen={false}
             bodyClassName="px-6 pb-6 pt-0 space-y-6"
         >
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 space-y-2">
-                <div className="flex items-start gap-3">
-                    <input
-                        id="adv-super-privacy"
-                        type="checkbox"
-                        disabled={isPending}
-                        checked={Boolean(localSettings.superPrivacyMode)}
-                        onChange={(e) =>
-                            persistSettings({ ...base, superPrivacyMode: e.target.checked })
-                        }
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <div className="min-w-0">
-                        <label htmlFor="adv-super-privacy" className="text-sm font-bold text-emerald-900 cursor-pointer">
-                            {t('ai_settings.super_privacy_label')}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 space-y-3">
+                <p className="text-sm font-bold text-emerald-900">{t('ai_settings.analyst_privacy_heading')}</p>
+                <p className="text-xs text-emerald-800/90 leading-relaxed">{t('ai_settings.analyst_privacy_intro')}</p>
+                <div className="space-y-2" role="radiogroup" aria-label={t('ai_settings.analyst_privacy_heading')}>
+                    {privacyModes.map(({ id, labelKey, helpKey }) => (
+                        <label
+                            key={id}
+                            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                privacyMode === id
+                                    ? 'border-emerald-500 bg-white/90'
+                                    : 'border-emerald-200/60 bg-transparent hover:bg-white/50'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="analyst-privacy-mode"
+                                disabled={isPending}
+                                checked={privacyMode === id}
+                                onChange={() =>
+                                    persistSettings({
+                                        ...base,
+                                        analystPrivacyMode: id,
+                                        superPrivacyMode: null,
+                                    })
+                                }
+                                className="mt-1 h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <div className="min-w-0">
+                                <span className="text-sm font-semibold text-emerald-950">{t(labelKey)}</span>
+                                <p className="text-xs text-emerald-800/85 leading-relaxed mt-0.5">{t(helpKey)}</p>
+                            </div>
                         </label>
-                        <p className="text-xs text-emerald-800/90 leading-relaxed mt-1">
-                            {t('ai_settings.super_privacy_help')}
-                        </p>
-                    </div>
+                    ))}
                 </div>
-                {Boolean(localSettings.superPrivacyMode) && (
+                {shareTogglesVisible && (
                     <div className="mt-4 pt-4 border-t border-emerald-200/80 space-y-3">
                         <p className="text-xs font-semibold text-emerald-900">
                             {t('ai_settings.super_privacy_share_heading')}

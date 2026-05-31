@@ -121,6 +121,7 @@ async function startServer() {
        url.startsWith('/api/filters') ||
       url.startsWith('/api/app-lock/status') ||
       url.startsWith('/api/reports') ||
+      url.startsWith('/api/ai/models') ||
       url.includes('/settings')
     );
 
