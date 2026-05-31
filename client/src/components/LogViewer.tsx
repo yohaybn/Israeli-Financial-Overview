@@ -10,6 +10,8 @@ interface LogViewerProps {
     onLogTypeChange: (t: LogTabId) => void;
     logEntryId: string | null;
     onLogEntryIdChange: (id: string | null) => void;
+    resultFile: string | null;
+    onResultFileChange: (filename: string | null) => void;
 }
 
 function LogTypeTabs({
@@ -41,7 +43,7 @@ function LogTypeTabs({
     );
 }
 
-export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdChange }: LogViewerProps) {
+export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdChange, resultFile, onResultFileChange }: LogViewerProps) {
     const { t } = useTranslation();
     const [lines, setLines] = useState(100);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -77,7 +79,12 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
                     {logType === 'ai' ? (
                         <AILogViewer initialEntryId={logEntryId} onEntryIdChange={onLogEntryIdChange} />
                     ) : (
-                        <ScrapeLogViewer initialEntryId={logEntryId} onEntryIdChange={onLogEntryIdChange} />
+                        <ScrapeLogViewer
+                            initialEntryId={logEntryId}
+                            onEntryIdChange={onLogEntryIdChange}
+                            initialResultFile={resultFile}
+                            onResultFileChange={onResultFileChange}
+                        />
                     )}
                 </div>
             </div>

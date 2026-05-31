@@ -13,13 +13,23 @@ import { Server } from 'socket.io';
 import multer from 'multer';
 import path from 'path';
 import { transactionsToCsv, transactionsToJson } from '@app/shared';
-import { attachScrapeRunFilename } from '../utils/scrapeRunLogger.js';
+import { attachScrapeRunFilename, writeImportScrapeRunLog } from '../utils/scrapeRunLogger.js';
 import {
     parseImportAccountNumberOverrideParam,
     parseImportProviderIdParam,
 } from '../utils/importMultipartParams.js';
 import { reloadPortfolioSnapshotSchedule } from '../services/portfolioSnapshotScheduler.js';
 import { isInvestmentsFeatureEnabled } from '../constants/marketData.js';
+
+async function logImportResult(params: {
+    filename: string;
+    provider: string;
+    profileName: string;
+    transactionCount: number;
+    originalName?: string;
+}): Promise<void> {
+    await writeImportScrapeRunLog(params);
+}
 
 export function createScrapeRoutes(
     scraperService: ScraperService,
@@ -294,7 +304,10 @@ export function createScrapeRoutes(
                 const profileLabel = request.profileName ?? request.profileId ?? 'manual';
                 let { filename } = await storageService.saveScrapeResult(result, request.companyId, profileLabel);
                 const scrapeLogId = (request as any).__scrapeRunLogId as string | undefined;
-                if (scrapeLogId && filename) attachScrapeRunFilename(scrapeLogId, filename);
+                if (scrapeLogId && filename) {
+                    attachScrapeRunFilename(scrapeLogId, filename);
+                    io.emit('scrape:saved', { scrapeRunLogId: scrapeLogId, filename });
+                }
 
                 // Handle automatic categorization if requested
                 if (request.options.autoCategorize && result.transactions && result.transactions.length > 0) {
@@ -305,7 +318,10 @@ export function createScrapeRoutes(
                         // Update the result object and save it again
                         result.transactions = categorizedTransactions;
                         ({ filename } = await storageService.saveScrapeResult(result, request.companyId, profileLabel));
-                        if (scrapeLogId && filename) attachScrapeRunFilename(scrapeLogId, filename);
+                        if (scrapeLogId && filename) {
+                            attachScrapeRunFilename(scrapeLogId, filename);
+                            io.emit('scrape:saved', { scrapeRunLogId: scrapeLogId, filename });
+                        }
                         await storageService.applyCategoryColumnsFromTransactions(categorizedTransactions);
 
                         console.log(`Auto-categorization complete for ${filename}`);
@@ -394,6 +410,13 @@ export function createScrapeRoutes(
                             try {
                                 const provider = result.transactions?.[0]?.provider || 'imported-batch';
                                 const { filename } = await storageService.saveScrapeResult(result, provider, 'import-batch');
+                                await logImportResult({
+                                    filename,
+                                    provider,
+                                    profileName: 'import-batch',
+                                    transactionCount: result.transactions?.length || 0,
+                                    originalName: 'Batch AI Import',
+                                });
                                 importResults.push({ originalName: 'Batch AI Import', filename, success: true, count: result.transactions?.length || 0 });
                             } catch (saveError: any) {
                                 importResults.push({ originalName: 'Batch AI Import', success: false, error: saveError.message });
@@ -443,11 +466,19 @@ export function createScrapeRoutes(
                         try {
                             const importProfile =
                                 path.basename(file.originalname, path.extname(file.originalname)) || 'import';
+                            const provider = result.transactions?.[0]?.provider || 'imported';
                             const { filename } = await storageService.saveScrapeResult(
                                 result,
-                                result.transactions?.[0]?.provider || 'imported',
+                                provider,
                                 importProfile
                             );
+                            await logImportResult({
+                                filename,
+                                provider,
+                                profileName: importProfile,
+                                transactionCount: result.transactions?.length || 0,
+                                originalName: file.originalname,
+                            });
                             importResults.push({ originalName: file.originalname, filename, success: true, count: result.transactions?.length || 0 });
                         } catch (saveError: any) {
                             // Skip files with empty results
@@ -596,6 +627,13 @@ export function createScrapeRoutes(
                     const provider = result.transactions?.[0]?.provider || 'imported';
                     const importProfile = path.basename(originalName, path.extname(originalName)) || 'import';
                     const { filename } = await storageService.saveScrapeResult(result, provider, importProfile);
+                    await logImportResult({
+                        filename,
+                        provider,
+                        profileName: importProfile,
+                        transactionCount: result.transactions?.length || 0,
+                        originalName,
+                    });
                     importResults.push({
                         originalName,
                         filename,

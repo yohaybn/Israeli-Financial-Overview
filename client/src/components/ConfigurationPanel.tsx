@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next';
 import { AISettings } from './AISettings';
 import { ScrapeSettings } from './ScrapeSettings';
 import { MaintenancePanel } from './MaintenancePanel';
-import { SchedulerSettings } from './SchedulerSettings';
 import { GoogleSettings } from './GoogleSettings';
 import { GoogleSheetsSync } from './GoogleSheetsSync';
 import { FraudSettings } from './FraudSettings';
@@ -14,6 +13,7 @@ import type { ConfigTabId } from '../utils/appUrlState';
 import { BudgetExportSettings } from './BudgetExportSettings';
 import { InvestmentSettings } from './InvestmentSettings';
 import { FinancialReportSettings } from './FinancialReportSettings';
+import { AuxiliarySchedulerSections } from './SchedulerSettings';
 
 export interface ConfigurationPanelProps {
     activeTab: ConfigTabId;
@@ -68,7 +68,7 @@ export function ConfigurationPanel({
                 </div>
             )}
             {activeTab === 'categories' && <CategorySettings />}
-            {activeTab === 'scheduler' && <SchedulerSettings isInline={true} />}
+            {activeTab === 'scheduler' && <AuxiliarySchedulerSections isInline />}
             {activeTab === 'financial-report' && <FinancialReportSettings />}
             {activeTab === 'scrape' && (
                 <div className="space-y-10">

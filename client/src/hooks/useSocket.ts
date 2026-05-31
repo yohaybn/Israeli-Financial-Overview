@@ -21,6 +21,8 @@ export interface ScrapeComplete {
     transactionCount?: number;
     error?: string;
     executionTimeMs?: number;
+    scrapeRunLogId?: string;
+    filename?: string;
 }
 
 export interface CategorizationFailedEvent {
@@ -94,6 +96,18 @@ export function useSocket() {
 
         socketInstance.on('scrape:complete', (data: ScrapeComplete) => {
             setCompletion(data);
+        });
+
+        socketInstance.on('scrape:saved', (data: { scrapeRunLogId: string; filename: string }) => {
+            setCompletion((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          scrapeRunLogId: data.scrapeRunLogId,
+                          filename: data.filename,
+                      }
+                    : prev
+            );
         });
 
         socketInstance.on('categorization:failed', (data: CategorizationFailedEvent) => {

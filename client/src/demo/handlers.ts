@@ -841,6 +841,26 @@ export const demoHandlers = [
     ),
     http.get(({ request }) => {
         const url = new URL(request.url);
+        return /\/api\/scrape-logs\/logs\/by-file\/[^/]+$/.test(url.pathname);
+    }, ({ request }) => {
+        const filename = decodeURIComponent(new URL(request.url).pathname.split('/').pop() || '');
+        return HttpResponse.json({
+            success: true,
+            data: {
+                id: 'scrape-demo-log',
+                timestamp: new Date().toISOString(),
+                pipelineId: 'demo-pipeline',
+                kind: 'single',
+                transactionCount: 0,
+                scrapeSuccess: true,
+                savedFilename: filename,
+                actions: [],
+                overallPostScrape: 'ok',
+            },
+        });
+    }),
+    http.get(({ request }) => {
+        const url = new URL(request.url);
         return /\/api\/scrape-logs\/logs\/entry\/[^/]+$/.test(url.pathname);
     }, ({ request }) => {
         const id = new URL(request.url).pathname.split('/').pop() || 'demo';

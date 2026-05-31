@@ -380,12 +380,18 @@ export class ScraperService {
                     accountsOut = stripNestedTxnsFromScrapeAccounts(accountsOut) as any[];
                 }
 
+                const scrapeRunLogId = deferPostScrape ? undefined : generateScrapeRunLogId();
+                if (scrapeRunLogId) {
+                    (request as any).__scrapeRunLogId = scrapeRunLogId;
+                }
+
                 // Emit completion event
                 if (this.io) {
                     this.io.emit('scrape:complete', {
                         success: true,
                         transactionCount: transactions.length,
                         executionTimeMs,
+                        scrapeRunLogId,
                     });
                 }
 
@@ -402,8 +408,9 @@ export class ScraperService {
                     return successResult;
                 }
 
-                const scrapeRunLogId = generateScrapeRunLogId();
-                (request as any).__scrapeRunLogId = scrapeRunLogId;
+                if (!scrapeRunLogId) {
+                    return successResult;
+                }
 
                 if (useAggregatePath) {
                     let postActions: ScrapeRunActionRecord[] = [];

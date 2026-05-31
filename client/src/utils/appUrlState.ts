@@ -24,7 +24,7 @@ export interface AppUrlState {
     configTab: ConfigTabId;
     logType: LogTabId;
     logEntryId: string | null;
-    /** Selected scrape result JSON filename (for view=scrape). Omitted from URL when not on scrape. */
+    /** Selected scrape result JSON filename (for view=logs&log=scrape). */
     resultFile: string | null;
     /** Open this rule in the insight-rules editor (configuration + insight-rules tab only). */
     insightRuleId: string | null;
@@ -52,7 +52,7 @@ function inferLogTypeForEntry(entry: string): LogTabId {
  */
 export function parseAppUrlState(search: string, sessionConfigTabOverride: string | null): AppUrlState {
     const p = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
-    const view = parseView(p.get('view'));
+    let view = parseView(p.get('view'));
 
     let configTab: ConfigTabId = 'ai';
     const tabParam = p.get('tab');
@@ -87,6 +87,15 @@ export function parseAppUrlState(search: string, sessionConfigTabOverride: strin
         }
     }
 
+    // Legacy: ?view=scrape&result=… → logs → scrape
+    if (view === 'scrape' && resultFile) {
+        view = 'logs';
+        logType = 'scrape';
+    }
+    if (view === 'logs' && resultFile && logType === 'server') {
+        logType = 'scrape';
+    }
+
     const insightRuleRaw = p.get('insightRule')?.trim() || null;
     let insightRuleId: string | null = null;
     if (view === 'configuration' && configTab === 'insight-rules' && insightRuleRaw) {
@@ -109,18 +118,18 @@ export function buildAppUrlSearch(state: AppUrlState): string {
     if (state.view === 'importProfile') {
         return p.toString();
     }
-    if (state.view === 'scrape' && state.resultFile) {
-        p.set('result', encodeURIComponent(state.resultFile));
+    if (state.view === 'logs') {
+        if (state.logType !== 'server') p.set('log', state.logType);
+        if (state.logEntryId) p.set('entry', state.logEntryId);
+        if (state.logType === 'scrape' && state.resultFile) {
+            p.set('result', encodeURIComponent(state.resultFile));
+        }
     }
     if (state.view === 'configuration') {
         p.set('tab', state.configTab);
         if (state.configTab === 'insight-rules' && state.insightRuleId) {
             p.set('insightRule', state.insightRuleId);
         }
-    }
-    if (state.view === 'logs') {
-        if (state.logType !== 'server') p.set('log', state.logType);
-        if (state.logEntryId) p.set('entry', state.logEntryId);
     }
     return p.toString();
 }

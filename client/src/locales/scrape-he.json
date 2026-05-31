@@ -1,4 +1,7 @@
 {
+    "scrape_workspace": {
+        "subtitle": "הרצת סריקות, ייבוא קבצים ותזמון ריצות אוטומטיות."
+    },
     "scraper": {
         "config_title": "סריקה",
         "global_options": "הגדרות סריקה גלובליות",
@@ -34,7 +37,7 @@
         "demo_scrape_button": "הרץ סריקת דמו (חודש נוכחי)",
         "scraping": "סורק...",
         "using_profile": "משתמש בפרופיל: {{name}}",
-        "scrape_success": "הסריקה הושלמה בהצלחה! בדוק את פנל התוצאות.",
+        "scrape_success": "הסריקה הושלמה בהצלחה! השתמשו ב\"צפה ביומן\" בפאנל ההתקדמות.",
         "scrape_error": "שגיאה: {{message}}",
         "opt_in_features": "תכונות ניסיוניות (Opt-in)",
         "custom_opt_in_help": "הוסף תכונות (feature flags) ספציפיות לפי שם (מופרד בפסיקים)",
@@ -74,7 +77,8 @@
         "select_row": "בחר שורה לשם הקובץ וסטטוס כל פעולה.",
         "link_ai_logs": "יומן שאילתות AI",
         "open_result_file": "פתח JSON תוצאה",
-        "ai_calls_for_step": "יומן AI:"
+        "ai_calls_for_step": "יומן AI:",
+        "result_transactions": "תנועות"
     },
     "scrape_progress": {
         "title": "התקדמות בזמן אמת",
@@ -93,6 +97,7 @@
         "scrape_failed": "✗ הסריקה נכשלה",
         "transactions_retrieved": "{{count}} תנועות נמשכו",
         "completed_in_seconds": "הושלם תוך {{seconds}} שניות",
-        "empty": "התחל סריקה כדי לראות כאן התקדמות בזמן אמת."
+        "empty": "התחל סריקה כדי לראות כאן התקדמות בזמן אמת.",
+        "view_in_logs": "צפה ביומן"
     }
 }

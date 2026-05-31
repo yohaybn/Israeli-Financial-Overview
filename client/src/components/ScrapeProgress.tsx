@@ -15,7 +15,7 @@ const PROGRESS_LABELS: Record<string, { labelKey: string; color: string }> = {
     TERMINATING: { labelKey: 'scrape_progress.terminating', color: 'bg-gray-500' },
 };
 
-export function ScrapeProgress() {
+export function ScrapeProgress({ onViewInLogs }: { onViewInLogs?: (logId: string, filename?: string | null) => void }) {
     const { t } = useTranslation();
     const { activity } = useServerActivity();
     const { isConnected, progress, logs, completion, clearProgress } = useSocket();
@@ -112,6 +112,17 @@ export function ScrapeProgress() {
                             )}
                             {completion.error && (
                                 <div className="text-xs text-red-600 mt-1 ml-6">{completion.error}</div>
+                            )}
+                            {completion.success && completion.scrapeRunLogId && onViewInLogs && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        onViewInLogs(completion.scrapeRunLogId!, completion.filename ?? null)
+                                    }
+                                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 mt-2 ml-6 underline"
+                                >
+                                    {t('scrape_progress.view_in_logs')}
+                                </button>
                             )}
                         </div>
                     )}

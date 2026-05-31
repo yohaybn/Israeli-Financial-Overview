@@ -20,6 +20,7 @@ import { CollapsibleCard } from './CollapsibleCard';
 import { MaintenanceServerPathsCard } from './MaintenanceServerPathsCard';
 import { DesktopAppSettings } from './DesktopAppSettings';
 import { GitHubUpdateCheck } from './GitHubUpdateCheck';
+import { ResultsExplorer } from './ResultsExplorer';
 import { clearBrowserSiteData } from '../utils/clearBrowserSiteData';
 import { BackupScopePicker } from './BackupScopePicker';
 import { BackupRestoreSummary } from './BackupRestoreSummary';
@@ -422,6 +423,15 @@ export function MaintenancePanel() {
             <GitHubUpdateCheck />
 
             <DesktopAppSettings />
+
+            <CollapsibleCard
+                title={t('maintenance.scrape_results_title')}
+                subtitle={t('maintenance.scrape_results_desc')}
+                defaultOpen={false}
+                bodyClassName="px-6 pb-6 pt-0"
+            >
+                <ResultsExplorer />
+            </CollapsibleCard>
 
             <CollapsibleCard title={t('maintenance.backup_title')} subtitle={t('maintenance.backup_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
                 <div className="p-5 bg-blue-50 rounded-2xl border border-blue-100 space-y-4">

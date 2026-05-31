@@ -180,6 +180,59 @@ export async function getScrapeRunLogById(id: string): Promise<ScrapeRunLogEntry
   }
 }
 
+export async function getScrapeRunLogByFilename(filename: string): Promise<ScrapeRunLogEntry | null> {
+  if (!filename?.trim()) return null;
+  try {
+    await ensureDir();
+    const files = await fs.readdir(SCRAPE_RUN_LOG_DIR);
+    for (const f of files) {
+      if (!f.endsWith('.json')) continue;
+      try {
+        const data = (await fs.readJson(path.join(SCRAPE_RUN_LOG_DIR, f))) as ScrapeRunLogEntry;
+        if (!data?.id) continue;
+        if (data.savedFilename === filename) return data;
+        if (data.savedFilenames?.includes(filename)) return data;
+      } catch {
+        /* skip corrupt */
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Persist a scrape run log for a file import (no post-scrape pipeline). */
+export async function writeImportScrapeRunLog(params: {
+  filename: string;
+  provider: string;
+  profileName: string;
+  transactionCount: number;
+  originalName?: string;
+}): Promise<string> {
+  const id = generateScrapeRunLogId();
+  await writeScrapeRunLog({
+    id,
+    pipelineId: `import:${params.profileName}`,
+    companyId: params.provider,
+    profileName: params.profileName,
+    runSource: 'manual',
+    kind: 'single',
+    transactionCount: params.transactionCount,
+    scrapeSuccess: true,
+    savedFilename: params.filename,
+    actions: [
+      {
+        key: 'import',
+        status: 'ok',
+        detail: params.originalName ? `Imported from ${params.originalName}` : 'File import',
+      },
+    ],
+    overallPostScrape: 'ok',
+  });
+  return id;
+}
+
 export async function clearOldScrapeRunLogs(daysToRetain: number): Promise<void> {
   await ensureDir();
   const cutoff = Date.now() - daysToRetain * 24 * 60 * 60 * 1000;

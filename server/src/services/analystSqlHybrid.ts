@@ -62,7 +62,11 @@ export function evaluateSuperPrivacySufficient(params: {
     if (/^\s*\|.+\|\s*$/m.test(text) && /\|[\s:]*-{2,}/.test(text)) {
         reasons.push('pipe_tables_not_supported_in_chat');
     }
-    if (/\[missing query:/i.test(text) || /\[error:/i.test(text)) {
+    if (
+        /\[missing query:/i.test(text) ||
+        /\[missing column:/i.test(text) ||
+        /\[error:/i.test(text)
+    ) {
         reasons.push('template_fill_errors');
     }
 

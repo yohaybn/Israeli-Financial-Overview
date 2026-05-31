@@ -8,11 +8,13 @@ import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { PENDING_TABULAR_IMPORT_PROFILE_JSON_KEY } from '../utils/pendingTabularImportProfile';
 
 interface ImportModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+    isOpen?: boolean;
+    onClose?: () => void;
     onSuccess?: (importResults: any[]) => void;
     /** Full-page import format builder (replaces the old in-modal builder). */
     onOpenImportProfile: () => void;
+    /** Render as an inline card body instead of a modal overlay. */
+    isInline?: boolean;
 }
 
 interface FileStatus {
@@ -34,7 +36,7 @@ const inputCls =
 const importFieldCls =
     'w-full rounded-xl border border-gray-200 bg-gray-100/90 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-emerald-600/40 focus:ring-2 focus:ring-emerald-200/60 disabled:opacity-50';
 
-export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }: ImportModalProps) {
+export function ImportModal({ isOpen = true, onClose, onSuccess, onOpenImportProfile, isInline = false }: ImportModalProps) {
     const { t, i18n } = useTranslation();
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
@@ -75,14 +77,14 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
         data: savedImportProfiles = [],
         isLoading: savedProfilesListLoading,
         isError: savedProfilesListError,
-    } = useImportProfilesList(isOpen);
+    } = useImportProfilesList(isInline || isOpen);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const profileJsonInputRef = useRef<HTMLInputElement>(null);
     const [dropActive, setDropActive] = useState(false);
     const dropEnterCount = useRef(0);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isInline && !isOpen) return;
         try {
             const raw = sessionStorage.getItem(PENDING_TABULAR_IMPORT_PROFILE_JSON_KEY);
             if (!raw) return;
@@ -97,9 +99,9 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
             setImportProfileJson(null);
             setSavedServerProfileFilename(null);
         }
-    }, [isOpen]);
+    }, [isOpen, isInline]);
 
-    if (!isOpen) return null;
+    if (!isInline && !isOpen) return null;
 
     const patchTxn = (groupIdx: number, txnIdx: number, patch: Partial<Transaction>) => {
         setAiReview((prev) => {
@@ -156,11 +158,16 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
             onSuccess?.(data.results);
             setSelectedFiles([]);
             setAiReview(null);
-            setTimeout(() => {
-                onClose();
+            if (isInline) {
                 setIsComplete(false);
                 setFileStatuses([]);
-            }, 2000);
+            } else {
+                setTimeout(() => {
+                    onClose?.();
+                    setIsComplete(false);
+                    setFileStatuses([]);
+                }, 2000);
+            }
         } else if (data.success) {
             onSuccess?.(data.results);
         }
@@ -258,7 +265,7 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
         setProfileLoadError(null);
         setSavedServerProfileFilename(null);
         setLoadingSavedProfilePick(false);
-        onClose();
+        if (!isInline) onClose?.();
     };
 
     const backFromAiReview = () => {
@@ -277,12 +284,9 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
 
     const isRtl = i18n.dir() === 'rtl';
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div
-                className={`relative bg-white shadow-2xl w-full ${aiReview ? 'max-w-5xl' : 'max-w-xl'} max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-gray-200/80`}
-                dir={i18n.dir()}
-            >
+    const panelInner = (
+        <>
+                {!isInline && (
                 <button
                     type="button"
                     onClick={resetAndClose}
@@ -293,8 +297,9 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
+                )}
 
-                {(isComplete || aiReview) && (
+                {(isComplete || aiReview) && !isInline && (
                     <div className="flex items-center border-b border-gray-100 px-6 pb-4 pt-6 pe-14">
                         <h2 className="text-xl font-bold text-gray-900">
                             {aiReview ? t('explorer.import_review_title') : t('explorer.import_files')}
@@ -302,9 +307,10 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                     </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className={`flex-1 overflow-y-auto ${isInline ? 'py-1' : 'px-6 py-5'}`}>
                     {!isComplete && !aiReview && (
                         <>
+                            {!isInline && (
                             <header className="mb-6 flex gap-4">
                                 <div className="shrink-0 text-gray-200" aria-hidden>
                                     <svg className="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -321,6 +327,7 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                                     <p className="text-sm leading-relaxed text-gray-600">{t('explorer.import_description')}</p>
                                 </div>
                             </header>
+                            )}
 
                             <div className="space-y-2">
                                 <p className="text-xs font-medium text-gray-600">{t('explorer.import_upload_label')}</p>
@@ -729,6 +736,9 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
 
                     {aiReview && !isComplete && (
                         <div className="space-y-4">
+                            {isInline && (
+                                <h3 className="text-base font-bold text-gray-900">{t('explorer.import_review_title')}</h3>
+                            )}
                             <p className="text-sm text-gray-600">{t('explorer.import_review_hint')}</p>
                             {useAi && (
                                 <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
@@ -865,14 +875,14 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                     )}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 p-6">
+                <div className={`flex flex-wrap items-center gap-3 ${isInline ? 'pt-4 border-t border-gray-100 mt-4 justify-end' : 'border-t border-gray-100 p-6 justify-between'}`}>
                     {isComplete ? (
                         <button
                             type="button"
                             onClick={resetAndClose}
                             className="rounded-full bg-emerald-900 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-950 active:scale-[0.98]"
                         >
-                            {t('common.close')}
+                            {isInline ? t('explorer.import_done') : t('common.close')}
                         </button>
                     ) : aiReview ? (
                         <>
@@ -909,6 +919,7 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                         </>
                     ) : (
                         <>
+                            {!isInline && (
                             <button
                                 type="button"
                                 onClick={resetAndClose}
@@ -917,6 +928,7 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                             >
                                 {t('common.cancel')}
                             </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleUpload}
@@ -953,6 +965,24 @@ export function ImportModal({ isOpen, onClose, onSuccess, onOpenImportProfile }:
                         </>
                     )}
                 </div>
+        </>
+    );
+
+    if (isInline) {
+        return (
+            <div dir={i18n.dir()} className="w-full">
+                {panelInner}
+            </div>
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div
+                className={`relative bg-white shadow-2xl w-full ${aiReview ? 'max-w-5xl' : 'max-w-xl'} max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-gray-200/80`}
+                dir={i18n.dir()}
+            >
+                {panelInner}
             </div>
         </div>
     );

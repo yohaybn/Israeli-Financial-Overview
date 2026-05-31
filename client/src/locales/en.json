@@ -312,6 +312,7 @@
         "no_data_available": "No transaction data available for this record.",
         "import_files": "Import Files",
         "import_description": "Import Excel (XLS/XLSX) or PDF files from banks and credit cards",
+        "import_done": "Import another file",
         "select_files": "Select Files",
         "drop_files": "Drop files here or click to select",
         "uploading": "Uploading...",
@@ -510,6 +511,8 @@
     "maintenance": {
         "server_paths_title": "Server port & data folder",
         "server_paths_subtitle": "Same values as runtime-settings.json (PORT, DATA_DIR). Changing the data folder affects where your DB and config live.",
+        "scrape_results_title": "Scrape result files",
+        "scrape_results_desc": "Browse and export individual result JSON files (power user). Day-to-day review is in Logs → Scrape.",
         "desktop_app_title": "Windows desktop app",
         "desktop_app_subtitle": "Only shown when you run Financial Overview from the desktop app (not in a normal browser).",
         "desktop_app_close_to_tray": "Keep the server running when I close the window (close to tray). When enabled, scheduled scrapes and Telegram keep working in the background. Use Quit from the tray menu to stop the server.",

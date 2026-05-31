@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LogViewer } from './components/LogViewer';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
-import { ImportModal } from './components/ImportModal';
 import { ImportProfilePage } from './pages/ImportProfilePage';
 import { FinancialCommandCenter } from './components/dashboard/FinancialCommandCenter';
 import { useScrapeResults, useUpdateTransactionCategory, useRecategorizeAll, useAISettings } from './hooks/useScraper';
 import { useSocket } from './hooks/useSocket';
 import { useUnifiedData } from './hooks/useUnifiedData';
 import { ScrapeWorkspace } from './components/scrape/ScrapeWorkspace';
+import { SchedulerSettingsProvider } from './components/SchedulerSettings';
 import { AppLockBanner } from './components/AppLockBanner';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { PersonaOnboardingWizard } from './components/onboarding/PersonaOnboardingWizard';
@@ -63,7 +63,6 @@ function App() {
     );
     const urlHadViewAtMount = useRef(new URLSearchParams(window.location.search).has('view')).current;
     const { view, configTab, logType, logEntryId, resultFile, insightRuleId } = nav;
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState<string>(() => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -255,11 +254,22 @@ function App() {
         setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
     };
 
-    const handleScrapeResultFileChange = useCallback((filename: string | null) => {
+    const handleResultFileChange = useCallback((filename: string | null) => {
         setNav((prev) => ({ ...prev, resultFile: filename }));
     }, []);
 
+    const handleViewInLogs = useCallback((logId: string, filename?: string | null) => {
+        setNav((prev) => ({
+            ...prev,
+            view: 'logs',
+            logType: 'scrape',
+            logEntryId: logId,
+            resultFile: filename ?? prev.resultFile,
+        }));
+    }, []);
+
     return (
+        <SchedulerSettingsProvider>
         <>
             <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
                 <header className="bg-white border-b border-gray-200/80 shadow-sm z-10 w-full">
@@ -549,9 +559,8 @@ function App() {
                         </div>
                         <div className={view === 'scrape' ? 'h-full overflow-y-auto' : 'hidden'}>
                             <ScrapeWorkspace
-                                onOpenImport={() => setIsImportModalOpen(true)}
-                                resultFile={resultFile}
-                                onResultFileChange={handleScrapeResultFileChange}
+                                onOpenImportProfile={() => setView('importProfile')}
+                                onViewInLogs={handleViewInLogs}
                             />
                         </div>
                         <div className={view === 'importProfile' ? 'h-full overflow-y-auto' : 'hidden'}>
@@ -559,7 +568,6 @@ function App() {
                                 onBack={() => setView('scrape')}
                                 onSaved={() => {
                                     setNav((prev) => ({ ...prev, view: 'scrape' }));
-                                    setIsImportModalOpen(true);
                                 }}
                             />
                         </div>
@@ -587,22 +595,16 @@ function App() {
                         <div className={view === 'logs' ? 'h-full' : 'hidden'}>
                             <LogViewer
                                 logType={logType}
-                                onLogTypeChange={(t) => setNav((prev) => ({ ...prev, logType: t, logEntryId: null }))}
+                                onLogTypeChange={(t) => setNav((prev) => ({ ...prev, logType: t, logEntryId: null, resultFile: null }))}
                                 logEntryId={logEntryId}
                                 onLogEntryIdChange={(id) => setNav((prev) => ({ ...prev, logEntryId: id }))}
+                                resultFile={resultFile}
+                                onResultFileChange={handleResultFileChange}
                             />
                         </div>
                     </div>
                 </div>
             </div>
-            <ImportModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                onOpenImportProfile={() => {
-                    setIsImportModalOpen(false);
-                    setView('importProfile');
-                }}
-            />
 
             {onboarding.showModal && <OnboardingWizard />}
 
@@ -658,6 +660,7 @@ function App() {
                 onUpdateCategory={handleUpdateCategory}
             />
         </>
+        </SchedulerSettingsProvider>
     );
 }
 

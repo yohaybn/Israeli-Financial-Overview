@@ -16,18 +16,19 @@ DO use:
 - One short opening line answering the question.
 - **Bold labels** for sections (e.g. **Total spending**, **Top categories**).
 - Bullet lists via {{q:key.list}} for multiple SQL rows (design queries with ≤15 rows for list placeholders).
-- Inline scalars: e.g. "Total: **{{q:total}}** ILS" or "{{q:count.count}} transactions".
+- Inline scalars from the first result row: **{{q:query_key.sql_column_alias}}** (use the exact SQL column alias from your SELECT).
 - {{q:key.count}} for row counts when useful.
 - Separate bullets per insight; blank line between sections.
 
-Placeholder reference:
-- {{q:key}} — first cell of the first row (single number or label).
-- {{q:key.count}} — number of rows returned.
-- {{q:key.list}} — chat-friendly bullet list (preferred for rankings, categories, merchants).
-- {{q:key.table}} — same as .list (legacy alias; still do not write pipe tables yourself).
+Placeholder reference (query_key = the "key" in queries[]; sql_column_alias = AS name in SELECT):
+- {{q:query_key}} — first column of the first row only (avoid when SELECT returns multiple columns).
+- {{q:query_key.column_alias}} — value from that column in the first row (preferred for multi-column SELECTs, e.g. {{q:total.total_spend}}, {{q:total.tx_count}}).
+- {{q:query_key.count}} — number of rows returned.
+- {{q:query_key.list}} — chat-friendly bullet list (preferred for rankings, categories, merchants).
+- {{q:query_key.table}} — same as .list (do not write pipe tables yourself).
 
 Example responseTemplate:
-"**Spending this month**\\n\\nTotal: **{{q:month_total}}** ILS ({{q:month_total.count}} rows).\\n\\n**By category:**\\n{{q:by_category.list}}"
+"**ביגוד**\\n\\nסה״כ: **{{q:total.total_spend}}** ₪ ({{q:total.tx_count}} עסקאות).\\n\\n**לפי חודש:**\\n{{q:monthly.list}}"
 `.trim();
 
 function formatCell(value: unknown): string {
@@ -43,10 +44,29 @@ function formatCell(value: unknown): string {
     return s.length > 120 ? `${s.slice(0, 117)}…` : s;
 }
 
-function scalarFromResult(result: AnalystQueryResult): string {
+const RESERVED_MODIFIERS = new Set(['count', 'list', 'table']);
+
+function resolveColumnName(result: AnalystQueryResult, columnName: string): string | null {
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0]!;
+    const cols = result.columns.length > 0 ? result.columns : Object.keys(row);
+    const exact = cols.find((c) => c === columnName);
+    if (exact) return exact;
+    const lower = columnName.toLowerCase();
+    const ci = cols.find((c) => c.toLowerCase() === lower);
+    if (ci) return ci;
+    return cols.find((c) => c.toLowerCase().replace(/[^a-z0-9]/g, '') === lower.replace(/[^a-z0-9]/g, '')) ?? null;
+}
+
+function scalarFromResult(result: AnalystQueryResult, columnName?: string): string {
     if (result.error) return `[error: ${result.error}]`;
     if (result.rows.length === 0) return 'N/A';
     const row = result.rows[0]!;
+    if (columnName) {
+        const col = resolveColumnName(result, columnName);
+        if (!col) return `[missing column: ${columnName}]`;
+        return formatCell(row[col]);
+    }
     const col = result.columns[0] ?? Object.keys(row)[0];
     if (!col) return 'N/A';
     return formatCell(row[col]);
@@ -87,23 +107,25 @@ function chatListFromResult(result: AnalystQueryResult): string {
 
 /**
  * Replaces placeholders in the AI response template with local SQL results.
- * - {{q:key}} — first column of first row (scalar)
+ * - {{q:key}} — first column of first row
+ * - {{q:key.column_alias}} — named column from first row (SQL AS alias)
  * - {{q:key.count}} — row count
- * - {{q:key.list}} — bullet list for chat UI
- * - {{q:key.table}} — alias for .list (not a pipe table)
+ * - {{q:key.list}} / {{q:key.table}} — bullet list for chat UI
  */
 export function fillAnalystResponseTemplate(
     template: string,
     results: Record<string, AnalystQueryResult>
 ): string {
     let out = template;
-    const placeholderRe = /\{\{q:([a-zA-Z0-9_]+)(?:\.(count|table|list))?\}\}/g;
+    const placeholderRe = /\{\{q:([a-zA-Z0-9_]+)(?:\.([a-zA-Z0-9_]+))?\}\}/g;
     out = out.replace(placeholderRe, (_match, key: string, modifier?: string) => {
         const result = results[key];
         if (!result) return `[missing query: ${key}]`;
+        if (!modifier) return scalarFromResult(result);
         if (modifier === 'count') return String(result.rows.length);
         if (modifier === 'table' || modifier === 'list') return chatListFromResult(result);
-        return scalarFromResult(result);
+        if (RESERVED_MODIFIERS.has(modifier)) return scalarFromResult(result);
+        return scalarFromResult(result, modifier);
     });
     return out;
 }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getScrapeRunLogs,
   getScrapeRunLogById,
+  getScrapeRunLogByFilename,
   clearOldScrapeRunLogs,
   clearAllScrapeRunLogs,
 } from '../utils/scrapeRunLogger.js';
@@ -23,6 +24,26 @@ router.get('/logs/entry/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to retrieve scrape log entry',
+    });
+  }
+});
+
+/**
+ * Find scrape run log by saved result filename (for deep links)
+ */
+router.get('/logs/by-file/:filename', async (req, res) => {
+  try {
+    const filename = decodeURIComponent(req.params.filename);
+    const entry = await getScrapeRunLogByFilename(filename);
+    if (!entry) {
+      res.status(404).json({ success: false, error: 'Log entry not found for file' });
+      return;
+    }
+    res.json({ success: true, data: entry });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to find scrape log by file',
     });
   }
 });

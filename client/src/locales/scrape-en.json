@@ -1,4 +1,7 @@
 {
+    "scrape_workspace": {
+        "subtitle": "Run scrapes, import files, and schedule automatic runs."
+    },
     "scraper": {
         "config_title": "Scrape",
         "global_options": "Global Scraper Options",
@@ -34,7 +37,7 @@
         "demo_scrape_button": "Run demo scrape (current month)",
         "scraping": "Scraping...",
         "using_profile": "Using profile: {{name}}",
-        "scrape_success": "Scrape completed successfully! Check the results panel.",
+        "scrape_success": "Scrape completed successfully! Use View in logs in the progress panel.",
         "scrape_error": "Error: {{message}}",
         "opt_in_features": "Opt-in Features",
         "custom_opt_in_help": "Add specific feature flags by name (comma separated)",
@@ -74,7 +77,8 @@
         "select_row": "Select a row to see file name and action statuses.",
         "link_ai_logs": "AI query logs",
         "open_result_file": "Open result JSON",
-        "ai_calls_for_step": "AI logs:"
+        "ai_calls_for_step": "AI logs:",
+        "result_transactions": "Transactions"
     },
     "scrape_progress": {
         "title": "Live Progress",
@@ -93,6 +97,7 @@
         "scrape_failed": "✗ Scrape Failed",
         "transactions_retrieved": "{{count}} transactions retrieved",
         "completed_in_seconds": "Completed in {{seconds}}s",
-        "empty": "Start a scrape to see real-time progress here."
+        "empty": "Start a scrape to see real-time progress here.",
+        "view_in_logs": "View in logs"
     }
 }
