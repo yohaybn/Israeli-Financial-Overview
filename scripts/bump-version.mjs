@@ -10,7 +10,7 @@
  *
  * Notes:
  * - The single source of truth is `server/package.json`.
- * - `ha-addon/config.yaml` line `version: "x.y.z"` and Dockerfile `ARG BUILD_VERSION=x.y.z` are mirrored.
+ * - Dockerfile `ARG BUILD_VERSION=x.y.z` is mirrored.
  * - Exits non-zero if any file is missing or unparseable.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -20,7 +20,6 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(__filename), '..');
 const PKG = path.join(ROOT, 'server', 'package.json');
-const CFG = path.join(ROOT, 'ha-addon', 'config.yaml');
 const DOCKERFILE = path.join(ROOT, 'Dockerfile');
 
 const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)$/;
@@ -48,14 +47,7 @@ function writeJson(p, obj) {
     writeFileSync(p, JSON.stringify(obj, null, 4) + '\n', 'utf8');
 }
 
-function replaceConfigYaml(next) {
-    const raw = readFileSync(CFG, 'utf8');
-    if (!/^version:\s*".+"\s*$/m.test(raw)) {
-        throw new Error('ha-addon/config.yaml: could not find a `version: "x.y.z"` line');
-    }
-    const out = raw.replace(/^version:\s*".+"\s*$/m, `version: "${next}"`);
-    writeFileSync(CFG, out, 'utf8');
-}
+// Config YAML is updated in the separate HA repository via GitHub Actions
 
 function replaceDockerfile(next) {
     const raw = readFileSync(DOCKERFILE, 'utf8');
@@ -76,12 +68,10 @@ function main() {
 
     pkg.version = next;
     writeJson(PKG, pkg);
-    replaceConfigYaml(next);
     const dockerfileTouched = replaceDockerfile(next);
 
     console.log(`Bumped ${current} -> ${next}`);
     console.log(`  server/package.json   ✓`);
-    console.log(`  ha-addon/config.yaml   ✓`);
     console.log(`  Dockerfile            ${dockerfileTouched ? '✓' : '(no ARG BUILD_VERSION default; skipped)'}`);
     console.log('');
     console.log('Next steps:');

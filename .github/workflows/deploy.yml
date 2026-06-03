@@ -52,7 +52,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ha-addon/config.yaml server/package.json Dockerfile
+          git add server/package.json Dockerfile
           if git diff --cached --quiet; then
             echo "No version change to commit."
             exit 0
@@ -84,11 +84,11 @@ jobs:
 
       - name: Resolve image version
         id: ver
-        # Prefer the bumped version (set on push to main); fall back to ha-addon/config.yaml on tag pushes.
+        # Prefer the bumped version (set on push to main); fall back to server/package.json on tag pushes.
         run: |
           v="${{ needs.bump-version.outputs.version }}"
           if [ -z "$v" ]; then
-            v=$(awk -F'"' '/^version:/ {print $2; exit}' ha-addon/config.yaml)
+            v=$(node -e "console.log(require('./server/package.json').version)")
           fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $v"
@@ -155,12 +155,12 @@ jobs:
 
       - name: Resolve image version
         id: ver
-        # Use bumped version from bump-version job; fall back to the version line in ha-addon/config.yaml.
-        # HA Supervisor pulls images at exactly this tag (matching ha-addon/config.yaml `version`).
+        # Use bumped version from bump-version job; fall back to the version line in server/package.json.
+        # HA Supervisor pulls images at exactly this tag.
         run: |
           v="${{ needs.bump-version.outputs.version }}"
           if [ -z "$v" ]; then
-            v=$(awk -F'"' '/^version:/ {print $2; exit}' ha-addon/config.yaml)
+            v=$(node -e "console.log(require('./server/package.json').version)")
           fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $v"
@@ -195,3 +195,26 @@ jobs:
             VITE_INSTALL_KIND=docker
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  sync-addon-repo:
+    needs: [build-addon]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve image version
+        id: ver
+        run: |
+          v=$(node -e "console.log(require('./server/package.json').version)")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger version bump in HA Repository
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HA_REPO_SYNC_PAT }}
+          repository: yohaybn/israeli-financial-overview-ha
+          event-type: update-version
+          client-payload: '{"version": "${{ steps.ver.outputs.version }}"}'
