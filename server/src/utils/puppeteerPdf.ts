@@ -2,11 +2,20 @@ import fs from 'fs-extra';
 import puppeteer from 'puppeteer';
 
 function getExecutablePath(): string | undefined {
+    const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (envPath && fs.existsSync(envPath)) {
+        return envPath;
+    }
+
     const standardPaths = [
-        puppeteer.executablePath(),
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
         'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
         'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        puppeteer.executablePath(),
     ];
     for (const p of standardPaths) {
         if (p && fs.existsSync(p)) return p;

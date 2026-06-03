@@ -4,9 +4,11 @@ import './utils/geminiRateLimitCapture.js';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import puppeteer from 'puppeteer';
 import { createSchedulerRoutes } from './routes/schedulerRoutes.js';
 import { SchedulerService } from './services/schedulerService.js';
 import {
@@ -27,6 +29,31 @@ import { appLockService } from './services/appLockService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function resolveStartupBrowserPath(): string | undefined {
+  const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (envPath && fs.existsSync(envPath)) {
+    return envPath;
+  }
+
+  const candidates = [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    puppeteer.executablePath(),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
 
 // Main async function
 async function startServer() {
@@ -237,6 +264,12 @@ async function startServer() {
       serverLogger.info(`WebSocket ready on ws://${listenHost}:${port}`);
       serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
+      const browserPath = resolveStartupBrowserPath();
+      serverLogger.info(
+        browserPath
+          ? `Browser executable resolved at startup: ${browserPath}`
+          : 'Browser executable not resolved at startup; Puppeteer/library fallback will be used at runtime.'
+      );
       reloadPortfolioSnapshotSchedule();
       setTimeout(() => {
         if (!appLockService.isLockConfigured()) {
