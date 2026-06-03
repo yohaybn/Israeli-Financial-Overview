@@ -1,19 +1,18 @@
-# Mabat Kalkli (Financial Overview) — System Design & Architecture
-*Designed as a Senior/Staff Software Engineer Interview "Architecture Story"*
+# Mabat Kalkli (Financial Overview) — System Architecture & Design Document
 
 ---
 
 ## Executive Summary & Architecture Philosophy
 
-**Mabat Kalkli (Financial Overview)** is a modern, self-hosted financial intelligence system designed to scrape, aggregate, categorize, and analyze transaction data from Israeli banking and credit card portals. 
+**Mabat Kalkli (Financial Overview)** is a self-hosted financial intelligence platform designed to scrape, aggregate, categorize, and analyze transaction data from Israeli banking and credit card portals. 
 
-Unlike traditional SaaS financial aggregators (e.g., Mint, YNAB) that process credentials in the cloud, Mabat Kalkli is architected around a **Privacy-First, Self-Hosted Philosophy**. The system runs locally via **Docker** (or as a native **Electron desktop shell** for Windows), ensuring that highly sensitive bank credentials and financial history never leave the user’s home network.
+Unlike traditional SaaS financial aggregators that process credentials in the cloud, Mabat Kalkli is built around a **Privacy-First, Self-Hosted Philosophy**. The system runs locally via **Docker** (or as a native **Electron desktop shell** for Windows), ensuring that highly sensitive bank credentials and financial history never leave the user’s home network.
 
-### Why Self-Hosted via Docker/Local Electron?
+### Rationale for the Local/Self-Hosted Architecture
 
-1. **The Trust & Privacy Trade-off**: Banking credentials (usernames, passwords, identity numbers) represent the keys to a user's financial kingdom. Forcing a user to entrust these credentials to a third-party SaaS cloud creates a massive security footprint and high liability.
-2. **IP Reputation & Anti-Bot Mitigations**: Israeli financial portals employ aggressive bot-detection and geofencing systems. Cloud IP ranges (AWS, GCP, DigitalOcean) are heavily blacklisted. Running the scraping workers on the user’s home machine leverages their **residential IP address**, bypassing typical cloud geoblocking and bot countermeasures.
-3. **Complete Data Sovereignty**: All transaction history is persisted in a local database, protected by OS-level file permissions rather than cloud database security systems.
+1. **Security & Trust Boundary**: Banking credentials (usernames, passwords, identity numbers) represent the keys to a user's financial assets. By restricting all decryption and ingestion actions to the local host, the system minimizes the attack surface and eliminates third-party cloud data liability.
+2. **IP Reputation & Anti-Bot Mitigations**: Israeli financial portals employ aggressive bot-detection and geofencing systems. Cloud IP ranges (AWS, GCP, DigitalOcean) are heavily blacklisted by financial institutions. Running the scraping workers on the user’s home machine leverages their **residential IP address**, bypassing typical cloud geoblocking and bot countermeasures.
+3. **Data Sovereignty**: All transaction history is persisted in a local SQLite database, protected by OS-level file permissions rather than cloud database security systems.
 
 ---
 
@@ -23,14 +22,14 @@ The system is organized as a decoupled, multi-tiered monorepo consisting of a Re
 
 ```mermaid
 graph TD
-    subgraph Client Layer (Desktop/Web)
+    subgraph ClientLayer ["Client Layer (Desktop/Web)"]
         UI[React / Vite SPA]
         Electron[Electron Wrapper / Tray App]
         UI -->|Proxies / REST API| Server
         UI <-->|WebSockets Progress Stream| SocketIO
     end
 
-    subgraph Backend Core (Node.js/Express)
+    subgraph BackendCore ["Backend Core (Node.js/Express)"]
         Server[Express App / Router]
         SocketIO[Socket.io Engine]
         Scheduler[Scheduler Service]
@@ -49,15 +48,15 @@ graph TD
         Scheduler --> ScraperSvc
     end
 
-    subgraph Worker & Scraping Layer
+    subgraph WorkerLayer ["Worker & Scraping Layer"]
         Browser[Puppeteer / Headless Chromium]
         Lib[israeli-bank-scrapers Library]
         ScraperSvc -->|Orchestrates| Lib
         Lib -->|Runs Automations| Browser
     end
 
-    subgraph Data Store & External Services
-        SQLite[(SQLite DB app.db WAL Mode)]
+    subgraph DataStore ["Data Store & External Services"]
+        SQLite[("SQLite DB app.db WAL Mode")]
         ConfigFiles[On-Disk JSON Files / Profiles]
         Gemini[Google Gemini API]
         Telegram[Telegram Bot API]
@@ -157,14 +156,14 @@ sequenceDiagram
 4. **Browser Orchestration**: Puppeteer fires up Chromium. It navigates to the financial portals, handles multi-factor auth (like One Zero OTP SMS tokens), and extracts transaction records.
 5. **Real-time Progress Streaming**: WebSocket events (Socket.io) push exact step definitions (e.g., `START_SCRAPING`, `LOGGING_IN`, `LOGIN_SUCCESS`) to the frontend, preventing the user from feeling left in the dark during slow scraping operations.
 6. **Data Deduplication (Idempotency Engine)**: 
-   To prevent duplicating transactions across overlaps, Mabat Kalkli implements a **Precedence-Based Idempotency Engine** in `shared/src/transactionId.ts`:
+   To prevent duplicating transactions across overlaps, Mabat Kalkli implements a **Precedence-Based Idempotency Engine**:
    * **Rule 1: Scraper/Bank ID preservation**: If the bank provides a stable, unique reference ID (e.g., reference numbers), it is preserved.
    * **Rule 2: External Hashing**: If a stable transaction identifier is available but needs structure, the system builds an external key: 
      $$\text{key} = \text{"v1|ext|" + provider + "|" + accountNumber + "|" + externalId}$$
      and hashes it using MD5.
    * **Rule 3: Content-Based Hashing**: If no external ID exists, it hashes the core transaction properties:
      $$\text{key} = \text{date} \mathbin{\Vert} \text{amount} \mathbin{\Vert} \text{description} \mathbin{\Vert} \text{accountNumber}$$
-     To handle legitimate duplicate charges (e.g., two identical coffees bought at the same merchant on the same day), the ingestion engine keeps an ordinal map of the batch. The first transaction receives `MD5(key)`, the second receives `MD5(key + "|1")`, and so on.
+     To handle legitimate duplicate charges (e.g., two identical purchases at the same merchant on the same day), the ingestion engine keeps an ordinal map of the batch. The first transaction receives `MD5(key)`, the second receives `MD5(key + "|1")`, and so on.
    * **Database Insertion**: The generated ID serves as the Primary Key in SQLite. Using `INSERT OR IGNORE`, duplicate transactions are discarded on-write, making ingestion completely idempotent.
 7. **Post-Scrape Pipeline**: After saving raw data, the pipeline executes:
    * **AI Categorization**: Runs Gemini AI to label transaction categories. It writes matching descriptions to a `categories_cache` database table to minimize future API costs.
@@ -213,7 +212,7 @@ graph LR
     Client --> Server[Local Server]
     Server -->|Schema + Question Only| Gemini[Gemini LLM]
     Gemini -->|Returns SQL Query Template| Server
-    Server -->|Executes SQL Locally| SQLite[(Local SQLite DB)]
+    Server -->|Executes SQL Locally| SQLite[("Local SQLite DB")]
     SQLite -->|Raw Data Results| Server
     Server -->|Synthesizes Response| User
 ```
