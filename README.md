@@ -45,7 +45,7 @@ The idea is straightforward: less juggling spreadsheets and scattered exports, a
 - **Export** — to **CSV**, **JSON**, or **Google Sheets** so you can keep working where you prefer.
 - **Languages** — **English** and **Hebrew** with proper LTR/RTL layout.
 - **Telegram** (optional) — updates and bot commands, depending on how you configure it.
-- **MQTT & Home Assistant** (optional) — automate scrapes, reports, and notifications via Mosquitto; MQTT Discovery entities and automation blueprints (see **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**).
+- **MQTT & Home Assistant** (optional) - automate scrapes, reports, and notifications via Mosquitto; MQTT Discovery entities, custom integration, and blueprints are hosted in the dedicated **[israeli-financial-overview-ha](https://github.com/yohaybn/israeli-financial-overview-ha)** repository (see **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**).
 - **App lock** — a password that protects your session and helps **encrypt saved bank profile credentials** on disk (see the user guide and security notes below).
 - **Investments / portfolio** (optional) — track tickers and holdings; connect an **EODHD** API token under **Configuration → Investments** (see **[#eodhd-api-token](#eodhd-api-token)** below).
 
@@ -142,15 +142,15 @@ CI workflows set `VITE_APP_BUILD_VERSION` and `VITE_INSTALL_KIND` automatically 
 
 ### Home Assistant add-on
 
-The add-on definition lives under [`ha-addon/`](ha-addon/) (`config.yaml`, store README, changelog, logo/icon). Published images are pulled from GHCR — you **do not** need to copy the whole repo into `/addons/` manually.
+The Home Assistant Add-on, Custom Component, and Blueprints are hosted in a dedicated repository: **[israeli-financial-overview-ha](https://github.com/yohaybn/israeli-financial-overview-ha)**.
 
-1. Add this repository in **Settings → Add-ons → Add-on Store → Repositories**.
-2. Install **Financial Overview** and configure OAuth/Drive (and other options) in the add-on **Configuration** tab.
+1. Add the dedicated repository URL **`https://github.com/yohaybn/israeli-financial-overview-ha`** in **Settings → Add-ons → Add-on Store → Repositories**.
+2. Install the **Financial Overview** add-on and configure OAuth/Drive (and other options) in the add-on **Configuration** tab.
 3. Start the add-on and open the Web UI from the sidebar (Ingress uses **`mdi:finance`** in the sidebar).
 
-**MQTT automations:** Install the **Mosquitto broker** add-on, then configure **Configuration → MQTT** in the app (or use `mqtt_*` options in the add-on Configuration tab). Enable **Home Assistant MQTT Discovery** for buttons and sensors, or use [`ha-blueprints/`](ha-blueprints/) and **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)**.
+**MQTT automations:** Install the **Mosquitto broker** add-on, then configure **Configuration → MQTT** in the app (or use `mqtt_*` options in the add-on Configuration tab). Enable **Home Assistant MQTT Discovery** for buttons and sensors, or use the automation blueprints and the custom component from the **[israeli-financial-overview-ha](https://github.com/yohaybn/israeli-financial-overview-ha)** repository. See **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)** for details.
 
-**Port / Ingress:** Home Assistant’s sidebar proxy (Ingress) always uses the **internal** port defined in [`ha-addon/config.yaml`](ha-addon/config.yaml) (`ingress_port`, currently **9203**). There is no separate **port** option in the UI — changing it would break Ingress. To use another internal port, fork and change `ingress_port`, `PORT` in the root [`Dockerfile`](Dockerfile), and publish new images.
+**Port / Ingress:** Home Assistant’s sidebar proxy (Ingress) always uses the **internal** port defined in the addon configuration (`ingress_port`, currently **9203**). There is no separate **port** option in the UI — changing it would break Ingress. To use another internal port, fork and change `ingress_port` and `PORT` in the root [`Dockerfile`](Dockerfile), and publish new images.
 
 Details: [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -206,7 +206,6 @@ The optional **Investments** feature can use **[EOD Historical Data (EODHD)](htt
 | **[docs/VIDEO_GUIDE.md](docs/VIDEO_GUIDE.md)** | Scene-by-scene video/storyboard guide; PNG/PDF assets under `docs/video-guide-screenshots/` and `docs/video-guide-pdfs/`. |
 | **[docs/TELEGRAM_BOT_GUIDE.md](docs/TELEGRAM_BOT_GUIDE.md)** | Telegram bot setup, commands, and behavior (English). |
 | **[docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md)** | **MQTT & Home Assistant** — Mosquitto setup, command topics, MQTT Discovery, automation examples, blueprints, optional custom component. |
-| **[ha-blueprints/](ha-blueprints/)** | Importable Home Assistant automation blueprints (scrape on button, review reminder, weekly report, high-insight notify). |
 | **[client/public/guides/TELEGRAM_BOT_GUIDE.he.md](client/public/guides/TELEGRAM_BOT_GUIDE.he.md)** | Hebrew Telegram guide — embedded in **עברית** in [`client/public/GUIDE.html`](client/public/GUIDE.html); regenerate with `npm run guide:embed-telegram`. |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Environment variables and deployment (Docker, HA, **Windows**). |
 | **This README → [#eodhd-api-token](#eodhd-api-token)** | Step-by-step: obtain an **EODHD** API token for optional **Investments** / portfolio (also configurable in-app under **Configuration → Investments**). |

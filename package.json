@@ -13,7 +13,7 @@
         "server": "npm run dev -w server",
         "client": "npm run dev -w client",
         "dev": "npx concurrently \"npm run server\" \"npm run client\"",
-        "kill-port": "powershell ./kill-port.ps1",
+        "kill-port": "powershell ./scripts/kill-port.ps1",
         "start": "npm run dev",
         "guide:embed-telegram": "npx marked -o .tmp-telegram.html -i docs/TELEGRAM_BOT_GUIDE.md --gfm && npx marked -o .tmp-telegram-he.html -i client/public/guides/TELEGRAM_BOT_GUIDE.he.md --gfm && node scripts/inline-telegram-guide-into-guide.mjs",
         "windows:package": "powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1",
