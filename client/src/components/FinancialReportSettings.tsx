@@ -117,7 +117,11 @@ function buildFinancialReportPatch(p: {
     };
 }
 
-export function FinancialReportSettings() {
+interface FinancialReportSettingsProps {
+    showAdvanced?: boolean;
+}
+
+export function FinancialReportSettings({ showAdvanced = true }: FinancialReportSettingsProps) {
     const { t } = useTranslation();
     const { data: investmentAppSettings } = useInvestmentAppSettings();
     const investmentsFeatureDisabled = investmentAppSettings?.featureEnabled === false;
@@ -354,7 +358,7 @@ export function FinancialReportSettings() {
                     <p className="text-xs text-amber-800">{t('report.investments_pdf_disabled_hint')}</p>
                 )}
                 <p className="text-xs text-gray-500 pt-1">{t('report.sec_month_compare_help')}</p>
-                {sections.monthComparison && (
+                {showAdvanced && sections.monthComparison && (
                     <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3 text-sm">
                         <label className="flex flex-col gap-1 max-w-xs">
                             <span className="text-gray-700">{t('report.month_compare_prior_label')}</span>
@@ -397,40 +401,44 @@ export function FinancialReportSettings() {
                 )}
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-                <p className="text-sm font-semibold text-gray-800">{t('report.detailed_charts_title')}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    {(
-                        [
-                            ['categoryBreakdown', 'report.sec_categories'],
-                            ['topMerchants', 'report.sec_merchants'],
-                            ['chartCategoryTreemap', 'report.sec_chart_treemap'],
-                            ['chartMonthlyTrend', 'report.sec_chart_monthly'],
-                            ['chartSpendingByWeekday', 'report.sec_chart_weekday'],
-                            ['chartSpendingByMonthDay', 'report.sec_chart_monthday'],
-                            ['chartMetaSpendPie', 'report.sec_chart_meta_pie'],
-                            ['customCharts', 'report.sec_custom_charts'],
-                        ] as const
-                    ).map(([key, labelKey]) => (
-                        <label key={key} className="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" checked={sections[key]} onChange={() => toggleSection(key)} />
-                            {t(labelKey)}
-                        </label>
-                    ))}
+            {showAdvanced && (
+                <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                    <p className="text-sm font-semibold text-gray-800">{t('report.detailed_charts_title')}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        {(
+                            [
+                                ['categoryBreakdown', 'report.sec_categories'],
+                                ['topMerchants', 'report.sec_merchants'],
+                                ['chartCategoryTreemap', 'report.sec_chart_treemap'],
+                                ['chartMonthlyTrend', 'report.sec_chart_monthly'],
+                                ['chartSpendingByWeekday', 'report.sec_chart_weekday'],
+                                ['chartSpendingByMonthDay', 'report.sec_chart_monthday'],
+                                ['chartMetaSpendPie', 'report.sec_chart_meta_pie'],
+                                ['customCharts', 'report.sec_custom_charts'],
+                            ] as const
+                        ).map(([key, labelKey]) => (
+                            <label key={key} className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={sections[key]} onChange={() => toggleSection(key)} />
+                                {t(labelKey)}
+                            </label>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-                <p className="text-sm font-semibold text-gray-800">{t('report.locale')}</p>
-                <div className="flex flex-wrap gap-4">
-                    {(['he', 'en', 'bilingual'] as const).map((lm) => (
-                        <label key={lm} className="flex items-center gap-2 cursor-pointer text-sm">
-                            <input type="radio" name="fr-locale" checked={localeMode === lm} onChange={() => setLocaleMode(lm)} />
-                            {t(`report.locale_${lm}`)}
-                        </label>
-                    ))}
+            {showAdvanced && (
+                <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                    <p className="text-sm font-semibold text-gray-800">{t('report.locale')}</p>
+                    <div className="flex flex-wrap gap-4">
+                        {(['he', 'en', 'bilingual'] as const).map((lm) => (
+                            <label key={lm} className="flex items-center gap-2 cursor-pointer text-sm">
+                                <input type="radio" name="fr-locale" checked={localeMode === lm} onChange={() => setLocaleMode(lm)} />
+                                {t(`report.locale_${lm}`)}
+                            </label>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
                 <label className="flex items-center gap-3 cursor-pointer">

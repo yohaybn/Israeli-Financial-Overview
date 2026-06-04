@@ -1216,6 +1216,9 @@ export function createScrapeRoutes(
     // Update global scrape configuration
     router.put('/config', async (req, res) => {
         try {
+            if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+                return res.status(400).json({ success: false, error: 'Invalid config payload' });
+            }
             const config = await storageService.updateGlobalScrapeConfig(req.body);
             res.json({ success: true, data: config });
         } catch (error: any) {

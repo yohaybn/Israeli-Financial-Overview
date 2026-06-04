@@ -279,7 +279,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                 body: JSON.stringify({ chatId: targetChatId }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to send test message');
+            if (!res.ok) throw new Error(data.error || t('telegram.errors.send_test_failed'));
             return data;
         },
         onMutate: (targetChatId) => {
@@ -292,7 +292,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
             showNotification('success', t('telegram.test_sent_to_chat'));
         },
         onError: (err: any) => {
-            showNotification('error', err.message || 'Failed to send test message');
+            showNotification('error', err.message || t('telegram.errors.send_test_failed'));
         },
     });
 
@@ -300,7 +300,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         mutationFn: async () => {
             const trimmed = botToken.trim();
             if (!trimmed || !chatId) {
-                throw new Error('Bot token and chat ID are required');
+                throw new Error(t('telegram.errors.token_and_chat_required'));
             }
             const res = await fetch(`${getApiRoot()}/telegram/test`, {
                 method: 'POST',
@@ -308,14 +308,14 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                 body: JSON.stringify({ botToken: trimmed, chatId }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Test failed');
+            if (!res.ok) throw new Error(data.error || t('telegram.errors.test_failed'));
             return data;
         },
         onSuccess: () => {
             showNotification('success', t('telegram.test_success'));
         },
         onError: (err: any) => {
-            showNotification('error', err.message || 'Test failed');
+            showNotification('error', err.message || t('telegram.errors.test_failed'));
         },
     });
 
@@ -427,7 +427,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
 
     const handleStartBot = () => {
         if (!botToken.trim() && !status?.hasToken) {
-            showNotification('error', 'Bot token is required');
+            showNotification('error', t('telegram.errors.bot_token_required'));
             return;
         }
         startBot();

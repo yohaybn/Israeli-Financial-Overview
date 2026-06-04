@@ -1004,9 +1004,97 @@ export class StorageService {
     }
 
     async updateGlobalScrapeConfig(config: GlobalScrapeConfig): Promise<GlobalScrapeConfig> {
+        const safeNum = (value: unknown, fallback: number, min: number, max: number): number => {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return fallback;
+            return Math.max(min, Math.min(max, Math.floor(n)));
+        };
+        const boolOr = (value: unknown, fallback: boolean): boolean =>
+            typeof value === 'boolean' ? value : fallback;
+        const strArray = (value: unknown, fallback: string[]): string[] =>
+            Array.isArray(value) ? value.map((v) => String(v).trim()).filter(Boolean) : fallback;
+
+        const merged: GlobalScrapeConfig = {
+            ...DEFAULT_GLOBAL_CONFIG,
+            ...config,
+            scraperOptions: {
+                ...DEFAULT_GLOBAL_CONFIG.scraperOptions,
+                ...(config?.scraperOptions || {}),
+            },
+            postScrapeConfig: {
+                ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig,
+                ...(config?.postScrapeConfig || {}),
+                fraudDetection: {
+                    ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.fraudDetection,
+                    ...(config?.postScrapeConfig?.fraudDetection || {}),
+                    local: {
+                        ...(config?.postScrapeConfig?.fraudDetection?.local || {}),
+                        rules: {
+                            ...(config?.postScrapeConfig?.fraudDetection?.local?.rules || {}),
+                        },
+                        thresholds: {
+                            ...(config?.postScrapeConfig?.fraudDetection?.local?.thresholds || {}),
+                        },
+                    },
+                },
+                customAI: {
+                    ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.customAI,
+                    ...(config?.postScrapeConfig?.customAI || {}),
+                },
+                transactionReviewReminder: {
+                    ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.transactionReviewReminder,
+                    ...(config?.postScrapeConfig?.transactionReviewReminder || {}),
+                },
+                budgetExports: {
+                    ...DEFAULT_GLOBAL_CONFIG.postScrapeConfig.budgetExports,
+                    ...(config?.postScrapeConfig?.budgetExports || {}),
+                },
+            },
+        };
+
+        merged.scraperOptions.timeout = safeNum(merged.scraperOptions.timeout, 120000, 10_000, 600_000);
+        merged.scraperOptions.futureMonthsToScrape = safeNum(merged.scraperOptions.futureMonthsToScrape, 0, 0, 12);
+        merged.scraperOptions.ignorePendingTransactions = boolOr(merged.scraperOptions.ignorePendingTransactions, true);
+        merged.scraperOptions.combineInstallments = boolOr(merged.scraperOptions.combineInstallments, false);
+        merged.scraperOptions.showBrowser = boolOr(merged.scraperOptions.showBrowser, false);
+        merged.scraperOptions.verbose = boolOr(merged.scraperOptions.verbose, false);
+        merged.scraperOptions.excludedAccountNumbers = strArray(merged.scraperOptions.excludedAccountNumbers, []);
+
+        merged.useSmartStartDate = boolOr(merged.useSmartStartDate, true);
+        merged.postScrapeConfig.runCategorization = boolOr(merged.postScrapeConfig.runCategorization, true);
+        merged.postScrapeConfig.runInsightRules = boolOr(merged.postScrapeConfig.runInsightRules, true);
+        merged.postScrapeConfig.notificationChannels = strArray(merged.postScrapeConfig.notificationChannels, ['console']);
+        merged.postScrapeConfig.aggregateTelegramNotifications = boolOr(
+            merged.postScrapeConfig.aggregateTelegramNotifications,
+            true
+        );
+        merged.postScrapeConfig.aggregateMqttNotifications = boolOr(
+            merged.postScrapeConfig.aggregateMqttNotifications,
+            true
+        );
+        merged.postScrapeConfig.spendingDigestEnabled = boolOr(merged.postScrapeConfig.spendingDigestEnabled, false);
+
+        const fraud = merged.postScrapeConfig.fraudDetection;
+        fraud.enabled = boolOr(fraud.enabled, false);
+        fraud.notifyOnIssue = boolOr(fraud.notifyOnIssue, true);
+        fraud.mode = fraud.mode === 'ai' || fraud.mode === 'both' ? fraud.mode : 'local';
+        fraud.scope = fraud.scope === 'all' ? 'all' : 'current';
+
+        const reminder = merged.postScrapeConfig.transactionReviewReminder!;
+        reminder.enabled = boolOr(reminder.enabled, true);
+        reminder.notifyTransfersCategory = boolOr(reminder.notifyTransfersCategory, true);
+        reminder.notifyUncategorized = boolOr(reminder.notifyUncategorized, true);
+
+        const customAi = merged.postScrapeConfig.customAI;
+        customAi.enabled = boolOr(customAi.enabled, false);
+        customAi.notifyOnResult = boolOr(customAi.notifyOnResult, true);
+        customAi.scope = customAi.scope === 'all' ? 'all' : 'current';
+        customAi.skipIfNoTransactions = boolOr(customAi.skipIfNoTransactions, true);
+        customAi.query = String(customAi.query ?? '');
+
         await fs.ensureDir(CONFIG_DIR);
-        await fs.writeJson(SCRAPE_CONFIG_PATH, config, { spaces: 2 });
-        return config;
+        await fs.writeJson(SCRAPE_CONFIG_PATH, merged, { spaces: 2 });
+        return merged;
     }
 
     /**

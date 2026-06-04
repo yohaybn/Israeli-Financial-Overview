@@ -374,14 +374,14 @@ export function BudgetExportSettings() {
                 <div className="grid gap-2 sm:grid-cols-2">
                     <input
                         type="text"
-                        placeholder="Client ID"
+                        placeholder={t('budget_exports.ynab_client_id')}
                         value={ynabClientId}
                         onChange={(e) => setYnabClientId(e.target.value)}
                         className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
                     />
                     <input
                         type="password"
-                        placeholder="Client secret (optional)"
+                        placeholder={t('budget_exports.ynab_client_secret_optional')}
                         value={ynabSecret}
                         onChange={(e) => setYnabSecret(e.target.value)}
                         className="rounded-lg border border-gray-200 px-3 py-2 text-sm"

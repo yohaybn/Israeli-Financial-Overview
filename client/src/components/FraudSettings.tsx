@@ -10,10 +10,18 @@ import {
 import { Info } from 'lucide-react';
 import { api } from '../lib/api';
 import { SeverityThresholdBar } from './SeverityThresholdBar';
+import { ToggleSwitch } from './ToggleSwitch';
+import { ParsingEngineCard } from './config/sections/ParsingEngineCard';
+import {
+  emitFraudDetectionPatch,
+  mergeFraudDetectionConfig,
+  subscribeFraudDetectionPatch,
+} from './config/fraudDetectionSync';
 
 interface FraudSettingsProps {
   isInline?: boolean;
   onClose?: () => void;
+  showAdvanced?: boolean;
 }
 
 const DEFAULT_RULES: Required<FraudDetectionLocalRulesConfig> = {
@@ -49,7 +57,7 @@ type FraudFindingDto = {
   createdAt: string;
 };
 
-export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
+export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudSettingsProps) {
   const { t } = useTranslation();
   const [config, setConfig] = useState<GlobalScrapeConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,18 +102,17 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
     load();
   }, []);
 
+  useEffect(() => {
+    return subscribeFraudDetectionPatch((patch) => {
+      setConfig((current) => (current ? mergeFraudDetectionConfig(current, patch) : current));
+    });
+  }, []);
+
   const updateFraud = (patch: any) => {
     if (!config) return;
-    setConfig({
-      ...config,
-      postScrapeConfig: {
-        ...config.postScrapeConfig,
-        fraudDetection: {
-          ...config.postScrapeConfig.fraudDetection,
-          ...patch,
-        },
-      },
-    });
+    const next = mergeFraudDetectionConfig(config, patch);
+    setConfig(next);
+    emitFraudDetectionPatch(patch);
   };
 
   const updateLocalRules = (patch: Partial<FraudDetectionLocalRulesConfig>) => {
@@ -165,6 +172,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
         const next = res.data.data;
         setConfig(next);
         lastSerializedRef.current = JSON.stringify(next);
+        window.dispatchEvent(new CustomEvent('configuration-saved'));
       } catch (e: any) {
         setError(e?.message || t('fraud_settings.errors.save_failed'));
       } finally {
@@ -261,6 +269,7 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
   if (!isInline && (!config || loading)) return null;
   if (loading) return <div className="p-4 text-sm text-gray-500">{t('fraud_settings.loading')}</div>;
   if (!config) return <div className="p-4 text-sm text-red-500">{t('fraud_settings.errors.unavailable')}</div>;
+  if (!showAdvanced && isInline) return null;
 
   const content = (
     <div
@@ -361,17 +370,14 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
                 </button>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-xs text-purple-900 cursor-pointer">
-              <input
-                type="checkbox"
+            <div className="w-full sm:w-auto">
+              <ToggleSwitch
                 checked={config.postScrapeConfig.fraudDetection.notifyOnIssue ?? true}
-                onChange={(e) => updateFraud({ notifyOnIssue: e.target.checked })}
-                className="w-4 h-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                onChange={(next) => updateFraud({ notifyOnIssue: next })}
+                label={t('post_scrape.fraud_notify_toggle')}
+                className="border-purple-200 bg-purple-50/40"
               />
-              <span className="font-medium">
-                {t('post_scrape.fraud_notify_toggle')}
-              </span>
-            </label>
+            </div>
           </div>
         </section>
 
@@ -473,6 +479,8 @@ export function FraudSettings({ isInline, onClose }: FraudSettingsProps) {
             </label>
           </div>
         </section>
+
+        <ParsingEngineCard thresholds={thresholds} onThresholdChange={updateLocalThresholds} />
 
         {/* Thresholds */}
         <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">

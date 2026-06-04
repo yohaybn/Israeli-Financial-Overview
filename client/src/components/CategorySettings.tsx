@@ -5,7 +5,11 @@ import { CategoryMetaBoard } from './CategoryMetaBoard';
 import { CollapsibleCard } from './CollapsibleCard';
 import { useAISettings, useUpdateAISettings, useRecategorizeAll } from '../hooks/useScraper';
 
-export function CategorySettings() {
+interface CategorySettingsProps {
+    showAdvanced?: boolean;
+}
+
+export function CategorySettings({ showAdvanced = true }: CategorySettingsProps) {
     const { t } = useTranslation();
     const { data: settings } = useAISettings();
     const { mutate: updateSettings, isPending } = useUpdateAISettings();
@@ -164,18 +168,20 @@ export function CategorySettings() {
                 </div>
             </CollapsibleCard>
 
-            <CollapsibleCard
-                title={t('ai_settings.meta_title')}
-                subtitle={t('ai_settings.meta_description')}
-                defaultOpen
-                bodyClassName="px-6 pb-6 pt-0"
-            >
-                <CategoryMetaBoard
-                    categories={localSettings.categories}
-                    categoryMeta={localSettings.categoryMeta}
-                    onChange={(next) => persistSettings({ ...localSettings, categoryMeta: next })}
-                />
-            </CollapsibleCard>
+            {showAdvanced && (
+                <CollapsibleCard
+                    title={t('ai_settings.meta_title')}
+                    subtitle={t('ai_settings.meta_description')}
+                    defaultOpen
+                    bodyClassName="px-6 pb-6 pt-0"
+                >
+                    <CategoryMetaBoard
+                        categories={localSettings.categories}
+                        categoryMeta={localSettings.categoryMeta}
+                        onChange={(next) => persistSettings({ ...localSettings, categoryMeta: next })}
+                    />
+                </CollapsibleCard>
+            )}
 
             <CollapsibleCard
                 title={t('ai_settings.recategorize_all')}
@@ -184,23 +190,25 @@ export function CategorySettings() {
                 bodyClassName="px-6 pb-6 pt-0"
             >
                 <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100 space-y-4">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className="relative">
-                            <input
-                                type="checkbox"
-                                checked={forceRecat}
-                                onChange={(e) => setForceRecat(e.target.checked)}
-                                className="sr-only"
-                            />
-                            <div
-                                className={`w-10 h-6 rounded-full transition-colors ${forceRecat ? 'bg-indigo-600' : 'bg-gray-300'}`}
-                            />
-                            <div
-                                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${forceRecat ? 'translate-x-4' : 'translate-x-0'}`}
-                            />
-                        </div>
-                        <span className="text-sm font-medium text-indigo-900">{t('ai_settings.force_recategorize')}</span>
-                    </label>
+                    {showAdvanced && (
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                            <div className="relative">
+                                <input
+                                    type="checkbox"
+                                    checked={forceRecat}
+                                    onChange={(e) => setForceRecat(e.target.checked)}
+                                    className="sr-only"
+                                />
+                                <div
+                                    className={`w-10 h-6 rounded-full transition-colors ${forceRecat ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                                />
+                                <div
+                                    className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${forceRecat ? 'translate-x-4' : 'translate-x-0'}`}
+                                />
+                            </div>
+                            <span className="text-sm font-medium text-indigo-900">{t('ai_settings.force_recategorize')}</span>
+                        </label>
+                    )}
 
                     <button
                         type="button"

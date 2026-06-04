@@ -93,7 +93,8 @@
         "open_configuration_aria": "Open configuration",
         "profile_placeholder_aria": "Profile",
         "main_navigation_aria": "Main navigation",
-        "error_occurred": "An error occurred. Please try again."
+        "error_occurred": "An error occurred. Please try again.",
+        "unsaved_config_confirm": "You have unsaved configuration changes. Are you sure you want to leave?"
     },
     "config_tabs": {
         "ai": "AI",
@@ -115,12 +116,15 @@
         "disconnected": "Disconnected",
         "enabled": "Enable MQTT notifications",
         "broker_url": "Broker URL",
+        "broker_url_placeholder": "mqtt://127.0.0.1:1883",
         "port": "Port (optional)",
+        "port_placeholder": "1883",
         "use_tls": "Use TLS (mqtts)",
         "notify_topic": "Notification topic (JSON pipeline messages)",
         "notify_topic_hint": "Required for notifications and test publish. You can enable MQTT with only a command topic (no notifications).",
         "commands_section": "Remote commands (JSON)",
         "command_topic": "Command topic (subscribe)",
+        "command_topic_placeholder": "bank-scraper/cmd",
         "command_response_topic": "Response topic (optional)",
         "command_response_placeholder": "Leave empty: defaults to command topic + /response",
         "command_secret": "Command shared secret (optional)",
@@ -137,6 +141,7 @@
         "test_publish": "Send test message",
         "save_ok": "MQTT settings saved",
         "test_ok": "Test message published",
+        "mask_placeholder": "••••••••",
         "ha_preset_button": "Use Home Assistant defaults",
         "ha_preset_applied": "Home Assistant MQTT preset applied (save to apply)",
         "ha_addon_detected": "Home Assistant add-on environment detected",
@@ -145,7 +150,11 @@
         "ha_discovery_secret_warning": "Set a command secret before enabling discovery — HA buttons require it.",
         "device_id": "Device ID",
         "state_topic_prefix": "State topic prefix",
-        "example_scrape_payload": "Example scrape command (mqtt.publish)"
+        "example_scrape_payload": "Example scrape command (mqtt.publish)",
+        "errors": {
+            "save_failed": "Save failed",
+            "test_failed": "Test failed"
+        }
     },
     "report": {
         "subtitle": "Generate a bilingual PDF of your financial overview, optional AI narrative, and schedule delivery to Telegram.",
@@ -242,7 +251,14 @@
     },
     "config_sidebar": {
         "nav_aria": "Settings sections",
-        "section_select_label": "Section"
+        "section_select_label": "Section",
+        "mode_label": "Configuration mode",
+        "mode_basic_hint": "Showing basic onboarding controls.",
+        "mode_advanced_hint": "Advanced controls are visible.",
+        "show_advanced": "Show advanced",
+        "hide_advanced": "Hide advanced",
+        "show_extra_sections": "Show more settings",
+        "hide_extra_sections": "Hide more settings"
     },
     "scheduler": {
         "title": "Scheduler",
@@ -679,6 +695,7 @@
         "super_privacy_share_dashboard": "Dashboard context (e.g. month you are viewing)",
         "super_privacy_share_history": "Prior messages in this chat",
         "advanced_heading": "Advanced",
+        "advanced_engine_parameters": "Advanced Engine Parameters",
         "advanced_subtitle": "Custom prompts, generation parameters, fallback model, and analyst row cap.",
         "advanced_prompts_section": "Custom instructions (optional)",
         "analytics_prompt_extra_label": "Extra instructions for analytics & dashboard chat",
@@ -963,6 +980,8 @@
         "ynab_title": "YNAB",
         "ynab_help": "Register a YNAB OAuth app; redirect URI must match exactly (e.g. https://your-server/api/budget-export/ynab/callback). Then connect and set budget id + account map.",
         "ynab_budget_id": "YNAB budget id (UUID)",
+        "ynab_client_id": "Client ID",
+        "ynab_client_secret_optional": "Client secret (optional)",
         "ynab_redirect_placeholder": "Redirect URI (must match YNAB app)",
         "ynab_connect": "Connect with YNAB",
         "ynab_connected": "Connected",
@@ -1952,7 +1971,11 @@
             "add_chat_failed": "Failed to add chat",
             "remove_chat_failed": "Failed to remove chat",
             "add_user_failed": "Failed to add user",
-            "remove_user_failed": "Failed to remove user"
+            "remove_user_failed": "Failed to remove user",
+            "send_test_failed": "Failed to send test message",
+            "token_and_chat_required": "Bot token and chat ID are required",
+            "test_failed": "Test failed",
+            "bot_token_required": "Bot token is required"
         },
         "adding": "Adding...",
         "allowed_users": "Allowed Users",
@@ -2312,5 +2335,16 @@
         "log_fetch_failed": "Could not load logs. You can still open the form without logs.",
         "copy_hint": "If you included logs, copy the excerpt below and paste it into the form (e.g. the issue report field).",
         "copy_logs": "Copy full log excerpt"
+    },
+    "config_setup_wizard": {
+        "title": "Initial setup wizard",
+        "subtitle": "Follow these steps to configure the app quickly before touching advanced options.",
+        "open_step": "Open this step",
+        "open_advanced": "Open advanced for this step"
+    },
+    "config_validation": {
+        "required": "This field is required",
+        "min_value": "Minimum value is {{min}}",
+        "max_value": "Maximum value is {{max}}"
     }
 }

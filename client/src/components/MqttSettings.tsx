@@ -126,7 +126,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                 body: JSON.stringify(body),
             });
             const json = await res.json();
-            if (!json.success) throw new Error(json.error || 'Save failed');
+            if (!json.success) throw new Error(json.error || t('mqtt.errors.save_failed'));
             return json;
         },
         onSuccess: () => {
@@ -142,7 +142,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
         mutationFn: async () => {
             const res = await fetch(`${getApiRoot()}/mqtt/test`, { method: 'POST' });
             const json = await res.json();
-            if (!json.success) throw new Error(json.error || 'Test failed');
+            if (!json.success) throw new Error(json.error || t('mqtt.errors.test_failed'));
         },
         onSuccess: () => showNotification('success', t('mqtt.test_ok')),
         onError: (e: Error) => showNotification('error', e.message),
@@ -259,7 +259,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     <span className="text-xs font-bold text-gray-600">{t('mqtt.broker_url')}</span>
                     <input
                         className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="mqtt://127.0.0.1:1883"
+                        placeholder={t('mqtt.broker_url_placeholder')}
                         value={form.brokerUrl || ''}
                         onChange={(e) => updateField('brokerUrl', e.target.value)}
                     />
@@ -271,7 +271,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                         <input
                             type="number"
                             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                            placeholder="1883"
+                            placeholder={t('mqtt.port_placeholder')}
                             value={form.port ?? ''}
                             onChange={(e) =>
                                 updateField('port', e.target.value ? parseInt(e.target.value, 10) : undefined)
@@ -306,7 +306,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                         <span className="text-xs font-bold text-gray-600">{t('mqtt.command_topic')}</span>
                         <input
                             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
-                            placeholder="bank-scraper/cmd"
+                            placeholder={t('mqtt.command_topic_placeholder')}
                             value={form.commandTopic || ''}
                             onChange={(e) => updateField('commandTopic', e.target.value)}
                         />
@@ -327,7 +327,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                             autoComplete="new-password"
                             placeholder={
-                                config?.commandSecret?.startsWith?.('***') ? '••••••••' : ''
+                                config?.commandSecret?.startsWith?.('***') ? t('mqtt.mask_placeholder') : ''
                             }
                             value={form.commandSecret || ''}
                             onChange={(e) => updateField('commandSecret', e.target.value)}
@@ -361,7 +361,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                             type="password"
                             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                             autoComplete="new-password"
-                            placeholder={config?.password?.startsWith?.('***') ? '••••••••' : ''}
+                            placeholder={config?.password?.startsWith?.('***') ? t('mqtt.mask_placeholder') : ''}
                             value={form.password || ''}
                             onChange={(e) => updateField('password', e.target.value)}
                         />

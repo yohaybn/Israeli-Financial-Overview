@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CollapsibleCard } from './CollapsibleCard';
 import { AdvancedAISettings } from './AdvancedAISettings';
 import { GeminiApiKeyCard } from './GeminiApiKeyCard';
 import { AIMemorySettings } from './AIMemorySettings';
@@ -9,14 +8,18 @@ import { CategorySettings } from './CategorySettings';
 import { PersonaAlignmentSettings } from './persona/PersonaAlignmentSettings';
 import { useAISettings, useUpdateAISettings, useAIModels } from '../hooks/useScraper';
 import { useUnifiedData } from '../hooks/useUnifiedData';
+import { LLMProviderCard } from './config/sections/LLMProviderCard';
+import { PromptEngineeringCard } from './config/sections/PromptEngineeringCard';
+import { ConfigStatusBanner } from './config/ConfigStatusBanner';
 
 interface AISettingsProps {
     isOpen?: boolean;
     onClose?: () => void;
     isInline?: boolean;
+    showAdvanced?: boolean;
 }
 
-export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
+export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: AISettingsProps) {
     const { t } = useTranslation();
     const { data: settings } = useAISettings();
     const { data: models } = useAIModels();
@@ -25,6 +28,7 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
 
     const [localSettings, setLocalSettings] = useState<any>(null);
     const [aiSubTab, setAiSubTab] = useState<'settings' | 'memory'>('settings');
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
         if (settings) {
@@ -32,15 +36,23 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
         }
     }, [settings]);
 
+    useEffect(() => {
+        if (!showAdvanced && aiSubTab === 'memory') {
+            setAiSubTab('settings');
+        }
+    }, [showAdvanced, aiSubTab]);
+
     if (!isInline && (!isOpen || !localSettings)) return null;
     if (isInline && !localSettings) return <div className="p-8 text-center text-gray-500">{t('ai_settings.loading')}</div>;
 
     const persistSettings = (next: any) => {
         setLocalSettings(next);
+        setSaveError(null);
         updateSettings(next, {
             onError: (err: Error) => {
-                alert(t('common.save_failed_with_error', { error: err?.message || t('common.unknown_error') }));
+                setSaveError(t('common.save_failed_with_error', { error: err?.message || t('common.unknown_error') }));
             },
+            onSuccess: () => window.dispatchEvent(new CustomEvent('configuration-saved')),
         });
     };
 
@@ -65,9 +77,14 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
                 role="tab"
                 aria-selected={aiSubTab === 'memory'}
                 id="ai-config-subtab-memory"
+                disabled={!showAdvanced}
                 onClick={() => setAiSubTab('memory')}
                 className={`flex-1 min-w-0 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                    aiSubTab === 'memory' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                    aiSubTab === 'memory'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : showAdvanced
+                          ? 'text-slate-600 hover:text-slate-900'
+                          : 'text-slate-400 cursor-not-allowed'
                 }`}
             >
                 {t('ai_settings.subtab_memory')}
@@ -79,67 +96,55 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
         <>
             <GeminiApiKeyCard />
 
-            <CollapsibleCard
-                title={t('ai_settings.models_heading')}
-                subtitle={t('ai_settings.models_subtitle')}
-                defaultOpen
-                bodyClassName="px-6 pb-6 pt-0"
-            >
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                            {t('ai_settings.categorization_model')}
-                        </label>
-                        <select
-                            value={localSettings.categorizationModel}
-                            onChange={(e) => persistSettings({ ...localSettings, categorizationModel: e.target.value })}
-                            className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                            {models?.map((m) => (
-                                <option key={m} value={m}>
-                                    {m}
-                                </option>
-                            )) || (
-                                <>
-                                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                                </>
-                            )}
-                        </select>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('ai_settings.analyst_model')}</label>
-                        <select
-                            value={localSettings.chatModel}
-                            onChange={(e) => persistSettings({ ...localSettings, chatModel: e.target.value })}
-                            className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                            {models?.map((m) => (
-                                <option key={m} value={m}>
-                                    {m}
-                                </option>
-                            )) || (
-                                <>
-                                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                                </>
-                            )}
-                        </select>
-                    </div>
-                </div>
-            </CollapsibleCard>
-
-            <AdvancedAISettings
-                localSettings={localSettings}
-                persistSettings={persistSettings}
-                isPending={isPending}
+            <LLMProviderCard
                 models={models}
-                unifiedTransactions={unifiedTransactions}
-                onCloseModal={onClose}
-                isInline={isInline}
+                disabled={isPending}
+                initialValues={{
+                    categorizationModel: String(localSettings.categorizationModel ?? ''),
+                    chatModel: String(localSettings.chatModel ?? ''),
+                    llmTemperature: Number(localSettings.analyticsTemperature ?? 1),
+                }}
+                onSave={(values) =>
+                    persistSettings({
+                        ...localSettings,
+                        categorizationModel: values.categorizationModel,
+                        chatModel: values.chatModel,
+                        analyticsTemperature: values.llmTemperature,
+                    })
+                }
             />
+
+            {showAdvanced && (
+                <>
+                    <AdvancedAISettings
+                        localSettings={localSettings}
+                        persistSettings={persistSettings}
+                        isPending={isPending}
+                        models={models}
+                        unifiedTransactions={unifiedTransactions}
+                        onCloseModal={onClose}
+                        isInline={isInline}
+                    />
+
+                    <PromptEngineeringCard
+                        systemPrompt={String(localSettings.analyticsSystemInstructionExtra ?? '')}
+                        analyticsPromptExtra={String(localSettings.analyticsPromptExtra ?? '')}
+                        disabled={isPending}
+                        onSystemPromptChange={(value) =>
+                            persistSettings({
+                                ...localSettings,
+                                analyticsSystemInstructionExtra: value ? value : null,
+                            })
+                        }
+                        onAnalyticsPromptExtraChange={(value) =>
+                            persistSettings({
+                                ...localSettings,
+                                analyticsPromptExtra: value ? value : null,
+                            })
+                        }
+                    />
+                </>
+            )}
 
             <AIPreferencesSettings />
 
@@ -164,6 +169,8 @@ export function AISettings({ isOpen, onClose, isInline }: AISettingsProps) {
             )}
 
             <div className={!isInline ? 'pt-2' : ''}>{subTabBar}</div>
+
+            <ConfigStatusBanner state={saveError ? 'error' : isPending ? 'saving' : 'idle'} message={saveError} />
 
             {isPending && (
                 <div className="flex justify-end">

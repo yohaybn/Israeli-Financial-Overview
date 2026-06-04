@@ -93,7 +93,8 @@
         "open_configuration_aria": "פתיחת הגדרות",
         "profile_placeholder_aria": "פרופיל",
         "main_navigation_aria": "ניווט ראשי",
-        "error_occurred": "אירעה תקלה. אנא נסו שוב."
+        "error_occurred": "אירעה תקלה. אנא נסו שוב.",
+        "unsaved_config_confirm": "יש שינויים שלא נשמרו בהגדרות. בטוחים שרוצים לצאת?"
     },
     "config_tabs": {
         "ai": "AI",
@@ -115,12 +116,15 @@
         "disconnected": "מנותק",
         "enabled": "הפעלת התראות MQTT",
         "broker_url": "כתובת ברוקר",
+        "broker_url_placeholder": "mqtt://127.0.0.1:1883",
         "port": "פורט (אופציונלי)",
+        "port_placeholder": "1883",
         "use_tls": "TLS (mqtts)",
         "notify_topic": "נושא להתראות (JSON)",
         "notify_topic_hint": "נדרש להתראות ולבדיקת פרסום. אפשר להפעיל MQTT רק עם נושא פקודות (בלי התראות).",
         "commands_section": "פקודות מרחוק (JSON)",
         "command_topic": "נושא פקודות (הרשמה)",
+        "command_topic_placeholder": "bank-scraper/cmd",
         "command_response_topic": "נושא תשובה (אופציונלי)",
         "command_response_placeholder": "ריק: ברירת מחדל — נושא הפקודות + /response",
         "command_secret": "סוד משותף לפקודות (אופציונלי)",
@@ -137,6 +141,7 @@
         "test_publish": "שליחת בדיקה",
         "save_ok": "הגדרות MQTT נשמרו",
         "test_ok": "הודעת הבדיקה פורסמה",
+        "mask_placeholder": "••••••••",
         "ha_preset_button": "ברירות מחדל ל-Home Assistant",
         "ha_preset_applied": "הוחלו ברירות MQTT ל-Home Assistant (שמרו להחלה)",
         "ha_addon_detected": "זוהה סביבת תוסף Home Assistant",
@@ -145,7 +150,11 @@
         "ha_discovery_secret_warning": "הגדירו סוד פקודות לפני הפעלת Discovery — כפתורי HA דורשים זאת.",
         "device_id": "מזהה מכשיר",
         "state_topic_prefix": "קידומת נושא state",
-        "example_scrape_payload": "דוגמת פקודת scrape (mqtt.publish)"
+        "example_scrape_payload": "דוגמת פקודת scrape (mqtt.publish)",
+        "errors": {
+            "save_failed": "השמירה נכשלה",
+            "test_failed": "הבדיקה נכשלה"
+        }
     },
     "report": {
         "subtitle": "יצירת PDF דו־לשוני של המבט הכלכלי, תובנות AI אופציונליות, ותזמון שליחה לטלגרם.",
@@ -242,7 +251,14 @@
     },
     "config_sidebar": {
         "nav_aria": "אזורי הגדרות",
-        "section_select_label": "אזור"
+        "section_select_label": "אזור",
+        "mode_label": "מצב תצורה",
+        "mode_basic_hint": "מוצגות רק הגדרות בסיס לתהליך ההתחלתי.",
+        "mode_advanced_hint": "הגדרות מתקדמות מוצגות.",
+        "show_advanced": "הצג מתקדם",
+        "hide_advanced": "הסתר מתקדם",
+        "show_extra_sections": "הצג עוד הגדרות",
+        "hide_extra_sections": "הסתר עוד הגדרות"
     },
     "scheduler": {
         "title": "תזמון אוטומטי",
@@ -679,6 +695,7 @@
         "super_privacy_share_dashboard": "הקשר מהלוח (למשל החודש שאתם צופים בו)",
         "super_privacy_share_history": "הודעות קודמות בצ'אט הזה",
         "advanced_heading": "מתקדם",
+        "advanced_engine_parameters": "פרמטרי מנוע מתקדמים",
         "advanced_subtitle": "הנחיות מותאמות אישית, פרמטרי יצירה, מודל גיבוי והגבלת שורות לאנליסט.",
         "advanced_prompts_section": "הנחיות נוספות (אופציונלי)",
         "analytics_prompt_extra_label": "הנחיות נוספות לניתוח ולצ'אט בלוח הבקרה",
@@ -963,6 +980,8 @@
         "ynab_title": "YNAB",
         "ynab_help": "רישום אפליקציית YNAB OAuth; כתובת ההפניה חייבת להתאים בדיוק (למשל https://your-server/api/budget-export/ynab/callback). לאחר מכן התחברו והגדירו מזהה תקציב ומפת חשבונות.",
         "ynab_budget_id": "מזהה תקציב YNAB (UUID)",
+        "ynab_client_id": "Client ID",
+        "ynab_client_secret_optional": "Client secret (optional)",
         "ynab_redirect_placeholder": "כתובת הפניה (חייבת להתאים לאפליקציה ב-YNAB)",
         "ynab_connect": "התחברות ל-YNAB",
         "ynab_connected": "מחובר",
@@ -1952,7 +1971,11 @@
             "add_chat_failed": "הוספת הצ'אט נכשלה",
             "remove_chat_failed": "מחיקת הצ'אט נכשלה",
             "add_user_failed": "המשתמש לא נוסף כראוי",
-            "remove_user_failed": "לא הצלחנו להסיר את המשתמש"
+            "remove_user_failed": "לא הצלחנו להסיר את המשתמש",
+            "send_test_failed": "שליחת הודעת בדיקה נכשלה",
+            "token_and_chat_required": "נדרש טוקן בוט ומזהה צ'אט",
+            "test_failed": "הבדיקה נכשלה",
+            "bot_token_required": "נדרש טוקן בוט"
         },
         "adding": "מוסיף...",
         "allowed_users": "מי מורשה לדבר איתו?",
@@ -2312,5 +2335,16 @@
         "log_fetch_failed": "משהו נתקע ולא הצלחנו להוריד את הלוגים. אפשר פשוט לשלוח בלי זה.",
         "copy_hint": "אם בחרתם לכלול לוגים, לחצו למטה 'העתק', ולכו להדביק אותם בתוך תיבת הטקסט בטופס.",
         "copy_logs": "העתקת הלוגים המלאים לזיכרון"
+    },
+    "config_setup_wizard": {
+        "title": "אשף הגדרה ראשונית",
+        "subtitle": "עברו על השלבים כדי להגדיר את המערכת מהר לפני שנכנסים לאפשרויות מתקדמות.",
+        "open_step": "פתח את השלב הזה",
+        "open_advanced": "פתח מתקדם עבור השלב הזה"
+    },
+    "config_validation": {
+        "required": "השדה הזה חובה",
+        "min_value": "הערך המינימלי הוא {{min}}",
+        "max_value": "הערך המקסימלי הוא {{max}}"
     }
 }

@@ -3,6 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { GlobalScrapeConfig, ScraperOptions, parseExcludedAccountNumbersInput } from '@app/shared';
 import { api } from '../lib/api';
 import { CollapsibleCard } from './CollapsibleCard';
+import { ScraperCredentialsCard } from './config/sections/ScraperCredentialsCard';
+import { ToggleSwitch } from './ToggleSwitch';
+import { ConfigStatusBanner } from './config/ConfigStatusBanner';
+import {
+    emitFraudDetectionPatch,
+    mergeFraudDetectionConfig,
+    subscribeFraudDetectionPatch,
+} from './config/fraudDetectionSync';
 
 interface ScrapeSettingsProps {
     isOpen?: boolean;
@@ -10,9 +18,10 @@ interface ScrapeSettingsProps {
     isInline?: boolean;
     /** Jump to Configuration → Budget exports (same panel). */
     onOpenBudgetExports?: () => void;
+    showAdvanced?: boolean;
 }
 
-export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports }: ScrapeSettingsProps) {
+export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports, showAdvanced = true }: ScrapeSettingsProps) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -54,6 +63,12 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
     }, []);
 
     useEffect(() => {
+        return subscribeFraudDetectionPatch((patch) => {
+            setConfig((current) => (current ? mergeFraudDetectionConfig(current, patch) : current));
+        });
+    }, []);
+
+    useEffect(() => {
         if (!config) return;
         const json = JSON.stringify(config);
         if (lastSerializedRef.current === json) return;
@@ -67,6 +82,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                 setConfig(next);
                 lastSerializedRef.current = JSON.stringify(next);
                 setToast(t('common.save_success'));
+                window.dispatchEvent(new CustomEvent('configuration-saved'));
                 setTimeout(() => setToast(null), 1500);
             } catch (e: any) {
                 console.error('Failed to save scrape config', e);
@@ -92,6 +108,13 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
             ...config,
             postScrapeConfig: { ...config.postScrapeConfig, ...patch }
         });
+    };
+
+    const updateFraudDetection = (patch: Partial<GlobalScrapeConfig['postScrapeConfig']['fraudDetection']>) => {
+        if (!config) return;
+        const next = mergeFraudDetectionConfig(config, patch);
+        setConfig(next);
+        emitFraudDetectionPatch(patch);
     };
 
     if (!isInline && (!isOpen || !config)) return null;
@@ -130,44 +153,10 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
-                            <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-50">
-                                <input
-                                    type="checkbox"
-                                    checked={config.scraperOptions.showBrowser || false}
-                                    onChange={(e) => updateOption('showBrowser', e.target.checked)}
-                                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <div>
-                                    <span className="block text-sm font-bold text-gray-700">{t('scraper.show_browser')}</span>
-                                    <span className="text-xs text-gray-500">{t('scraper.show_browser_desc')}</span>
-                                </div>
-                            </label>
-
-                            <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-50">
-                                <input
-                                    type="checkbox"
-                                    checked={config.scraperOptions.verbose ?? true}
-                                    onChange={(e) => updateOption('verbose', e.target.checked)}
-                                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <div>
-                                    <span className="block text-sm font-bold text-gray-700">{t('scraper.verbose')}</span>
-                                    <span className="text-xs text-gray-500">{t('scraper.verbose_desc')}</span>
-                                </div>
-                            </label>
-
-                            <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border border-gray-50">
-                                <input
-                                    type="checkbox"
-                                    checked={config.scraperOptions.combineInstallments || false}
-                                    onChange={(e) => updateOption('combineInstallments', e.target.checked)}
-                                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <div>
-                                    <span className="block text-sm font-bold text-gray-700">{t('scraper.combine_installments')}</span>
-                                    <span className="text-xs text-gray-500">{t('scraper.combine_installments_desc')}</span>
-                                </div>
-                            </label>
+                            <ScraperCredentialsCard
+                                config={config}
+                                onToggle={(key, value) => updateOption(key, value)}
+                            />
 
                             <label className="flex items-center gap-3 p-3 bg-blue-50/50 rounded-xl cursor-pointer hover:bg-blue-100/50 transition-colors border border-blue-100/50">
                                 <input
@@ -194,54 +183,60 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                 />
                             </div>
 
-                            <label className="flex items-center gap-3 p-3 bg-indigo-50/50 rounded-xl cursor-pointer hover:bg-indigo-100/50 transition-colors border border-indigo-100/50">
-                                <input
-                                    type="checkbox"
-                                    checked={config.useSmartStartDate}
-                                    onChange={(e) => setConfig({ ...config, useSmartStartDate: e.target.checked })}
-                                    className="w-5 h-5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
-                                />
-                                <div>
-                                    <span className="block text-sm font-bold text-indigo-900">{t('scraper.smart_start_date')}</span>
-                                    <span className="text-xs text-indigo-700 opacity-80">{t('scraper.smart_start_date_desc')}</span>
-                                </div>
-                            </label>
+                            {showAdvanced && (
+                                <>
+                                    <label className="flex items-center gap-3 p-3 bg-indigo-50/50 rounded-xl cursor-pointer hover:bg-indigo-100/50 transition-colors border border-indigo-100/50">
+                                        <input
+                                            type="checkbox"
+                                            checked={config.useSmartStartDate}
+                                            onChange={(e) => setConfig({ ...config, useSmartStartDate: e.target.checked })}
+                                            className="w-5 h-5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <div>
+                                            <span className="block text-sm font-bold text-indigo-900">{t('scraper.smart_start_date')}</span>
+                                            <span className="text-xs text-indigo-700 opacity-80">{t('scraper.smart_start_date_desc')}</span>
+                                        </div>
+                                    </label>
 
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.future_months')}</label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={12}
-                                    value={config.scraperOptions.futureMonthsToScrape || 0}
-                                    onChange={(e) => updateOption('futureMonthsToScrape', parseInt(e.target.value))}
-                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
-                                />
-                            </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.future_months')}</label>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={12}
+                                            value={config.scraperOptions.futureMonthsToScrape || 0}
+                                            onChange={(e) => updateOption('futureMonthsToScrape', parseInt(e.target.value))}
+                                            className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
-                    <div className="mt-6">
-                        <label className="block text-sm font-bold text-gray-700 mb-1" htmlFor="globalExcludedAccounts">
-                            {t('scraper.excluded_accounts')}
-                        </label>
-                        <textarea
-                            id="globalExcludedAccounts"
-                            rows={3}
-                            placeholder="12-345-678901"
-                            value={(config.scraperOptions.excludedAccountNumbers || []).join('\n')}
-                            onChange={(e) =>
-                                updateOption(
-                                    'excludedAccountNumbers',
-                                    parseExcludedAccountNumbersInput(e.target.value)
-                                )
-                            }
-                            className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm font-mono"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">{t('scraper.excluded_accounts_hint')}</p>
-                    </div>
+                    {showAdvanced && (
+                        <div className="mt-6">
+                            <label className="block text-sm font-bold text-gray-700 mb-1" htmlFor="globalExcludedAccounts">
+                                {t('scraper.excluded_accounts')}
+                            </label>
+                            <textarea
+                                id="globalExcludedAccounts"
+                                rows={3}
+                                placeholder="12-345-678901"
+                                value={(config.scraperOptions.excludedAccountNumbers || []).join('\n')}
+                                onChange={(e) =>
+                                    updateOption(
+                                        'excludedAccountNumbers',
+                                        parseExcludedAccountNumbersInput(e.target.value)
+                                    )
+                                }
+                                className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm font-mono"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">{t('scraper.excluded_accounts_hint')}</p>
+                        </div>
+                    )}
 
-                    <div className="mt-8 pt-6 border-t border-gray-100">
+                    {showAdvanced && <div className="mt-8 pt-6 border-t border-gray-100">
                         <label className="block text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
                              <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -301,7 +296,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                 />
                             </div>
                         </div>
-                    </div>
+                    </div>}
                 </CollapsibleCard>
 
                 {/* Post-Scrape Actions */}
@@ -358,18 +353,13 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <input
-                                            type="checkbox"
-                                            checked={config.postScrapeConfig.fraudDetection?.enabled}
-                                            onChange={(e) => updatePostScrape({ fraudDetection: { ...config.postScrapeConfig.fraudDetection, enabled: e.target.checked } })}
-                                            className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                                        />
-                                        <span className="text-sm font-bold text-gray-700">{t('post_scrape.fraud_detection')}</span>
-                                    </div>
-                                </div>
+                            {showAdvanced && <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                                <ToggleSwitch
+                                    checked={Boolean(config.postScrapeConfig.fraudDetection?.enabled)}
+                                    onChange={(next) => updateFraudDetection({ enabled: next })}
+                                    label={t('post_scrape.fraud_detection')}
+                                    className="border-purple-200"
+                                />
                                 <p className="text-xs text-gray-500">{t('post_scrape.fraud_notify_help')}</p>
 
                                 {/* Detector mode (local / AI / both) */}
@@ -390,14 +380,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                                 <button
                                                     key={mode}
                                                     type="button"
-                                                    onClick={() =>
-                                                        updatePostScrape({
-                                                            fraudDetection: {
-                                                                ...config.postScrapeConfig.fraudDetection,
-                                                                mode,
-                                                            },
-                                                        })
-                                                    }
+                                                    onClick={() => updateFraudDetection({ mode })}
                                                     className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
                                                         isActive
                                                             ? 'bg-purple-600 text-white shadow-sm'
@@ -412,13 +395,13 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                 </div>
                                 <div className="flex gap-2 p-1 bg-gray-50 rounded-lg border border-gray-100 w-fit">
                                     <button 
-                                        onClick={() => updatePostScrape({ fraudDetection: { ...config.postScrapeConfig.fraudDetection, scope: 'current' } })}
+                                        onClick={() => updateFraudDetection({ scope: 'current' })}
                                         className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.fraudDetection?.scope !== 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
                                     >
                                         {t('post_scrape.scope_current')}
                                     </button>
                                     <button 
-                                        onClick={() => updatePostScrape({ fraudDetection: { ...config.postScrapeConfig.fraudDetection, scope: 'all' } })}
+                                        onClick={() => updateFraudDetection({ scope: 'all' })}
                                         className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${config.postScrapeConfig.fraudDetection?.scope === 'all' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
                                     >
                                         {t('post_scrape.scope_all')}
@@ -426,24 +409,12 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                 </div>
 
                                 {/* Notify toggle */}
-                                <label className="flex items-center gap-2 text-xs text-gray-600 mt-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={config.postScrapeConfig.fraudDetection?.notifyOnIssue ?? true}
-                                        onChange={(e) =>
-                                            updatePostScrape({
-                                                fraudDetection: {
-                                                    ...config.postScrapeConfig.fraudDetection,
-                                                    notifyOnIssue: e.target.checked,
-                                                },
-                                            })
-                                        }
-                                        className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                                    />
-                                    <span className="font-medium">
-                                        {t('post_scrape.fraud_notify_toggle')}
-                                    </span>
-                                </label>
+                                <ToggleSwitch
+                                    checked={config.postScrapeConfig.fraudDetection?.notifyOnIssue ?? true}
+                                    onChange={(next) => updateFraudDetection({ notifyOnIssue: next })}
+                                    label={t('post_scrape.fraud_notify_toggle')}
+                                    className="border-purple-200"
+                                />
 
                                 {/* Link to advanced fraud settings */}
                                 <button
@@ -457,9 +428,9 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                 >
                                     {t('post_scrape.fraud_advanced_link')}
                                 </button>
-                            </div>
+                            </div>}
 
-                            <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                            {showAdvanced && <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">
                                 <div className="flex items-center gap-3">
                                     <input
                                         type="checkbox"
@@ -508,10 +479,10 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                         <span className="text-[11px] text-gray-500">{t('post_scrape.custom_ai_skip_if_no_tx_desc')}</span>
                                     </span>
                                 </label>
-                            </div>
+                            </div>}
                         </div>
 
-                        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-2">
+                        {showAdvanced && <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-2">
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -543,9 +514,9 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                             <p className="text-xs text-gray-500 pl-8 border-l-2 border-indigo-100 ml-1">
                                 {t('post_scrape.whale_where')}
                             </p>
-                        </div>
+                        </div>}
 
-                        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                        {showAdvanced && <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -560,9 +531,9 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                     <span className="text-xs text-gray-500">{t('post_scrape.spending_digest_help')}</span>
                                 </span>
                             </label>
-                        </div>
+                        </div>}
 
-                        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                        {showAdvanced && <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -618,9 +589,9 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                     </label>
                                 </div>
                             )}
-                        </div>
+                        </div>}
 
-                        <div className="space-y-3">
+                        {showAdvanced && <div className="space-y-3">
                             <label className="text-sm font-bold text-gray-700">{t('post_scrape.notification_channels')}</label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {Array.from(new Set([...(availableChannels || []), 'telegram', 'mqtt'])).map((ch) => {
@@ -657,7 +628,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                                     );
                                 })}
                             </div>
-                        </div>
+                        </div>}
                     </div>
                 </CollapsibleCard>
             </div>
@@ -671,15 +642,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports 
                         {error}
                     </div>
                 )}
-                {saving && (
-                    <span className="mr-auto text-xs text-indigo-600 font-bold flex items-center gap-1.5">
-                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" aria-hidden>
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        {t('common.saving')}
-                    </span>
-                )}
+                {!error && <ConfigStatusBanner state={saving ? 'saving' : 'idle'} />}
                 {!isInline && onClose && (
                     <button
                         type="button"

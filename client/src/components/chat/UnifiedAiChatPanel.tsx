@@ -62,7 +62,7 @@ export function UnifiedAiChatPanel({
 
     return (
         <>
-            <div className="fixed bottom-6 right-6 z-[110] flex flex-col items-end pointer-events-none max-w-[calc(100vw-1.5rem)]">
+            <div className="fixed bottom-6 [inset-inline-end:1.5rem] z-[110] flex flex-col items-end pointer-events-none max-w-[calc(100vw-1.5rem)]">
                 <div className="pointer-events-auto w-96 max-w-[calc(100vw-3rem)] h-[min(560px,80vh)] max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200">
                     {/* Shared header */}
                     <div className="shrink-0 p-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex justify-between items-start gap-2">

@@ -5,6 +5,7 @@ import {
     type Transaction,
 } from '@app/shared';
 import { CollapsibleCard } from './CollapsibleCard';
+import { ToggleSwitch } from './ToggleSwitch';
 
 type LocalAiSettings = Record<string, unknown>;
 
@@ -31,7 +32,7 @@ const labelClass = 'text-xs font-bold text-gray-400 uppercase tracking-wider';
 const inputClass =
     'w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none';
 const textareaClass =
-    'w-full min-h-[88px] px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-y';
+    'font-mono text-sm bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500 p-3 rounded-md w-full min-h-[88px] outline-none resize-y';
 
 function optNumField(
     key: string,
@@ -98,7 +99,7 @@ export function AdvancedAISettings({
 
     return (
         <CollapsibleCard
-            title={t('ai_settings.advanced_heading')}
+            title={t('ai_settings.advanced_engine_parameters')}
             subtitle={t('ai_settings.advanced_subtitle')}
             defaultOpen={false}
             bodyClassName="px-6 pb-6 pt-0 space-y-6"
@@ -158,21 +159,14 @@ export function AdvancedAISettings({
                                 ['superPrivacyShareChatHistory', 'ai_settings.super_privacy_share_history'],
                             ] as const
                         ).map(([key, labelKey]) => (
-                            <label
+                            <ToggleSwitch
                                 key={key}
-                                className="flex items-start gap-2.5 text-sm text-emerald-950 cursor-pointer"
-                            >
-                                <input
-                                    type="checkbox"
-                                    disabled={isPending}
-                                    checked={Boolean(localSettings[key])}
-                                    onChange={(e) =>
-                                        persistSettings({ ...base, [key]: e.target.checked })
-                                    }
-                                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                />
-                                <span>{t(labelKey)}</span>
-                            </label>
+                                disabled={isPending}
+                                checked={Boolean(localSettings[key])}
+                                onChange={(next) => persistSettings({ ...base, [key]: next })}
+                                label={t(labelKey)}
+                                className="border-emerald-200 bg-white/80"
+                            />
                         ))}
                     </div>
                 )}

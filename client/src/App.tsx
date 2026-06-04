@@ -17,12 +17,13 @@ import { useOnboarding } from './contexts/OnboardingContext';
 import { useGettingStarted } from './contexts/GettingStartedContext';
 import { GettingStartedWizard } from './components/onboarding/GettingStartedWizard';
 import { GettingStartedResumeBanner } from './components/onboarding/GettingStartedResumeBanner';
+import { ConfigSetupWizard, shouldShowConfigSetupWizard } from './components/onboarding/ConfigSetupWizard';
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { TopBarServerStatus } from './components/TopBarServerStatus';
 import { isDemoMode } from './demo/isDemo';
 import { Map as MapIcon, Bot, MessageSquare } from 'lucide-react';
-import { parseAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
+import { parseAppUrlState, pushAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
 import { UnifiedAiChatPanel, type AiPanelTab } from './components/chat/UnifiedAiChatPanel';
 import { FeedbackModal } from './components/FeedbackModal';
 import { TransactionReviewModal } from './components/TransactionReviewModal';
@@ -78,16 +79,49 @@ function App() {
     const [hasCheckedData, setHasCheckedData] = useState(false);
     const [aiPanelOpen, setAiPanelOpen] = useState(false);
     const [aiPanelTab, setAiPanelTab] = useState<AiPanelTab>('analyst');
+    const [isConfigDirty, setIsConfigDirty] = useState(false);
+    const [showConfigWizard, setShowConfigWizard] = useState(() => shouldShowConfigSetupWizard());
+    const hasSyncedUrlRef = useRef(false);
+    const popstateSyncRef = useRef(false);
 
     useEffect(() => {
-        replaceAppUrlState(nav);
+        if (!hasSyncedUrlRef.current) {
+            replaceAppUrlState(nav);
+            hasSyncedUrlRef.current = true;
+            return;
+        }
+        if (popstateSyncRef.current) {
+            popstateSyncRef.current = false;
+            replaceAppUrlState(nav);
+            return;
+        }
+        pushAppUrlState(nav);
     }, [nav]);
 
     useEffect(() => {
-        const onPop = () => setNav(parseAppUrlState(window.location.search, null));
+        const onPop = () => {
+            popstateSyncRef.current = true;
+            setNav(parseAppUrlState(window.location.search, null));
+        };
         window.addEventListener('popstate', onPop);
         return () => window.removeEventListener('popstate', onPop);
     }, []);
+
+    useEffect(() => {
+        const onDirty = () => setIsConfigDirty(true);
+        const onSaved = () => setIsConfigDirty(false);
+        window.addEventListener('configuration-dirty', onDirty);
+        window.addEventListener('configuration-saved', onSaved);
+        return () => {
+            window.removeEventListener('configuration-dirty', onDirty);
+            window.removeEventListener('configuration-saved', onSaved);
+        };
+    }, []);
+
+    const confirmConfigLeave = useCallback(() => {
+        if (!isConfigDirty) return true;
+        return window.confirm(t('common.unsaved_config_confirm'));
+    }, [isConfigDirty, t]);
 
     useEffect(() => {
         const onOpenFraud = () => {
@@ -196,6 +230,10 @@ function App() {
     }, []);
 
     const setView = (next: AppUrlState['view']) => {
+        if (nav.view === 'configuration' && next !== 'configuration' && !confirmConfigLeave()) return;
+        if (nav.view !== next && next === 'configuration') {
+            setIsConfigDirty(false);
+        }
         setNav((prev) => ({
             ...prev,
             view: next,
@@ -572,25 +610,39 @@ function App() {
                             />
                         </div>
                         <div className={view === 'configuration' ? 'h-full' : 'hidden'}>
-                            <ConfigurationPanel
-                                activeTab={configTab}
-                                onTabChange={(tab) =>
-                                    setNav((prev) => ({
-                                        ...prev,
-                                        configTab: tab,
-                                        insightRuleId: tab === 'insight-rules' ? prev.insightRuleId : null,
-                                    }))
-                                }
-                                onOpenBudgetExports={() =>
-                                    setNav((prev) => ({
-                                        ...prev,
-                                        configTab: 'budget-exports',
-                                        insightRuleId: null,
-                                    }))
-                                }
-                                openInsightRuleId={insightRuleId}
-                                onOpenInsightRuleConsumed={handleInsightRuleOpenConsumed}
-                            />
+                            <div className="h-full overflow-y-auto py-4">
+                                {showConfigWizard && (
+                                    <ConfigSetupWizard
+                                        activeTab={configTab}
+                                        onNavigate={(tab) => {
+                                            setIsConfigDirty(false);
+                                            setNav((prev) => ({ ...prev, configTab: tab }));
+                                        }}
+                                    />
+                                )}
+                                <ConfigurationPanel
+                                    activeTab={configTab}
+                                    onTabChange={(tab) => {
+                                        if (tab !== configTab && !confirmConfigLeave()) return;
+                                        setIsConfigDirty(false);
+                                        if (showConfigWizard) setShowConfigWizard(false);
+                                        setNav((prev) => ({
+                                            ...prev,
+                                            configTab: tab,
+                                            insightRuleId: tab === 'insight-rules' ? prev.insightRuleId : null,
+                                        }));
+                                    }}
+                                    onOpenBudgetExports={() =>
+                                        setNav((prev) => ({
+                                            ...prev,
+                                            configTab: 'budget-exports',
+                                            insightRuleId: null,
+                                        }))
+                                    }
+                                    openInsightRuleId={insightRuleId}
+                                    onOpenInsightRuleConsumed={handleInsightRuleOpenConsumed}
+                                />
+                            </div>
                         </div>
                         <div className={view === 'logs' ? 'h-full' : 'hidden'}>
                             <LogViewer
@@ -633,7 +685,7 @@ function App() {
                                 setAiPanelTab('analyst');
                                 setAiPanelOpen(true);
                             }}
-                            className="fixed bottom-6 right-6 p-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all z-[100] group"
+                            className="fixed bottom-6 [inset-inline-end:1.5rem] p-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all z-[100] group"
                             title={t('dashboard.open_ai_chat')}
                             aria-label={t('dashboard.open_ai_chat')}
                         >
