@@ -20,6 +20,7 @@ import { useAISettings, useRecategorizeAll } from '../hooks/useScraper';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { getCategoryLucideIcon } from '../utils/categoryIcons';
 import { transactionMatchesSearchQuery } from '../utils/transactionSearch';
+import { formatIsraeliCurrency, formatTransactionDate, getInstitutionLabel } from '../utils/formatters';
 
 interface TransactionTableProps {
     transactions: Transaction[];
@@ -308,17 +309,6 @@ export function TransactionTable({
         }
     };
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString(i18n.language === 'he' ? 'he-IL' : 'en-US');
-    };
-
-    const formatAmount = (amount: number) => {
-        return new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
-            style: 'currency',
-            currency: 'ILS',
-        }).format(amount);
-    };
-
     const formatStatus = (status?: string) => {
         if (!status) return t('common.unknown');
         switch (status) {
@@ -569,7 +559,9 @@ export function TransactionTable({
                             >
                                 <option value="all">{t('common.all')}</option>
                                 {accountOptions.map(([key, { provider, accountNumber }]) => {
-                                    const providerLabel = getProviderDisplayName(provider, providers, i18n.language);
+                                    const providerLabel =
+                                        getProviderDisplayName(provider, providers, i18n.language) ||
+                                        getInstitutionLabel(provider);
                                     const acct = accountNumber || '—';
                                     return (
                                         <option key={key} value={key}>
@@ -742,11 +734,13 @@ export function TransactionTable({
             case 'date':
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-600 whitespace-nowrap`}>
-                        {formatDate(txn.date)}
+                        {formatTransactionDate(txn.date)}
                     </td>
                 );
             case 'account': {
-                const providerLabel = getProviderDisplayName(txn.provider, providers, i18n.language);
+                const providerLabel =
+                    getProviderDisplayName(txn.provider, providers, i18n.language) ||
+                    getInstitutionLabel(txn.provider);
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-900 whitespace-nowrap`}>
                         <div className="font-medium tabular-nums">{txn.accountNumber || '—'}</div>
@@ -757,7 +751,7 @@ export function TransactionTable({
             case 'processedDate':
                 return (
                     <td key={col.key} className={`${baseClass} text-gray-600 whitespace-nowrap`}>
-                        {formatDate(txn.processedDate)}
+                        {formatTransactionDate(txn.processedDate)}
                     </td>
                 );
             case 'description': {
@@ -779,7 +773,7 @@ export function TransactionTable({
                                     </div>
                                 )}
                             </div>
-                            <div className="text-xs text-gray-500 mt-0.5 tabular-nums">{formatDate(txn.date)}</div>
+                            <div className="text-xs text-gray-500 mt-0.5 tabular-nums">{formatTransactionDate(txn.date)}</div>
                             {txn.memo && <div className="text-xs text-gray-400 mt-0.5">{txn.memo}</div>}
                         </div>
                     </td>
@@ -817,18 +811,22 @@ export function TransactionTable({
                     </td>
                 );
             }
-            case 'chargedAmount':
+            case 'chargedAmount': {
+                const charged = formatIsraeliCurrency(txn.chargedAmount || 0);
                 return (
-                    <td key={col.key} className={`${baseClass} font-bold whitespace-nowrap ${(txn.chargedAmount || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatAmount(txn.chargedAmount || 0)}
+                    <td key={col.key} className={`${baseClass} whitespace-nowrap`}>
+                        <span className={charged.className}>{charged.value}</span>
                     </td>
                 );
-            case 'originalAmount':
+            }
+            case 'originalAmount': {
+                const original = formatIsraeliCurrency(txn.originalAmount || 0);
                 return (
-                    <td key={col.key} className={`${baseClass} font-semibold whitespace-nowrap ${(txn.originalAmount || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatAmount(txn.originalAmount || 0)}
+                    <td key={col.key} className={`${baseClass} whitespace-nowrap`}>
+                        <span className={original.className}>{original.value}</span>
                     </td>
                 );
+            }
             case 'status': {
                 const isIgnored = txn.status === 'ignored' || txn.isIgnored === true;
                 return (

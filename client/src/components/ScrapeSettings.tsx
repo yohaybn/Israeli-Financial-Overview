@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
 import { GlobalScrapeConfig, ScraperOptions, parseExcludedAccountNumbersInput } from '@app/shared';
 import { api } from '../lib/api';
 import { CollapsibleCard } from './CollapsibleCard';
@@ -31,7 +32,16 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
     const [mqttStatus, setMqttStatus] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [toast, setToast] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Partial<Record<'timeout' | 'futureMonthsToScrape', string>>>({});
     const lastSerializedRef = useRef<string | null>(null);
+    const scrapeValidationSchema = useMemo(
+        () =>
+            z.object({
+                timeout: z.number().int().min(1000).max(600000),
+                futureMonthsToScrape: z.number().int().min(0).max(12),
+            }),
+        []
+    );
 
     useEffect(() => {
         const fetchData = async () => {
@@ -70,6 +80,14 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
 
     useEffect(() => {
         if (!config) return;
+        if (Object.keys(fieldErrors).length > 0) return;
+
+        const validated = scrapeValidationSchema.safeParse({
+            timeout: config.scraperOptions.timeout ?? 120000,
+            futureMonthsToScrape: config.scraperOptions.futureMonthsToScrape ?? 0,
+        });
+        if (!validated.success) return;
+
         const json = JSON.stringify(config);
         if (lastSerializedRef.current === json) return;
         const timer = setTimeout(async () => {
@@ -92,7 +110,7 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
             }
         }, 1000);
         return () => clearTimeout(timer);
-    }, [config, t]);
+    }, [config, t, fieldErrors, scrapeValidationSchema]);
 
     const updateOption = <K extends keyof ScraperOptions>(key: K, value: ScraperOptions[K]) => {
         if (!config) return;
@@ -100,6 +118,37 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
             ...config,
             scraperOptions: { ...config.scraperOptions, [key]: value }
         });
+    };
+    const updateValidatedIntegerOption = (
+        key: 'timeout' | 'futureMonthsToScrape',
+        rawValue: string,
+        min: number,
+        max: number
+    ) => {
+        const trimmed = rawValue.trim();
+        if (!trimmed) {
+            setFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.required') }));
+            return;
+        }
+        const next = Number(trimmed);
+        if (!Number.isInteger(next)) {
+            setFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.required') }));
+            return;
+        }
+        if (next < min) {
+            setFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.min_value', { min }) }));
+            return;
+        }
+        if (next > max) {
+            setFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.max_value', { max }) }));
+            return;
+        }
+        setFieldErrors((prev) => {
+            const clone = { ...prev };
+            delete clone[key];
+            return clone;
+        });
+        updateOption(key, next);
     };
 
     const updatePostScrape = (patch: any) => {
@@ -177,10 +226,11 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
                                 <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.timeout')} (ms)</label>
                                 <input
                                     type="number"
-                                    value={config.scraperOptions.timeout || 120000}
-                                    onChange={(e) => updateOption('timeout', parseInt(e.target.value))}
+                                    value={config.scraperOptions.timeout ?? 120000}
+                                    onChange={(e) => updateValidatedIntegerOption('timeout', e.target.value, 1000, 600000)}
                                     className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
                                 />
+                                {fieldErrors.timeout && <p className="text-rose-500 text-xs mt-1">{fieldErrors.timeout}</p>}
                             </div>
 
                             {showAdvanced && (
@@ -204,10 +254,15 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
                                             type="number"
                                             min={0}
                                             max={12}
-                                            value={config.scraperOptions.futureMonthsToScrape || 0}
-                                            onChange={(e) => updateOption('futureMonthsToScrape', parseInt(e.target.value))}
+                                            value={config.scraperOptions.futureMonthsToScrape ?? 0}
+                                            onChange={(e) =>
+                                                updateValidatedIntegerOption('futureMonthsToScrape', e.target.value, 0, 12)
+                                            }
                                             className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
                                         />
+                                        {fieldErrors.futureMonthsToScrape && (
+                                            <p className="text-rose-500 text-xs mt-1">{fieldErrors.futureMonthsToScrape}</p>
+                                        )}
                                     </div>
                                 </>
                             )}

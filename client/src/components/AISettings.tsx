@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
 import { AdvancedAISettings } from './AdvancedAISettings';
 import { GeminiApiKeyCard } from './GeminiApiKeyCard';
 import { AIMemorySettings } from './AIMemorySettings';
@@ -19,6 +20,16 @@ interface AISettingsProps {
     showAdvanced?: boolean;
 }
 
+const aiConfigSchema = z.object({
+    categorizationModel: z.string().trim().min(1),
+    chatModel: z.string().trim().min(1),
+    llmTemperature: z.number().min(0).max(2),
+    systemPrompt: z.string().max(4000),
+    analyticsPromptExtra: z.string().max(4000),
+});
+
+type AiConfigDraft = z.infer<typeof aiConfigSchema>;
+
 export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: AISettingsProps) {
     const { t } = useTranslation();
     const { data: settings } = useAISettings();
@@ -29,10 +40,19 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
     const [localSettings, setLocalSettings] = useState<any>(null);
     const [aiSubTab, setAiSubTab] = useState<'settings' | 'memory'>('settings');
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+    const [draft, setDraft] = useState<AiConfigDraft | null>(null);
 
     useEffect(() => {
         if (settings) {
             setLocalSettings(settings);
+            setDraft({
+                categorizationModel: String(settings.categorizationModel ?? ''),
+                chatModel: String(settings.chatModel ?? ''),
+                llmTemperature: Number(settings.analyticsTemperature ?? 1),
+                systemPrompt: String(settings.analyticsSystemInstructionExtra ?? ''),
+                analyticsPromptExtra: String(settings.analyticsPromptExtra ?? ''),
+            });
         }
     }, [settings]);
 
@@ -44,6 +64,7 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
 
     if (!isInline && (!isOpen || !localSettings)) return null;
     if (isInline && !localSettings) return <div className="p-8 text-center text-gray-500">{t('ai_settings.loading')}</div>;
+    if (!draft) return <div className="p-8 text-center text-gray-500">{t('ai_settings.loading')}</div>;
 
     const persistSettings = (next: any) => {
         setLocalSettings(next);
@@ -53,6 +74,45 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
                 setSaveError(t('common.save_failed_with_error', { error: err?.message || t('common.unknown_error') }));
             },
             onSuccess: () => window.dispatchEvent(new CustomEvent('configuration-saved')),
+        });
+    };
+    const draftValidation = useMemo(() => aiConfigSchema.safeParse(draft), [draft]);
+    const isDraftValid = draftValidation.success;
+    const draftFieldErrors: Partial<Record<keyof AiConfigDraft, string>> = {};
+    if (!draftValidation.success) {
+        for (const issue of draftValidation.error.issues) {
+            const key = issue.path[0] as keyof AiConfigDraft;
+            if (!draftFieldErrors[key]) {
+                if (issue.path[0] === 'llmTemperature' && issue.code === 'too_small') {
+                    draftFieldErrors[key] = t('config_validation.min_value', { min: 0 });
+                } else if (issue.path[0] === 'llmTemperature' && issue.code === 'too_big') {
+                    draftFieldErrors[key] = t('config_validation.max_value', { max: 2 });
+                } else if (issue.code === 'too_small') {
+                    draftFieldErrors[key] = t('config_validation.required');
+                } else if (issue.code === 'too_big') {
+                    draftFieldErrors[key] = t('config_validation.max_value', { max: issue.maximum ?? 4000 });
+                } else {
+                    draftFieldErrors[key] = t('config_validation.required');
+                }
+            }
+        }
+    }
+    const isDraftDirty =
+        draft.categorizationModel !== String(localSettings.categorizationModel ?? '') ||
+        draft.chatModel !== String(localSettings.chatModel ?? '') ||
+        draft.llmTemperature !== Number(localSettings.analyticsTemperature ?? 1) ||
+        draft.systemPrompt !== String(localSettings.analyticsSystemInstructionExtra ?? '') ||
+        draft.analyticsPromptExtra !== String(localSettings.analyticsPromptExtra ?? '');
+
+    const saveAiDraft = () => {
+        if (!isDraftValid || isPending || !isDraftDirty) return;
+        persistSettings({
+            ...localSettings,
+            categorizationModel: draft.categorizationModel,
+            chatModel: draft.chatModel,
+            analyticsTemperature: draft.llmTemperature,
+            analyticsSystemInstructionExtra: draft.systemPrompt.trim() ? draft.systemPrompt : null,
+            analyticsPromptExtra: draft.analyticsPromptExtra.trim() ? draft.analyticsPromptExtra : null,
         });
     };
 
@@ -99,19 +159,19 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
             <LLMProviderCard
                 models={models}
                 disabled={isPending}
-                initialValues={{
-                    categorizationModel: String(localSettings.categorizationModel ?? ''),
-                    chatModel: String(localSettings.chatModel ?? ''),
-                    llmTemperature: Number(localSettings.analyticsTemperature ?? 1),
+                values={{
+                    categorizationModel: draft.categorizationModel,
+                    chatModel: draft.chatModel,
+                    llmTemperature: draft.llmTemperature,
                 }}
-                onSave={(values) =>
-                    persistSettings({
-                        ...localSettings,
-                        categorizationModel: values.categorizationModel,
-                        chatModel: values.chatModel,
-                        analyticsTemperature: values.llmTemperature,
-                    })
-                }
+                errors={{
+                    categorizationModel: draftFieldErrors.categorizationModel,
+                    chatModel: draftFieldErrors.chatModel,
+                    llmTemperature: draftFieldErrors.llmTemperature,
+                }}
+                isAdvancedOpen={isAdvancedOpen}
+                onAdvancedToggle={() => setIsAdvancedOpen((prev) => !prev)}
+                onChange={(patch) => setDraft((prev) => (prev ? { ...prev, ...patch } : prev))}
             />
 
             {showAdvanced && (
@@ -127,24 +187,30 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
                     />
 
                     <PromptEngineeringCard
-                        systemPrompt={String(localSettings.analyticsSystemInstructionExtra ?? '')}
-                        analyticsPromptExtra={String(localSettings.analyticsPromptExtra ?? '')}
+                        systemPrompt={draft.systemPrompt}
+                        analyticsPromptExtra={draft.analyticsPromptExtra}
                         disabled={isPending}
-                        onSystemPromptChange={(value) =>
-                            persistSettings({
-                                ...localSettings,
-                                analyticsSystemInstructionExtra: value ? value : null,
-                            })
-                        }
+                        errors={{
+                            systemPrompt: draftFieldErrors.systemPrompt,
+                            analyticsPromptExtra: draftFieldErrors.analyticsPromptExtra,
+                        }}
+                        onSystemPromptChange={(value) => setDraft((prev) => (prev ? { ...prev, systemPrompt: value } : prev))}
                         onAnalyticsPromptExtraChange={(value) =>
-                            persistSettings({
-                                ...localSettings,
-                                analyticsPromptExtra: value ? value : null,
-                            })
+                            setDraft((prev) => (prev ? { ...prev, analyticsPromptExtra: value } : prev))
                         }
                     />
                 </>
             )}
+            <div className="flex justify-end">
+                <button
+                    type="button"
+                    onClick={saveAiDraft}
+                    disabled={!isDraftDirty || !isDraftValid || isPending}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {t('common.save')}
+                </button>
+            </div>
 
             <AIPreferencesSettings />
 

@@ -241,6 +241,20 @@ function App() {
             insightRuleId: next === 'configuration' ? prev.insightRuleId : null,
         }));
     };
+    const setConfigTab = useCallback(
+        (tab: AppUrlState['configTab']) => {
+            if (tab !== configTab && !confirmConfigLeave()) return;
+            setIsConfigDirty(false);
+            if (showConfigWizard) setShowConfigWizard(false);
+            setNav((prev) => ({
+                ...prev,
+                view: 'configuration',
+                configTab: tab,
+                insightRuleId: tab === 'insight-rules' ? prev.insightRuleId : null,
+            }));
+        },
+        [configTab, confirmConfigLeave, showConfigWizard]
+    );
 
     const { mutate: updateCategory } = useUpdateTransactionCategory();
     const { categorizationFailure, clearCategorizationFailure, transactionReviewAlert, clearTransactionReviewAlert } =
@@ -289,7 +303,7 @@ function App() {
     }, [transactionReviewAlert, pendingTransactionReview.count, clearTransactionReviewAlert]);
 
     const openAiSettingsTab = () => {
-        setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'ai' }));
+        setConfigTab('ai');
     };
 
     const handleResultFileChange = useCallback((filename: string | null) => {
@@ -615,29 +629,17 @@ function App() {
                                     <ConfigSetupWizard
                                         activeTab={configTab}
                                         onNavigate={(tab) => {
-                                            setIsConfigDirty(false);
-                                            setNav((prev) => ({ ...prev, configTab: tab }));
+                                            setConfigTab(tab);
                                         }}
                                     />
                                 )}
                                 <ConfigurationPanel
                                     activeTab={configTab}
                                     onTabChange={(tab) => {
-                                        if (tab !== configTab && !confirmConfigLeave()) return;
-                                        setIsConfigDirty(false);
-                                        if (showConfigWizard) setShowConfigWizard(false);
-                                        setNav((prev) => ({
-                                            ...prev,
-                                            configTab: tab,
-                                            insightRuleId: tab === 'insight-rules' ? prev.insightRuleId : null,
-                                        }));
+                                        setConfigTab(tab);
                                     }}
                                     onOpenBudgetExports={() =>
-                                        setNav((prev) => ({
-                                            ...prev,
-                                            configTab: 'budget-exports',
-                                            insightRuleId: null,
-                                        }))
+                                        setConfigTab('budget-exports')
                                     }
                                     openInsightRuleId={insightRuleId}
                                     onOpenInsightRuleConsumed={handleInsightRuleOpenConsumed}

@@ -82,6 +82,19 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
     itemLines: string[];
   } | null>(null);
   const [outlierInfoOpen, setOutlierInfoOpen] = useState(false);
+  const [thresholdFieldErrors, setThresholdFieldErrors] = useState<
+    Partial<
+      Record<
+        | 'minAmountForNewMerchantIls'
+        | 'newMerchantNonHebrewPoints'
+        | 'foreignCurrencyMinOriginalAmount'
+        | 'rapidRepeatCountThreshold'
+        | 'outlierMinHistoryCount'
+        | 'outlierZScore',
+        string
+      >
+    >
+  >({});
   const lastSerializedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -149,6 +162,42 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
       },
     });
   };
+  const updateValidatedThreshold = (
+    key:
+      | 'minAmountForNewMerchantIls'
+      | 'newMerchantNonHebrewPoints'
+      | 'foreignCurrencyMinOriginalAmount'
+      | 'rapidRepeatCountThreshold'
+      | 'outlierMinHistoryCount'
+      | 'outlierZScore',
+    rawValue: string,
+    { min, max, integer = false }: { min: number; max?: number; integer?: boolean }
+  ) => {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      setThresholdFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.required') }));
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || (integer && !Number.isInteger(parsed))) {
+      setThresholdFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.required') }));
+      return;
+    }
+    if (parsed < min) {
+      setThresholdFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.min_value', { min }) }));
+      return;
+    }
+    if (typeof max === 'number' && parsed > max) {
+      setThresholdFieldErrors((prev) => ({ ...prev, [key]: t('config_validation.max_value', { max }) }));
+      return;
+    }
+    setThresholdFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    updateLocalThresholds({ [key]: parsed });
+  };
 
   const thresholds: FraudDetectionLocalThresholdsConfig = {
     ...DEFAULT_THRESHOLDS,
@@ -161,6 +210,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
 
   useEffect(() => {
     if (!config) return;
+    if (Object.keys(thresholdFieldErrors).length > 0) return;
     const json = JSON.stringify(config);
     if (lastSerializedRef.current === json) return;
     const timer = setTimeout(async () => {
@@ -180,10 +230,11 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [config, t]);
+  }, [config, t, thresholdFieldErrors]);
 
   const resetToDefaults = () => {
     if (!config) return;
+    setThresholdFieldErrors({});
     updateFraud({
       local: {
         rules: DEFAULT_RULES,
@@ -382,12 +433,12 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
         </section>
 
         {/* Local rules */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+        <section className="rounded-2xl bg-slate-50/80 p-6 space-y-4">
           <h4 className="text-sm font-bold text-gray-800">
             {t('fraud_settings.local_rules')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <label className="flex items-start gap-2 text-sm cursor-pointer rounded-xl bg-white/80 p-3">
               <input
                 type="checkbox"
                 checked={!!rules.enableOutlierAmount}
@@ -406,7 +457,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <label className="flex items-start gap-2 text-sm cursor-pointer rounded-xl bg-white/80 p-3">
               <input
                 type="checkbox"
                 checked={!!rules.enableNewMerchant}
@@ -422,7 +473,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-2 text-sm cursor-pointer md:col-span-2">
+            <label className="flex items-start gap-2 text-sm cursor-pointer rounded-xl bg-white/80 p-3 md:col-span-2">
               <input
                 type="checkbox"
                 checked={rules.enableNewMerchantNonHebrew !== false}
@@ -439,7 +490,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <label className="flex items-start gap-2 text-sm cursor-pointer rounded-xl bg-white/80 p-3">
               <input
                 type="checkbox"
                 checked={!!rules.enableRapidRepeats}
@@ -458,7 +509,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <label className="flex items-start gap-2 text-sm cursor-pointer rounded-xl bg-white/80 p-3">
               <input
                 type="checkbox"
                 checked={!!rules.enableForeignCurrency}
@@ -483,7 +534,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
         <ParsingEngineCard thresholds={thresholds} onThresholdChange={updateLocalThresholds} />
 
         {/* Thresholds */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+        <section className="rounded-2xl bg-slate-50/80 p-6 space-y-5">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-bold text-gray-800">
               {t('fraud_settings.thresholds')}
@@ -497,11 +548,11 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
             </button>
           </div>
           <p className="text-[11px] text-gray-600 leading-relaxed">{t('fraud_settings.thresholds_intro')}</p>
-          <p className="text-[11px] text-gray-500 leading-relaxed border-l-2 border-purple-200 pl-3">
+          <p className="text-[11px] text-slate-500 leading-relaxed border-s-2 border-slate-200 ps-3">
             {t('fraud_settings.scores_summary')}
           </p>
 
-          <div>
+          <div className="rounded-xl bg-white/80 p-4 space-y-3">
             <h5 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
               {t('fraud_settings.thresholds_group_rules')}
             </h5>
@@ -513,11 +564,12 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 <input
                   type="number"
                   value={thresholds.minAmountForNewMerchantIls ?? ''}
-                  onChange={(e) =>
-                    updateLocalThresholds({ minAmountForNewMerchantIls: Number(e.target.value || 0) })
-                  }
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  onChange={(e) => updateValidatedThreshold('minAmountForNewMerchantIls', e.target.value, { min: 0 })}
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
                 />
+                {thresholdFieldErrors.minAmountForNewMerchantIls && (
+                  <p className="text-rose-500 text-xs mt-1">{thresholdFieldErrors.minAmountForNewMerchantIls}</p>
+                )}
                 <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.min_new_merchant_help')}</p>
               </div>
               <div>
@@ -530,10 +582,13 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                   max={100}
                   value={thresholds.newMerchantNonHebrewPoints ?? ''}
                   onChange={(e) =>
-                    updateLocalThresholds({ newMerchantNonHebrewPoints: Number(e.target.value || 0) })
+                    updateValidatedThreshold('newMerchantNonHebrewPoints', e.target.value, { min: 0, max: 100, integer: true })
                   }
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
                 />
+                {thresholdFieldErrors.newMerchantNonHebrewPoints && (
+                  <p className="text-rose-500 text-xs mt-1">{thresholdFieldErrors.newMerchantNonHebrewPoints}</p>
+                )}
                 <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.non_hebrew_points_help')}</p>
               </div>
               <div>
@@ -544,10 +599,13 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                   type="number"
                   value={thresholds.foreignCurrencyMinOriginalAmount ?? ''}
                   onChange={(e) =>
-                    updateLocalThresholds({ foreignCurrencyMinOriginalAmount: Number(e.target.value || 0) })
+                    updateValidatedThreshold('foreignCurrencyMinOriginalAmount', e.target.value, { min: 0 })
                   }
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
                 />
+                {thresholdFieldErrors.foreignCurrencyMinOriginalAmount && (
+                  <p className="text-rose-500 text-xs mt-1">{thresholdFieldErrors.foreignCurrencyMinOriginalAmount}</p>
+                )}
                 <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.min_fx_amount_help')}</p>
               </div>
               <div className="md:col-span-2">
@@ -558,16 +616,19 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                   type="number"
                   value={thresholds.rapidRepeatCountThreshold ?? ''}
                   onChange={(e) =>
-                    updateLocalThresholds({ rapidRepeatCountThreshold: Number(e.target.value || 0) })
+                    updateValidatedThreshold('rapidRepeatCountThreshold', e.target.value, { min: 1, integer: true })
                   }
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
                 />
+                {thresholdFieldErrors.rapidRepeatCountThreshold && (
+                  <p className="text-rose-500 text-xs mt-1">{thresholdFieldErrors.rapidRepeatCountThreshold}</p>
+                )}
                 <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.rapid_count_help')}</p>
               </div>
             </div>
           </div>
 
-          <div>
+          <div className="rounded-xl bg-white/80 p-4 space-y-3">
             <div className="flex items-center gap-2 mb-2">
               <h5 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
                 {t('fraud_settings.thresholds_group_outlier')}
@@ -583,7 +644,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
               </button>
             </div>
             {outlierInfoOpen && (
-              <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50/90 p-3 text-[11px] leading-relaxed text-gray-700 space-y-2">
+              <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-gray-700 space-y-2">
                 <p>{t('fraud_settings.outlier_info_p1')}</p>
                 <p>{t('fraud_settings.outlier_info_p2')}</p>
                 <p>{t('fraud_settings.outlier_info_p3')}</p>
@@ -598,10 +659,13 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                   type="number"
                   value={thresholds.outlierMinHistoryCount ?? ''}
                   onChange={(e) =>
-                    updateLocalThresholds({ outlierMinHistoryCount: Number(e.target.value || 0) })
+                    updateValidatedThreshold('outlierMinHistoryCount', e.target.value, { min: 1, integer: true })
                   }
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
                 />
+                {thresholdFieldErrors.outlierMinHistoryCount && (
+                  <p className="text-rose-500 text-xs mt-1">{thresholdFieldErrors.outlierMinHistoryCount}</p>
+                )}
                 <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.outlier_history_help')}</p>
               </div>
               <div>
@@ -612,17 +676,18 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                   type="number"
                   step="0.1"
                   value={thresholds.outlierZScore ?? ''}
-                  onChange={(e) =>
-                    updateLocalThresholds({ outlierZScore: Number(e.target.value || 0) })
-                  }
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  onChange={(e) => updateValidatedThreshold('outlierZScore', e.target.value, { min: 0.1 })}
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
                 />
+                {thresholdFieldErrors.outlierZScore && (
+                  <p className="text-rose-500 text-xs mt-1">{thresholdFieldErrors.outlierZScore}</p>
+                )}
                 <p className="text-[10px] text-gray-500 mt-1">{t('fraud_settings.outlier_zscore_help')}</p>
               </div>
             </div>
           </div>
 
-          <div>
+          <div className="rounded-xl bg-white/80 p-4 space-y-3">
             <h5 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
               {t('fraud_settings.thresholds_group_alerts')}
             </h5>
@@ -641,7 +706,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 <select
                   value={thresholds.notifyMinSeverity || 'medium'}
                   onChange={(e) => updateLocalThresholds({ notifyMinSeverity: e.target.value as 'low' | 'medium' | 'high' })}
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
                 >
                   <option value="low">{t('fraud_settings.severity_low')}</option>
                   <option value="medium">{t('fraud_settings.severity_medium')}</option>
@@ -666,7 +731,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
         </section>
 
         {/* Test transaction preview */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3 text-xs">
+        <section className="rounded-2xl bg-slate-50/80 p-6 space-y-3 text-xs">
           <h4 className="text-sm font-bold text-gray-800">{t('fraud_settings.test_title')}</h4>
           <p className="text-[11px] text-gray-500">{t('fraud_settings.test_intro')}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -676,7 +741,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 type="text"
                 value={testDesc}
                 onChange={(e) => setTestDesc(e.target.value)}
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
               />
             </div>
             <div>
@@ -685,7 +750,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 type="date"
                 value={testDate}
                 onChange={(e) => setTestDate(e.target.value)}
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
               />
             </div>
             <div>
@@ -694,7 +759,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 type="number"
                 value={testAmount}
                 onChange={(e) => setTestAmount(e.target.value)}
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
               />
             </div>
             <div>
@@ -704,7 +769,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 value={testOrig}
                 onChange={(e) => setTestOrig(e.target.value)}
                 placeholder={t('fraud_settings.test_orig_placeholder')}
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
               />
             </div>
             <div>
@@ -713,7 +778,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 type="text"
                 value={testCur}
                 onChange={(e) => setTestCur(e.target.value.toUpperCase())}
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
               />
             </div>
             <div className="md:col-span-2">
@@ -723,7 +788,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
                 onChange={(e) => setTestHistoryJson(e.target.value)}
                 rows={3}
                 placeholder={t('fraud_settings.test_history_placeholder')}
-                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full rounded-lg bg-white px-2.5 py-2 text-xs font-mono border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
               />
             </div>
           </div>
@@ -782,20 +847,20 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
         </section>
 
         {/* Version info */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-4 space-y-2 text-xs">
+        <section className="rounded-2xl bg-slate-50/80 p-5 space-y-2 text-xs">
           <div className="font-semibold text-gray-800">{t('fraud_settings.version_label')}</div>
           <input
             type="text"
             value={config.postScrapeConfig.fraudDetection.local?.version ?? ''}
             onChange={(e) => updateLocalPatch({ version: e.target.value })}
             placeholder={t('fraud_settings.version_placeholder')}
-            className="w-full max-w-xs p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+            className="w-full max-w-xs rounded-lg bg-white px-2.5 py-2 text-xs border border-slate-200 focus:ring-2 focus:ring-purple-200 outline-none"
           />
           <p className="text-[11px] text-gray-500 max-w-lg">{t('fraud_settings.version_help')}</p>
         </section>
 
         {/* Recent findings */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+        <section className="rounded-2xl bg-slate-50/80 p-6 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-gray-800">
               {t('fraud_settings.recent_findings')}
@@ -818,10 +883,7 @@ export function FraudSettings({ isInline, onClose, showAdvanced = true }: FraudS
           {findings.length > 0 && (
             <div className="space-y-1 max-h-52 overflow-y-auto text-xs">
               {findings.slice(0, 20).map((f) => (
-                <div
-                  key={f.id}
-                  className="flex items-start justify-between gap-3 py-1.5 border-b border-gray-100 last:border-0"
-                >
+                <div key={f.id} className="flex items-start justify-between gap-3 rounded-lg bg-white/80 px-3 py-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <span

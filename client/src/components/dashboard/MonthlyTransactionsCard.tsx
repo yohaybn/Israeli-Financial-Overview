@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
 import { List } from 'lucide-react';
 import { isInternalTransfer } from '../../utils/transactionUtils';
+import { formatIsraeliCurrency } from '../../utils/formatters';
 import { TransactionTable } from '../TransactionTable';
 import { DashboardCardHeader, dashboardCardShellClass } from './DashboardCardChrome';
 
@@ -40,7 +41,7 @@ export function MonthlyTransactionsCard({
     customCCKeywords,
     endActions,
 }: MonthlyTransactionsCardProps) {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
     useEffect(() => {
@@ -64,12 +65,7 @@ export function MonthlyTransactionsCard({
 
     const headerTxnCount = transactionsExcludingInternal.length;
 
-    const formatCurrency = (amount: number) =>
-        new Intl.NumberFormat(i18n.language === 'he' ? 'he-IL' : 'en-US', {
-            style: 'currency',
-            currency: 'ILS',
-            maximumFractionDigits: 0,
-        }).format(amount);
+    const headerCurrency = formatIsraeliCurrency(headerTotal);
 
     return (
         <div className={dashboardCardShellClass}>
@@ -86,8 +82,8 @@ export function MonthlyTransactionsCard({
                             dir="ltr"
                             className="flex w-full items-baseline justify-between gap-3 min-w-0"
                         >
-                            <span className="font-semibold tabular-nums text-black">
-                                {formatCurrency(headerTotal)}
+                            <span className={headerCurrency.className}>
+                                {headerCurrency.value}
                             </span>
                             <span className="text-xs text-gray-500 shrink-0">
                                 {t('dashboard.transactions_card_count', { count: headerTxnCount })}
