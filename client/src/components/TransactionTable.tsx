@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
     Transaction,
     expenseCategoryKey,
@@ -106,6 +107,9 @@ const AVAILABLE_COLUMNS: ColumnConfig[] = [
     { key: 'processedDate', label: 'table.processed_date', sortable: false, defaultVisible: false },
 ];
 
+const VIRTUAL_ROW_HEIGHT_PX = 48;
+const VIRTUAL_OVERSCAN = 10;
+
 export function TransactionTable({ 
     transactions, 
     categories = [], 
@@ -141,6 +145,7 @@ export function TransactionTable({
     const [exportingView, setExportingView] = useState<'csv' | 'json' | null>(null);
     const [viewDownloadOpen, setViewDownloadOpen] = useState(false);
     const viewDownloadRef = useRef<HTMLDivElement>(null);
+    const virtualScrollParentRef = useRef<HTMLDivElement>(null);
 
     const customCCKeywords = config.customCCKeywords ?? [];
     const { data: aiSettings } = useAISettings();
@@ -204,6 +209,11 @@ export function TransactionTable({
     useEffect(() => {
         localStorage.setItem('transactionTableColumns', JSON.stringify(Array.from(visibleColumns)));
     }, [visibleColumns]);
+
+    const visibleTableColumns = useMemo(
+        () => AVAILABLE_COLUMNS.filter((col) => visibleColumns.has(col.key)),
+        [visibleColumns]
+    );
 
     const toggleColumn = (columnKey: ColumnKey) => {
         setVisibleColumns(prev => {
@@ -308,6 +318,31 @@ export function TransactionTable({
             setSortOrder('desc');
         }
     };
+
+    const rowVirtualizer = useVirtualizer({
+        count: filteredAndSortedTransactions.length,
+        getScrollElement: () => virtualScrollParentRef.current,
+        estimateSize: () => VIRTUAL_ROW_HEIGHT_PX,
+        overscan: VIRTUAL_OVERSCAN,
+    });
+
+    const virtualRows = rowVirtualizer.getVirtualItems();
+    const virtualTopPadding = virtualRows.length > 0 ? virtualRows[0].start : 0;
+    const virtualBottomPadding =
+        virtualRows.length > 0
+            ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+            : 0;
+
+    useEffect(() => {
+        rowVirtualizer.measure();
+    }, [visibleTableColumns.length, filteredAndSortedTransactions.length, rowVirtualizer]);
+
+    useEffect(() => {
+        const el = virtualScrollParentRef.current;
+        if (!el) return;
+        el.scrollTop = 0;
+        rowVirtualizer.scrollToOffset(0);
+    }, [search, selectedCategory, selectedAccountKey, metaCategoryFilter, typeTxnFilter, rowVirtualizer]);
 
     const formatStatus = (status?: string) => {
         if (!status) return t('common.unknown');
@@ -646,14 +681,17 @@ export function TransactionTable({
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
+                <div
+                    ref={virtualScrollParentRef}
+                    className="max-h-[70vh] overflow-auto will-change-transform"
+                >
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-200">
-                                {AVAILABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).map(col => (
+                                {visibleTableColumns.map(col => (
                                     <th
                                         key={col.key}
-                                        className={`px-6 py-4 text-sm font-semibold text-gray-700 ${col.sortable ? 'cursor-pointer hover:bg-gray-100' : ''} ${i18n.language === 'he' ? 'text-right' : 'text-left'}`}
+                                        className={`px-6 py-4 text-sm font-semibold text-gray-700 ${col.sortable ? 'cursor-pointer hover:bg-gray-100' : ''} ${col.key === 'chargedAmount' || col.key === 'originalAmount' ? 'text-right' : i18n.language === 'he' ? 'text-right' : 'text-left'}`}
                                         onClick={() => col.sortable && handleSort(col.key as SortField)}
                                     >
                                         {col.key === 'category' ? (
@@ -697,11 +735,22 @@ export function TransactionTable({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {filteredAndSortedTransactions.map((txn) => {
+                            {virtualTopPadding > 0 && (
+                                <tr aria-hidden>
+                                    <td
+                                        colSpan={Math.max(visibleTableColumns.length, 1)}
+                                        style={{ height: virtualTopPadding, padding: 0, border: 0 }}
+                                    />
+                                </tr>
+                            )}
+                            {virtualRows.map((virtualRow) => {
+                                const txn = filteredAndSortedTransactions[virtualRow.index];
+                                if (!txn) return null;
                                 const isIgnored = txn.status === 'ignored' || txn.isIgnored === true;
                                 return (
                                     <tr
                                         key={txn.id}
+                                        style={{ height: `${VIRTUAL_ROW_HEIGHT_PX}px`, willChange: 'transform' }}
                                         className={clsx(
                                             'transition-colors cursor-pointer',
                                             isIgnored && 'border-l-4 border-l-amber-400 bg-amber-50/70 hover:bg-amber-100/70',
@@ -709,10 +758,18 @@ export function TransactionTable({
                                         )}
                                         onClick={() => setSelectedTransaction(txn)}
                                     >
-                                        {AVAILABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).map(col => renderColumn(col, txn))}
+                                        {visibleTableColumns.map(col => renderColumn(col, txn))}
                                     </tr>
                                 );
                             })}
+                            {virtualBottomPadding > 0 && (
+                                <tr aria-hidden>
+                                    <td
+                                        colSpan={Math.max(visibleTableColumns.length, 1)}
+                                        style={{ height: virtualBottomPadding, padding: 0, border: 0 }}
+                                    />
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -728,7 +785,7 @@ export function TransactionTable({
     );
 
     function renderColumn(col: ColumnConfig, txn: Transaction) {
-        const baseClass = `px-6 py-4 text-sm ${i18n.language === 'he' ? 'text-right' : 'text-left'}`;
+        const baseClass = `px-6 py-3 text-sm ${i18n.language === 'he' ? 'text-right' : 'text-left'}`;
 
         switch (col.key) {
             case 'date':
@@ -814,7 +871,7 @@ export function TransactionTable({
             case 'chargedAmount': {
                 const charged = formatIsraeliCurrency(txn.chargedAmount || 0);
                 return (
-                    <td key={col.key} className={`${baseClass} whitespace-nowrap`}>
+                    <td key={col.key} className={`${baseClass} whitespace-nowrap text-right tabular-nums`}>
                         <span className={charged.className}>{charged.value}</span>
                     </td>
                 );
@@ -822,7 +879,7 @@ export function TransactionTable({
             case 'originalAmount': {
                 const original = formatIsraeliCurrency(txn.originalAmount || 0);
                 return (
-                    <td key={col.key} className={`${baseClass} whitespace-nowrap`}>
+                    <td key={col.key} className={`${baseClass} whitespace-nowrap text-right tabular-nums`}>
                         <span className={original.className}>{original.value}</span>
                     </td>
                 );

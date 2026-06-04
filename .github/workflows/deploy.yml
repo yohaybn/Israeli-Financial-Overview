@@ -1,73 +1,25 @@
 name: Build and Publish
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    tags:
-      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Optional image version override (e.g. 1.2.3)"
+        required: false
+        type: string
+  repository_dispatch:
+    types: [build-deploy]
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  # Bump patch version on every push to main/master (skipped on tag pushes and on the
-  # bot's own follow-up commit). Uses GITHUB_TOKEN; the resulting commit/tag will not
-  # retrigger this workflow, so build-app/build-addon must `needs:` this job to see
-  # the new version in ha-addon/config.yaml + server/package.json.
-  bump-version:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: >-
-      github.event_name == 'push' &&
-      !startsWith(github.ref, 'refs/tags/') &&
-      !contains(github.event.head_commit.message, '[skip ci]') &&
-      !contains(github.event.head_commit.message, 'chore(release):')
-    outputs:
-      version: ${{ steps.bump.outputs.version }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Use Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Bump patch version
-        id: bump
-        run: |
-          node scripts/bump-version.mjs patch
-          NEW_VERSION=$(node -e "console.log(require('./server/package.json').version)")
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Commit and tag
-        env:
-          NEW_VERSION: ${{ steps.bump.outputs.version }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server/package.json Dockerfile
-          if git diff --cached --quiet; then
-            echo "No version change to commit."
-            exit 0
-          fi
-          git commit -m "chore(release): ${NEW_VERSION} [skip ci]"
-          git tag "v${NEW_VERSION}"
-          git push
-          git push --tags
-
   build-app:
     runs-on: ubuntu-latest
-    needs: [bump-version]
-    if: |
-      always() &&
-      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped')
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     permissions:
       contents: read
       packages: write
@@ -75,18 +27,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        # Pull the freshly-bumped commit (HEAD on the branch already moved by bump-version).
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - name: Set Docker image name (lowercase for GHCR)
         run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Resolve image version
         id: ver
-        # Prefer the bumped version (set on push to main); fall back to server/package.json on tag pushes.
         run: |
-          v="${{ needs.bump-version.outputs.version }}"
+          v=""
+          if [ "${{ github.event_name }}" = "release" ]; then
+            v="${{ github.event.release.tag_name }}"
+            v="${v#v}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            v="${{ inputs.version }}"
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ] && [ -n "${{ github.event.client_payload.version }}" ]; then
+            v="${{ github.event.client_payload.version }}"
+          fi
           if [ -z "$v" ]; then
             v=$(node -e "console.log(require('./server/package.json').version)")
           fi
@@ -115,7 +73,6 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ steps.ver.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:main
           build-args: |
             VITE_APP_BUILD_VERSION=v${{ steps.ver.outputs.version }}@${{ github.sha }}
             VITE_INSTALL_KIND=docker
@@ -123,11 +80,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-addon:
-    needs: [bump-version, build-app]
+    needs: [build-app]
     if: |
       always() &&
-      needs.build-app.result == 'success' &&
-      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped')
+      needs.build-app.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -155,13 +111,9 @@ jobs:
 
       - name: Resolve image version
         id: ver
-        # Use bumped version from bump-version job; fall back to the version line in server/package.json.
-        # HA Supervisor pulls images at exactly this tag.
         run: |
-          v="${{ needs.bump-version.outputs.version }}"
-          if [ -z "$v" ]; then
-            v=$(node -e "console.log(require('./server/package.json').version)")
-          fi
+          # Reuse the exact app image version so all published images stay in sync.
+          v="${{ needs.build-app.outputs.version }}"
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $v"
 
@@ -187,7 +139,6 @@ jobs:
           platforms: ${{ matrix.platform }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-addon-${{ matrix.arch }}:${{ steps.ver.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-addon-${{ matrix.arch }}:main
           build-args: |
             BUILD_FROM=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ steps.ver.outputs.version }}
             BUILD_VERSION=${{ steps.ver.outputs.version }}
@@ -197,7 +148,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   sync-addon-repo:
-    needs: [build-addon]
+    needs: [build-app, build-addon]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -208,7 +159,7 @@ jobs:
       - name: Resolve image version
         id: ver
         run: |
-          v=$(node -e "console.log(require('./server/package.json').version)")
+          v="${{ needs.build-app.outputs.version }}"
           echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - name: Trigger version bump in HA Repository

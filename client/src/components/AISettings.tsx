@@ -62,6 +62,8 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
         }
     }, [showAdvanced, aiSubTab]);
 
+    const draftValidation = useMemo(() => (draft ? aiConfigSchema.safeParse(draft) : null), [draft]);
+
     if (!isInline && (!isOpen || !localSettings)) return null;
     if (isInline && !localSettings) return <div className="p-8 text-center text-gray-500">{t('ai_settings.loading')}</div>;
     if (!draft) return <div className="p-8 text-center text-gray-500">{t('ai_settings.loading')}</div>;
@@ -76,10 +78,9 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
             onSuccess: () => window.dispatchEvent(new CustomEvent('configuration-saved')),
         });
     };
-    const draftValidation = useMemo(() => aiConfigSchema.safeParse(draft), [draft]);
-    const isDraftValid = draftValidation.success;
+    const isDraftValid = Boolean(draftValidation?.success);
     const draftFieldErrors: Partial<Record<keyof AiConfigDraft, string>> = {};
-    if (!draftValidation.success) {
+    if (draftValidation && !draftValidation.success) {
         for (const issue of draftValidation.error.issues) {
             const key = issue.path[0] as keyof AiConfigDraft;
             if (!draftFieldErrors[key]) {
