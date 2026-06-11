@@ -276,6 +276,7 @@ export function FinancialCommandCenter({
     }
 
     const showTransactionsEmpty = !transactions || transactions.length === 0;
+    const investmentsActive = showInvestmentsCard && sectionVis.investments;
 
     return (
         <div className="space-y-6 p-1 animate-in fade-in duration-500">
@@ -445,6 +446,12 @@ export function FinancialCommandCenter({
                 </div>
             ) : (
                 <>
+            {investmentsActive && sectionVis.topInsights ? (
+                <div className="animate-fade-in-up max-w-6xl mx-auto w-full" style={{ animationDelay: '90ms' }}>
+                    <TopInsightsCard collapseAllSignal={collapseAllSignal} />
+                </div>
+            ) : null}
+
             <div
                 className={`grid grid-cols-1 gap-5 xl:items-start ${
                     isHebrew
@@ -452,15 +459,15 @@ export function FinancialCommandCenter({
                         : 'xl:grid-cols-[minmax(0,1fr)_minmax(240px,30%)]'
                 }`}
             >
-                {(sectionVis.topInsights || (showInvestmentsCard && sectionVis.investments)) ? (
+                {(!investmentsActive && sectionVis.topInsights) || investmentsActive ? (
                     <aside className={`space-y-4 xl:sticky xl:top-4 ${isHebrew ? 'xl:order-1' : 'xl:order-2'}`}>
-                        {sectionVis.topInsights ? (
+                        {!investmentsActive && sectionVis.topInsights ? (
                             <div className="animate-fade-in-up" style={{ animationDelay: '90ms' }}>
                                 <TopInsightsCard collapseAllSignal={collapseAllSignal} />
                             </div>
                         ) : null}
 
-                        {showInvestmentsCard && sectionVis.investments ? (
+                        {investmentsActive ? (
                             <div className="animate-fade-in-up" style={{ animationDelay: '210ms' }}>
                                 <PortfolioSection
                                     collapseAllSignal={collapseAllSignal}

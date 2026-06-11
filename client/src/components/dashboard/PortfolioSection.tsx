@@ -86,8 +86,8 @@ function TaListingSwitch({
 }
 
 export function PortfolioSection({
-    collapseAllSignal = 0,
-    defaultCollapsed = false,
+    collapseAllSignal: _collapseAllSignal = 0,
+    defaultCollapsed: _defaultCollapsed = false,
 }: {
     collapseAllSignal?: number;
     defaultCollapsed?: boolean;
@@ -116,12 +116,7 @@ export function PortfolioSection({
     const [newValueInAgorot, setNewValueInAgorot] = useState(false);
     const [newFrom, setNewFrom] = useState(() => new Date().toISOString().slice(0, 10));
     const [newNickname, setNewNickname] = useState('');
-    const [cardCollapsed, setCardCollapsed] = useState(defaultCollapsed);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-    useEffect(() => {
-        if (collapseAllSignal > 0) setCardCollapsed(true);
-    }, [collapseAllSignal]);
 
     useEffect(() => {
         setNewTelAviv(newCur === 'ILS');
@@ -148,7 +143,7 @@ export function PortfolioSection({
             },
             staleTime: 0,
             gcTime: 5 * 60_000,
-            enabled: !cardCollapsed,
+            enabled: true,
         })),
     });
     const stockLines = useMemo(() => {
@@ -205,7 +200,7 @@ export function PortfolioSection({
             return row;
         });
     }, [stockLines]);
-    const stockChartLoading = !cardCollapsed && (list?.length ?? 0) > 0 && priceHistoryQueries.some((q) => q.isLoading);
+    const stockChartLoading = (list?.length ?? 0) > 0 && priceHistoryQueries.some((q) => q.isLoading);
     const stockChartError = priceHistoryQueries.find((q) => q.isError)?.error;
     const allocationRows = useMemo(() => {
         const positions = summary?.positions ?? [];
@@ -309,16 +304,15 @@ export function PortfolioSection({
     return (
         <div className={dashboardCardShellClass}>
             <DashboardCardHeader
-                collapsed={cardCollapsed}
-                onToggle={() => setCardCollapsed((c) => !c)}
+                collapsed={false}
+                onToggle={() => {}}
+                collapsible={false}
                 icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />}
                 iconTileClassName="bg-gradient-to-br from-emerald-500 to-teal-700 shadow-emerald-200"
                 title={t('dashboard.portfolio.title')}
                 subtitle={<span className="text-gray-500">{t('dashboard.portfolio.subtitle')}</span>}
             />
-
-            {!cardCollapsed && (
-                <div className="px-4 pb-5 sm:px-5 sm:pb-6 border-t border-gray-100/80">
+            <div className="px-4 pb-5 sm:px-5 sm:pb-6 border-t border-gray-100/80">
             {loading && <p className="text-sm text-gray-400">{t('dashboard.portfolio.loading')}</p>}
             {error && <p className="text-sm text-rose-600">{t('dashboard.portfolio.error_load')}</p>}
 
@@ -837,8 +831,7 @@ export function PortfolioSection({
                     </div>
                 </div>
             )}
-                </div>
-            )}
+            </div>
         </div>
     );
 }

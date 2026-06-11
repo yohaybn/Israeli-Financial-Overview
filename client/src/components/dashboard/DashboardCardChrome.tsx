@@ -10,6 +10,7 @@ export const dashboardCardShellClass =
 export interface DashboardCardHeaderProps {
     collapsed: boolean;
     onToggle: () => void;
+    collapsible?: boolean;
     icon: ReactNode;
     /** Tailwind classes for the gradient icon tile (include shadow-* matching brand). */
     iconTileClassName: string;
@@ -27,6 +28,7 @@ export interface DashboardCardHeaderProps {
 export function DashboardCardHeader({
     collapsed,
     onToggle,
+    collapsible = true,
     icon,
     iconTileClassName,
     title,
@@ -68,13 +70,13 @@ export function DashboardCardHeader({
         <div className="flex items-center gap-2 min-w-0 flex-wrap justify-end">
             {isHebrew ? (
                 <>
-                    {chevron}
+                    {collapsible ? chevron : null}
                     {endActions}
                 </>
             ) : (
                 <>
                     {endActions}
-                    {chevron}
+                    {collapsible ? chevron : null}
                 </>
             )}
         </div>
@@ -82,17 +84,24 @@ export function DashboardCardHeader({
 
     return (
         <div
-            role="button"
-            tabIndex={0}
-            onClick={onToggle}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onToggle();
-                }
-            }}
-            aria-expanded={!collapsed}
-            className="w-full text-start p-6 sm:p-8 hover:bg-white/40 transition-colors cursor-pointer"
+            role={collapsible ? 'button' : undefined}
+            tabIndex={collapsible ? 0 : undefined}
+            onClick={collapsible ? onToggle : undefined}
+            onKeyDown={
+                collapsible
+                    ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onToggle();
+                          }
+                      }
+                    : undefined
+            }
+            aria-expanded={collapsible ? !collapsed : undefined}
+            className={clsx(
+                'w-full text-start p-6 sm:p-8 transition-colors',
+                collapsible ? 'hover:bg-white/40 cursor-pointer' : 'cursor-default'
+            )}
         >
             <div className="flex items-start justify-between gap-3 sm:gap-4 w-full min-w-0">
                 {isHebrew ? (
