@@ -41,7 +41,6 @@ graph TD
         
         Server --> ScraperSvc
         Server --> AppLock
-        Server --> DB
         ScraperSvc --> PostScrape
         PostScrape --> AISvc
         PostScrape --> DB
