@@ -18,6 +18,8 @@ let pumpRunning = false;
 let insideQueuedJob = false;
 let lastStartedAt = 0;
 let backoffUntilMs = 0;
+let circuitOpenUntilMs = 0;
+const recent429AtMs: number[] = [];
 
 function minGapMs(): number {
     const raw = process.env.YAHOO_MIN_GAP_MS;
@@ -29,6 +31,24 @@ function backoff429Ms(): number {
     const raw = process.env.YAHOO_429_BACKOFF_MS;
     const n = raw != null && raw !== '' ? parseInt(raw, 10) : 90_000;
     return Number.isFinite(n) && n >= 0 ? n : 90_000;
+}
+
+function circuit429Threshold(): number {
+    const raw = process.env.YAHOO_CIRCUIT_429_THRESHOLD;
+    const n = raw != null && raw !== '' ? parseInt(raw, 10) : 4;
+    return Number.isFinite(n) && n > 0 ? n : 4;
+}
+
+function circuit429WindowMs(): number {
+    const raw = process.env.YAHOO_CIRCUIT_429_WINDOW_MS;
+    const n = raw != null && raw !== '' ? parseInt(raw, 10) : 5 * 60_000;
+    return Number.isFinite(n) && n > 0 ? n : 5 * 60_000;
+}
+
+function circuitOpenMs(): number {
+    const raw = process.env.YAHOO_CIRCUIT_OPEN_MS;
+    const n = raw != null && raw !== '' ? parseInt(raw, 10) : 30 * 60_000;
+    return Number.isFinite(n) && n > 0 ? n : 30 * 60_000;
 }
 
 function priorityRank(p: YahooRequestPriority): number {
@@ -46,7 +66,33 @@ export function getYahooRequestPriority(): YahooRequestPriority {
 
 /** Call when Yahoo returns HTTP 429 so later requests back off (aux waits longer). */
 export function noteYahooHttp429(): void {
-    backoffUntilMs = Math.max(backoffUntilMs, Date.now() + backoff429Ms());
+    const now = Date.now();
+    backoffUntilMs = Math.max(backoffUntilMs, now + backoff429Ms());
+
+    const windowMs = circuit429WindowMs();
+    recent429AtMs.push(now);
+    while (recent429AtMs.length && now - recent429AtMs[0] > windowMs) {
+        recent429AtMs.shift();
+    }
+    if (recent429AtMs.length >= circuit429Threshold()) {
+        circuitOpenUntilMs = Math.max(circuitOpenUntilMs, now + circuitOpenMs());
+        recent429AtMs.length = 0;
+    }
+}
+
+function circuitRemainingMs(): number {
+    return Math.max(0, circuitOpenUntilMs - Date.now());
+}
+
+function createCircuitOpenError(): Error {
+    const seconds = Math.ceil(circuitRemainingMs() / 1000);
+    const e = new Error(`Yahoo circuit breaker open for ${seconds}s`);
+    e.name = 'YahooCircuitOpenError';
+    return e;
+}
+
+export function isYahooCircuitOpen(): boolean {
+    return circuitRemainingMs() > 0;
 }
 
 async function waitBackoff(priority: YahooRequestPriority): Promise<void> {
@@ -77,6 +123,10 @@ async function pump(): Promise<void> {
         while (pending.length > 0) {
             const job = dequeueNext();
             if (!job) break;
+            if (isYahooCircuitOpen()) {
+                job.reject(createCircuitOpenError());
+                continue;
+            }
 
             await waitBackoff(job.priority);
 
@@ -110,6 +160,9 @@ async function pump(): Promise<void> {
  * Use {@link runWithYahooPriority} so yahoo-finance2 `fetch` inherits the same priority.
  */
 export function enqueueYahooWork<T>(priority: YahooRequestPriority, fn: () => Promise<T>): Promise<T> {
+    if (isYahooCircuitOpen()) {
+        return Promise.reject(createCircuitOpenError());
+    }
     if (insideQueuedJob) {
         return priorityContext.run(priority, fn);
     }

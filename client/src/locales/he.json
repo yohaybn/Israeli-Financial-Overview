@@ -103,10 +103,10 @@
         "scheduler": "תזמון אוטומטי",
         "scrape": "הגדרות סריקה",
         "sheets": "גוגל",
-        "budget-exports": "ייצוא לתוכנות תקציב",
-        "investments": "השקעות",
+        "budget-exports": "ייצוא לתוכנות תקציב (Beta)",
+        "investments": "השקעות (Beta)",
         "telegram": "טלגרם",
-        "mqtt": "MQTT",
+        "mqtt": "תצורת MQTT (Beta)",
         "maintenance": "תחזוקה",
         "financial-report": "דוח PDF פיננסי"
     },

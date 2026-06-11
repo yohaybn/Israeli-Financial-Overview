@@ -103,10 +103,10 @@
         "scheduler": "Scheduler",
         "scrape": "Scrape settings",
         "sheets": "Google",
-        "budget-exports": "Budget exports",
-        "investments": "Investments",
+        "budget-exports": "Budget exports (Beta)",
+        "investments": "Investments (Beta)",
         "telegram": "Telegram",
-        "mqtt": "MQTT",
+        "mqtt": "MQTT configurations (Beta)",
         "maintenance": "Maintenance",
         "financial-report": "Financial PDF report"
     },

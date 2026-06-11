@@ -407,6 +407,37 @@ export type ResolvedQuote = { price: number; resolvedSymbol: string };
 /** Per-row portfolio quote: success or human-readable error from providers. */
 export type PortfolioQuoteResolution = ResolvedQuote | { error: string };
 
+type QuoteCacheEntry = {
+    expiresAt: number;
+    value: Map<string, PortfolioQuoteResolution>;
+};
+
+const PORTFOLIO_QUOTES_TTL_MS = 30 * 60 * 1000;
+const portfolioQuotesCache = new Map<string, QuoteCacheEntry>();
+
+function clonePortfolioQuoteResolution(v: PortfolioQuoteResolution): PortfolioQuoteResolution {
+    return 'price' in v ? { price: v.price, resolvedSymbol: v.resolvedSymbol } : { error: v.error };
+}
+
+function clonePortfolioQuoteMap(src: Map<string, PortfolioQuoteResolution>): Map<string, PortfolioQuoteResolution> {
+    const out = new Map<string, PortfolioQuoteResolution>();
+    for (const [k, v] of src.entries()) out.set(k, clonePortfolioQuoteResolution(v));
+    return out;
+}
+
+function pruneExpiredPortfolioQuoteCache(nowMs: number): void {
+    for (const [k, entry] of portfolioQuotesCache.entries()) {
+        if (entry.expiresAt <= nowMs) portfolioQuotesCache.delete(k);
+    }
+}
+
+function buildPortfolioQuotesCacheKey(rows: PortfolioQuoteRow[], baseMode: EodhdQuoteMode): string {
+    const normalizedRows = rows
+        .map((r) => `${r.symbol.trim().toUpperCase()}|${r.currency.trim().toUpperCase()}|${r.useTelAvivListing ? '1' : '0'}`)
+        .sort();
+    return `${baseMode}::${normalizedRows.join('||')}`;
+}
+
 function fmtHttp(status: number | undefined, err: string): string {
     return status != null ? `${err} (HTTP ${status})` : err;
 }
@@ -414,11 +445,13 @@ function fmtHttp(status: number | undefined, err: string): string {
 async function tryEodhdCandidatesForKey(
     tk: string,
     candidates: string[],
-    mode: EodhdQuoteMode
+    mode: EodhdQuoteMode,
+    skipRealtimeCandidates: ReadonlySet<string> = new Set<string>()
 ): Promise<{ hit: ResolvedQuote | null; errors: string[] }> {
     const errors: string[] = [];
 
     const tryRt = async (sym: string): Promise<ResolvedQuote | null> => {
+        if (skipRealtimeCandidates.has(sym.trim().toUpperCase())) return null;
         const r = await fetchEodhdRealtimeQuoteResult(tk, sym);
         if (r.ok) return { price: r.price, resolvedSymbol: r.symbol };
         errors.push(`EODHD ${sym} [realtime]: ${fmtHttp(r.httpStatus, r.error)}`);
@@ -495,11 +528,20 @@ export async function resolveQuotesForPortfolioRows(
     rows: PortfolioQuoteRow[],
     opts: ResolveQuotesOptions = {}
 ): Promise<Map<string, PortfolioQuoteResolution>> {
-    const mode = opts.forceRealtimeQuotes
-        ? parseEodhdQuoteMode('realtime_then_eod')
-        : parseEodhdQuoteMode(opts.eodhdQuoteMode);
+    const baseMode = parseEodhdQuoteMode(opts.eodhdQuoteMode);
+    const mode = opts.forceRealtimeQuotes ? parseEodhdQuoteMode('realtime_then_eod') : baseMode;
+    const nowMs = Date.now();
+    const cacheKey = buildPortfolioQuotesCacheKey(rows, baseMode);
+    pruneExpiredPortfolioQuoteCache(nowMs);
+    if (!opts.forceRealtimeQuotes) {
+        const cached = portfolioQuotesCache.get(cacheKey);
+        if (cached && cached.expiresAt > nowMs) {
+            return clonePortfolioQuoteMap(cached.value);
+        }
+    }
     const keyToYahooCandidates = new Map<string, string[]>();
     const keyToEodCandidates = new Map<string, string[]>();
+    const uniqueKeys = [...new Set(rows.map((r) => r.symbol.trim().toUpperCase()).filter(Boolean))];
     for (const r of rows) {
         const key = r.symbol.trim().toUpperCase();
         keyToYahooCandidates.set(key, buildYahooQuoteCandidates(r.symbol, r.currency, r.useTelAvivListing));
@@ -518,16 +560,14 @@ export async function resolveQuotesForPortfolioRows(
         const useRealtimeBatchWave = mode === 'realtime' || mode === 'realtime_then_eod';
         if (useRealtimeBatchWave && rows.length > 0) {
             const firstSymByKey = new Map<string, string>();
-            for (const r of rows) {
-                const key = r.symbol.trim().toUpperCase();
+            for (const key of uniqueKeys) {
                 const c0 = (keyToEodCandidates.get(key) ?? [])[0];
                 if (c0?.trim()) firstSymByKey.set(key, c0.trim().toUpperCase());
             }
             const batchSymbolsDistinct = [...new Set([...firstSymByKey.values()])];
             if (batchSymbolsDistinct.length > 0) {
                 const batchMap = await fetchEodhdRealtimeQuotesBatchMerged(tk, batchSymbolsDistinct);
-                for (const r of rows) {
-                    const key = r.symbol.trim().toUpperCase();
+                for (const key of uniqueKeys) {
                     if (successByKey.has(key)) continue;
                     const fst = firstSymByKey.get(key);
                     if (!fst) continue;
@@ -539,11 +579,13 @@ export async function resolveQuotesForPortfolioRows(
             }
         }
 
-        for (const r of rows) {
-            const key = r.symbol.trim().toUpperCase();
+        for (const key of uniqueKeys) {
             if (successByKey.has(key)) continue;
             const cands = keyToEodCandidates.get(key) ?? [];
-            const { hit, errors } = await tryEodhdCandidatesForKey(tk, cands, mode);
+            // First candidate realtime is already attempted via batch wave; skip repeating that one.
+            const skipRealtime =
+                useRealtimeBatchWave && cands.length > 0 ? new Set<string>([cands[0].trim().toUpperCase()]) : new Set<string>();
+            const { hit, errors } = await tryEodhdCandidatesForKey(tk, cands, mode, skipRealtime);
             if (hit != null) {
                 successByKey.set(key, hit);
             } else if (errors.length) {
@@ -552,45 +594,33 @@ export async function resolveQuotesForPortfolioRows(
         }
     }
 
-    const missing = rows.filter((r) => !successByKey.has(r.symbol.trim().toUpperCase()));
-    if (missing.length === 0) {
-        const out = new Map<string, PortfolioQuoteResolution>();
-        for (const r of rows) {
-            const key = r.symbol.trim().toUpperCase();
-            const s = successByKey.get(key);
-            if (s) out.set(key, s);
-            else out.set(key, { error: 'quote_unavailable' });
-        }
-        return out;
-    }
-
-    const allYahooCandidates = [...new Set(missing.flatMap((r) => keyToYahooCandidates.get(r.symbol.trim().toUpperCase()) ?? []))];
-    const quoteResults = await fetchYahooQuotesForSymbols(allYahooCandidates);
-    const priceByYahoo = new Map<string, number>();
-    const symbolByYahoo = new Map<string, string>();
-    const yahooErrByCand = new Map<string, string>();
-    for (const q of quoteResults) {
-        const u = q.symbol.toUpperCase();
-        if (q.ok) {
-            priceByYahoo.set(u, q.price);
-            symbolByYahoo.set(u, q.symbol);
-        } else {
-            yahooErrByCand.set(u, q.error);
-        }
-    }
-    for (const r of missing) {
-        const key = r.symbol.trim().toUpperCase();
-        if (successByKey.has(key)) continue;
-        const yErrs: string[] = [];
-        for (const c of keyToYahooCandidates.get(key) ?? []) {
-            const u = c.toUpperCase();
-            const p = priceByYahoo.get(u);
-            if (p != null && p > 0) {
-                successByKey.set(key, { price: p, resolvedSymbol: (symbolByYahoo.get(u) ?? c).toUpperCase() });
-                break;
+    const missingKeys = uniqueKeys.filter((key) => !successByKey.has(key));
+    let yahooErrByCand = new Map<string, string>();
+    if (missingKeys.length > 0) {
+        const allYahooCandidates = [...new Set(missingKeys.flatMap((key) => keyToYahooCandidates.get(key) ?? []))];
+        const quoteResults = await fetchYahooQuotesForSymbols(allYahooCandidates);
+        const priceByYahoo = new Map<string, number>();
+        const symbolByYahoo = new Map<string, string>();
+        yahooErrByCand = new Map<string, string>();
+        for (const q of quoteResults) {
+            const u = q.symbol.toUpperCase();
+            if (q.ok) {
+                priceByYahoo.set(u, q.price);
+                symbolByYahoo.set(u, q.symbol);
+            } else {
+                yahooErrByCand.set(u, q.error);
             }
-            const ye = yahooErrByCand.get(u);
-            if (ye) yErrs.push(`Yahoo ${c}: ${ye}`);
+        }
+        for (const key of missingKeys) {
+            if (successByKey.has(key)) continue;
+            for (const c of keyToYahooCandidates.get(key) ?? []) {
+                const u = c.toUpperCase();
+                const p = priceByYahoo.get(u);
+                if (p != null && p > 0) {
+                    successByKey.set(key, { price: p, resolvedSymbol: (symbolByYahoo.get(u) ?? c).toUpperCase() });
+                    break;
+                }
+            }
         }
     }
 
@@ -613,6 +643,10 @@ export async function resolveQuotesForPortfolioRows(
         const msg = [eodPart, yPart].filter(Boolean).join(' | ');
         out.set(key, { error: msg || 'quote_unavailable' });
     }
+    portfolioQuotesCache.set(cacheKey, {
+        expiresAt: nowMs + PORTFOLIO_QUOTES_TTL_MS,
+        value: clonePortfolioQuoteMap(out),
+    });
     return out;
 }
 
