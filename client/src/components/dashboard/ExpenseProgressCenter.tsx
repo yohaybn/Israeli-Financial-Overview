@@ -70,6 +70,7 @@ export function ExpenseProgressCenter({
     collapseAllSignal = 0,
 }: ExpenseProgressCenterProps) {
     const { t, i18n } = useTranslation();
+    const isHebrew = i18n.language?.startsWith('he');
     const [selectedKpi, setSelectedKpi] = useState<'already_spent' | 'remaining_planned' | null>(null);
     const [showForecastModal, setShowForecastModal] = useState(false);
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
@@ -200,44 +201,52 @@ export function ExpenseProgressCenter({
             </div>
 
             {sortedCategories.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[min(720px,70vh)] overflow-y-auto pr-1 custom-scrollbar">
-                    {sortedCategories.map((cat) => {
-                        const health = categoryHealth(cat);
-                        const budget = cat.projected > 0 ? cat.projected : Math.max(cat.historicalAvg || 0, cat.spent, 1);
-                        const fillPct = Math.min(100, (cat.spent / budget) * 100);
-                        const barFill =
-                            health === 'critical' ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gradient-to-r from-emerald-500 to-emerald-600';
+                <div className="rounded-2xl border border-gray-100 bg-white p-2 sm:p-2.5 max-h-[min(720px,70vh)] overflow-y-auto pr-0.5 custom-scrollbar">
+                    <div className="divide-y divide-gray-100">
+                        {sortedCategories.map((cat) => {
+                            const health = categoryHealth(cat);
+                            const budget = cat.projected > 0 ? cat.projected : Math.max(cat.historicalAvg || 0, cat.spent, 1);
+                            const fillPct = Math.min(100, (cat.spent / budget) * 100);
+                            const barFill =
+                                health === 'critical'
+                                    ? 'bg-gradient-to-r from-red-500 to-rose-600'
+                                    : 'bg-gradient-to-r from-emerald-500 to-emerald-600';
 
-                        return (
-                            <button
-                                key={cat.name}
-                                type="button"
-                                onClick={() => onCategoryClick?.(cat.name)}
-                                className="text-start rounded-2xl bg-white border border-gray-100 shadow-sm p-4 hover:border-gray-200 hover:shadow-md transition-all flex flex-col gap-3"
-                            >
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 border border-rose-100 text-rose-700">
-                                            <CategoryIcon category={cat.name} className="w-4 h-4" />
-                                        </span>
-                                        <span className="text-xs font-bold text-gray-900 uppercase tracking-wide truncate">{cat.name}</span>
+                            return (
+                                <button
+                                    key={cat.name}
+                                    type="button"
+                                    onClick={() => onCategoryClick?.(cat.name)}
+                                    className="w-full px-0.5 py-1 hover:bg-gray-50/60 transition-colors"
+                                >
+                                    <div
+                                        dir="ltr"
+                                        className="grid grid-cols-[80px_minmax(0,1fr)_120px] items-center gap-1"
+                                    >
+                                        <div className={`${isHebrew ? 'text-left' : 'text-right'} tabular-nums`}>
+                                            <div className="text-[12px] font-semibold text-gray-800 truncate leading-tight">
+                                                {formatCurrency(cat.spent)}
+                                            </div>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-slate-200/80 overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${barFill} ${health === 'critical' ? '' : 'opacity-95'}`}
+                                                style={{ width: `${fillPct}%` }}
+                                            />
+                                        </div>
+                                        <div className={`min-w-0 flex items-center gap-1.5 ${isHebrew ? 'justify-end text-right' : 'justify-start text-left'}`}>
+                                            <span className="text-rose-700 shrink-0">
+                                                <CategoryIcon category={cat.name} className="w-3.5 h-3.5" />
+                                            </span>
+                                            <span className="text-[12px] font-semibold text-slate-700 truncate">
+                                                {cat.name}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${healthBadgeClass(health)}`}>
-                                        {healthLabel(health)}
-                                    </span>
-                                </div>
-                                <p className="text-2xl font-black text-gray-900 tabular-nums">{formatCurrency(cat.spent)}</p>
-                                <div className="flex items-center gap-2 mt-auto">
-                                    <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                        <div className={`h-full rounded-full transition-all ${barFill}`} style={{ width: `${fillPct}%` }} />
-                                    </div>
-                                    <span className="text-[11px] text-gray-400 whitespace-nowrap tabular-nums">
-                                        {t('dashboard.of_budget', { amount: formatCurrency(budget) })}
-                                    </span>
-                                </div>
-                            </button>
-                        );
-                    })}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
                 </div>
