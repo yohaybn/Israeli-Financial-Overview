@@ -49,6 +49,7 @@ export function FinancialCommandCenter({
     categories,
 }: FinancialCommandCenterProps) {
     const { t, i18n } = useTranslation();
+    const isHebrew = i18n.language === 'he' || i18n.language.startsWith('he');
     const { data: investmentAppSettings } = useInvestmentAppSettings();
     const showInvestmentsCard = investmentAppSettings?.featureEnabled !== false;
     const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<string | null>(null);
@@ -444,137 +445,152 @@ export function FinancialCommandCenter({
                 </div>
             ) : (
                 <>
-            {sectionVis.topInsights ? (
-                <div className="animate-fade-in-up max-w-6xl mx-auto w-full" style={{ animationDelay: '90ms' }}>
-                    <TopInsightsCard collapseAllSignal={collapseAllSignal} />
-                </div>
-            ) : null}
-
-            {(sectionVis.income || sectionVis.expenses) ? (
-                <div
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-fade-in-up"
-                    style={{ animationDelay: '120ms' }}
-                >
-                    {sectionVis.income ? (
-                        <IncomeProgressCenter
-                            alreadyReceived={summary.income.alreadyReceived}
-                            alreadyReceivedTxns={summary.income.alreadyReceivedTxns}
-                            expectedInflow={summary.income.expectedInflow}
-                            expectedInflowTxns={summary.income.expectedInflowTxns}
-                            totalProjected={summary.income.totalProjected}
-                            upcomingIncome={summary.upcomingFixed.filter((i) => i.type === 'income')}
-                            categories={availableCategories}
-                            onUpdateCategory={onUpdateCategory}
-                            defaultCollapsed={cardsCollapsedOnMobile}
-                            collapseAllSignal={collapseAllSignal}
-                        />
-                    ) : null}
-                    {sectionVis.expenses ? (
-                        <ExpenseProgressCenter
-                            alreadySpent={summary.expenses.alreadySpent}
-                            alreadySpentTxns={summary.expenses.alreadySpentTxns}
-                            remainingPlanned={summary.expenses.remainingPlanned}
-                            remainingPlannedTxns={summary.expenses.remainingPlannedTxns}
-                            variableForecast={summary.expenses.variableForecast}
-                            expenseTxnCount={summary.expenses.expenseTxnCount}
-                            historicalAvgMonthlyTxnCount={summary.expenses.historicalAvgMonthlyTxnCount}
-                            expectedTxnCountToDate={summary.expenses.expectedTxnCountToDate}
-                            isCurrentMonth={summary.isCurrentMonth}
-                            remainingDays={summary.remainingDays}
-                            monthsAnalyzed={summary.historicalBaseline?.monthsAnalyzed}
-                            totalProjected={summary.expenses.totalProjected}
-                            byCategory={summary.expenses.byCategory}
-                            categories={availableCategories}
-                            onUpdateCategory={onUpdateCategory}
-                            onCategoryClick={setSelectedCategoryForModal}
-                            defaultCollapsed={cardsCollapsedOnMobile}
-                            collapseAllSignal={collapseAllSignal}
-                        />
-                    ) : null}
-                </div>
-            ) : null}
-
-            {(sectionVis.subscriptions || sectionVis.monthlyTransactions) ? (
-                <div className="pt-2 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                        {sectionVis.subscriptions ? (
-                            <SubscriptionList
-                                subscriptions={summary.subscriptions || []}
-                                categories={availableCategories}
-                                onUpdateCategory={onUpdateCategory}
-                                selectedMonth={selectedMonth}
-                                monthExpenseTotal={summary.expenses.alreadySpent}
-                                defaultCollapsed={cardsCollapsedOnMobile}
-                                collapseAllSignal={collapseAllSignal}
-                            />
+            <div
+                className={`grid grid-cols-1 gap-5 xl:items-start ${
+                    isHebrew
+                        ? 'xl:grid-cols-[minmax(240px,30%)_minmax(0,1fr)]'
+                        : 'xl:grid-cols-[minmax(0,1fr)_minmax(240px,30%)]'
+                }`}
+            >
+                {(sectionVis.topInsights || (showInvestmentsCard && sectionVis.investments)) ? (
+                    <aside className={`space-y-4 xl:sticky xl:top-4 ${isHebrew ? 'xl:order-1' : 'xl:order-2'}`}>
+                        {sectionVis.topInsights ? (
+                            <div className="animate-fade-in-up" style={{ animationDelay: '90ms' }}>
+                                <TopInsightsCard collapseAllSignal={collapseAllSignal} />
+                            </div>
                         ) : null}
-                        {sectionVis.monthlyTransactions ? (
-                            <div id="dashboard-monthly-transactions" className="scroll-mt-4">
-                                <MonthlyTransactionsCard
-                                    transactions={transactionsForTable}
-                                    categories={availableCategories}
-                                    onUpdateCategory={onUpdateCategory}
-                                    scopeLabel={tableScopeLabel}
-                                    filterLabel={tableFilterLabel}
-                                    onClearFilter={() => setAnalyticsDayFilter(null)}
-                                    customCCKeywords={config.customCCKeywords ?? []}
-                                    defaultCollapsed={cardsCollapsedOnMobile}
-                                    expandSignal={transactionsExpandSignal}
+
+                        {showInvestmentsCard && sectionVis.investments ? (
+                            <div className="animate-fade-in-up" style={{ animationDelay: '210ms' }}>
+                                <PortfolioSection
                                     collapseAllSignal={collapseAllSignal}
-                                    endActions={
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setShowAllTransactionsSearch(true);
-                                            }}
-                                            className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 whitespace-nowrap"
-                                        >
-                                            {t('dashboard.search_all_transactions')}
-                                        </button>
-                                    }
+                                    defaultCollapsed={cardsCollapsedOnMobile}
                                 />
                             </div>
                         ) : null}
-                    </div>
-                </div>
-            ) : null}
+                    </aside>
+                ) : null}
 
-            {showInvestmentsCard && sectionVis.investments ? (
-                <div className="animate-fade-in-up max-w-6xl mx-auto w-full pt-6" style={{ animationDelay: '210ms' }}>
-                    <PortfolioSection
-                        collapseAllSignal={collapseAllSignal}
-                        defaultCollapsed={cardsCollapsedOnMobile}
-                    />
-                </div>
-            ) : null}
-
-            {sectionVis.detailedAnalytics ? (
-                <div className="border-t border-gray-200 pt-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-blue-500 rounded-lg flex items-center justify-center shadow-sm">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                            </svg>
+                <div className={`space-y-6 min-w-0 ${isHebrew ? 'xl:order-2' : 'xl:order-1'}`}>
+                    {(sectionVis.income || sectionVis.expenses) ? (
+                        <div
+                            className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-fade-in-up"
+                            style={{ animationDelay: '120ms' }}
+                        >
+                            {sectionVis.income ? (
+                                <IncomeProgressCenter
+                                    alreadyReceived={summary.income.alreadyReceived}
+                                    alreadyReceivedTxns={summary.income.alreadyReceivedTxns}
+                                    expectedInflow={summary.income.expectedInflow}
+                                    expectedInflowTxns={summary.income.expectedInflowTxns}
+                                    totalProjected={summary.income.totalProjected}
+                                    upcomingIncome={summary.upcomingFixed.filter((i) => i.type === 'income')}
+                                    categories={availableCategories}
+                                    onUpdateCategory={onUpdateCategory}
+                                    defaultCollapsed={cardsCollapsedOnMobile}
+                                    collapseAllSignal={collapseAllSignal}
+                                />
+                            ) : null}
+                            {sectionVis.expenses ? (
+                                <ExpenseProgressCenter
+                                    alreadySpent={summary.expenses.alreadySpent}
+                                    alreadySpentTxns={summary.expenses.alreadySpentTxns}
+                                    remainingPlanned={summary.expenses.remainingPlanned}
+                                    remainingPlannedTxns={summary.expenses.remainingPlannedTxns}
+                                    variableForecast={summary.expenses.variableForecast}
+                                    expenseTxnCount={summary.expenses.expenseTxnCount}
+                                    historicalAvgMonthlyTxnCount={summary.expenses.historicalAvgMonthlyTxnCount}
+                                    expectedTxnCountToDate={summary.expenses.expectedTxnCountToDate}
+                                    isCurrentMonth={summary.isCurrentMonth}
+                                    remainingDays={summary.remainingDays}
+                                    monthsAnalyzed={summary.historicalBaseline?.monthsAnalyzed}
+                                    totalProjected={summary.expenses.totalProjected}
+                                    byCategory={summary.expenses.byCategory}
+                                    categories={availableCategories}
+                                    onUpdateCategory={onUpdateCategory}
+                                    onCategoryClick={setSelectedCategoryForModal}
+                                    defaultCollapsed={cardsCollapsedOnMobile}
+                                    collapseAllSignal={collapseAllSignal}
+                                />
+                            ) : null}
                         </div>
-                        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                            {t('dashboard.detailed_analytics')}
-                        </h3>
-                    </div>
-                    <AnalyticsDashboard
-                        transactions={monthTransactions}
-                        allTransactions={transactions}
-                        onCategoryClick={setSelectedCategoryForModal}
-                        customCCKeywords={config.customCCKeywords}
-                        onDayFilterChange={setAnalyticsDayFilter}
-                        activeDayFilter={analyticsDayFilter}
-                        categories={availableCategories}
-                        categoryMeta={aiSettings?.categoryMeta}
-                        chartDefaultSingleMonth={selectedMonth}
-                    />
+                    ) : null}
+
+                    {(sectionVis.subscriptions || sectionVis.monthlyTransactions) ? (
+                        <div className="pt-2 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                                {sectionVis.subscriptions ? (
+                                    <SubscriptionList
+                                        subscriptions={summary.subscriptions || []}
+                                        categories={availableCategories}
+                                        onUpdateCategory={onUpdateCategory}
+                                        selectedMonth={selectedMonth}
+                                        monthExpenseTotal={summary.expenses.alreadySpent}
+                                        defaultCollapsed={cardsCollapsedOnMobile}
+                                        collapseAllSignal={collapseAllSignal}
+                                    />
+                                ) : null}
+                                {sectionVis.monthlyTransactions ? (
+                                    <div id="dashboard-monthly-transactions" className="scroll-mt-4">
+                                        <MonthlyTransactionsCard
+                                            transactions={transactionsForTable}
+                                            categories={availableCategories}
+                                            onUpdateCategory={onUpdateCategory}
+                                            scopeLabel={tableScopeLabel}
+                                            filterLabel={tableFilterLabel}
+                                            onClearFilter={() => setAnalyticsDayFilter(null)}
+                                            customCCKeywords={config.customCCKeywords ?? []}
+                                            defaultCollapsed={cardsCollapsedOnMobile}
+                                            expandSignal={transactionsExpandSignal}
+                                            collapseAllSignal={collapseAllSignal}
+                                            endActions={
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowAllTransactionsSearch(true);
+                                                    }}
+                                                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 whitespace-nowrap"
+                                                >
+                                                    {t('dashboard.search_all_transactions')}
+                                                </button>
+                                            }
+                                        />
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {sectionVis.detailedAnalytics ? (
+                        <div className="border-t border-gray-200 pt-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-blue-500 rounded-lg flex items-center justify-center shadow-sm">
+                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                                    {t('dashboard.detailed_analytics')}
+                                </h3>
+                            </div>
+                            <AnalyticsDashboard
+                                transactions={monthTransactions}
+                                allTransactions={transactions}
+                                onCategoryClick={setSelectedCategoryForModal}
+                                customCCKeywords={config.customCCKeywords}
+                                onDayFilterChange={setAnalyticsDayFilter}
+                                activeDayFilter={analyticsDayFilter}
+                                categories={availableCategories}
+                                categoryMeta={aiSettings?.categoryMeta}
+                                chartDefaultSingleMonth={selectedMonth}
+                            />
+                        </div>
+                    ) : null}
                 </div>
-            ) : null}
+
+            </div>
 
             {/* Category Details Modal */}
             {selectedCategoryForModal && (

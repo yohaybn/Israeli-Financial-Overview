@@ -1,0 +1,21 @@
+{
+    "profiles": {
+        "title": "הפרופילים השמורים שלכם",
+        "loading": "מעלה את הפרופילים...",
+        "empty": "עדיין לא שמרתם אף פרטי התחברות.",
+        "save_current": "+ שמרו את מה שהקלדתם עכשיו",
+        "add_new": "הוספת בנק/כרטיס חדש",
+        "saving_hint": "אנחנו שומרים הכל תחת המטריה של ",
+        "name_placeholder": "איך תרצו לקרוא לפרופיל הזה?",
+        "confirm_delete": "למחוק את הפרופיל ופרטי ההתחברות שלו?",
+        "save_failed": "לא הצלחנו לשמור: {{error}}",
+        "delete_failed": "תקלה במחיקה: {{error}}",
+        "edit_action": "עריכת פרופיל",
+        "edit_title": "עריכת פרופיל",
+        "name_label": "שם הפרופיל",
+        "password_unchanged_placeholder": "השאירו ריק כדי לשמור על הערך השמור",
+        "options_section": "הגדרות סריקה",
+        "edit_load_failed": "לא ניתן לטעון את הפרופיל.",
+        "update_failed": "עדכון הפרופיל נכשל: {{error}}"
+    }
+}

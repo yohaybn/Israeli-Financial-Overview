@@ -1,0 +1,8 @@
+{
+    "config_setup_wizard": {
+        "title": "Initial setup wizard",
+        "subtitle": "Follow these steps to configure the app quickly before touching advanced options.",
+        "open_step": "Open this step",
+        "open_advanced": "Open advanced for this step"
+    }
+}

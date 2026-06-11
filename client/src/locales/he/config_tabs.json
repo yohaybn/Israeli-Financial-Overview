@@ -1,0 +1,16 @@
+{
+    "config_tabs": {
+        "ai": "AI",
+        "insight-rules": "חוקים מותאמים אישית",
+        "categories": "קטגוריות",
+        "scheduler": "תזמון אוטומטי",
+        "scrape": "הגדרות סריקה",
+        "sheets": "גוגל",
+        "budget-exports": "ייצוא לתוכנות תקציב (Beta)",
+        "investments": "השקעות (Beta)",
+        "telegram": "טלגרם",
+        "mqtt": "תצורת MQTT (Beta)",
+        "maintenance": "תחזוקה",
+        "financial-report": "דוח PDF פיננסי"
+    }
+}

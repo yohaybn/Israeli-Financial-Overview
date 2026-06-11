@@ -1,0 +1,7 @@
+{
+    "config_validation": {
+        "required": "השדה הזה חובה",
+        "min_value": "הערך המינימלי הוא {{min}}",
+        "max_value": "הערך המקסימלי הוא {{max}}"
+    }
+}

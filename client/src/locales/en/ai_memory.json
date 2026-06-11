@@ -1,0 +1,27 @@
+{
+    "ai_memory": {
+        "title": "AI memory",
+        "description": "Facts are long-term context the model can reuse (editable). Insights are analytical notes stored so the assistant avoids repeating the same observation.",
+        "retention_heading": "Retention",
+        "retention_help": "Automatically delete insights and alerts older than the number of days below (0 = keep forever). Pruning runs on save, daily, and when the server starts.",
+        "retention_insights_days": "Delete insights older than (days)",
+        "retention_alerts_days": "Delete alerts older than (days)",
+        "clear_all": "Clear all",
+        "clear_all_confirm": "Remove every item in “{{section}}”? This cannot be undone.",
+        "facts_heading": "Facts",
+        "facts_help": "Stable context for sharper analysis (household, income structure, goals, preferences)—not month-specific observations. The AI may add facts or update outdated ones when your situation changes; you can edit or delete them here.",
+        "insights_heading": "Insights",
+        "insights_help": "Observations from past replies. Delete items if you want them to be allowed again in future answers.",
+        "fact_placeholder": "Add a fact…",
+        "add": "Add",
+        "save": "Save",
+        "edit": "Edit",
+        "delete": "Delete",
+        "no_facts": "No facts yet.",
+        "no_insights": "No insights recorded yet.",
+        "alerts_heading": "Alerts",
+        "alerts_ai_badge": "AI",
+        "alerts_help": "Urgent or time-sensitive items produced by the assistant and stored here (scores are 1–100). Dismissing removes the row and prevents the same text from being saved again.",
+        "no_alerts_memory": "No alerts recorded yet."
+    }
+}

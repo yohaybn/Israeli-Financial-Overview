@@ -1,0 +1,51 @@
+{
+    "transaction": {
+        "investment": {
+            "mark_label": "קשור להשקעות",
+            "mark_help": "תג לעצמכם (לא יוצר שורה בתיק בפני עצמו).",
+            "create_title": "שורה בתיק מהתנועה",
+            "create_hint": "נוצרת שורת תיק לפי סכום העסקה. אם החיוב בשקלים וסימוני \"ת״א\" כבוי, השורה נשמרת בדולרים עם שער USD/ILS לתאריך העסקה (Frankfurter/יאהו) לחישוב כמות ומחיר ליחידה.",
+            "symbol_placeholder": "סימבול (למשל VTI)",
+            "quantity": "כמות (יחידות)",
+            "submit": "יצירת שורה בתיק",
+            "already_linked": "כבר קיימת שורת תיק מקושרת לתנועה הזו.",
+            "created": "נוצרה שורת תיק.",
+            "create_failed": "לא ניתן ליצור שורת תיק",
+            "badge": "השקעה",
+            "yahoo_ta_help": "ניסיון סימבולי ת״א ביאהו (TA.* / *.TA) לשערוך היסטורי.",
+            "auto_qty_hint": "השאירו כמות ריקה כדי להעריך יחידות לפי עלות ומחיר סגירה באותו תאריך. המרת ₪→דולר משתמשת בשער לתאריך העסקה כשהשורה בדולרים.",
+            "auto_qty_placeholder": "אוטו",
+            "feature_disabled_hint": "מעקב השקעות כבוי בהגדרות ← השקעות. הפעילו שם כדי לערוך פעולות תיק."
+        },
+        "fields": {
+            "id": "מזהה תנועה",
+            "externalId": "מזהה חיצוני",
+            "voucherNumber": "מספר שובר",
+            "sourceRef": "מקור רשומה (ייבוא)",
+            "date": "תאריך",
+            "processedDate": "תאריך עיבוד",
+            "description": "תיאור",
+            "memo": "הערה",
+            "amount": "סכום (ש״ח)",
+            "originalAmount": "סכום במטבע מקורי",
+            "originalCurrency": "מטבע מקורי",
+            "chargedAmount": "סכום חיוב",
+            "chargedCurrency": "מטבע חיוב",
+            "status": "סטטוס",
+            "type": "סוג (למשל רגיל, תשלומים)",
+            "installments": "תשלומים (תוכנית)",
+            "category": "קטגוריה",
+            "categoryUserSet": "קטגוריה נקבעה ידנית",
+            "provider": "ספק / מוסד",
+            "accountNumber": "מספר חשבון",
+            "txnType": "סוג תנועה (הוצאה / הכנסה / …)",
+            "isIgnored": "סימון התעלמות",
+            "isInternalTransfer": "העברה פנימית",
+            "isSubscription": "מנוי",
+            "subscriptionInterval": "תדירות מנוי",
+            "excludeFromSubscriptions": "לא לכלול במנויים",
+            "isInvestment": "קשור להשקעות",
+            "investmentId": "מזהה שורת תיק מקושרת"
+        }
+    }
+}

@@ -1215,6 +1215,7 @@
             "nickname": "Label",
             "nickname_placeholder": "Optional nickname",
             "quantity": "Quantity",
+            "pnl_ils": "P&L (₪)",
             "purchase_price": "Purchase / unit",
             "purchase_price_agorot_title": "For ILS, use this when your broker and the feed show prices in agorot (1/100 ₪): your purchase per unit is stored in agorot, and the live quote is divided by 100 before P&L and totals (shown in shekels).",
             "purchase_price_agorot_sub": "agorot optional",
@@ -1265,7 +1266,10 @@
             "price_chart_hint": "Per-unit daily close from EODHD ({{symbol}}). The first point is your recorded purchase price. When shown, the last orange dot is the delayed live quote.",
             "price_chart_purchase": "Your purchase",
             "price_chart_eod": "Market close",
-            "price_chart_realtime": "Live (delayed)"
+            "price_chart_realtime": "Live (delayed)",
+            "positions": "Positions",
+            "manage_positions": "Manage positions",
+            "of_portfolio": "Of portfolio"
         },
         "custom_charts_section_title": "Your charts",
         "custom_charts_intro": "Build charts from your transaction data. Settings are saved with your dashboard.",

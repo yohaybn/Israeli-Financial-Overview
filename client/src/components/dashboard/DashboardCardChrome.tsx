@@ -50,7 +50,7 @@ export function DashboardCardHeader({
     const textBlock = (
         <div className={clsx('min-w-0 flex-1', isHebrew && 'text-end')}>
             <div className="text-base sm:text-lg font-black text-gray-800 tracking-tight truncate">{title}</div>
-            {subtitle != null && <div className="text-xs text-gray-500 mt-0.5 min-w-0">{subtitle}</div>}
+            {subtitle != null && <div className="text-xs text-gray-500 mt-0.5 min-w-0 break-words">{subtitle}</div>}
         </div>
     );
 
@@ -65,7 +65,7 @@ export function DashboardCardHeader({
     );
 
     const controls = (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap justify-end">
             {isHebrew ? (
                 <>
                     {chevron}
@@ -94,7 +94,7 @@ export function DashboardCardHeader({
             aria-expanded={!collapsed}
             className="w-full text-start p-6 sm:p-8 hover:bg-white/40 transition-colors cursor-pointer"
         >
-            <div className="flex items-center justify-between gap-3 sm:gap-4 w-full min-w-0">
+            <div className="flex items-start justify-between gap-3 sm:gap-4 w-full min-w-0">
                 {isHebrew ? (
                     <>
                         {controls}

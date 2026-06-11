@@ -1215,6 +1215,7 @@
             "nickname": "כינוי",
             "nickname_placeholder": "כינוי אופציונלי",
             "quantity": "כמות",
+            "pnl_ils": "רווח/הפסד (₪)",
             "purchase_price": "מחיר רכישה ליחידה",
             "purchase_price_agorot_title": "בשקל (ILS): סמנו כשהברוקר והזנה מציגים מחירים באגורות (1/100 ₪). מחיר הרכישה ליחידה נשמר באגורות, ושער השוק החי מחולק ב־100 לפני רווח/הפסד וסכומים (מוצגים בשקלים).",
             "purchase_price_agorot_sub": "אגורות (אופציונלי)",
@@ -1265,7 +1266,10 @@
             "price_chart_hint": "סגירה יומית ליחידה מ־EODHD ({{symbol}}). הנקודה הראשונה היא מחיר הרכישה ששמרתם. נקודה כתומה אחרונה = שער חי (באיחור) כשקיים.",
             "price_chart_purchase": "רכישה שלכם",
             "price_chart_eod": "סגירת שוק",
-            "price_chart_realtime": "שער חי (באיחור)"
+            "price_chart_realtime": "שער חי (באיחור)",
+            "positions": "פוזיציות",
+            "manage_positions": "ניהול פוזיציות",
+            "of_portfolio": "מהתיק"
         },
         "custom_charts_section_title": "הגרפים שלכם",
         "custom_charts_intro": "בונים גרפים מתנועות בפועל. ההגדרות נשמרות עם לוח הבקרה.",

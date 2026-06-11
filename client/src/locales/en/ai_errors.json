@@ -1,0 +1,12 @@
+{
+    "ai_errors": {
+        "model_high_demand": {
+            "title": "AI model is busy",
+            "description": "This model is currently experiencing high demand. Spikes in demand are usually temporary.",
+            "solution": "Please try again in a few moments."
+        },
+        "rate_limit_total_requests": "Total requests allowed",
+        "rate_limit_remaining_requests": "Requests remaining",
+        "rate_limit_remaining_tokens": "Tokens remaining"
+    }
+}

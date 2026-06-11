@@ -1,0 +1,6 @@
+{
+    "category_settings": {
+        "page_description": "Default category, allowed labels, meta-grouping, and bulk recategorization.",
+        "allowed_subtitle": "Used when AI assigns a category to transactions."
+    }
+}

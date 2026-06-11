@@ -1,0 +1,33 @@
+{
+    "google_sheets": {
+        "title": "Google Sheets",
+        "prompt_name": "Enter spreadsheet name:",
+        "default_sheet_name": "Bank Transactions - {{date}}",
+        "create_success": "Spreadsheet created successfully!",
+        "create_fail": "Failed to create sheet: {{error}}",
+        "syncing": "Syncing to Google Sheets...",
+        "sync_success": "Sync complete!",
+        "sync_fail": "Sync failed: {{error}}",
+        "loading_status": "Loading Google Sync status...",
+        "not_configured": "Sync to Sheets is not configured yet.",
+        "configure_now": "Configure Now",
+        "sync_title": "Google Sheets Sync",
+        "connect_desc": "Connect to your Google account to sync transactions.",
+        "connect_button": "Connect with Google",
+        "select_source": "Source Results",
+        "select_file": "Select scrape results to sync...",
+        "target_spreadsheet": "Target Spreadsheet",
+        "from_folder": "from folder",
+        "select_sheet_folder": "Select a sheet from folder...",
+        "select_sheet": "Select a sheet...",
+        "create_new": "Create new sheet",
+        "showing_from": "Showing files only from:",
+        "last_synced": "Last Synced:",
+        "syncing_button": "Syncing...",
+        "sync_button_text": "Sync to Google Sheets",
+        "select_hint": "Select a scrape result to sync",
+        "disconnect": "Disconnect",
+        "disconnect_button": "Disconnect Google account",
+        "connection_error_prompt": "Your Google Drive connection has a problem. Connect again to re-authorize."
+    }
+}

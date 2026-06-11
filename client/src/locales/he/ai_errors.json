@@ -1,0 +1,12 @@
+{
+    "ai_errors": {
+        "model_high_demand": {
+            "title": "הבינה המלאכותית קצת עמוסה כרגע",
+            "description": "מודל השפה שאנחנו עובדים איתו חווה כרגע עומס משתמשים בעולם. לרוב זה משתחרר תוך זמן קצר.",
+            "solution": "בואו ננסה שוב בעוד כמה דקות."
+        },
+        "rate_limit_total_requests": "כמה פניות מותר לכם",
+        "rate_limit_remaining_requests": "כמה פניות נשארו לכם",
+        "rate_limit_remaining_tokens": "טוקנים פנויים שנותרו"
+    }
+}

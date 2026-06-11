@@ -1,0 +1,12 @@
+{
+    "unified_ai": {
+        "title": "צ'אט AI",
+        "subtitle_help": "עזרה בשימוש באפליקציה",
+        "powered_by": "מבוסס על",
+        "subtitle_super_privacy": "פרטיות מקסימלית — ל-AI נשלחים רק סכמה ו-SQL",
+        "subtitle_hybrid": "היברידי — SQL מקומי ואז AI מלא במידת הצורך",
+        "tab_help": "עזרה",
+        "tab_analyst": "אנליסט",
+        "tablist_aria": "מצב צ'אט"
+    }
+}

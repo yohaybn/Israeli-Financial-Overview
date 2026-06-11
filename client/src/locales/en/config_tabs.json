@@ -1,0 +1,16 @@
+{
+    "config_tabs": {
+        "ai": "AI",
+        "insight-rules": "Insight rules",
+        "categories": "Categories",
+        "scheduler": "Scheduler",
+        "scrape": "Scrape settings",
+        "sheets": "Google",
+        "budget-exports": "Budget exports (Beta)",
+        "investments": "Investments (Beta)",
+        "telegram": "Telegram",
+        "mqtt": "MQTT configurations (Beta)",
+        "maintenance": "Maintenance",
+        "financial-report": "Financial PDF report"
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "categorization": {
+        "banner_title": "AI categorization failed",
+        "banner_detail": "{{error}} Cached categories were applied where possible.",
+        "retry": "Retry categorization",
+        "open_ai_settings": "Open AI settings",
+        "dismiss": "Dismiss"
+    }
+}

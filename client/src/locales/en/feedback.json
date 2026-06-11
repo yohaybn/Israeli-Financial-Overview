@@ -1,0 +1,21 @@
+{
+    "feedback": {
+        "open_button": "Feedback",
+        "open_aria": "Open feedback form (issues, features, general feedback)",
+        "chat_link": "Report an issue or send feedback",
+        "modal_title": "Send feedback",
+        "modal_intro": "We will open the feedback form in a new tab. Installation and version are shown here for reference; paste them into the form if you like. Optional logs are only loaded if you opt in below (copy and paste into the form).",
+        "installation_label": "Installation",
+        "version_label": "App version",
+        "logs_section_title": "Include logs (optional)",
+        "consent_server": "I agree to attach the latest server log excerpt to this report (last lines only).",
+        "consent_client": "I agree to attach the latest error log excerpt to this report (last lines only).",
+        "demo_no_logs": "Demo mode has no real server or error logs to attach.",
+        "open_form": "Open Google Form",
+        "opening": "Preparing…",
+        "form_not_configured": "The feedback form URL is missing. Edit client/src/config/feedbackGoogleForm.ts.",
+        "log_fetch_failed": "Could not load logs. You can still open the form without logs.",
+        "copy_hint": "If you included logs, copy the excerpt below and paste it into the form (e.g. the issue report field).",
+        "copy_logs": "Copy full log excerpt"
+    }
+}

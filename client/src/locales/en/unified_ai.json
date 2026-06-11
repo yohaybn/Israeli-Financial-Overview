@@ -1,0 +1,12 @@
+{
+    "unified_ai": {
+        "title": "AI Chat",
+        "subtitle_help": "How to use the app",
+        "powered_by": "Powered by",
+        "subtitle_super_privacy": "Super privacy — schema + SQL only to AI",
+        "subtitle_hybrid": "Hybrid — local SQL first, full AI if needed",
+        "tab_help": "Help",
+        "tab_analyst": "Analyst",
+        "tablist_aria": "Chat mode"
+    }
+}

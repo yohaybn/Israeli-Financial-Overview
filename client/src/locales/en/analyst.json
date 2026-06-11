@@ -1,0 +1,8 @@
+{
+    "analyst": {
+        "title": "AI Analyst",
+        "placeholder": "Analyze spending...",
+        "ask_me": "Ask me anything about these {{count}} transactions!",
+        "thinking": "Thinking..."
+    }
+}

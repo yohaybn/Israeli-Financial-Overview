@@ -1,0 +1,13 @@
+{
+    "config_sidebar": {
+        "nav_aria": "Settings sections",
+        "section_select_label": "Section",
+        "mode_label": "Configuration mode",
+        "mode_basic_hint": "Showing basic onboarding controls.",
+        "mode_advanced_hint": "Advanced controls are visible.",
+        "show_advanced": "Show advanced",
+        "hide_advanced": "Hide advanced",
+        "show_extra_sections": "Show more settings",
+        "hide_extra_sections": "Hide more settings"
+    }
+}

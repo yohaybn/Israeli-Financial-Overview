@@ -106,12 +106,12 @@ export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?:
 
     if (isLoading) {
         return (
-            <div className="rounded-2xl border border-emerald-100/80 border-l-4 border-l-emerald-600 bg-emerald-50/80 p-5 shadow-sm">
-                <div className="h-5 w-48 bg-emerald-100/90 rounded animate-pulse mb-4" />
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                    <div className="h-28 bg-white/70 rounded-xl animate-pulse border border-emerald-100/60" />
-                    <div className="h-28 bg-white/70 rounded-xl animate-pulse border border-emerald-100/60" />
-                    <div className="h-28 bg-white/70 rounded-xl animate-pulse border border-emerald-100/60" />
+            <div className="rounded-2xl border border-emerald-100/80 border-l-4 border-l-emerald-600 bg-emerald-50/80 p-4 shadow-sm">
+                <div className="h-4 w-40 bg-emerald-100/90 rounded animate-pulse mb-3" />
+                <div className="grid grid-cols-1 gap-3">
+                    <div className="h-24 bg-white/70 rounded-xl animate-pulse border border-emerald-100/60" />
+                    <div className="h-24 bg-white/70 rounded-xl animate-pulse border border-emerald-100/60" />
+                    <div className="h-24 bg-white/70 rounded-xl animate-pulse border border-emerald-100/60" />
                 </div>
             </div>
         );
@@ -125,9 +125,9 @@ export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?:
 
     return (
         <div className="rounded-2xl border border-emerald-100/90 border-l-4 border-l-emerald-600 bg-emerald-50/90 shadow-sm overflow-hidden">
-            <div className="p-4 sm:p-5 pb-3">
+            <div className="p-3.5 sm:p-4 pb-2.5">
                 <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
@@ -162,8 +162,8 @@ export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?:
             </div>
 
             {expanded && (
-                <div className="px-4 sm:px-5 pb-5 pt-0">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="px-3.5 sm:px-4 pb-4 pt-0">
+                    <div className="grid grid-cols-1 gap-3">
                         {insights.map((item, idx) => {
                             const { title, description } = splitInsightText(item.text);
                             const palette = CARD_ICONS[idx % CARD_ICONS.length];
@@ -172,7 +172,7 @@ export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?:
                             return (
                                 <div
                                     key={item.id}
-                                    className="relative rounded-xl border border-white/80 bg-white p-4 shadow-sm ring-1 ring-emerald-900/5"
+                                    className="relative rounded-xl border border-white/80 bg-white p-3 shadow-sm ring-1 ring-emerald-900/5"
                                 >
                                     <button
                                         type="button"
@@ -186,9 +186,9 @@ export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?:
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                         </svg>
                                     </button>
-                                    <div className="flex gap-3 pe-6">
+                                    <div className="flex gap-2.5 pe-6">
                                         <div
-                                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${palette.wrap}`}
+                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${palette.wrap}`}
                                         >
                                             {palette.icon}
                                         </div>

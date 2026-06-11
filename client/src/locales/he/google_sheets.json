@@ -1,0 +1,33 @@
+{
+    "google_sheets": {
+        "title": "Google Sheets",
+        "prompt_name": "איך תרצו לקרוא לגיליון?",
+        "default_sheet_name": "ריכוז תנועות - {{date}}",
+        "create_success": "הגיליון נוצר בהצלחה!",
+        "create_fail": "יצירת הגיליון נכשלה: {{error}}",
+        "syncing": "מסנכרן מול Google Sheets...",
+        "sync_success": "הסנכרון הסתיים בהצלחה!",
+        "sync_fail": "הסנכרון נכשל: {{error}}",
+        "loading_status": "בודק את מצב הסנכרון...",
+        "not_configured": "טרם הגדרתם סנכרון ל-Google Sheets.",
+        "configure_now": "הגדרת סנכרון כעת",
+        "sync_title": "סנכרון ל-Google Sheets",
+        "connect_desc": "חברו את חשבון הגוגל שלכם כדי לסנכרן תנועות בלחיצת כפתור.",
+        "connect_button": "התחברות עם Google",
+        "select_source": "קבצי מקור",
+        "select_file": "בחרו את הקבצים שתרצו לסנכרן...",
+        "target_spreadsheet": "לאיזה גיליון לסנכרן?",
+        "from_folder": "מתוך התיקייה",
+        "select_sheet_folder": "בחרו גיליון מתוך התיקייה...",
+        "select_sheet": "בחרו גיליון...",
+        "create_new": "יצירת גיליון חדש",
+        "showing_from": "מציג תוצאות רק מתוך:",
+        "last_synced": "סונכרן לאחרונה ב:",
+        "syncing_button": "מסנכרן...",
+        "sync_button_text": "התחל סנכרון ל-Sheets",
+        "select_hint": "בחרו תוצאות סריקה לסנכרון",
+        "disconnect": "ניתוק",
+        "disconnect_button": "ניתוק חשבון Google",
+        "connection_error_prompt": "יש בעיה בחיבור ל-Google Drive. נסו להתחבר מחדש."
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "app_lock": {
+        "locked_title": "Application locked — scraping and saving new profiles are disabled",
+        "locked_body": "Enter your app password below to unlock. Scheduled scrapes, Telegram /scrape, and the Run scrape button stay off until you unlock (the rest of the dashboard stays available).",
+        "password": "App password",
+        "unlock": "Unlock",
+        "unlock_failed": "Could not unlock",
+        "unlocked_hint": "Scraping and new profiles are allowed for this session.",
+        "lock_now": "Lock again",
+        "not_configured_hint": "Optional: set an app password to require unlock before bank scrapes or adding profiles.",
+        "enable_lock": "Set app password",
+        "new_password": "New password (min 8 characters)",
+        "confirm_password": "Confirm password",
+        "save_password": "Save & enable lock"
+    }
+}

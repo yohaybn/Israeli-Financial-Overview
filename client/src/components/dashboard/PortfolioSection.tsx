@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQueries } from '@tanstack/react-query';
 import {
     LineChart,
     Line,
@@ -19,12 +19,14 @@ import {
     useCreateInvestment,
     useDeleteInvestment,
     useInvestmentsList,
-    usePortfolioHistory,
     usePortfolioSummary,
     useUpdateInvestment,
     refreshPortfolioInvestmentData,
+    investmentsKeys,
+    type InvestmentPriceHistoryDto,
     type InvestmentRow,
 } from '../../hooks/useInvestments';
+import { api } from '../../lib/api';
 
 function formatIls(n: number | null | undefined, locale: string): string {
     if (n == null || !Number.isFinite(n)) return '—';
@@ -96,15 +98,8 @@ export function PortfolioSection({
     const qc = useQueryClient();
     const [eodRefreshing, setEodRefreshing] = useState(false);
 
-    const fromDate = useMemo(() => {
-        const d = new Date();
-        d.setFullYear(d.getFullYear() - 1);
-        return d.toISOString().slice(0, 10);
-    }, []);
-
     const { data: list, isLoading: listLoading, error: listError } = useInvestmentsList();
     const { data: summary, isLoading: sumLoading, error: sumError } = usePortfolioSummary();
-    const { data: valueHist, isLoading: histLoading, error: histError } = usePortfolioHistory(fromDate);
 
     const createMut = useCreateInvestment();
     const updateMut = useUpdateInvestment();
@@ -136,15 +131,82 @@ export function PortfolioSection({
     const loading = listLoading || sumLoading;
     const error = listError || sumError;
 
-    const chartRows = useMemo(
+    const priceHistoryQueries = useQueries({
+        queries: (list ?? []).map((row) => ({
+            queryKey: investmentsKeys.priceHistory(row.id),
+            queryFn: async () => {
+                const { data } = await api.get<{
+                    success: boolean;
+                    data?: InvestmentPriceHistoryDto;
+                    error?: string;
+                    detail?: string;
+                }>(`/investments/${row.id}/price-history`, { validateStatus: () => true });
+                if (!data.success || !data.data) {
+                    throw new Error(data.error || data.detail || 'load_failed');
+                }
+                return data.data;
+            },
+            staleTime: 0,
+            gcTime: 5 * 60_000,
+            enabled: !cardCollapsed,
+        })),
+    });
+    const stockLines = useMemo(() => {
+        return (list ?? [])
+            .map((row, index) => {
+                const q = priceHistoryQueries[index];
+                const data = q?.data;
+                if (!data?.points?.length) return null;
+                const base = data.points[0]?.price;
+                if (!Number.isFinite(base) || base <= 0) return null;
+                const indexed = data.points
+                    .filter((p) => Number.isFinite(p.price) && p.price > 0)
+                    .map((p) => ({ date: p.date, value: (p.price / base) * 100 }));
+                if (!indexed.length) return null;
+                return {
+                    id: row.id,
+                    label: row.symbol,
+                    tooltipLabel: row.nickname?.trim() ? row.nickname.trim() : row.symbol,
+                    points: indexed,
+                };
+            })
+            .filter(
+                (
+                    line
+                ): line is { id: string; label: string; tooltipLabel: string; points: { date: string; value: number }[] } =>
+                    Boolean(line)
+            );
+    }, [list, priceHistoryQueries]);
+    const stockLineNameById = useMemo(
         () =>
-            (valueHist?.points ?? []).map((h) => ({
-                date: h.date,
-                value: h.totalValueIls,
-                changePct: h.changePct,
-            })),
-        [valueHist]
+            Object.fromEntries(
+                stockLines.map((line) => [
+                    line.id,
+                    {
+                        label: line.label,
+                        tooltipLabel: line.tooltipLabel,
+                    },
+                ])
+            ),
+        [stockLines]
     );
+    const stockChartRows = useMemo(() => {
+        const allDates = new Set<string>();
+        stockLines.forEach((line) => {
+            line.points.forEach((p) => allDates.add(p.date));
+        });
+        const dates = Array.from(allDates).sort((a, b) => a.localeCompare(b));
+        return dates.map((date) => {
+            const row: Record<string, number | string | null> = { date };
+            stockLines.forEach((line) => {
+                const point = line.points.find((p) => p.date === date);
+                row[line.id] = point ? point.value : null;
+            });
+            return row;
+        });
+    }, [stockLines]);
+    const stockChartLoading = !cardCollapsed && (list?.length ?? 0) > 0 && priceHistoryQueries.some((q) => q.isLoading);
+    const stockChartError = priceHistoryQueries.find((q) => q.isError)?.error;
     const allocationRows = useMemo(() => {
         const positions = summary?.positions ?? [];
         const valid = positions
@@ -253,53 +315,15 @@ export function PortfolioSection({
                 iconTileClassName="bg-gradient-to-br from-emerald-500 to-teal-700 shadow-emerald-200"
                 title={t('dashboard.portfolio.title')}
                 subtitle={<span className="text-gray-500">{t('dashboard.portfolio.subtitle')}</span>}
-                endActions={
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            title={t('dashboard.portfolio.add')}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsCreateModalOpen(true);
-                            }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                        >
-                            <Plus className="h-4 w-4" aria-hidden />
-                        </button>
-                        <button
-                            type="button"
-                            title={t('dashboard.portfolio.refresh_eod_tooltip')}
-                            aria-busy={eodRefreshing}
-                            disabled={eodRefreshing || listLoading || histLoading || sumLoading}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                void (async () => {
-                                    setEodRefreshing(true);
-                                    try {
-                                        await refreshPortfolioInvestmentData(qc);
-                                    } catch {
-                                        await qc.invalidateQueries({ queryKey: ['investments'], refetchType: 'active' });
-                                    } finally {
-                                        setEodRefreshing(false);
-                                    }
-                                })();
-                            }}
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-45 disabled:pointer-events-none"
-                        >
-                            <RefreshCw className={`h-3.5 w-3.5 ${eodRefreshing ? 'animate-spin' : ''}`} aria-hidden />
-                            {eodRefreshing ? t('dashboard.portfolio.refresh_eod_busy') : t('dashboard.portfolio.refresh_eod')}
-                        </button>
-                    </div>
-                }
             />
 
             {!cardCollapsed && (
-                <div className="px-5 pb-6 sm:px-6 sm:pb-8 border-t border-gray-100/80">
+                <div className="px-4 pb-5 sm:px-5 sm:pb-6 border-t border-gray-100/80">
             {loading && <p className="text-sm text-gray-400">{t('dashboard.portfolio.loading')}</p>}
             {error && <p className="text-sm text-rose-600">{t('dashboard.portfolio.error_load')}</p>}
 
             {summary && (
-                <div className="mb-5 rounded-3xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-5 shadow-sm">
+                <div className="mb-4 rounded-3xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 shadow-sm">
                     <div className="flex flex-wrap items-end justify-between gap-3">
                         <div className={isHebrew ? 'text-right' : ''}>
                             <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">
@@ -337,28 +361,25 @@ export function PortfolioSection({
                 </p>
             )}
 
-            <div className="mb-6">
+            <div className="mb-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <h4 className={`text-xs font-bold text-gray-500 uppercase tracking-wider ${isHebrew ? 'text-right' : ''}`}>
                         {t('dashboard.portfolio.chart_title')}
                     </h4>
                 </div>
-                {valueHist?.partial ? (
-                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-2">
-                        {t('dashboard.portfolio.value_chart_partial')}
+                {stockChartError ? (
+                    <p className="text-sm text-rose-600 mb-2">
+                        {stockChartError instanceof Error ? stockChartError.message : t('dashboard.portfolio.value_history_error')}
                     </p>
                 ) : null}
-                {histError ? (
-                    <p className="text-sm text-rose-600 mb-2">{t('dashboard.portfolio.value_history_error')}</p>
-                ) : null}
-                {histLoading ? (
+                {stockChartLoading ? (
                     <p className="text-xs text-gray-400">…</p>
-                ) : chartRows.length === 0 ? (
+                ) : stockChartRows.length === 0 || stockLines.length === 0 ? (
                     <p className="text-sm text-gray-400">{t('dashboard.portfolio.history_empty')}</p>
                 ) : (
-                    <div className="h-56 w-full min-w-0 rounded-3xl border border-emerald-100/70 bg-gradient-to-b from-white to-emerald-50/40 p-2.5">
+                    <div className="h-48 w-full min-w-0 rounded-3xl border border-emerald-100/70 bg-gradient-to-b from-white to-emerald-50/40 p-2">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartRows} margin={{ top: 8, right: 12, left: 6, bottom: 2 }}>
+                            <LineChart data={stockChartRows} margin={{ top: 8, right: 12, left: 6, bottom: 2 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis
                                     dataKey="date"
@@ -370,26 +391,30 @@ export function PortfolioSection({
                                 <YAxis
                                     tick={{ fontSize: 10 }}
                                     stroke="#94a3b8"
-                                    tickFormatter={(v) =>
-                                        new Intl.NumberFormat(locale, {
-                                            notation: 'compact',
-                                            maximumFractionDigits: 1,
-                                        }).format(Number(v))
-                                    }
+                                    domain={['auto', 'auto']}
+                                    tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
                                 />
                                 <Tooltip
-                                    formatter={(value: number | undefined, _name, item) => {
-                                        const row = item?.payload as { changePct?: number | null } | undefined;
-                                        const pct = row?.changePct;
-                                        const pctStr =
-                                            pct != null && Number.isFinite(pct)
-                                                ? ` (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`
-                                                : '';
-                                        return [`${formatIls(value, locale)}${pctStr}`, t('dashboard.portfolio.total_value')];
+                                    formatter={(value: number | undefined, name, item) => {
+                                        const dataKey = String(item?.dataKey ?? '');
+                                        const displayName = stockLineNameById[dataKey]?.tooltipLabel || String(name);
+                                        if (!Number.isFinite(value)) return ['—', String(name)];
+                                        return [`${Number(value).toFixed(2)}%`, displayName];
                                     }}
                                     labelFormatter={(l) => l}
                                 />
-                                <Line type="monotone" dataKey="value" stroke="#0f766e" strokeWidth={3.25} dot={false} />
+                                {stockLines.map((line, index) => (
+                                    <Line
+                                        key={line.id}
+                                        type="monotone"
+                                        dataKey={line.id}
+                                        name={line.label}
+                                        stroke={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]}
+                                        strokeWidth={2.3}
+                                        dot={false}
+                                        connectNulls
+                                    />
+                                ))}
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -397,12 +422,12 @@ export function PortfolioSection({
             </div>
 
             {holdingsRows.length > 0 ? (
-                <div className="mb-6 rounded-3xl border border-teal-100/70 bg-gradient-to-br from-teal-50/70 to-cyan-50/40 p-4">
+                <div className="mb-4 rounded-3xl border border-teal-100/70 bg-gradient-to-br from-teal-50/70 to-cyan-50/40 p-3">
                     <h4 className={`text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ${isHebrew ? 'text-right' : ''}`}>
                         {t('dashboard.portfolio.positions')}
                     </h4>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px,1fr] md:items-center">
-                        <div className="h-52 w-full">
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="h-44 w-full max-w-[260px] mx-auto md:mx-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
@@ -411,8 +436,8 @@ export function PortfolioSection({
                                         nameKey="label"
                                         cx="50%"
                                         cy="50%"
-                                        outerRadius={82}
-                                        innerRadius={46}
+                                        outerRadius={70}
+                                        innerRadius={40}
                                         paddingAngle={2}
                                     >
                                         {(allocationRows.length > 1 ? allocationRows : [{ key: 'single' }]).map((row, index) => (
@@ -421,9 +446,10 @@ export function PortfolioSection({
                                     </Pie>
                                     <Tooltip
                                         formatter={(value: number | undefined, _name, item) => {
-                                            const payload = item?.payload as { percent?: number } | undefined;
+                                            const payload = item?.payload as { percent?: number; label?: string } | undefined;
                                             const pct = payload?.percent ?? 0;
-                                            return [`${formatIls(value, locale)} (${pct.toFixed(1)}%)`, t('dashboard.portfolio.total_value')];
+                                            const stockDisplay = payload?.label?.trim() || t('dashboard.portfolio.symbol');
+                                            return [`${formatIls(value, locale)} (${pct.toFixed(1)}%)`, stockDisplay];
                                         }}
                                     />
                                 </PieChart>
@@ -433,7 +459,7 @@ export function PortfolioSection({
                             {holdingsRows.map((row, index) => (
                                 <div
                                     key={row.id}
-                                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/90 bg-white/95 px-3 py-2.5 shadow-sm"
+                                    className="flex items-center justify-between gap-2.5 rounded-2xl border border-white/90 bg-white/95 px-2.5 py-2 shadow-sm"
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
                                         <span
@@ -445,12 +471,22 @@ export function PortfolioSection({
                                                 {row.symbol}
                                                 {row.nickname ? <span className="text-gray-500 font-medium"> ({row.nickname})</span> : null}
                                             </div>
-                                            <div className="text-[11px] text-gray-500">x {row.quantity}</div>
+                                            <div className="text-[11px] text-gray-500">{row.percent.toFixed(1)}%</div>
                                         </div>
                                     </div>
                                     <div className={`${isHebrew ? 'text-left' : 'text-right'} shrink-0`}>
-                                        <div className="text-xs font-bold text-gray-700">{row.percent.toFixed(1)}%</div>
+        
                                         <div className="text-[11px] text-gray-500">{formatIls(row.marketValue, locale)}</div>
+                                        <div className={`text-xs font-bold mt-0.5 ${pnlClass(row.pnlIls)}`}>
+                                            {row.pnlPctOfCost != null && Number.isFinite(row.pnlPctOfCost) ? (
+                                                <>
+                                                    {row.pnlPctOfCost >= 0 ? '+' : ''}
+                                                    {row.pnlPctOfCost.toFixed(2)}%
+                                                    {' · '}
+                                                </>
+                                            ) : null}
+                                            {formatIls(row.pnlIls, locale)}
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -459,9 +495,44 @@ export function PortfolioSection({
                 </div>
             ) : null}
 
+            <div className={`mb-4 flex flex-wrap items-center gap-2 ${isHebrew ? 'justify-start' : 'justify-end'}`}>
+                <button
+                    type="button"
+                    title={t('dashboard.portfolio.add')}
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                >
+                    <Plus className="h-4 w-4" aria-hidden />
+                </button>
+                <button
+                    type="button"
+                    title={t('dashboard.portfolio.refresh_eod_tooltip')}
+                    aria-busy={eodRefreshing}
+                    disabled={eodRefreshing || listLoading || sumLoading}
+                    onClick={() => {
+                        void (async () => {
+                            setEodRefreshing(true);
+                            try {
+                                await refreshPortfolioInvestmentData(qc);
+                            } catch {
+                                await qc.invalidateQueries({ queryKey: ['investments'], refetchType: 'active' });
+                            } finally {
+                                setEodRefreshing(false);
+                            }
+                        })();
+                    }}
+                    className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-45 disabled:pointer-events-none"
+                >
+                    <RefreshCw className={`h-3.5 w-3.5 ${eodRefreshing ? 'animate-spin' : ''}`} aria-hidden />
+                    <span className="truncate max-w-[8.5rem]">
+                        {eodRefreshing ? t('dashboard.portfolio.refresh_eod_busy') : t('dashboard.portfolio.refresh_eod')}
+                    </span>
+                </button>
+            </div>
+
             <details className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
                 <summary className={`cursor-pointer list-none px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 ${isHebrew ? 'text-right' : ''}`}>
-                    {t('dashboard.portfolio.edit')} / {t('dashboard.portfolio.delete')} {t('dashboard.portfolio.positions')}
+                    {t('dashboard.portfolio.manage_positions')}
                 </summary>
                 <table className="w-full text-sm text-left">
                     <thead>
@@ -480,7 +551,7 @@ export function PortfolioSection({
                                 {t('dashboard.portfolio.tase_quote_short')}
                             </th>
                             <th className="py-2 pe-3">{t('dashboard.portfolio.track_from')}</th>
-                            <th className="py-2 pe-3">P&amp;L (₪)</th>
+                            <th className="py-2 pe-3">{t('dashboard.portfolio.pnl_ils')}</th>
                             <th className="py-2" />
                         </tr>
                     </thead>
