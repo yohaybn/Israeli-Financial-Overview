@@ -95,17 +95,6 @@ export function ExpenseProgressCenter({
         return list;
     }, [byCategory]);
 
-    const healthLabel = (h: Health) => {
-        if (h === 'critical') return t('dashboard.status_critical');
-        if (h === 'caution') return t('dashboard.status_caution');
-        return t('dashboard.status_healthy');
-    };
-
-    const healthBadgeClass = (h: Health) => {
-        if (h === 'critical') return 'bg-red-50 text-red-600 border-red-100';
-        if (h === 'caution') return 'bg-amber-50 text-amber-700 border-amber-100';
-        return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-    };
 
     return (
         <>
