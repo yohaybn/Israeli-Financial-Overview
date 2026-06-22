@@ -59,6 +59,7 @@ function resolveStartupBrowserPath(): string | undefined {
 async function startServer() {
   // Import routes AFTER runtimeEnv (see top) so process.env is populated before services load
   const { createScrapeRoutes } = await import('./routes/scrapeRoutes.js');
+  const { blockerAuthMiddleware } = await import('./middleware/blockerAuthMiddleware.js');
   const { createPostScrapeRoutes } = await import('./routes/postScrapeRoutes.js');
   const { profileRoutes } = await import('./routes/profileRoutes.js');
   const { aiRoutes } = await import('./routes/aiRoutes.js');
@@ -130,6 +131,7 @@ async function startServer() {
 
   app.use(cors());
   app.use(express.json());
+  app.use(blockerAuthMiddleware);
 
   // Request/Response logging middleware
   app.use((req, res, next) => {

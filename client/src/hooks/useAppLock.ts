@@ -5,6 +5,7 @@ export type AppLockStatus = {
     lockConfigured: boolean;
     unlocked: boolean;
     restricted: boolean;
+    fullBlockerEnabled?: boolean;
 };
 
 export function useAppLockStatus() {
@@ -22,9 +23,13 @@ export function useUnlockApp() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (password: string) => {
-            await api.post('/app-lock/unlock', { password });
+            const { data } = await api.post('/app-lock/unlock', { password });
+            return data;
         },
-        onSuccess: () => {
+        onSuccess: (data: any) => {
+            if (data?.token) {
+                localStorage.setItem('app_session_token', data.token);
+            }
             queryClient.invalidateQueries({ queryKey: ['appLockStatus'] });
         }
     });
@@ -37,7 +42,9 @@ export function useLockApp() {
             await api.post('/app-lock/lock');
         },
         onSuccess: () => {
+            localStorage.removeItem('app_session_token');
             queryClient.invalidateQueries({ queryKey: ['appLockStatus'] });
+            window.dispatchEvent(new CustomEvent('app-session-expired'));
         }
     });
 }
@@ -46,9 +53,13 @@ export function useSetupAppLock() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (password: string) => {
-            await api.post('/app-lock/setup', { password });
+            const { data } = await api.post('/app-lock/setup', { password });
+            return data;
         },
-        onSuccess: () => {
+        onSuccess: (data: any) => {
+            if (data?.token) {
+                localStorage.setItem('app_session_token', data.token);
+            }
             queryClient.invalidateQueries({ queryKey: ['appLockStatus'] });
         }
     });

@@ -9,6 +9,7 @@ import { GettingStartedProvider } from './contexts/GettingStartedContext';
 import { ServerActivityProvider } from './contexts/ServerActivityContext';
 import { isDemoMode } from './demo/isDemo';
 import { getResolvedPublicBase, isIngressRelativeBase } from './utils/publicBase';
+import { AppBlockerGate } from './components/AppBlockerGate';
 
 /**
  * One-time PWA service-worker kill switch for HA Ingress.
@@ -58,7 +59,9 @@ async function bootstrap() {
                 <OnboardingProvider>
                     <GettingStartedProvider>
                         <ServerActivityProvider>
-                            <App />
+                            <AppBlockerGate>
+                                <App />
+                            </AppBlockerGate>
                         </ServerActivityProvider>
                     </GettingStartedProvider>
                 </OnboardingProvider>

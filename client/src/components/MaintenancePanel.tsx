@@ -24,6 +24,7 @@ import { ResultsExplorer } from './ResultsExplorer';
 import { clearBrowserSiteData } from '../utils/clearBrowserSiteData';
 import { BackupScopePicker } from './BackupScopePicker';
 import { BackupRestoreSummary } from './BackupRestoreSummary';
+import { useAppLockStatus } from '../hooks/useAppLock';
 
 const SNAPSHOT_VERSIONS = [1, 2, 3];
 
@@ -39,6 +40,9 @@ function scopesToApiPayload(selected: string[] | null, allIds: string[]): string
 
 export function MaintenancePanel() {
     const { t } = useTranslation();
+    const { data: lockStatus } = useAppLockStatus();
+    const fullBlockerEnabled = lockStatus?.fullBlockerEnabled ?? false;
+
     const { mutate: reloadDb, isPending } = useReloadDatabase();
     const { mutate: resetAll, isPending: isResetting } = useResetToDefaults();
     const { data: scopeIds = [] } = useBackupScopes();
@@ -418,20 +422,22 @@ export function MaintenancePanel() {
                 <p className="text-gray-500 text-sm mb-2">{t('common.maintenance_desc')}</p>
             </div>
 
-            <MaintenanceServerPathsCard />
+            {!fullBlockerEnabled && <MaintenanceServerPathsCard />}
 
-            <GitHubUpdateCheck />
+            {!fullBlockerEnabled && <GitHubUpdateCheck />}
 
-            <DesktopAppSettings />
+            {!fullBlockerEnabled && <DesktopAppSettings />}
 
-            <CollapsibleCard
-                title={t('maintenance.scrape_results_title')}
-                subtitle={t('maintenance.scrape_results_desc')}
-                defaultOpen={false}
-                bodyClassName="px-6 pb-6 pt-0"
-            >
-                <ResultsExplorer />
-            </CollapsibleCard>
+            {!fullBlockerEnabled && (
+                <CollapsibleCard
+                    title={t('maintenance.scrape_results_title')}
+                    subtitle={t('maintenance.scrape_results_desc')}
+                    defaultOpen={false}
+                    bodyClassName="px-6 pb-6 pt-0"
+                >
+                    <ResultsExplorer />
+                </CollapsibleCard>
+            )}
 
             <CollapsibleCard title={t('maintenance.backup_title')} subtitle={t('maintenance.backup_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
                 <div className="p-5 bg-blue-50 rounded-2xl border border-blue-100 space-y-4">
@@ -573,32 +579,36 @@ export function MaintenancePanel() {
                 </div>
             </CollapsibleCard>
 
-            <CollapsibleCard title={t('maintenance.reload_title')} subtitle={t('maintenance.reload_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
-                <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
-                    <button
-                        type="button"
-                        onClick={handleReload}
-                        disabled={isPending}
-                        className="px-6 py-2.5 bg-white text-amber-700 border border-amber-300 rounded-2xl text-sm font-bold hover:bg-amber-100 transition-all disabled:opacity-50"
-                    >
-                        {isPending ? t('common.loading') : t('maintenance.reload_button')}
-                    </button>
-                </div>
-            </CollapsibleCard>
+            {!fullBlockerEnabled && (
+                <CollapsibleCard title={t('maintenance.reload_title')} subtitle={t('maintenance.reload_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
+                    <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
+                        <button
+                            type="button"
+                            onClick={handleReload}
+                            disabled={isPending}
+                            className="px-6 py-2.5 bg-white text-amber-700 border border-amber-300 rounded-2xl text-sm font-bold hover:bg-amber-100 transition-all disabled:opacity-50"
+                        >
+                            {isPending ? t('common.loading') : t('maintenance.reload_button')}
+                        </button>
+                    </div>
+                </CollapsibleCard>
+            )}
 
-            <CollapsibleCard title={t('table.reset_all')} subtitle={t('table.reset_all_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
-                <div className="p-5 bg-red-50 rounded-2xl border border-red-100 space-y-4">
-                    <p className="text-sm text-red-900 leading-relaxed whitespace-pre-line">{t('maintenance.reset_factory_backup_hint')}</p>
-                    <button
-                        type="button"
-                        onClick={handleReset}
-                        disabled={isResetting}
-                        className="px-6 py-2.5 bg-white text-red-700 border border-red-300 rounded-2xl text-sm font-bold hover:bg-red-100 transition-all disabled:opacity-50"
-                    >
-                        {isResetting ? t('common.loading') : t('common.reset_to_defaults')}
-                    </button>
-                </div>
-            </CollapsibleCard>
+            {!fullBlockerEnabled && (
+                <CollapsibleCard title={t('table.reset_all')} subtitle={t('table.reset_all_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
+                    <div className="p-5 bg-red-50 rounded-2xl border border-red-100 space-y-4">
+                        <p className="text-sm text-red-900 leading-relaxed whitespace-pre-line">{t('maintenance.reset_factory_backup_hint')}</p>
+                        <button
+                            type="button"
+                            onClick={handleReset}
+                            disabled={isResetting}
+                            className="px-6 py-2.5 bg-white text-red-700 border border-red-300 rounded-2xl text-sm font-bold hover:bg-red-100 transition-all disabled:opacity-50"
+                        >
+                            {isResetting ? t('common.loading') : t('common.reset_to_defaults')}
+                        </button>
+                    </div>
+                </CollapsibleCard>
+            )}
         </div>
     );
 }

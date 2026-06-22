@@ -10,6 +10,7 @@ const store = new Store({
     defaults: {
         closeToTray: true,
         firstRunDone: false,
+        fullAppBlockerEnabled: false,
     },
 });
 
@@ -417,6 +418,33 @@ async function startApp() {
     const skipServer = process.env.ELECTRON_DEV === '1' || process.env.ELECTRON_DEV === 'true';
 
     let loadUrl = `http://127.0.0.1:${port}/`;
+    
+    const fullBlockerEnabledLocally = store.get('fullAppBlockerEnabled');
+    let appBlockerModule = null;
+
+    function handleUnlockSuccess() {
+        createWindow(loadUrl);
+        if (mainWindow) {
+            mainWindow.on('closed', () => { mainWindow = null; });
+        }
+        if (!tray) createTray();
+    }
+
+    function handleReLock() {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('desktop:session-expired');
+            setTimeout(() => {
+                if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+            }, 100);
+        }
+        if (!appBlockerModule) appBlockerModule = require('./appBlocker');
+        appBlockerModule.createBlockerWindow(port, handleUnlockSuccess);
+    }
+
+    if (fullBlockerEnabledLocally) {
+        appBlockerModule = require('./appBlocker');
+        appBlockerModule.createBlockerWindow(port, handleUnlockSuccess);
+    }
 
     if (skipServer) {
         loadUrl = devUrl;
@@ -440,17 +468,40 @@ async function startApp() {
             app.quit();
             return;
         }
+        
     }
 
-    createWindow(loadUrl);
+    // Sync feature flag from server
+    try {
+        const req = http.get(`http://127.0.0.1:${port}/api/app-lock/blocker-config`, (res) => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.success && parsed.data) {
+                        const serverFlag = parsed.data.fullBlockerEnabled;
+                        if (serverFlag !== fullBlockerEnabledLocally) {
+                            store.set('fullAppBlockerEnabled', serverFlag);
+                            if (serverFlag && !fullBlockerEnabledLocally) {
+                                handleReLock();
+                            }
+                        }
+                    }
+                } catch(e) {}
+            });
+        });
+        req.on('error', () => {});
+    } catch(e) {}
 
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-    });
-
-    // Always show tray so users see the app (and server) is running — not only after "close to tray".
-    if (!skipServer) {
-        createTray();
+    if (!fullBlockerEnabledLocally) {
+        createWindow(loadUrl);
+        mainWindow.on('closed', () => {
+            mainWindow = null;
+        });
+        if (!tray) {
+            createTray();
+        }
     }
 }
 
@@ -480,6 +531,18 @@ if (!gotLock) {
             }
             if (tray) tray.setContextMenu(buildTrayMenu());
             return store.get('closeToTray');
+        });
+        ipcMain.handle('desktop:set-full-blocker', (_e, value) => {
+            store.set('fullAppBlockerEnabled', Boolean(value));
+            return store.get('fullAppBlockerEnabled');
+        });
+        ipcMain.handle('desktop:get-session-token', () => {
+            try {
+                const appBlockerModule = require('./appBlocker');
+                return appBlockerModule.getSessionToken();
+            } catch (e) {
+                return null;
+            }
         });
 
         startApp().catch((err) => {

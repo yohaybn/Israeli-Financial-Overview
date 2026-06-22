@@ -537,7 +537,7 @@ export const demoHandlers = [
                 GOOGLE_CLIENT_SECRET: '',
                 GOOGLE_REDIRECT_URI: '',
                 DRIVE_FOLDER_ID: '',
-                PORT: '3001',
+                PORT: '3000',
                 DATA_DIR: '',
             },
         })

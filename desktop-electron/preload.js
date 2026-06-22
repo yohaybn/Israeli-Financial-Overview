@@ -9,4 +9,11 @@ contextBridge.exposeInMainWorld('electronDesktop', {
         ipcRenderer.on(channel, wrapped);
         return () => ipcRenderer.removeListener(channel, wrapped);
     },
+    getSessionToken: () => ipcRenderer.invoke('desktop:get-session-token'),
+    onSessionExpired: (listener) => {
+        const channel = 'desktop:session-expired';
+        const wrapped = (_event) => listener();
+        ipcRenderer.on(channel, wrapped);
+        return () => ipcRenderer.removeListener(channel, wrapped);
+    },
 });

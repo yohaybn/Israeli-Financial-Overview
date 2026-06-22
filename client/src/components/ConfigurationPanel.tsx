@@ -154,13 +154,12 @@ export function ConfigurationPanel({
         </>
     );
 
+    const markConfigurationDirty = () => {
+        window.dispatchEvent(new CustomEvent('configuration-dirty'));
+    };
+
     return (
-        <div
-            className="flex flex-col md:flex-row h-full min-h-0 bg-gray-50"
-            data-testid="configuration-panel"
-            onInputCapture={() => window.dispatchEvent(new CustomEvent('configuration-dirty'))}
-            onChangeCapture={() => window.dispatchEvent(new CustomEvent('configuration-dirty'))}
-        >
+        <div className="flex flex-col md:flex-row h-full min-h-0 bg-gray-50" data-testid="configuration-panel">
             {/* Mobile: single section picker — avoids a second horizontal tab strip */}
             <div className="md:hidden shrink-0 border-b border-gray-200 bg-white px-4 py-3">
                 <label htmlFor="config-section-select" className="mb-1.5 block text-xs font-medium text-gray-500">
@@ -230,7 +229,11 @@ export function ConfigurationPanel({
                 )}
             </aside>
 
-            <main className="flex-1 min-h-0 min-w-0 overflow-y-auto p-4 sm:p-6">
+            <main
+                className="flex-1 min-h-0 min-w-0 overflow-y-auto p-4 sm:p-6"
+                onInputCapture={markConfigurationDirty}
+                onChangeCapture={markConfigurationDirty}
+            >
                 <div className="max-w-4xl mx-auto space-y-4">
                     {isBasicScopeTab && (
                         <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">

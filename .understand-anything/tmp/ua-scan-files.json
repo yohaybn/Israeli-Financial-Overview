@@ -1,0 +1,3062 @@
+{
+  "scriptCompleted": true,
+  "files": [
+    {
+      "path": ".dockerignore",
+      "language": "unknown",
+      "sizeLines": 23,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".gitattributes",
+      "language": "unknown",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "language": "yaml",
+      "sizeLines": 47,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".github/workflows/deploy.yml",
+      "language": "yaml",
+      "sizeLines": 171,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/macos-package.yml",
+      "language": "yaml",
+      "sizeLines": 139,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/pages.yml",
+      "language": "yaml",
+      "sizeLines": 59,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/windows-package.yml",
+      "language": "yaml",
+      "sizeLines": 121,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".understand-anything/config.json",
+      "language": "json",
+      "sizeLines": 3,
+      "fileCategory": "config"
+    },
+    {
+      "path": "bank-scraper-docker.code-workspace",
+      "language": "code-workspace",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/index.html",
+      "language": "html",
+      "sizeLines": 20,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "client/package.json",
+      "language": "json",
+      "sizeLines": 55,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/postcss.config.js",
+      "language": "javascript",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/public/GUIDE.html",
+      "language": "html",
+      "sizeLines": 1859,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "client/public/guides/TELEGRAM_BOT_GUIDE.he.md",
+      "language": "markdown",
+      "sizeLines": 350,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "client/public/install/index.html",
+      "language": "html",
+      "sizeLines": 392,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "client/public/mockServiceWorker.js",
+      "language": "javascript",
+      "sizeLines": 349,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/scripts/generate-app-icons.mjs",
+      "language": "javascript",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/App.tsx",
+      "language": "typescript",
+      "sizeLines": 731,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AdvancedAISettings.tsx",
+      "language": "typescript",
+      "sizeLines": 411,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AILogViewer.tsx",
+      "language": "typescript",
+      "sizeLines": 637,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AIMemorySettings.tsx",
+      "language": "typescript",
+      "sizeLines": 458,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AIPreferencesSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AISettings.tsx",
+      "language": "typescript",
+      "sizeLines": 286,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AnalyticsDashboard.tsx",
+      "language": "typescript",
+      "sizeLines": 837,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AppBlockerGate.tsx",
+      "language": "typescript",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/AppLockBanner.tsx",
+      "language": "typescript",
+      "sizeLines": 177,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/BackupRestoreSummary.tsx",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/BackupScopePicker.tsx",
+      "language": "typescript",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/BudgetExportSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 467,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/CategoryMetaBoard.tsx",
+      "language": "typescript",
+      "sizeLines": 171,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/CategorySettings.tsx",
+      "language": "typescript",
+      "sizeLines": 239,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/chat/ChatTabBodies.tsx",
+      "language": "typescript",
+      "sizeLines": 385,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/chat/UnifiedAiChatPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 196,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/chat/useAnalystChat.ts",
+      "language": "typescript",
+      "sizeLines": 160,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/chat/useHelpChat.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/CollapsibleCard.tsx",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/community-insight-rules/CommunityInsightRulesPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 300,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/config/ConfigStatusBanner.tsx",
+      "language": "typescript",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/config/fraudDetectionSync.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/config/sections/ConfigSectionCard.tsx",
+      "language": "typescript",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/config/sections/LLMProviderCard.tsx",
+      "language": "typescript",
+      "sizeLines": 110,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/config/sections/ParsingEngineCard.tsx",
+      "language": "typescript",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/config/sections/PromptEngineeringCard.tsx",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/config/sections/ScraperCredentialsCard.tsx",
+      "language": "typescript",
+      "sizeLines": 38,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ConfigurationPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 262,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/AllTransactionsSearchModal.tsx",
+      "language": "typescript",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/AnomalyAlerts.tsx",
+      "language": "typescript",
+      "sizeLines": 216,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/BudgetHealthScore.tsx",
+      "language": "typescript",
+      "sizeLines": 136,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/CategoryDetailsModal.tsx",
+      "language": "typescript",
+      "sizeLines": 283,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/CCPaymentDateSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 285,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/DashboardAlertsDropdown.tsx",
+      "language": "typescript",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/DashboardCardChrome.tsx",
+      "language": "typescript",
+      "sizeLines": 127,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/DashboardSidebar.tsx",
+      "language": "typescript",
+      "sizeLines": 150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/DayTransactionsModal.tsx",
+      "language": "typescript",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/ExpenseProgressCenter.tsx",
+      "language": "typescript",
+      "sizeLines": 308,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/FinancialCommandCenter.tsx",
+      "language": "typescript",
+      "sizeLines": 638,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/IncomeProgressCenter.tsx",
+      "language": "typescript",
+      "sizeLines": 284,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/MonthlyTransactionsCard.tsx",
+      "language": "typescript",
+      "sizeLines": 135,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/PortfolioSection.tsx",
+      "language": "typescript",
+      "sizeLines": 837,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/SqlAnalyticCardsSection.tsx",
+      "language": "typescript",
+      "sizeLines": 570,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/SubscriptionList.tsx",
+      "language": "typescript",
+      "sizeLines": 569,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/TopInsightsCard.tsx",
+      "language": "typescript",
+      "sizeLines": 243,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/TransactionChartFields.tsx",
+      "language": "typescript",
+      "sizeLines": 320,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/UnifiedChartModal.tsx",
+      "language": "typescript",
+      "sizeLines": 769,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/UpcomingFixedList.tsx",
+      "language": "typescript",
+      "sizeLines": 368,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/UserCustomChartsSection.tsx",
+      "language": "typescript",
+      "sizeLines": 953,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/dashboard/VariableForecastModal.tsx",
+      "language": "typescript",
+      "sizeLines": 202,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/DesktopAppSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/EditProfileModal.tsx",
+      "language": "typescript",
+      "sizeLines": 307,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/FeedbackModal.tsx",
+      "language": "typescript",
+      "sizeLines": 197,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/FinancialReportSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 510,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/FraudSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 955,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/GeminiApiKeyCard.tsx",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/GitHubUpdateCheck.tsx",
+      "language": "typescript",
+      "sizeLines": 179,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/GoogleSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 444,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/GoogleSheetsSync.tsx",
+      "language": "typescript",
+      "sizeLines": 329,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ImportModal.tsx",
+      "language": "typescript",
+      "sizeLines": 989,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ImportProfileBuilder.tsx",
+      "language": "typescript",
+      "sizeLines": 1733,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/IfConditionsSection.tsx",
+      "language": "typescript",
+      "sizeLines": 723,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/InsightRuleCreateRuleModal.tsx",
+      "language": "typescript",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/InsightRuleEditor.tsx",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/InsightRuleForm.tsx",
+      "language": "typescript",
+      "sizeLines": 491,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/insightRuleFormTypes.ts",
+      "language": "typescript",
+      "sizeLines": 30,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/InsightRuleImportReviewModal.tsx",
+      "language": "typescript",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/InsightRulesEngineReference.tsx",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/RuleSummaryAside.tsx",
+      "language": "typescript",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/insight-rules/ThenOutputSection.tsx",
+      "language": "typescript",
+      "sizeLines": 87,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/InsightRulesSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 603,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/InvestmentSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 419,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/LogViewer.tsx",
+      "language": "typescript",
+      "sizeLines": 174,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/MaintenancePanel.tsx",
+      "language": "typescript",
+      "sizeLines": 614,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/MaintenanceServerPathsCard.tsx",
+      "language": "typescript",
+      "sizeLines": 120,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/MqttSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 425,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/onboarding/ConfigSetupWizard.tsx",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/onboarding/GettingStartedInvestmentPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 166,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/onboarding/GettingStartedResumeBanner.tsx",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/onboarding/GettingStartedWizard.tsx",
+      "language": "typescript",
+      "sizeLines": 295,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/onboarding/OnboardingResumeBanner.tsx",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/onboarding/OnboardingWizard.tsx",
+      "language": "typescript",
+      "sizeLines": 492,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/onboarding/PersonaOnboardingWizard.tsx",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/OneZeroLongTermTokenHelper.tsx",
+      "language": "typescript",
+      "sizeLines": 149,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/persona/PersonaAlignmentForm.tsx",
+      "language": "typescript",
+      "sizeLines": 484,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/persona/PersonaAlignmentSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/PostScrapeSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 237,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ProfileManager.tsx",
+      "language": "typescript",
+      "sizeLines": 256,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ResultsExplorer.tsx",
+      "language": "typescript",
+      "sizeLines": 153,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ScheduleEditor.tsx",
+      "language": "typescript",
+      "sizeLines": 186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/scheduler/schedulerSections.tsx",
+      "language": "typescript",
+      "sizeLines": 342,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/scheduler/schedulerSettingsModel.tsx",
+      "language": "typescript",
+      "sizeLines": 348,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/SchedulerSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/scrape/ScrapeWorkspace.tsx",
+      "language": "typescript",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ScrapeLogViewer.tsx",
+      "language": "typescript",
+      "sizeLines": 436,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ScrapeProgress.tsx",
+      "language": "typescript",
+      "sizeLines": 151,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ScrapeResultPanel.tsx",
+      "language": "typescript",
+      "sizeLines": 222,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ScraperForm.tsx",
+      "language": "typescript",
+      "sizeLines": 637,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ScrapeSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 729,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/SeverityThresholdBar.tsx",
+      "language": "typescript",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/TelegramSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 883,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/ToggleSwitch.tsx",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/TopBarActivityIndicators.tsx",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/TopBarServerStatus.tsx",
+      "language": "typescript",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/TransactionModal.tsx",
+      "language": "typescript",
+      "sizeLines": 862,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/TransactionReviewModal.tsx",
+      "language": "typescript",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/TransactionTable.tsx",
+      "language": "typescript",
+      "sizeLines": 907,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/components/UserGuideModal.tsx",
+      "language": "typescript",
+      "sizeLines": 342,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/config/feedbackGoogleForm.ts",
+      "language": "typescript",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/constants/eodhdUrls.ts",
+      "language": "typescript",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/contexts/GettingStartedContext.tsx",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/contexts/OnboardingContext.tsx",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/contexts/ServerActivityContext.tsx",
+      "language": "typescript",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/demo/browser.ts",
+      "language": "typescript",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/demo/chatDemoData.ts",
+      "language": "typescript",
+      "sizeLines": 121,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/demo/handlers.ts",
+      "language": "typescript",
+      "sizeLines": 900,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/demo/investmentDemoData.ts",
+      "language": "typescript",
+      "sizeLines": 311,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/demo/isDemo.ts",
+      "language": "typescript",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/demo/sampleData.ts",
+      "language": "typescript",
+      "sizeLines": 433,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useAnalytics.ts",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useAppLock.ts",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useConfig.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useDashboardConfig.ts",
+      "language": "typescript",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useFinancialSummary.ts",
+      "language": "typescript",
+      "sizeLines": 375,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useGettingStartedState.ts",
+      "language": "typescript",
+      "sizeLines": 136,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useInitialCollapsedOnMobile.ts",
+      "language": "typescript",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useInvestments.ts",
+      "language": "typescript",
+      "sizeLines": 391,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useOnboardingState.ts",
+      "language": "typescript",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/usePersonaSetupWizardVisibility.ts",
+      "language": "typescript",
+      "sizeLines": 38,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useProfiles.ts",
+      "language": "typescript",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useProviders.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useScraper.ts",
+      "language": "typescript",
+      "sizeLines": 1064,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useServerHealth.ts",
+      "language": "typescript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useSocket.ts",
+      "language": "typescript",
+      "sizeLines": 159,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useUnifiedDashboardCharts.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/hooks/useUnifiedData.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/i18n.ts",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/index.css",
+      "language": "css",
+      "sizeLines": 51,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "client/src/lib/api.ts",
+      "language": "typescript",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/lib/communityInsightRulesDefaults.ts",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/lib/communityInsightRulesSettings.ts",
+      "language": "typescript",
+      "sizeLines": 99,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/lib/insightRuleShareNote.ts",
+      "language": "typescript",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/lib/insightRuleSummaryText.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/locales/en.json",
+      "language": "json",
+      "sizeLines": 2354,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/ai_chat.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/ai_errors.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/ai_logs.json",
+      "language": "json",
+      "sizeLines": 66,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/ai_memory.json",
+      "language": "json",
+      "sizeLines": 27,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/ai_settings.json",
+      "language": "json",
+      "sizeLines": 193,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/analyst.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/analytics.json",
+      "language": "json",
+      "sizeLines": 41,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/app_lock.json",
+      "language": "json",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/budget_exports.json",
+      "language": "json",
+      "sizeLines": 40,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/categorization.json",
+      "language": "json",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/category_settings.json",
+      "language": "json",
+      "sizeLines": 6,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/common.json",
+      "language": "json",
+      "sizeLines": 99,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/config_setup_wizard.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/config_sidebar.json",
+      "language": "json",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/config_tabs.json",
+      "language": "json",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/config_validation.json",
+      "language": "json",
+      "sizeLines": 7,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/dashboard.json",
+      "language": "json",
+      "sizeLines": 433,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/env.json",
+      "language": "json",
+      "sizeLines": 56,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/explorer.json",
+      "language": "json",
+      "sizeLines": 178,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/export.json",
+      "language": "json",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/feedback.json",
+      "language": "json",
+      "sizeLines": 21,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/fraud_settings.json",
+      "language": "json",
+      "sizeLines": 101,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/gemini_card.json",
+      "language": "json",
+      "sizeLines": 5,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/getting_started.json",
+      "language": "json",
+      "sizeLines": 35,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/google_settings.json",
+      "language": "json",
+      "sizeLines": 35,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/google_sheets.json",
+      "language": "json",
+      "sizeLines": 33,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/help.json",
+      "language": "json",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/insight_rules.json",
+      "language": "json",
+      "sizeLines": 213,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/investment_settings.json",
+      "language": "json",
+      "sizeLines": 41,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/maintenance.json",
+      "language": "json",
+      "sizeLines": 92,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/mqtt.json",
+      "language": "json",
+      "sizeLines": 48,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/onboarding.json",
+      "language": "json",
+      "sizeLines": 80,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/onezero.json",
+      "language": "json",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/post_scrape.json",
+      "language": "json",
+      "sizeLines": 53,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/profiles.json",
+      "language": "json",
+      "sizeLines": 21,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/report.json",
+      "language": "json",
+      "sizeLines": 56,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/scheduler.json",
+      "language": "json",
+      "sizeLines": 43,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/table.json",
+      "language": "json",
+      "sizeLines": 52,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/telegram.json",
+      "language": "json",
+      "sizeLines": 102,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/transaction_modal.json",
+      "language": "json",
+      "sizeLines": 50,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/transaction_review.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/transaction.json",
+      "language": "json",
+      "sizeLines": 51,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/transactions.json",
+      "language": "json",
+      "sizeLines": 5,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/en/unified_ai.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he.json",
+      "language": "json",
+      "sizeLines": 2353,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/ai_chat.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/ai_errors.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/ai_logs.json",
+      "language": "json",
+      "sizeLines": 66,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/ai_memory.json",
+      "language": "json",
+      "sizeLines": 27,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/ai_settings.json",
+      "language": "json",
+      "sizeLines": 193,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/analyst.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/analytics.json",
+      "language": "json",
+      "sizeLines": 41,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/app_lock.json",
+      "language": "json",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/budget_exports.json",
+      "language": "json",
+      "sizeLines": 40,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/categorization.json",
+      "language": "json",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/category_settings.json",
+      "language": "json",
+      "sizeLines": 6,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/common.json",
+      "language": "json",
+      "sizeLines": 99,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/config_setup_wizard.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/config_sidebar.json",
+      "language": "json",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/config_tabs.json",
+      "language": "json",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/config_validation.json",
+      "language": "json",
+      "sizeLines": 7,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/dashboard.json",
+      "language": "json",
+      "sizeLines": 433,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/env.json",
+      "language": "json",
+      "sizeLines": 56,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/explorer.json",
+      "language": "json",
+      "sizeLines": 178,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/export.json",
+      "language": "json",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/feedback.json",
+      "language": "json",
+      "sizeLines": 21,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/fraud_settings.json",
+      "language": "json",
+      "sizeLines": 101,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/gemini_card.json",
+      "language": "json",
+      "sizeLines": 5,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/getting_started.json",
+      "language": "json",
+      "sizeLines": 35,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/google_settings.json",
+      "language": "json",
+      "sizeLines": 35,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/google_sheets.json",
+      "language": "json",
+      "sizeLines": 33,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/help.json",
+      "language": "json",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/insight_rules.json",
+      "language": "json",
+      "sizeLines": 213,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/investment_settings.json",
+      "language": "json",
+      "sizeLines": 41,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/maintenance.json",
+      "language": "json",
+      "sizeLines": 92,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/mqtt.json",
+      "language": "json",
+      "sizeLines": 48,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/onboarding.json",
+      "language": "json",
+      "sizeLines": 80,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/onezero.json",
+      "language": "json",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/post_scrape.json",
+      "language": "json",
+      "sizeLines": 53,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/profiles.json",
+      "language": "json",
+      "sizeLines": 21,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/report.json",
+      "language": "json",
+      "sizeLines": 56,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/scheduler.json",
+      "language": "json",
+      "sizeLines": 43,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/table.json",
+      "language": "json",
+      "sizeLines": 52,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/telegram.json",
+      "language": "json",
+      "sizeLines": 102,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/transaction_modal.json",
+      "language": "json",
+      "sizeLines": 50,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/transaction_review.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/transaction.json",
+      "language": "json",
+      "sizeLines": 51,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/transactions.json",
+      "language": "json",
+      "sizeLines": 5,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/he/unified_ai.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/README.md",
+      "language": "markdown",
+      "sizeLines": 28,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "client/src/locales/scrape-en.json",
+      "language": "json",
+      "sizeLines": 103,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/locales/scrape-he.json",
+      "language": "json",
+      "sizeLines": 103,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/src/main.tsx",
+      "language": "typescript",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/pages/ImportProfilePage.tsx",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/providers/QueryProvider.tsx",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/aiErrorMapper.ts",
+      "language": "typescript",
+      "sizeLines": 166,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/appUrlState.ts",
+      "language": "typescript",
+      "sizeLines": 147,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/categoryIcons.tsx",
+      "language": "typescript",
+      "sizeLines": 107,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/clearBrowserSiteData.ts",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/customChartSeries.ts",
+      "language": "typescript",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/feedbackForm.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/formatters.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/geminiKeyConfigured.ts",
+      "language": "typescript",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/githubRelease.ts",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/installationKind.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/logger.ts",
+      "language": "typescript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/pendingTabularImportProfile.ts",
+      "language": "typescript",
+      "sizeLines": 2,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/personaSetupWizardStorage.ts",
+      "language": "typescript",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/publicBase.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/subscriptionUtils.ts",
+      "language": "typescript",
+      "sizeLines": 241,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/transactionChartForm.ts",
+      "language": "typescript",
+      "sizeLines": 179,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/transactionSearch.ts",
+      "language": "typescript",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/utils/transactionUtils.ts",
+      "language": "typescript",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/vite-env.d.ts",
+      "language": "typescript",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/tailwind.config.js",
+      "language": "javascript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/tsconfig.json",
+      "language": "json",
+      "sizeLines": 30,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/tsconfig.node.json",
+      "language": "json",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/vite.config.ts",
+      "language": "typescript",
+      "sizeLines": 145,
+      "fileCategory": "code"
+    },
+    {
+      "path": "data/config/exclusion_filters.json",
+      "language": "json",
+      "sizeLines": 1,
+      "fileCategory": "config"
+    },
+    {
+      "path": "DEPLOYMENT.md",
+      "language": "markdown",
+      "sizeLines": 145,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "desktop-electron/appBlocker.js",
+      "language": "javascript",
+      "sizeLines": 146,
+      "fileCategory": "code"
+    },
+    {
+      "path": "desktop-electron/blockerPage.html",
+      "language": "html",
+      "sizeLines": 228,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "desktop-electron/blockerPreload.js",
+      "language": "javascript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "desktop-electron/main.js",
+      "language": "javascript",
+      "sizeLines": 566,
+      "fileCategory": "code"
+    },
+    {
+      "path": "desktop-electron/package.json",
+      "language": "json",
+      "sizeLines": 107,
+      "fileCategory": "config"
+    },
+    {
+      "path": "desktop-electron/preload.js",
+      "language": "javascript",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "desktop-electron/scripts/clean-electron-dist.cjs",
+      "language": "javascript",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "desktop-electron/secrets/community-submit.env.example",
+      "language": "example",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "docker-compose.yml",
+      "language": "yaml",
+      "sizeLines": 14,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "docker-entrypoint.sh",
+      "language": "shell",
+      "sizeLines": 15,
+      "fileCategory": "script"
+    },
+    {
+      "path": "Dockerfile",
+      "language": "dockerfile",
+      "sizeLines": 74,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "Dockerfile.app",
+      "language": "dockerfile",
+      "sizeLines": 147,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "docs/system_design_document.md",
+      "language": "markdown",
+      "sizeLines": 261,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/TELEGRAM_BOT_GUIDE.md",
+      "language": "markdown",
+      "sizeLines": 351,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "financial-overview.json.example",
+      "language": "example",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "package.json",
+      "language": "json",
+      "sizeLines": 40,
+      "fileCategory": "config"
+    },
+    {
+      "path": "packaging/macos/financial-overview.defaults.json",
+      "language": "json",
+      "sizeLines": 3,
+      "fileCategory": "config"
+    },
+    {
+      "path": "packaging/macos/launch-FinancialOverview.sh",
+      "language": "shell",
+      "sizeLines": 12,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/macos/open-browser.sh",
+      "language": "shell",
+      "sizeLines": 5,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/macos/package.sh",
+      "language": "shell",
+      "sizeLines": 135,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/macos/README_MACOS.txt",
+      "language": "txt",
+      "sizeLines": 14,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "packaging/windows/FinancialOverview.iss",
+      "language": "iss",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "packaging/windows/launch-FinancialOverview.cmd",
+      "language": "batch",
+      "sizeLines": 3,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/windows/launch-FinancialOverview.ps1",
+      "language": "powershell",
+      "sizeLines": 41,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/windows/open-browser.cmd",
+      "language": "batch",
+      "sizeLines": 4,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/windows/open-browser.ps1",
+      "language": "powershell",
+      "sizeLines": 14,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/windows/package.ps1",
+      "language": "powershell",
+      "sizeLines": 171,
+      "fileCategory": "script"
+    },
+    {
+      "path": "packaging/windows/README.md",
+      "language": "markdown",
+      "sizeLines": 59,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "patches/israeli-bank-scrapers+6.7.1.patch",
+      "language": "patch",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 245,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "run.sh",
+      "language": "shell",
+      "sizeLines": 59,
+      "fileCategory": "script"
+    },
+    {
+      "path": "runtime-settings.example.json",
+      "language": "json",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "scripts/bump-version.mjs",
+      "language": "javascript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/ensure-rollup-native.mjs",
+      "language": "javascript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/inline-telegram-guide-into-guide.mjs",
+      "language": "javascript",
+      "sizeLines": 74,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/kill-port.ps1",
+      "language": "powershell",
+      "sizeLines": 12,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/restart.ps1",
+      "language": "powershell",
+      "sizeLines": 15,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/start.ps1",
+      "language": "powershell",
+      "sizeLines": 23,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/stop.ps1",
+      "language": "powershell",
+      "sizeLines": 38,
+      "fileCategory": "script"
+    },
+    {
+      "path": "server/nodemon.json",
+      "language": "json",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "server/package.json",
+      "language": "json",
+      "sizeLines": 59,
+      "fileCategory": "config"
+    },
+    {
+      "path": "server/scripts/copy-build-assets.mjs",
+      "language": "javascript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/scripts/test-write.txt",
+      "language": "txt",
+      "sizeLines": 1,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "server/src/assets/help/functions_list.md",
+      "language": "markdown",
+      "sizeLines": 46,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "server/src/assets/help/user_manual.md",
+      "language": "markdown",
+      "sizeLines": 406,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "server/src/config/communityInsightRulesProxyDefaults.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/constants/eodhdQuote.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/constants/investments.ts",
+      "language": "typescript",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/constants/marketData.ts",
+      "language": "typescript",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/controllers/helpAssistantController.ts",
+      "language": "typescript",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/index.ts",
+      "language": "typescript",
+      "sizeLines": 322,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/middleware/blockerAuthMiddleware.ts",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/aiLogRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 146,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/aiRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 416,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/appLockRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 154,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/authRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 149,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/budgetExportRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/communityInsightRulesRateLimit.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/communityInsightRulesRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 135,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/configRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/fraudRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 110,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/helpRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/insightRulesRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 246,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/investmentRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 497,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/logRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/mqttRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 204,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/notificationRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/postScrapeRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/profileRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/reportRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 145,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/schedulerRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/scrapeLogRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/scrapeRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 1230,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/sheetsRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 166,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/routes/telegramRoutes.ts",
+      "language": "typescript",
+      "sizeLines": 585,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/runtimeEnv.ts",
+      "language": "typescript",
+      "sizeLines": 220,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/aiMemoryRetention.ts",
+      "language": "typescript",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/aiService.ts",
+      "language": "typescript",
+      "sizeLines": 3054,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystPrivacyMode.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystSqlExecutor.test.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystSqlExecutor.ts",
+      "language": "typescript",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystSqlHybrid.test.ts",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystSqlHybrid.ts",
+      "language": "typescript",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystSqlSchema.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystSqlTemplate.ts",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/analystUnifiedChat.ts",
+      "language": "typescript",
+      "sizeLines": 199,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/appBlockerService.ts",
+      "language": "typescript",
+      "sizeLines": 264,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/appLockService.ts",
+      "language": "typescript",
+      "sizeLines": 183,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/backupService.ts",
+      "language": "typescript",
+      "sizeLines": 568,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/accountKey.ts",
+      "language": "typescript",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/actualExport.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/budgetExport.test.ts",
+      "language": "typescript",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/budgetExportSecretsService.ts",
+      "language": "typescript",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/filterTransactions.ts",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/fireflyExport.ts",
+      "language": "typescript",
+      "sizeLines": 87,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/lunchMoneyExport.ts",
+      "language": "typescript",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/runBudgetExports.ts",
+      "language": "typescript",
+      "sizeLines": 140,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/ynabAuth.ts",
+      "language": "typescript",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/ynabExport.ts",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/budgetExport/ynabOAuthStateStore.ts",
+      "language": "typescript",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/categoryPieImageService.ts",
+      "language": "typescript",
+      "sizeLines": 119,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/configService.ts",
+      "language": "typescript",
+      "sizeLines": 154,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/dbService.ts",
+      "language": "typescript",
+      "sizeLines": 1544,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/eodhdClient.ts",
+      "language": "typescript",
+      "sizeLines": 695,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/eodhdSymbolResolver.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/filterService.ts",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/financialPdfReportService.ts",
+      "language": "typescript",
+      "sizeLines": 1073,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/fraudDetectionService.ts",
+      "language": "typescript",
+      "sizeLines": 298,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/googleAuthService.ts",
+      "language": "typescript",
+      "sizeLines": 160,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/haMqttCoordinator.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/haMqttDiscoveryService.ts",
+      "language": "typescript",
+      "sizeLines": 262,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/haMqttStateService.ts",
+      "language": "typescript",
+      "sizeLines": 166,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/importService.isracard.pdf.test.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/importService.isracard.test.ts",
+      "language": "typescript",
+      "sizeLines": 162,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/importService.ts",
+      "language": "typescript",
+      "sizeLines": 1007,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/insightRulesService.ts",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/investmentMarketDataService.ts",
+      "language": "typescript",
+      "sizeLines": 696,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/investmentPortfolioService.ts",
+      "language": "typescript",
+      "sizeLines": 224,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/investmentPriceHistoryService.ts",
+      "language": "typescript",
+      "sizeLines": 205,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/investmentSymbolSearch.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/mqttClientService.ts",
+      "language": "typescript",
+      "sizeLines": 333,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/mqttCommandService.ts",
+      "language": "typescript",
+      "sizeLines": 674,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/mqttHaDefaults.test.ts",
+      "language": "typescript",
+      "sizeLines": 30,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/mqttSchedulerRegistry.ts",
+      "language": "typescript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/baseNotifier.ts",
+      "language": "typescript",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/consoleNotifier.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/formatter.ts",
+      "language": "typescript",
+      "sizeLines": 265,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/index.ts",
+      "language": "typescript",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/mqttNotifier.ts",
+      "language": "typescript",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/notificationService.ts",
+      "language": "typescript",
+      "sizeLines": 235,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/telegramNotifier.ts",
+      "language": "typescript",
+      "sizeLines": 196,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/notifications/types.ts",
+      "language": "typescript",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/oneZeroOtpSessionStore.ts",
+      "language": "typescript",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/portfolioEodValueHistoryService.ts",
+      "language": "typescript",
+      "sizeLines": 184,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/portfolioSnapshotScheduler.ts",
+      "language": "typescript",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/postScrapeService.ts",
+      "language": "typescript",
+      "sizeLines": 1407,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/profileService.ts",
+      "language": "typescript",
+      "sizeLines": 336,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/schedulerService.ts",
+      "language": "typescript",
+      "sizeLines": 650,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/schedulerUnlockCoordinator.ts",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/scraperService.ts",
+      "language": "typescript",
+      "sizeLines": 729,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/sheetsService.ts",
+      "language": "typescript",
+      "sizeLines": 280,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/sqlAnalyticCardService.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/storageService.ts",
+      "language": "typescript",
+      "sizeLines": 1216,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/tabularImportParse.test.ts",
+      "language": "typescript",
+      "sizeLines": 451,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/tabularImportParse.ts",
+      "language": "typescript",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/telegramBotService.ts",
+      "language": "typescript",
+      "sizeLines": 3062,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/unifiedAiChatMemory.ts",
+      "language": "typescript",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/yahooChartClose.ts",
+      "language": "typescript",
+      "sizeLines": 154,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/yahooSymbolResolver.ts",
+      "language": "typescript",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/services/yahooSymbolSearch.ts",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/aiLogger.ts",
+      "language": "typescript",
+      "sizeLines": 614,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/aiMemoryNormalize.ts",
+      "language": "typescript",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/aiModelHighDemand.ts",
+      "language": "typescript",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/externalServiceLog.ts",
+      "language": "typescript",
+      "sizeLines": 87,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/financialPdfCharts.ts",
+      "language": "typescript",
+      "sizeLines": 292,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/financialPdfFonts.ts",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/fraudAlertPreview.ts",
+      "language": "typescript",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/geminiRateLimitCapture.ts",
+      "language": "typescript",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/geminiRetryableError.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/helpManualText.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/importMultipartParams.ts",
+      "language": "typescript",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/logger.ts",
+      "language": "typescript",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/masking.ts",
+      "language": "typescript",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/pdfNodePolyfill.ts",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/puppeteerPdf.ts",
+      "language": "typescript",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/safeTelegramBotFileUrl.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/scrapeRunLogger.ts",
+      "language": "typescript",
+      "sizeLines": 262,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/telegramTextSplit.ts",
+      "language": "typescript",
+      "sizeLines": 221,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/yahooHttpTrace.ts",
+      "language": "typescript",
+      "sizeLines": 314,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/utils/yahooRequestQueue.ts",
+      "language": "typescript",
+      "sizeLines": 190,
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/tsconfig.json",
+      "language": "json",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    },
+    {
+      "path": "shared/package.json",
+      "language": "json",
+      "sizeLines": 18,
+      "fileCategory": "config"
+    },
+    {
+      "path": "shared/scheduler.ts",
+      "language": "typescript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/accountExclusion.ts",
+      "language": "typescript",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/aiAnalystQuota.ts",
+      "language": "typescript",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/analytics/categoryColors.ts",
+      "language": "typescript",
+      "sizeLines": 74,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/analytics/categoryExpenseSlices.ts",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/analytics/categoryParentGroup.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/analytics/monthlyNetProjection.ts",
+      "language": "typescript",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/analytics/unifiedAnalytics.ts",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/analytics/userChartSeries.ts",
+      "language": "typescript",
+      "sizeLines": 246,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/backupScopes.test.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/backupScopes.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/categoryMeta.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/communityInsightRules.test.ts",
+      "language": "typescript",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/communityInsightRules.ts",
+      "language": "typescript",
+      "sizeLines": 212,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/expenseCategory.ts",
+      "language": "typescript",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/financial/anomalyI18n.ts",
+      "language": "typescript",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/financial/digestMetrics.ts",
+      "language": "typescript",
+      "sizeLines": 206,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/financial/financialPace.ts",
+      "language": "typescript",
+      "sizeLines": 314,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/financial/recurring.ts",
+      "language": "typescript",
+      "sizeLines": 257,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/financial/variableForecast.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/financialReportMonth.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "language": "typescript",
+      "sizeLines": 273,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRuleBuilder.test.ts",
+      "language": "typescript",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRuleBuilder.ts",
+      "language": "typescript",
+      "sizeLines": 467,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRuleExportMask.test.ts",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRuleExportMask.ts",
+      "language": "typescript",
+      "sizeLines": 190,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRuleImportTuning.test.ts",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRuleImportTuning.ts",
+      "language": "typescript",
+      "sizeLines": 271,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRules.test.ts",
+      "language": "typescript",
+      "sizeLines": 259,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/insightRules.ts",
+      "language": "typescript",
+      "sizeLines": 972,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/isInternalTransfer.ts",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/isTransactionIgnored.ts",
+      "language": "typescript",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/loanCategory.ts",
+      "language": "typescript",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/monthlyNetProjection.test.ts",
+      "language": "typescript",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/mqttHaDefaults.ts",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/profileCredentials.ts",
+      "language": "typescript",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/providers.ts",
+      "language": "typescript",
+      "sizeLines": 186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/schedulerSchedule.ts",
+      "language": "typescript",
+      "sizeLines": 314,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/sqlAnalyticCard.ts",
+      "language": "typescript",
+      "sizeLines": 235,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/tabularCells.ts",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/tabularImportProfile.ts",
+      "language": "typescript",
+      "sizeLines": 243,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/tabularLedgerEngine.ts",
+      "language": "typescript",
+      "sizeLines": 348,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/tabularSimpleEngine.ts",
+      "language": "typescript",
+      "sizeLines": 168,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/transactionExport.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/transactionId.ts",
+      "language": "typescript",
+      "sizeLines": 199,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/txnReview.ts",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/types.ts",
+      "language": "typescript",
+      "sizeLines": 918,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/uniqueAccountsFromTransactions.ts",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/src/userPersona.ts",
+      "language": "typescript",
+      "sizeLines": 357,
+      "fileCategory": "code"
+    },
+    {
+      "path": "shared/tsconfig.json",
+      "language": "json",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    }
+  ],
+  "totalFiles": 504,
+  "filteredByIgnore": 0,
+  "estimatedComplexity": "very-large",
+  "stats": {
+    "filesScanned": 504,
+    "byCategory": {
+      "infra": 8,
+      "code": 359,
+      "config": 107,
+      "markup": 5,
+      "docs": 11,
+      "script": 14
+    },
+    "byLanguage": {
+      "unknown": 3,
+      "yaml": 6,
+      "json": 106,
+      "code-workspace": 1,
+      "html": 4,
+      "javascript": 13,
+      "markdown": 9,
+      "typescript": 339,
+      "css": 1,
+      "example": 2,
+      "shell": 5,
+      "dockerfile": 2,
+      "txt": 2,
+      "iss": 1,
+      "batch": 2,
+      "powershell": 7,
+      "patch": 1
+    }
+  }
+}
