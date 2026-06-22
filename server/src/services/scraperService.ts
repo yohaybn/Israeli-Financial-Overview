@@ -239,7 +239,7 @@ export class ScraperService {
         }
 
         // Ensure required Docker/Linux arguments for Puppeteer
-        const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
+        const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox','--window-size=1920,1080'];
         const combinedArgs = request.options.args
             ? [...new Set([...defaultArgs, ...request.options.args])]
             : defaultArgs;
