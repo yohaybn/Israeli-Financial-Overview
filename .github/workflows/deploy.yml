@@ -121,7 +121,28 @@ jobs:
             VITE_INSTALL_KIND=docker
           cache-from: type=gha
           cache-to: type=gha,mode=max
+  sync-addon-repo:
+      needs: [build-app]
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
 
+        - name: Resolve image version
+          id: ver
+          run: |
+            v="${{ needs.build-app.outputs.version }}"
+            echo "version=$v" >> "$GITHUB_OUTPUT"
+        
+        - name: Trigger version bump in HA Repository
+          uses: peter-evans/repository-dispatch@v3
+          with:
+            token: ${{ secrets.HA_REPO_SYNC_PAT }}
+            repository: yohaybn/israeli-financial-overview-ha
+            event-type: update-version
+            client-payload: '{"version": "${{ steps.ver.outputs.version }}"}'
 
 
   
