@@ -50,10 +50,10 @@ jobs:
           echo "Client dist listing:"
           ls -la client/dist || true
 
+      # FIX: Changed from upload-artifact to upload-pages-artifact
       - name: Upload artifact (GitHub Pages) 
-        uses: actions/upload-artifact@v4 
+        uses: actions/upload-pages-artifact@v3 
         with: 
-          name: github-pages 
           path: client/dist
 
   deploy:
