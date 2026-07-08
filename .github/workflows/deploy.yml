@@ -116,6 +116,7 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ steps.ver.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:main
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:latest
           build-args: |
             VITE_APP_BUILD_VERSION=v${{ steps.ver.outputs.version }}@${{ github.sha }}
             VITE_INSTALL_KIND=docker
@@ -135,7 +136,7 @@ jobs:
           run: |
             v="${{ needs.build-app.outputs.version }}"
             echo "version=$v" >> "$GITHUB_OUTPUT"
-        
+
         - name: Trigger version bump in HA Repository
           uses: peter-evans/repository-dispatch@v3
           with:
