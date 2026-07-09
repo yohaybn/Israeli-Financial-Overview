@@ -70,14 +70,12 @@ function TaListingSwitch({
                 disabled={disabled}
                 dir="ltr"
                 onClick={() => onChange(!checked)}
-                className={`relative inline-flex h-7 w-12 shrink-0 overflow-hidden rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 ${
-                    checked ? 'bg-emerald-600' : 'bg-gray-300'
-                }`}
+                className={`relative inline-flex h-7 w-12 shrink-0 overflow-hidden rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 ${checked ? 'bg-emerald-600' : 'bg-gray-300'
+                    }`}
             >
                 <span
-                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform m-0.5 ${
-                        checked ? 'translate-x-5' : 'translate-x-0'
-                    }`}
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform m-0.5 ${checked ? 'translate-x-5' : 'translate-x-0'
+                        }`}
                 />
             </button>
             <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{label}</span>
@@ -86,8 +84,8 @@ function TaListingSwitch({
 }
 
 export function PortfolioSection({
-    collapseAllSignal: _collapseAllSignal = 0,
-    defaultCollapsed: _defaultCollapsed = false,
+    collapseAllSignal = 0,
+    defaultCollapsed = false,
 }: {
     collapseAllSignal?: number;
     defaultCollapsed?: boolean;
@@ -95,6 +93,11 @@ export function PortfolioSection({
     const { t, i18n } = useTranslation();
     const isHebrew = i18n.language === 'he' || i18n.language.startsWith('he');
     const locale = i18n.language === 'he' || i18n.language.startsWith('he') ? 'he-IL' : 'en-US';
+    const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+    useEffect(() => {
+        if (collapseAllSignal > 0) setCollapsed(true);
+    }, [collapseAllSignal]);
     const qc = useQueryClient();
     const [eodRefreshing, setEodRefreshing] = useState(false);
 
@@ -270,8 +273,8 @@ export function PortfolioSection({
                     draft.nickname === undefined || draft.nickname === null
                         ? null
                         : String(draft.nickname).trim() === ''
-                          ? null
-                          : String(draft.nickname).trim(),
+                            ? null
+                            : String(draft.nickname).trim(),
                 ...(curU === 'ILS' ? { value_in_agorot: Boolean(draft.valueInAgorot) } : { value_in_agorot: false }),
             },
         });
@@ -304,253 +307,254 @@ export function PortfolioSection({
     return (
         <div className={dashboardCardShellClass}>
             <DashboardCardHeader
-                collapsed={false}
-                onToggle={() => {}}
-                collapsible={false}
+                collapsed={collapsed}
+                onToggle={() => setCollapsed((c) => !c)}
+                collapsible={true}
                 icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />}
                 iconTileClassName="bg-gradient-to-br from-emerald-500 to-teal-700 shadow-emerald-200"
                 title={t('dashboard.portfolio.title')}
                 subtitle={<span className="text-gray-500">{t('dashboard.portfolio.subtitle')}</span>}
             />
-            <div className="px-4 pb-5 sm:px-5 sm:pb-6 border-t border-gray-100/80">
-            {loading && <p className="text-sm text-gray-400">{t('dashboard.portfolio.loading')}</p>}
-            {error && <p className="text-sm text-rose-600">{t('dashboard.portfolio.error_load')}</p>}
+            {!collapsed && (
+                <div className="px-4 pb-5 sm:px-5 sm:pb-6 border-t border-gray-100/80">
+                {loading && <p className="text-sm text-gray-400">{t('dashboard.portfolio.loading')}</p>}
+                {error && <p className="text-sm text-rose-600">{t('dashboard.portfolio.error_load')}</p>}
 
-            {summary && (
-                <div className="mb-4 rounded-3xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 shadow-sm">
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                        <div className={isHebrew ? 'text-right' : ''}>
-                            <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">
-                                {t('dashboard.portfolio.total_value')}
-                            </div>
-                            <div className="text-3xl sm:text-[2rem] font-black text-gray-900 mt-1 leading-none">
-                                {formatIls(summary.totalMarketValueIls, locale)}
-                            </div>
-                        </div>
-                        <div className={isHebrew ? 'text-left' : 'text-right'}>
-                            <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                                {t('dashboard.portfolio.total_pnl')}
-                            </div>
-                            <div className={`text-xl font-black mt-1 ${pnlClass(summary.totalPnlIls)}`}>
-                                {formatIls(summary.totalPnlIls, locale)}
-                            </div>
-                            {summary.totalPnlPctOfCost != null && Number.isFinite(summary.totalPnlPctOfCost) ? (
-                                <div className={`text-sm font-bold mt-0.5 ${pnlClass(summary.totalPnlIls)}`}>
-                                    {summary.totalPnlPctOfCost >= 0 ? '+' : ''}
-                                    {summary.totalPnlPctOfCost.toFixed(2)}%
+                {summary && (
+                    <div className="mb-4 rounded-3xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 shadow-sm">
+                        <div className="flex flex-wrap items-end justify-between gap-3">
+                            <div className={isHebrew ? 'text-right' : ''}>
+                                <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">
+                                    {t('dashboard.portfolio.total_value')}
                                 </div>
-                            ) : null}
+                                <div className="text-3xl sm:text-[2rem] font-black text-gray-900 mt-1 leading-none">
+                                    {formatIls(summary.totalMarketValueIls, locale)}
+                                </div>
+                            </div>
+                            <div className={isHebrew ? 'text-left' : 'text-right'}>
+                                <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                                    {t('dashboard.portfolio.total_pnl')}
+                                </div>
+                                <div className={`text-xl font-black mt-1 ${pnlClass(summary.totalPnlIls)}`}>
+                                    {formatIls(summary.totalPnlIls, locale)}
+                                </div>
+                                {summary.totalPnlPctOfCost != null && Number.isFinite(summary.totalPnlPctOfCost) ? (
+                                    <div className={`text-sm font-bold mt-0.5 ${pnlClass(summary.totalPnlIls)}`}>
+                                        {summary.totalPnlPctOfCost >= 0 ? '+' : ''}
+                                        {summary.totalPnlPctOfCost.toFixed(2)}%
+                                    </div>
+                                ) : null}
+                            </div>
                         </div>
-                    </div>
-                    <div className={`mt-2 text-[11px] text-gray-500 ${isHebrew ? 'text-right' : ''}`}>
-                        {t('dashboard.portfolio.usd_ils')}:&nbsp;
-                        {summary.usdIlsRate != null && Number.isFinite(summary.usdIlsRate) ? summary.usdIlsRate.toFixed(2) : '—'}
-                    </div>
-                </div>
-            )}
-
-            {summary?.partialQuotes && (
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
-                    {t('dashboard.portfolio.partial_quotes')}
-                </p>
-            )}
-
-            <div className="mb-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <h4 className={`text-xs font-bold text-gray-500 uppercase tracking-wider ${isHebrew ? 'text-right' : ''}`}>
-                        {t('dashboard.portfolio.chart_title')}
-                    </h4>
-                </div>
-                {stockChartError ? (
-                    <p className="text-sm text-rose-600 mb-2">
-                        {stockChartError instanceof Error ? stockChartError.message : t('dashboard.portfolio.value_history_error')}
-                    </p>
-                ) : null}
-                {stockChartLoading ? (
-                    <p className="text-xs text-gray-400">…</p>
-                ) : stockChartRows.length === 0 || stockLines.length === 0 ? (
-                    <p className="text-sm text-gray-400">{t('dashboard.portfolio.history_empty')}</p>
-                ) : (
-                    <div className="h-48 w-full min-w-0 rounded-3xl border border-emerald-100/70 bg-gradient-to-b from-white to-emerald-50/40 p-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={stockChartRows} margin={{ top: 8, right: 12, left: 6, bottom: 2 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis
-                                    dataKey="date"
-                                    minTickGap={20}
-                                    tick={{ fontSize: 10 }}
-                                    stroke="#94a3b8"
-                                    tickMargin={8}
-                                />
-                                <YAxis
-                                    tick={{ fontSize: 10 }}
-                                    stroke="#94a3b8"
-                                    domain={['auto', 'auto']}
-                                    tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
-                                />
-                                <Tooltip
-                                    formatter={(value: number | undefined, name, item) => {
-                                        const dataKey = String(item?.dataKey ?? '');
-                                        const displayName = stockLineNameById[dataKey]?.tooltipLabel || String(name);
-                                        if (!Number.isFinite(value)) return ['—', String(name)];
-                                        return [`${Number(value).toFixed(2)}%`, displayName];
-                                    }}
-                                    labelFormatter={(l) => l}
-                                />
-                                {stockLines.map((line, index) => (
-                                    <Line
-                                        key={line.id}
-                                        type="monotone"
-                                        dataKey={line.id}
-                                        name={line.label}
-                                        stroke={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]}
-                                        strokeWidth={2.3}
-                                        dot={false}
-                                        connectNulls
-                                    />
-                                ))}
-                            </LineChart>
-                        </ResponsiveContainer>
+                        <div className={`mt-2 text-[11px] text-gray-500 ${isHebrew ? 'text-right' : ''}`}>
+                            {t('dashboard.portfolio.usd_ils')}:&nbsp;
+                            {summary.usdIlsRate != null && Number.isFinite(summary.usdIlsRate) ? summary.usdIlsRate.toFixed(2) : '—'}
+                        </div>
                     </div>
                 )}
-            </div>
 
-            {holdingsRows.length > 0 ? (
-                <div className="mb-4 rounded-3xl border border-teal-100/70 bg-gradient-to-br from-teal-50/70 to-cyan-50/40 p-3">
-                    <h4 className={`text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ${isHebrew ? 'text-right' : ''}`}>
-                        {t('dashboard.portfolio.positions')}
-                    </h4>
-                    <div className="grid grid-cols-1 gap-4">
-                        <div className="h-44 w-full max-w-[260px] mx-auto md:mx-0">
+                {summary?.partialQuotes && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
+                        {t('dashboard.portfolio.partial_quotes')}
+                    </p>
+                )}
+
+                <div className="mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <h4 className={`text-xs font-bold text-gray-500 uppercase tracking-wider ${isHebrew ? 'text-right' : ''}`}>
+                            {t('dashboard.portfolio.chart_title')}
+                        </h4>
+                    </div>
+                    {stockChartError ? (
+                        <p className="text-sm text-rose-600 mb-2">
+                            {stockChartError instanceof Error ? stockChartError.message : t('dashboard.portfolio.value_history_error')}
+                        </p>
+                    ) : null}
+                    {stockChartLoading ? (
+                        <p className="text-xs text-gray-400">…</p>
+                    ) : stockChartRows.length === 0 || stockLines.length === 0 ? (
+                        <p className="text-sm text-gray-400">{t('dashboard.portfolio.history_empty')}</p>
+                    ) : (
+                        <div className="h-48 w-full min-w-0 rounded-3xl border border-emerald-100/70 bg-gradient-to-b from-white to-emerald-50/40 p-2">
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={allocationRows.length > 1 ? allocationRows : [{ key: 'single', label: holdingsRows[0]?.symbol ?? '', valueIls: Math.max(holdingsRows[0]?.marketValue ?? 0, 1), percent: 100 }]}
-                                        dataKey="valueIls"
-                                        nameKey="label"
-                                        cx="50%"
-                                        cy="50%"
-                                        outerRadius={70}
-                                        innerRadius={40}
-                                        paddingAngle={2}
-                                    >
-                                        {(allocationRows.length > 1 ? allocationRows : [{ key: 'single' }]).map((row, index) => (
-                                            <Cell key={row.key} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        formatter={(value: number | undefined, _name, item) => {
-                                            const payload = item?.payload as { percent?: number; label?: string } | undefined;
-                                            const pct = payload?.percent ?? 0;
-                                            const stockDisplay = payload?.label?.trim() || t('dashboard.portfolio.symbol');
-                                            return [`${formatIls(value, locale)} (${pct.toFixed(1)}%)`, stockDisplay];
-                                        }}
+                                <LineChart data={stockChartRows} margin={{ top: 8, right: 12, left: 6, bottom: 2 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                    <XAxis
+                                        dataKey="date"
+                                        minTickGap={20}
+                                        tick={{ fontSize: 10 }}
+                                        stroke="#94a3b8"
+                                        tickMargin={8}
                                     />
-                                </PieChart>
+                                    <YAxis
+                                        tick={{ fontSize: 10 }}
+                                        stroke="#94a3b8"
+                                        domain={['auto', 'auto']}
+                                        tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+                                    />
+                                    <Tooltip
+                                        formatter={(value: number | undefined, name, item) => {
+                                            const dataKey = String(item?.dataKey ?? '');
+                                            const displayName = stockLineNameById[dataKey]?.tooltipLabel || String(name);
+                                            if (!Number.isFinite(value)) return ['—', String(name)];
+                                            return [`${Number(value).toFixed(2)}%`, displayName];
+                                        }}
+                                        labelFormatter={(l) => l}
+                                    />
+                                    {stockLines.map((line, index) => (
+                                        <Line
+                                            key={line.id}
+                                            type="monotone"
+                                            dataKey={line.id}
+                                            name={line.label}
+                                            stroke={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]}
+                                            strokeWidth={2.3}
+                                            dot={false}
+                                            connectNulls
+                                        />
+                                    ))}
+                                </LineChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="space-y-2">
-                            {holdingsRows.map((row, index) => (
-                                <div
-                                    key={row.id}
-                                    className="flex items-center justify-between gap-2.5 rounded-2xl border border-white/90 bg-white/95 px-2.5 py-2 shadow-sm"
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span
-                                            className="inline-block h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-white"
-                                            style={{ backgroundColor: ALLOCATION_COLORS[index % ALLOCATION_COLORS.length] }}
+                    )}
+                </div>
+
+                {holdingsRows.length > 0 ? (
+                    <div className="mb-4 rounded-3xl border border-teal-100/70 bg-gradient-to-br from-teal-50/70 to-cyan-50/40 p-3">
+                        <h4 className={`text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ${isHebrew ? 'text-right' : ''}`}>
+                            {t('dashboard.portfolio.positions')}
+                        </h4>
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="h-44 w-full max-w-[260px] mx-auto md:mx-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={allocationRows.length > 1 ? allocationRows : [{ key: 'single', label: holdingsRows[0]?.symbol ?? '', valueIls: Math.max(holdingsRows[0]?.marketValue ?? 0, 1), percent: 100 }]}
+                                            dataKey="valueIls"
+                                            nameKey="label"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={70}
+                                            innerRadius={40}
+                                            paddingAngle={2}
+                                        >
+                                            {(allocationRows.length > 1 ? allocationRows : [{ key: 'single' }]).map((row, index) => (
+                                                <Cell key={row.key} fill={ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(value: number | undefined, _name, item) => {
+                                                const payload = item?.payload as { percent?: number; label?: string } | undefined;
+                                                const pct = payload?.percent ?? 0;
+                                                const stockDisplay = payload?.label?.trim() || t('dashboard.portfolio.symbol');
+                                                return [`${formatIls(value, locale)} (${pct.toFixed(1)}%)`, stockDisplay];
+                                            }}
                                         />
-                                        <div className={`min-w-0 ${isHebrew ? 'text-right' : ''}`}>
-                                            <div className="text-sm font-semibold text-gray-800 truncate" title={row.nickname ? `${row.symbol} (${row.nickname})` : row.symbol}>
-                                                {row.symbol}
-                                                {row.nickname ? <span className="text-gray-500 font-medium"> ({row.nickname})</span> : null}
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="space-y-2">
+                                {holdingsRows.map((row, index) => (
+                                    <div
+                                        key={row.id}
+                                        className="flex items-center justify-between gap-2.5 rounded-2xl border border-white/90 bg-white/95 px-2.5 py-2 shadow-sm"
+                                    >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span
+                                                className="inline-block h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-white"
+                                                style={{ backgroundColor: ALLOCATION_COLORS[index % ALLOCATION_COLORS.length] }}
+                                            />
+                                            <div className={`min-w-0 ${isHebrew ? 'text-right' : ''}`}>
+                                                <div className="text-sm font-semibold text-gray-800 truncate" title={row.nickname ? `${row.symbol} (${row.nickname})` : row.symbol}>
+                                                    {row.symbol}
+                                                    {row.nickname ? <span className="text-gray-500 font-medium"> ({row.nickname})</span> : null}
+                                                </div>
+                                                <div className="text-[11px] text-gray-500">{row.percent.toFixed(1)}%</div>
                                             </div>
-                                            <div className="text-[11px] text-gray-500">{row.percent.toFixed(1)}%</div>
+                                        </div>
+                                        <div className={`${isHebrew ? 'text-left' : 'text-right'} shrink-0`}>
+
+                                            <div className="text-[11px] text-gray-500">{formatIls(row.marketValue, locale)}</div>
+                                            <div className={`text-xs font-bold mt-0.5 ${pnlClass(row.pnlIls)}`}>
+                                                {row.pnlPctOfCost != null && Number.isFinite(row.pnlPctOfCost) ? (
+                                                    <>
+                                                        {row.pnlPctOfCost >= 0 ? '+' : ''}
+                                                        {row.pnlPctOfCost.toFixed(2)}%
+                                                        {' · '}
+                                                    </>
+                                                ) : null}
+                                                {formatIls(row.pnlIls, locale)}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className={`${isHebrew ? 'text-left' : 'text-right'} shrink-0`}>
-        
-                                        <div className="text-[11px] text-gray-500">{formatIls(row.marketValue, locale)}</div>
-                                        <div className={`text-xs font-bold mt-0.5 ${pnlClass(row.pnlIls)}`}>
-                                            {row.pnlPctOfCost != null && Number.isFinite(row.pnlPctOfCost) ? (
-                                                <>
-                                                    {row.pnlPctOfCost >= 0 ? '+' : ''}
-                                                    {row.pnlPctOfCost.toFixed(2)}%
-                                                    {' · '}
-                                                </>
-                                            ) : null}
-                                            {formatIls(row.pnlIls, locale)}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
+                ) : null}
+
+                <div className={`mb-4 flex flex-wrap items-center gap-2 ${isHebrew ? 'justify-start' : 'justify-end'}`}>
+                    <button
+                        type="button"
+                        title={t('dashboard.portfolio.add')}
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    >
+                        <Plus className="h-4 w-4" aria-hidden />
+                    </button>
+                    <button
+                        type="button"
+                        title={t('dashboard.portfolio.refresh_eod_tooltip')}
+                        aria-busy={eodRefreshing}
+                        disabled={eodRefreshing || listLoading || sumLoading}
+                        onClick={() => {
+                            void (async () => {
+                                setEodRefreshing(true);
+                                try {
+                                    await refreshPortfolioInvestmentData(qc);
+                                } catch {
+                                    await qc.invalidateQueries({ queryKey: ['investments'], refetchType: 'active' });
+                                } finally {
+                                    setEodRefreshing(false);
+                                }
+                            })();
+                        }}
+                        className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-45 disabled:pointer-events-none"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${eodRefreshing ? 'animate-spin' : ''}`} aria-hidden />
+                        <span className="truncate max-w-[8.5rem]">
+                            {eodRefreshing ? t('dashboard.portfolio.refresh_eod_busy') : t('dashboard.portfolio.refresh_eod')}
+                        </span>
+                    </button>
                 </div>
-            ) : null}
 
-            <div className={`mb-4 flex flex-wrap items-center gap-2 ${isHebrew ? 'justify-start' : 'justify-end'}`}>
-                <button
-                    type="button"
-                    title={t('dashboard.portfolio.add')}
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                >
-                    <Plus className="h-4 w-4" aria-hidden />
-                </button>
-                <button
-                    type="button"
-                    title={t('dashboard.portfolio.refresh_eod_tooltip')}
-                    aria-busy={eodRefreshing}
-                    disabled={eodRefreshing || listLoading || sumLoading}
-                    onClick={() => {
-                        void (async () => {
-                            setEodRefreshing(true);
-                            try {
-                                await refreshPortfolioInvestmentData(qc);
-                            } catch {
-                                await qc.invalidateQueries({ queryKey: ['investments'], refetchType: 'active' });
-                            } finally {
-                                setEodRefreshing(false);
-                            }
-                        })();
-                    }}
-                    className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-45 disabled:pointer-events-none"
-                >
-                    <RefreshCw className={`h-3.5 w-3.5 ${eodRefreshing ? 'animate-spin' : ''}`} aria-hidden />
-                    <span className="truncate max-w-[8.5rem]">
-                        {eodRefreshing ? t('dashboard.portfolio.refresh_eod_busy') : t('dashboard.portfolio.refresh_eod')}
-                    </span>
-                </button>
-            </div>
-
-            <details className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
-                <summary className={`cursor-pointer list-none px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 ${isHebrew ? 'text-right' : ''}`}>
-                    {t('dashboard.portfolio.manage_positions')}
-                </summary>
-                <table className="w-full text-sm text-left">
-                    <thead>
-                        <tr className="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                            <th className="py-2 pe-3">{t('dashboard.portfolio.symbol')}</th>
-                            <th className="py-2 pe-3">{t('dashboard.portfolio.nickname')}</th>
-                            <th className="py-2 pe-3">{t('dashboard.portfolio.quantity')}</th>
-                            <th className="py-2 pe-3 align-bottom" title={t('dashboard.portfolio.purchase_price_agorot_title')}>
-                                <span className="block">{t('dashboard.portfolio.purchase_price')}</span>
-                                <span className="block text-[9px] font-normal normal-case text-gray-400 font-medium leading-tight mt-0.5 max-w-[7rem]">
-                                    {t('dashboard.portfolio.purchase_price_agorot_sub')}
-                                </span>
-                            </th>
-                            <th className="py-2 pe-3">{t('dashboard.portfolio.currency')}</th>
-                            <th className="py-2 pe-2 text-center" title={t('dashboard.portfolio.tase_quote_help')}>
-                                {t('dashboard.portfolio.tase_quote_short')}
-                            </th>
-                            <th className="py-2 pe-3">{t('dashboard.portfolio.track_from')}</th>
-                            <th className="py-2 pe-3">{t('dashboard.portfolio.pnl_ils')}</th>
-                            <th className="py-2" />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {(list ?? []).map((row) => (
+                <details className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
+                    <summary className={`cursor-pointer list-none px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 ${isHebrew ? 'text-right' : ''}`}>
+                        {t('dashboard.portfolio.manage_positions')}
+                    </summary>
+                    <table className="w-full text-sm text-left">
+                        <thead>
+                            <tr className="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                <th className="py-2 pe-3">{t('dashboard.portfolio.symbol')}</th>
+                                <th className="py-2 pe-3">{t('dashboard.portfolio.nickname')}</th>
+                                <th className="py-2 pe-3">{t('dashboard.portfolio.quantity')}</th>
+                                <th className="py-2 pe-3 align-bottom" title={t('dashboard.portfolio.purchase_price_agorot_title')}>
+                                    <span className="block">{t('dashboard.portfolio.purchase_price')}</span>
+                                    <span className="block text-[9px] font-normal normal-case text-gray-400 font-medium leading-tight mt-0.5 max-w-[7rem]">
+                                        {t('dashboard.portfolio.purchase_price_agorot_sub')}
+                                    </span>
+                                </th>
+                                <th className="py-2 pe-3">{t('dashboard.portfolio.currency')}</th>
+                                <th className="py-2 pe-2 text-center" title={t('dashboard.portfolio.tase_quote_help')}>
+                                    {t('dashboard.portfolio.tase_quote_short')}
+                                </th>
+                                <th className="py-2 pe-3">{t('dashboard.portfolio.track_from')}</th>
+                                <th className="py-2 pe-3">{t('dashboard.portfolio.pnl_ils')}</th>
+                                <th className="py-2" />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(list ?? []).map((row) => (
                                 <tr key={row.id} className="border-b border-gray-50">
                                     {editingId === row.id ? (
                                         <>
@@ -630,7 +634,7 @@ export function PortfolioSection({
                                                     <TaListingSwitch
                                                         checked={Boolean(
                                                             draft.useTelAvivListing ??
-                                                                String(draft.currency).toUpperCase() === 'ILS'
+                                                            String(draft.currency).toUpperCase() === 'ILS'
                                                         )}
                                                         onChange={(next) => setDraft((d) => ({ ...d, useTelAvivListing: next }))}
                                                         disabled={updateMut.isPending}
@@ -732,106 +736,107 @@ export function PortfolioSection({
                                         </>
                                     )}
                                 </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {!list?.length && !listLoading && (
-                    <p className="text-sm text-gray-400 py-4">{t('dashboard.portfolio.no_positions')}</p>
-                )}
-            </details>
-            {isCreateModalOpen && (
-                <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40" onClick={() => setIsCreateModalOpen(false)} />
-                    <div className="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
-                        <div className="mb-4 flex items-center justify-between gap-3">
-                            <h4 className="text-lg font-bold text-gray-900">{t('dashboard.portfolio.add')}</h4>
-                            <button
-                                type="button"
-                                onClick={() => setIsCreateModalOpen(false)}
-                                className="rounded-lg border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
-                            >
-                                <X className="h-4 w-4" aria-hidden />
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <input
-                                placeholder={t('dashboard.portfolio.symbol')}
-                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-mono uppercase"
-                                value={newSymbol}
-                                onChange={(e) => setNewSymbol(e.target.value)}
-                            />
-                            <input
-                                placeholder={t('dashboard.portfolio.nickname_placeholder')}
-                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                maxLength={120}
-                                value={newNickname}
-                                onChange={(e) => setNewNickname(e.target.value)}
-                            />
-                            <input
-                                type="number"
-                                placeholder={t('dashboard.portfolio.quantity')}
-                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                value={newQty}
-                                onChange={(e) => setNewQty(e.target.value)}
-                            />
-                            <input
-                                type="number"
-                                placeholder={t('dashboard.portfolio.purchase_price')}
-                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                value={newPrice}
-                                onChange={(e) => setNewPrice(e.target.value)}
-                            />
-                            <select
-                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                value={newCur}
-                                onChange={(e) => setNewCur(e.target.value as 'USD' | 'ILS')}
-                            >
-                                <option value="USD">USD</option>
-                                <option value="ILS">ILS</option>
-                            </select>
-                            <input
-                                type="date"
-                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                value={newFrom}
-                                onChange={(e) => setNewFrom(e.target.value)}
-                            />
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                            <TaListingSwitch
-                                checked={newTelAviv}
-                                onChange={setNewTelAviv}
-                                disabled={createMut.isPending}
-                                title={t('dashboard.portfolio.tase_quote_help')}
-                                label={t('dashboard.portfolio.tase_quote_short')}
-                            />
-                            {newCur === 'ILS' && (
-                                <label
-                                    className="flex cursor-pointer items-center gap-2 text-xs text-gray-600"
-                                    title={t('dashboard.portfolio.purchase_price_agorot_title')}
+                            ))}
+                        </tbody>
+                    </table>
+                    {!list?.length && !listLoading && (
+                        <p className="text-sm text-gray-400 py-4">{t('dashboard.portfolio.no_positions')}</p>
+                    )}
+                </details>
+                {isCreateModalOpen && (
+                    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/40" onClick={() => setIsCreateModalOpen(false)} />
+                        <div className="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <h4 className="text-lg font-bold text-gray-900">{t('dashboard.portfolio.add')}</h4>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreateModalOpen(false)}
+                                    className="rounded-lg border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
                                 >
-                                    <input
-                                        type="checkbox"
-                                        checked={newValueInAgorot}
-                                        onChange={(e) => setNewValueInAgorot(e.target.checked)}
-                                    />
-                                    <span className="leading-snug">{t('dashboard.portfolio.agorot_checkbox')}</span>
-                                </label>
-                            )}
-                        </div>
-                        <div className="mt-4 flex justify-end">
-                            <button
-                                type="button"
-                                onClick={() => void onAdd()}
-                                disabled={createMut.isPending}
-                                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
-                            >
-                                {t('dashboard.portfolio.add')}
-                            </button>
+                                    <X className="h-4 w-4" aria-hidden />
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <input
+                                    placeholder={t('dashboard.portfolio.symbol')}
+                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-mono uppercase"
+                                    value={newSymbol}
+                                    onChange={(e) => setNewSymbol(e.target.value)}
+                                />
+                                <input
+                                    placeholder={t('dashboard.portfolio.nickname_placeholder')}
+                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                    maxLength={120}
+                                    value={newNickname}
+                                    onChange={(e) => setNewNickname(e.target.value)}
+                                />
+                                <input
+                                    type="number"
+                                    placeholder={t('dashboard.portfolio.quantity')}
+                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                    value={newQty}
+                                    onChange={(e) => setNewQty(e.target.value)}
+                                />
+                                <input
+                                    type="number"
+                                    placeholder={t('dashboard.portfolio.purchase_price')}
+                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                    value={newPrice}
+                                    onChange={(e) => setNewPrice(e.target.value)}
+                                />
+                                <select
+                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                    value={newCur}
+                                    onChange={(e) => setNewCur(e.target.value as 'USD' | 'ILS')}
+                                >
+                                    <option value="USD">USD</option>
+                                    <option value="ILS">ILS</option>
+                                </select>
+                                <input
+                                    type="date"
+                                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                    value={newFrom}
+                                    onChange={(e) => setNewFrom(e.target.value)}
+                                />
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <TaListingSwitch
+                                    checked={newTelAviv}
+                                    onChange={setNewTelAviv}
+                                    disabled={createMut.isPending}
+                                    title={t('dashboard.portfolio.tase_quote_help')}
+                                    label={t('dashboard.portfolio.tase_quote_short')}
+                                />
+                                {newCur === 'ILS' && (
+                                    <label
+                                        className="flex cursor-pointer items-center gap-2 text-xs text-gray-600"
+                                        title={t('dashboard.portfolio.purchase_price_agorot_title')}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={newValueInAgorot}
+                                            onChange={(e) => setNewValueInAgorot(e.target.checked)}
+                                        />
+                                        <span className="leading-snug">{t('dashboard.portfolio.agorot_checkbox')}</span>
+                                    </label>
+                                )}
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => void onAdd()}
+                                    disabled={createMut.isPending}
+                                    className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                                >
+                                    {t('dashboard.portfolio.add')}
+                                </button>
+                            </div>
                         </div>
                     </div>
+                )}
                 </div>
             )}
-            </div>
         </div>
     );
 }

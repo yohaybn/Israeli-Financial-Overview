@@ -2,9 +2,6 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-import scrapeEn from './locales/scrape-en.json';
-import scrapeHe from './locales/scrape-he.json';
-
 type TranslationModule = {
     default?: Record<string, unknown>;
 };
@@ -18,8 +15,8 @@ const mergeLocaleParts = (modules: Record<string, TranslationModule>) =>
 const enParts = import.meta.glob<TranslationModule>('./locales/en/*.json', { eager: true });
 const heParts = import.meta.glob<TranslationModule>('./locales/he/*.json', { eager: true });
 
-const translationEn = { ...mergeLocaleParts(enParts), ...scrapeEn };
-const translationHe = { ...mergeLocaleParts(heParts), ...scrapeHe };
+const translationEn = { ...mergeLocaleParts(enParts) };
+const translationHe = { ...mergeLocaleParts(heParts) };
 
 i18n
     .use(LanguageDetector)

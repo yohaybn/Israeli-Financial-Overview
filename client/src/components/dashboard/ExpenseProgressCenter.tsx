@@ -98,149 +98,150 @@ export function ExpenseProgressCenter({
 
     return (
         <>
-        <div className={dashboardCardShellClass}>
-            <DashboardCardHeader
-                collapsed={collapsed}
-                onToggle={() => setCollapsed((c) => !c)}
-                icon={<ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />}
-                iconTileClassName="bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-200/80"
-                title={t('dashboard.detailed_spending_title', { count: byCategory.length })}
-                subtitle={
-                    <>
-                        {t('dashboard.total_projected')}:{' '}
-                        <span className="font-semibold text-gray-900 tabular-nums">{formatCurrency(totalProjected)}</span>
-                    </>
-                }
-            />
+            <div className={dashboardCardShellClass}>
+                <DashboardCardHeader
+                    collapsed={collapsed}
+                    onToggle={() => setCollapsed((c) => !c)}
+                    icon={<ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden />}
+                    iconTileClassName="bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-200/80"
+                    title={t('dashboard.detailed_spending_title', { count: byCategory.length })}
+                    subtitle={
+                        <>
+                            {t('dashboard.total_projected')}:{' '}
+                            <span className="font-semibold text-gray-900 tabular-nums">{formatCurrency(totalProjected)}</span>
+                        </>
+                    }
+                />
 
-            {!collapsed && (
-                <div className="px-6 pb-8 sm:px-8 space-y-4 pt-0">
-            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center shadow-sm shrink-0">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('dashboard.expense_progress')}</p>
-                            <p className="text-2xl font-black text-gray-900 tabular-nums">{formatCurrency(totalProjected)}</p>
-                            <p className="text-xs text-gray-400">{t('dashboard.total_projected')}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden mb-3">
-                    <div aria-hidden className="absolute left-0 top-0 h-full bg-gradient-to-r from-rose-500 to-rose-600 rounded-l-full transition-all duration-700" style={{ width: `${spentPercent}%` }} />
-                    {plannedPercent > 0 && (
-                        <div
-                            aria-hidden
-                            className="absolute top-0 h-full overflow-hidden transition-all duration-700"
-                            style={{ left: `${spentPercent}%`, width: `${plannedPercent}%` }}
-                        >
-                            <div
-                                className="w-full h-full bg-rose-300"
-                                style={{
-                                    backgroundImage:
-                                        'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.4) 4px, rgba(255,255,255,0.4) 8px)',
-                                }}
-                            />
-                        </div>
-                    )}
-                    {100 - spentPercent - plannedPercent > 0 && (
-                        <div
-                            aria-hidden
-                            className="absolute top-0 h-full rounded-r-full bg-rose-200/50 transition-all duration-700"
-                            style={{ left: `${spentPercent + plannedPercent}%`, width: `${100 - spentPercent - plannedPercent}%` }}
-                        />
-                    )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                    <button
-                        type="button"
-                        onClick={() => setSelectedKpi('already_spent')}
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        <span className="font-medium">{t('dashboard.already_spent')}: </span>
-                        <span className="font-bold border-b border-dashed border-gray-300">{formatCurrency(alreadySpent)}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setSelectedKpi('remaining_planned')}
-                        className="text-gray-600 hover:text-gray-900"
-                    >
-                        <span className="font-medium">{t('dashboard.remaining_planned')}: </span>
-                        <span className="font-bold border-b border-dashed border-gray-300">{formatCurrency(remainingPlanned)}</span>
-                    </button>
-                    {variableForecast > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => setShowForecastModal(true)}
-                            className="text-gray-500 hover:text-gray-800 italic"
-                        >
-                            {t('dashboard.variable_forecast')}: <span className="font-bold not-italic">{formatCurrency(variableForecast)}</span>
-                        </button>
-                    )}
-                    <span className="text-gray-400 font-mono ms-auto sm:ms-0">
-                        {Math.round(spentPercent)}% {t('dashboard.spent_label')}
-                    </span>
-                </div>
-            </div>
-
-            {sortedCategories.length > 0 && (
-                <div className="rounded-2xl border border-gray-100 bg-white p-2 sm:p-2.5 max-h-[min(720px,70vh)] overflow-y-auto pr-0.5 custom-scrollbar">
-                    <div className="divide-y divide-gray-100">
-                        {sortedCategories.map((cat) => {
-                            const health = categoryHealth(cat);
-                            const budget = cat.projected > 0 ? cat.projected : Math.max(cat.historicalAvg || 0, cat.spent, 1);
-                            const fillPct = Math.min(100, (cat.spent / budget) * 100);
-                            const barFill =
-                                health === 'critical'
-                                    ? 'bg-gradient-to-r from-red-500 to-rose-600'
-                                    : 'bg-gradient-to-r from-emerald-500 to-emerald-600';
-
-                            return (
-                                <button
-                                    key={cat.name}
-                                    type="button"
-                                    onClick={() => onCategoryClick?.(cat.name)}
-                                    className="w-full px-0.5 py-1 hover:bg-gray-50/60 transition-colors"
-                                >
-                                    <div
-                                        dir="ltr"
-                                        className="grid grid-cols-[80px_minmax(0,1fr)_120px] items-center gap-1"
-                                    >
-                                        <div className={`${isHebrew ? 'text-left' : 'text-right'} tabular-nums`}>
-                                            <div className="text-[12px] font-semibold text-gray-800 truncate leading-tight">
-                                                {formatCurrency(cat.spent)}
-                                            </div>
-                                        </div>
-                                        <div className="h-2 rounded-full bg-slate-200/80 overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all ${barFill} ${health === 'critical' ? '' : 'opacity-95'}`}
-                                                style={{ width: `${fillPct}%` }}
-                                            />
-                                        </div>
-                                        <div className={`min-w-0 flex items-center gap-1.5 ${isHebrew ? 'justify-end text-right' : 'justify-start text-left'}`}>
-                                            <span className="text-rose-700 shrink-0">
-                                                <CategoryIcon category={cat.name} className="w-3.5 h-3.5" />
-                                            </span>
-                                            <span className="text-[12px] font-semibold text-slate-700 truncate">
-                                                {cat.name}
-                                            </span>
-                                        </div>
+                {!collapsed && (
+                    <div className="px-6 pb-8 sm:px-8 space-y-4 pt-0">
+                        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center shadow-sm shrink-0">
+                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
                                     </div>
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('dashboard.expense_progress')}</p>
+                                        <p className="text-2xl font-black text-gray-900 tabular-nums">{formatCurrency(totalProjected)}</p>
+                                        <p className="text-xs text-gray-400">{t('dashboard.total_projected')}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden mb-3">
+                                <div aria-hidden className="absolute left-0 top-0 h-full bg-gradient-to-r from-rose-500 to-rose-600 rounded-l-full transition-all duration-700" style={{ width: `${spentPercent}%` }} />
+                                {plannedPercent > 0 && (
+                                    <div
+                                        aria-hidden
+                                        className="absolute top-0 h-full overflow-hidden transition-all duration-700"
+                                        style={{ left: `${spentPercent}%`, width: `${plannedPercent}%` }}
+                                    >
+                                        <div
+                                            className="w-full h-full bg-rose-300"
+                                            style={{
+                                                backgroundImage:
+                                                    'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.4) 4px, rgba(255,255,255,0.4) 8px)',
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                {100 - spentPercent - plannedPercent > 0 && (
+                                    <div
+                                        aria-hidden
+                                        className="absolute top-0 h-full rounded-r-full bg-rose-200/50 transition-all duration-700"
+                                        style={{ left: `${spentPercent + plannedPercent}%`, width: `${100 - spentPercent - plannedPercent}%` }}
+                                    />
+                                )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedKpi('already_spent')}
+                                    className="text-gray-600 hover:text-gray-900"
+                                >
+                                    <span className="font-medium">{t('dashboard.already_spent')}: </span>
+                                    <span className="font-bold border-b border-dashed border-gray-300">{formatCurrency(alreadySpent)}</span>
                                 </button>
-                            );
-                        })}
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedKpi('remaining_planned')}
+                                    className="text-gray-600 hover:text-gray-900"
+                                >
+                                    <span className="font-medium">{t('dashboard.remaining_planned')}: </span>
+                                    <span className="font-bold border-b border-dashed border-gray-300">{formatCurrency(remainingPlanned)}</span>
+                                </button>
+                                {variableForecast > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowForecastModal(true)}
+                                        className="text-gray-500 hover:text-gray-800 italic"
+                                    >
+                                        {t('dashboard.variable_forecast')}: <span className="font-bold not-italic">{formatCurrency(variableForecast)}</span>
+                                    </button>
+                                )}
+                                <span className="text-gray-400 font-mono ms-auto sm:ms-0">
+                                    {Math.round(spentPercent)}% {t('dashboard.spent_label')}
+                                </span>
+                            </div>
+                        </div>
+
+                        {sortedCategories.length > 0 && (
+                            <div className="rounded-2xl border border-gray-100 bg-white p-2 sm:p-2.5 max-h-[min(720px,70vh)] overflow-y-auto pr-0.5 custom-scrollbar">
+                                <div className="divide-y divide-gray-100">
+                                    {sortedCategories.map((cat) => {
+                                        const health = categoryHealth(cat);
+                                        const budget = cat.projected > 0 ? cat.projected : Math.max(cat.historicalAvg || 0, cat.spent, 1);
+                                        const fillPct = Math.min(100, (cat.spent / budget) * 100);
+                                        const barFill =
+                                            health === 'critical'
+                                                ? 'bg-gradient-to-r from-red-500 to-rose-600'
+                                                : 'bg-gradient-to-r from-emerald-500 to-emerald-600';
+
+                                        return (
+                                            <button
+                                                key={cat.name}
+                                                type="button"
+                                                onClick={() => onCategoryClick?.(cat.name)}
+                                                className="w-full px-0.5 py-1 hover:bg-gray-50/60 transition-colors"
+                                            >
+                                                <div
+                                                    dir="ltr"
+                                                    className="grid grid-cols-[80px_minmax(0,1fr)_120px] items-center gap-1"
+                                                >
+                                                    <div className={`${isHebrew ? 'text-left' : 'text-right'} tabular-nums`}>
+                                                        <div className="text-[12px] font-semibold text-gray-800 truncate leading-tight">
+                                                            {formatCurrency(cat.spent)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="h-2 rounded-full bg-slate-200/80 overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all ${barFill} ${health === 'critical' ? '' : 'opacity-95'}`}
+                                                            style={{ width: `${fillPct}%` }}
+                                                        />
+                                                    </div>
+                                                    <div className={`min-w-0 flex items-center gap-1.5 ${isHebrew ? 'justify-end text-right' : 'justify-start text-left'}`}>
+                                                        <span className="text-[12px] font-semibold text-slate-700 truncate">
+                                                            {cat.name}
+                                                        </span>
+                                                        <span className="text-rose-700 shrink-0">
+                                                            <CategoryIcon category={cat.name} className="w-3.5 h-3.5" />
+                                                        </span>
+
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
-            )}
-                </div>
-            )}
-        </div>
+                )}
+            </div>
             {selectedKpi &&
                 createPortal(
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={() => setSelectedKpi(null)}>

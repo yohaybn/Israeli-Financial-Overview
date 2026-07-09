@@ -123,6 +123,7 @@
             "price_chart_purchase": "רכישה שלכם",
             "price_chart_eod": "סגירת שוק",
             "price_chart_realtime": "שער חי (באיחור)",
+            "positions": "פוזיציות",
             "manage_positions": "ניהול פוזיציות"
         },
         "custom_charts_section_title": "הגרפים שלכם",
