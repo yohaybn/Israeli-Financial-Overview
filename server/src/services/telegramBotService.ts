@@ -1307,11 +1307,15 @@ export class TelegramBotService {
       const profileButtons = profiles.map((profile: Profile) =>
         Markup.button.callback(profile.name || profile.id, `scrape_default_${profile.id}`)
       );
-
+      // 2. Chunk the buttons into rows of 4  
+      const chunkedProfileRows: typeof profileButtons[] = [];
+      for (let i = 0; i < profileButtons.length; i += 4) {
+        chunkedProfileRows.push(profileButtons.slice(i, i + 4));
+      }
       await ctx.reply(
         this.t('selectProfile'),
         Markup.inlineKeyboard([
-          profileButtons,
+          ...chunkedProfileRows,
           [Markup.button.callback(this.t('scrapeAllLabel'), 'scrape_all_default')],
           [Markup.button.callback('Custom Start Date', 'scrape_custom_start')],
         ])

@@ -29,7 +29,10 @@
         },
         "files": [
             "main.js",
-            "preload.js"
+            "preload.js",
+            "appBlocker.js",
+            "blockerPage.html",
+            "blockerPreload.js"
         ],
         "win": {
             "extraResources": [

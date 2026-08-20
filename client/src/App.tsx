@@ -602,60 +602,70 @@ function App() {
 
                 <div className="flex flex-1 overflow-hidden">
                     <div className="flex-1 overflow-hidden relative bg-white">
-                        <div className={view === 'dashboard' ? 'h-full overflow-y-auto p-4' : 'hidden'}>
-                            <FinancialCommandCenter
-                                selectedMonth={selectedMonth}
-                                onMonthChange={setSelectedMonth}
-                                onUpdateCategory={handleUpdateCategory}
-                            />
-                        </div>
-                        <div className={view === 'scrape' ? 'h-full overflow-y-auto' : 'hidden'}>
-                            <ScrapeWorkspace
-                                onOpenImportProfile={() => setView('importProfile')}
-                                onViewInLogs={handleViewInLogs}
-                            />
-                        </div>
-                        <div className={view === 'importProfile' ? 'h-full overflow-y-auto' : 'hidden'}>
-                            <ImportProfilePage
-                                onBack={() => setView('scrape')}
-                                onSaved={() => {
-                                    setNav((prev) => ({ ...prev, view: 'scrape' }));
-                                }}
-                            />
-                        </div>
-                        <div className={view === 'configuration' ? 'h-full' : 'hidden'}>
-                            <div className="h-full overflow-y-auto py-4">
-                                {showConfigWizard && (
-                                    <ConfigSetupWizard
-                                        activeTab={configTab}
-                                        onNavigate={(tab) => {
-                                            setConfigTab(tab);
-                                        }}
-                                    />
-                                )}
-                                <ConfigurationPanel
-                                    activeTab={configTab}
-                                    onTabChange={(tab) => {
-                                        setConfigTab(tab);
-                                    }}
-                                    onOpenBudgetExports={() =>
-                                        setConfigTab('budget-exports')
-                                    }
-                                    openInsightRuleId={insightRuleId}
-                                    onOpenInsightRuleConsumed={handleInsightRuleOpenConsumed}
+                        {view === 'dashboard' && (
+                            <div className="h-full overflow-y-auto p-4">
+                                <FinancialCommandCenter
+                                    selectedMonth={selectedMonth}
+                                    onMonthChange={setSelectedMonth}
+                                    onUpdateCategory={handleUpdateCategory}
                                 />
                             </div>
-                        </div>
-                        <div className={view === 'logs' ? 'h-full' : 'hidden'}>
-                            <LogViewer
-                                logType={logType}
-                                onLogTypeChange={(t) => setNav((prev) => ({ ...prev, logType: t, logEntryId: null, resultFile: null }))}
-                                logEntryId={logEntryId}
-                                onLogEntryIdChange={(id) => setNav((prev) => ({ ...prev, logEntryId: id }))}
-                                resultFile={resultFile}
-                                onResultFileChange={handleResultFileChange}
-                            />
-                        </div>
+                        )}
+                        {view === 'scrape' && (
+                            <div className="h-full overflow-y-auto">
+                                <ScrapeWorkspace
+                                    onOpenImportProfile={() => setView('importProfile')}
+                                    onViewInLogs={handleViewInLogs}
+                                />
+                            </div>
+                        )}
+                        {view === 'importProfile' && (
+                            <div className="h-full overflow-y-auto">
+                                <ImportProfilePage
+                                    onBack={() => setView('scrape')}
+                                    onSaved={() => {
+                                        setNav((prev) => ({ ...prev, view: 'scrape' }));
+                                    }}
+                                />
+                            </div>
+                        )}
+                        {view === 'configuration' && (
+                            <div className="h-full">
+                                <div className="h-full overflow-y-auto py-4">
+                                    {showConfigWizard && (
+                                        <ConfigSetupWizard
+                                            activeTab={configTab}
+                                            onNavigate={(tab) => {
+                                                setConfigTab(tab);
+                                            }}
+                                        />
+                                    )}
+                                    <ConfigurationPanel
+                                        activeTab={configTab}
+                                        onTabChange={(tab) => {
+                                            setConfigTab(tab);
+                                        }}
+                                        onOpenBudgetExports={() =>
+                                            setConfigTab('budget-exports')
+                                        }
+                                        openInsightRuleId={insightRuleId}
+                                        onOpenInsightRuleConsumed={handleInsightRuleOpenConsumed}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        {view === 'logs' && (
+                            <div className="h-full">
+                                <LogViewer
+                                    logType={logType}
+                                    onLogTypeChange={(t) => setNav((prev) => ({ ...prev, logType: t, logEntryId: null, resultFile: null }))}
+                                    logEntryId={logEntryId}
+                                    onLogEntryIdChange={(id) => setNav((prev) => ({ ...prev, logEntryId: id }))}
+                                    resultFile={resultFile}
+                                    onResultFileChange={handleResultFileChange}
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

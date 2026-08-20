@@ -1,0 +1,5 @@
+{
+    "gemini_card": {
+        "subtitle": "Required for categorization and the AI analyst. Stored in runtime-settings.json."
+    }
+}

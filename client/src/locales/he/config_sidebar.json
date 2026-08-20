@@ -1,0 +1,13 @@
+{
+    "config_sidebar": {
+        "nav_aria": "אזורי הגדרות",
+        "section_select_label": "אזור",
+        "mode_label": "מצב תצורה",
+        "mode_basic_hint": "מוצגות רק הגדרות בסיס לתהליך ההתחלתי.",
+        "mode_advanced_hint": "הגדרות מתקדמות מוצגות.",
+        "show_advanced": "הצג מתקדם",
+        "hide_advanced": "הסתר מתקדם",
+        "show_extra_sections": "הצג עוד הגדרות",
+        "hide_extra_sections": "הסתר עוד הגדרות"
+    }
+}

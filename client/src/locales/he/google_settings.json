@@ -1,0 +1,35 @@
+{
+    "google_settings": {
+        "title": "הגדרות Google Drive",
+        "description": "ניתן למצוא נתונים אלו ב-Google Cloud Console.",
+        "description_prefix": "הוציאו נתונים אלו מתוך",
+        "google_cloud_console": "Google Cloud Console",
+        "description_suffix": ".",
+        "folder_saved": "הגדרת תיקיית הגיבוי נשמרה בהצלחה",
+        "folder_cleared": "הגדרת התיקייה אופסה",
+        "errors": {
+            "save_folder_failed": "שמירת התיקייה נכשלה",
+            "save_folder_failed_with_error": "שמירת התיקייה נכשלה: {{error}}",
+            "clear_folder_failed": "איפוס התיקייה נכשל",
+            "clear_folder_failed_with_error": "איפוס התיקייה נכשל: {{error}}"
+        },
+        "client_id": "Client ID (מזהה לקוח)",
+        "client_secret": "Client Secret (סוד לקוח)",
+        "redirect_uri": "Redirect URI (כתובת הפניה מורשית)",
+        "redirect_uri_hint": "כתובת זו חייבת להיות זהה לזו שהוגדרה ב-Google Console.",
+        "placeholder_client_id": "your-client-id.apps.googleusercontent.com",
+        "placeholder_client_secret": "הקלידו את ה-Client Secret",
+        "defaultDriveFolder": "תיקיית ברירת המחדל ב-Drive",
+        "browseFolderHelp": "עיינו ובחרו תיקייה לארגון אוטומטי",
+        "driveRoot": "הכונן שלי (Drive)",
+        "noFoldersOrFiles": "לא נמצאו קבצים או תיקיות",
+        "noFoldersInDrive": "לא נמצאו תיקיות בכונן ה-Drive",
+        "selectedLabel": "נבחר:",
+        "envFolderTipPrefix": "בנוסף, אפשר להגדיר זאת ב-",
+        "envFolderTipSuffix": "בקובץ runtime-settings.json",
+        "test": "בדיקת חיבור",
+        "testing": "בודק...",
+        "test_success": "החיבור ל-Google Drive עובד מעולה!",
+        "test_failed": "בדיקת החיבור נכשלה"
+    }
+}

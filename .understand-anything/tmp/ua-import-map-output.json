@@ -1,0 +1,1568 @@
+{
+  "scriptCompleted": true,
+  "stats": {
+    "filesScanned": 504,
+    "filesWithImports": 247,
+    "totalEdges": 807
+  },
+  "importMap": {
+    ".dockerignore": [],
+    ".gitattributes": [],
+    ".github/dependabot.yml": [],
+    ".github/workflows/deploy.yml": [],
+    ".github/workflows/macos-package.yml": [],
+    ".github/workflows/pages.yml": [],
+    ".github/workflows/windows-package.yml": [],
+    ".understand-anything/.understandignore": [],
+    ".understand-anything/config.json": [],
+    "bank-scraper-docker.code-workspace": [],
+    "client/index.html": [],
+    "client/package.json": [],
+    "client/postcss.config.js": [],
+    "client/public/GUIDE.html": [],
+    "client/public/guides/TELEGRAM_BOT_GUIDE.he.md": [],
+    "client/public/install/index.html": [],
+    "client/public/mockServiceWorker.js": [],
+    "client/scripts/generate-app-icons.mjs": [],
+    "client/src/App.tsx": [
+      "client/src/components/AppLockBanner.tsx",
+      "client/src/components/chat/UnifiedAiChatPanel.tsx",
+      "client/src/components/ConfigurationPanel.tsx",
+      "client/src/components/dashboard/DashboardAlertsDropdown.tsx",
+      "client/src/components/dashboard/FinancialCommandCenter.tsx",
+      "client/src/components/FeedbackModal.tsx",
+      "client/src/components/LogViewer.tsx",
+      "client/src/components/onboarding/ConfigSetupWizard.tsx",
+      "client/src/components/onboarding/GettingStartedResumeBanner.tsx",
+      "client/src/components/onboarding/GettingStartedWizard.tsx",
+      "client/src/components/onboarding/OnboardingResumeBanner.tsx",
+      "client/src/components/onboarding/OnboardingWizard.tsx",
+      "client/src/components/onboarding/PersonaOnboardingWizard.tsx",
+      "client/src/components/SchedulerSettings.tsx",
+      "client/src/components/scrape/ScrapeWorkspace.tsx",
+      "client/src/components/TopBarActivityIndicators.tsx",
+      "client/src/components/TopBarServerStatus.tsx",
+      "client/src/components/TransactionReviewModal.tsx",
+      "client/src/contexts/GettingStartedContext.tsx",
+      "client/src/contexts/OnboardingContext.tsx",
+      "client/src/demo/isDemo.ts",
+      "client/src/hooks/useConfig.ts",
+      "client/src/hooks/usePersonaSetupWizardVisibility.ts",
+      "client/src/hooks/useScraper.ts",
+      "client/src/hooks/useSocket.ts",
+      "client/src/hooks/useUnifiedData.ts",
+      "client/src/pages/ImportProfilePage.tsx",
+      "client/src/utils/appUrlState.ts",
+      "client/src/utils/geminiKeyConfigured.ts",
+      "client/src/utils/publicBase.ts"
+    ],
+    "client/src/components/AdvancedAISettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/ToggleSwitch.tsx"
+    ],
+    "client/src/components/AILogViewer.tsx": [
+      "client/src/contexts/ServerActivityContext.tsx",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/AIMemorySettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/dashboard/TopInsightsCard.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/AIPreferencesSettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/AISettings.tsx": [
+      "client/src/components/AdvancedAISettings.tsx",
+      "client/src/components/AIMemorySettings.tsx",
+      "client/src/components/AIPreferencesSettings.tsx",
+      "client/src/components/CategorySettings.tsx",
+      "client/src/components/config/ConfigStatusBanner.tsx",
+      "client/src/components/config/sections/LLMProviderCard.tsx",
+      "client/src/components/config/sections/PromptEngineeringCard.tsx",
+      "client/src/components/GeminiApiKeyCard.tsx",
+      "client/src/components/persona/PersonaAlignmentSettings.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/hooks/useUnifiedData.ts"
+    ],
+    "client/src/components/AnalyticsDashboard.tsx": [
+      "client/src/components/dashboard/SqlAnalyticCardsSection.tsx",
+      "client/src/components/dashboard/UnifiedChartModal.tsx",
+      "client/src/components/dashboard/UserCustomChartsSection.tsx",
+      "client/src/hooks/useAnalytics.ts",
+      "client/src/hooks/useUnifiedDashboardCharts.ts",
+      "client/src/utils/transactionUtils.ts"
+    ],
+    "client/src/components/AppBlockerGate.tsx": [
+      "client/src/hooks/useAppLock.ts"
+    ],
+    "client/src/components/AppLockBanner.tsx": [
+      "client/src/hooks/useAppLock.ts"
+    ],
+    "client/src/components/BackupRestoreSummary.tsx": [
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/BackupScopePicker.tsx": [],
+    "client/src/components/BudgetExportSettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/CategoryMetaBoard.tsx": [
+      "client/src/utils/categoryIcons.tsx"
+    ],
+    "client/src/components/CategorySettings.tsx": [
+      "client/src/components/CategoryMetaBoard.tsx",
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/utils/categoryIcons.tsx"
+    ],
+    "client/src/components/chat/ChatTabBodies.tsx": [
+      "client/src/components/chat/useAnalystChat.ts"
+    ],
+    "client/src/components/chat/UnifiedAiChatPanel.tsx": [
+      "client/src/components/AISettings.tsx",
+      "client/src/components/chat/ChatTabBodies.tsx",
+      "client/src/components/chat/useAnalystChat.ts",
+      "client/src/components/chat/useHelpChat.ts",
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/chat/useAnalystChat.ts": [
+      "client/src/components/dashboard/TopInsightsCard.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/utils/aiErrorMapper.ts"
+    ],
+    "client/src/components/chat/useHelpChat.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/CollapsibleCard.tsx": [],
+    "client/src/components/community-insight-rules/CommunityInsightRulesPanel.tsx": [
+      "client/src/components/insight-rules/InsightRuleCreateRuleModal.tsx",
+      "client/src/components/insight-rules/insightRuleFormTypes.ts",
+      "client/src/lib/communityInsightRulesDefaults.ts",
+      "client/src/lib/communityInsightRulesSettings.ts"
+    ],
+    "client/src/components/config/ConfigStatusBanner.tsx": [],
+    "client/src/components/config/fraudDetectionSync.ts": [],
+    "client/src/components/config/sections/ConfigSectionCard.tsx": [],
+    "client/src/components/config/sections/LLMProviderCard.tsx": [
+      "client/src/components/config/sections/ConfigSectionCard.tsx"
+    ],
+    "client/src/components/config/sections/ParsingEngineCard.tsx": [
+      "client/src/components/config/sections/ConfigSectionCard.tsx"
+    ],
+    "client/src/components/config/sections/PromptEngineeringCard.tsx": [
+      "client/src/components/config/sections/ConfigSectionCard.tsx"
+    ],
+    "client/src/components/config/sections/ScraperCredentialsCard.tsx": [
+      "client/src/components/config/sections/ConfigSectionCard.tsx",
+      "client/src/components/ToggleSwitch.tsx"
+    ],
+    "client/src/components/ConfigurationPanel.tsx": [
+      "client/src/components/AISettings.tsx",
+      "client/src/components/BudgetExportSettings.tsx",
+      "client/src/components/CategorySettings.tsx",
+      "client/src/components/FinancialReportSettings.tsx",
+      "client/src/components/FraudSettings.tsx",
+      "client/src/components/GoogleSettings.tsx",
+      "client/src/components/GoogleSheetsSync.tsx",
+      "client/src/components/InsightRulesSettings.tsx",
+      "client/src/components/InvestmentSettings.tsx",
+      "client/src/components/MaintenancePanel.tsx",
+      "client/src/components/MqttSettings.tsx",
+      "client/src/components/SchedulerSettings.tsx",
+      "client/src/components/ScrapeSettings.tsx",
+      "client/src/components/TelegramSettings.tsx",
+      "client/src/utils/appUrlState.ts"
+    ],
+    "client/src/components/dashboard/AllTransactionsSearchModal.tsx": [
+      "client/src/components/TransactionTable.tsx"
+    ],
+    "client/src/components/dashboard/AnomalyAlerts.tsx": [
+      "client/src/utils/categoryIcons.tsx"
+    ],
+    "client/src/components/dashboard/BudgetHealthScore.tsx": [],
+    "client/src/components/dashboard/CategoryDetailsModal.tsx": [
+      "client/src/components/TransactionTable.tsx",
+      "client/src/utils/categoryIcons.tsx",
+      "client/src/utils/transactionUtils.ts"
+    ],
+    "client/src/components/dashboard/CCPaymentDateSettings.tsx": [
+      "client/src/hooks/useDashboardConfig.ts",
+      "client/src/hooks/useInvestments.ts"
+    ],
+    "client/src/components/dashboard/DashboardAlertsDropdown.tsx": [
+      "client/src/components/dashboard/AnomalyAlerts.tsx",
+      "client/src/hooks/useDashboardConfig.ts",
+      "client/src/hooks/useFinancialSummary.ts",
+      "client/src/hooks/useUnifiedData.ts"
+    ],
+    "client/src/components/dashboard/DashboardCardChrome.tsx": [],
+    "client/src/components/dashboard/DashboardSidebar.tsx": [
+      "client/src/components/TransactionModal.tsx",
+      "client/src/hooks/useUnifiedData.ts",
+      "client/src/utils/categoryIcons.tsx",
+      "client/src/utils/transactionSearch.ts"
+    ],
+    "client/src/components/dashboard/DayTransactionsModal.tsx": [
+      "client/src/components/TransactionTable.tsx"
+    ],
+    "client/src/components/dashboard/ExpenseProgressCenter.tsx": [
+      "client/src/components/dashboard/DashboardCardChrome.tsx",
+      "client/src/components/dashboard/VariableForecastModal.tsx",
+      "client/src/components/TransactionTable.tsx",
+      "client/src/utils/categoryIcons.tsx"
+    ],
+    "client/src/components/dashboard/FinancialCommandCenter.tsx": [
+      "client/src/components/AnalyticsDashboard.tsx",
+      "client/src/components/dashboard/AllTransactionsSearchModal.tsx",
+      "client/src/components/dashboard/CategoryDetailsModal.tsx",
+      "client/src/components/dashboard/CCPaymentDateSettings.tsx",
+      "client/src/components/dashboard/DayTransactionsModal.tsx",
+      "client/src/components/dashboard/ExpenseProgressCenter.tsx",
+      "client/src/components/dashboard/IncomeProgressCenter.tsx",
+      "client/src/components/dashboard/MonthlyTransactionsCard.tsx",
+      "client/src/components/dashboard/PortfolioSection.tsx",
+      "client/src/components/dashboard/SubscriptionList.tsx",
+      "client/src/components/dashboard/TopInsightsCard.tsx",
+      "client/src/hooks/useDashboardConfig.ts",
+      "client/src/hooks/useFinancialSummary.ts",
+      "client/src/hooks/useInitialCollapsedOnMobile.ts",
+      "client/src/hooks/useInvestments.ts",
+      "client/src/hooks/useScraper.ts",
+      "client/src/hooks/useUnifiedData.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/dashboard/IncomeProgressCenter.tsx": [
+      "client/src/components/dashboard/DashboardCardChrome.tsx",
+      "client/src/components/TransactionTable.tsx"
+    ],
+    "client/src/components/dashboard/MonthlyTransactionsCard.tsx": [
+      "client/src/components/dashboard/DashboardCardChrome.tsx",
+      "client/src/components/TransactionTable.tsx",
+      "client/src/utils/formatters.ts",
+      "client/src/utils/transactionUtils.ts"
+    ],
+    "client/src/components/dashboard/PortfolioSection.tsx": [
+      "client/src/components/dashboard/DashboardCardChrome.tsx",
+      "client/src/hooks/useInvestments.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/dashboard/SqlAnalyticCardsSection.tsx": [
+      "client/src/components/dashboard/UserCustomChartsSection.tsx",
+      "client/src/hooks/useDashboardConfig.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/dashboard/SubscriptionList.tsx": [
+      "client/src/components/dashboard/DashboardCardChrome.tsx",
+      "client/src/components/TransactionModal.tsx",
+      "client/src/components/TransactionTable.tsx",
+      "client/src/utils/categoryIcons.tsx"
+    ],
+    "client/src/components/dashboard/TopInsightsCard.tsx": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/dashboard/TransactionChartFields.tsx": [
+      "client/src/utils/transactionChartForm.ts"
+    ],
+    "client/src/components/dashboard/UnifiedChartModal.tsx": [
+      "client/src/components/dashboard/SqlAnalyticCardsSection.tsx",
+      "client/src/components/dashboard/TransactionChartFields.tsx",
+      "client/src/components/dashboard/UserCustomChartsSection.tsx",
+      "client/src/hooks/useUnifiedDashboardCharts.ts",
+      "client/src/lib/api.ts",
+      "client/src/utils/transactionChartForm.ts"
+    ],
+    "client/src/components/dashboard/UpcomingFixedList.tsx": [
+      "client/src/components/TransactionModal.tsx",
+      "client/src/utils/categoryIcons.tsx"
+    ],
+    "client/src/components/dashboard/UserCustomChartsSection.tsx": [
+      "client/src/hooks/useDashboardConfig.ts",
+      "client/src/utils/customChartSeries.ts"
+    ],
+    "client/src/components/dashboard/VariableForecastModal.tsx": [
+      "client/src/utils/categoryIcons.tsx"
+    ],
+    "client/src/components/DesktopAppSettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx"
+    ],
+    "client/src/components/EditProfileModal.tsx": [
+      "client/src/components/OneZeroLongTermTokenHelper.tsx",
+      "client/src/components/ProfileManager.tsx",
+      "client/src/hooks/useProfiles.ts",
+      "client/src/hooks/useProviders.ts"
+    ],
+    "client/src/components/FeedbackModal.tsx": [
+      "client/src/demo/isDemo.ts",
+      "client/src/utils/feedbackForm.ts",
+      "client/src/utils/installationKind.ts"
+    ],
+    "client/src/components/FinancialReportSettings.tsx": [
+      "client/src/components/ScheduleEditor.tsx",
+      "client/src/hooks/useInvestments.ts",
+      "client/src/hooks/useScraper.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/FraudSettings.tsx": [
+      "client/src/components/config/fraudDetectionSync.ts",
+      "client/src/components/config/sections/ParsingEngineCard.tsx",
+      "client/src/components/SeverityThresholdBar.tsx",
+      "client/src/components/ToggleSwitch.tsx",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/GeminiApiKeyCard.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/hooks/useConfig.ts",
+      "client/src/utils/personaSetupWizardStorage.ts"
+    ],
+    "client/src/components/GitHubUpdateCheck.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/demo/isDemo.ts",
+      "client/src/utils/feedbackForm.ts",
+      "client/src/utils/githubRelease.ts"
+    ],
+    "client/src/components/GoogleSettings.tsx": [
+      "client/src/hooks/useScraper.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/GoogleSheetsSync.tsx": [
+      "client/src/components/GoogleSettings.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/ImportModal.tsx": [
+      "client/src/hooks/useProviders.ts",
+      "client/src/hooks/useScraper.ts",
+      "client/src/hooks/useUnifiedData.ts",
+      "client/src/utils/pendingTabularImportProfile.ts"
+    ],
+    "client/src/components/ImportProfileBuilder.tsx": [
+      "client/src/hooks/useProviders.ts"
+    ],
+    "client/src/components/insight-rules/IfConditionsSection.tsx": [
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/insight-rules/InsightRuleCreateRuleModal.tsx": [
+      "client/src/components/insight-rules/InsightRuleForm.tsx",
+      "client/src/components/insight-rules/insightRuleFormTypes.ts"
+    ],
+    "client/src/components/insight-rules/InsightRuleEditor.tsx": [
+      "client/src/components/insight-rules/IfConditionsSection.tsx",
+      "client/src/components/insight-rules/InsightRulesEngineReference.tsx",
+      "client/src/components/insight-rules/RuleSummaryAside.tsx",
+      "client/src/components/insight-rules/ThenOutputSection.tsx"
+    ],
+    "client/src/components/insight-rules/InsightRuleForm.tsx": [
+      "client/src/components/insight-rules/InsightRuleEditor.tsx",
+      "client/src/components/insight-rules/insightRuleFormTypes.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/insight-rules/insightRuleFormTypes.ts": [],
+    "client/src/components/insight-rules/InsightRuleImportReviewModal.tsx": [],
+    "client/src/components/insight-rules/InsightRulesEngineReference.tsx": [],
+    "client/src/components/insight-rules/RuleSummaryAside.tsx": [
+      "client/src/lib/insightRuleSummaryText.ts"
+    ],
+    "client/src/components/insight-rules/ThenOutputSection.tsx": [],
+    "client/src/components/InsightRulesSettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/community-insight-rules/CommunityInsightRulesPanel.tsx",
+      "client/src/components/insight-rules/InsightRuleForm.tsx",
+      "client/src/components/insight-rules/insightRuleFormTypes.ts",
+      "client/src/components/insight-rules/InsightRuleImportReviewModal.tsx",
+      "client/src/lib/api.ts",
+      "client/src/lib/communityInsightRulesSettings.ts",
+      "client/src/lib/insightRuleShareNote.ts"
+    ],
+    "client/src/components/InvestmentSettings.tsx": [
+      "client/src/constants/eodhdUrls.ts",
+      "client/src/hooks/useInvestments.ts"
+    ],
+    "client/src/components/LogViewer.tsx": [
+      "client/src/components/AILogViewer.tsx",
+      "client/src/components/ScrapeLogViewer.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/utils/appUrlState.ts"
+    ],
+    "client/src/components/MaintenancePanel.tsx": [
+      "client/src/components/BackupRestoreSummary.tsx",
+      "client/src/components/BackupScopePicker.tsx",
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/DesktopAppSettings.tsx",
+      "client/src/components/GitHubUpdateCheck.tsx",
+      "client/src/components/MaintenanceServerPathsCard.tsx",
+      "client/src/components/ResultsExplorer.tsx",
+      "client/src/hooks/useAppLock.ts",
+      "client/src/hooks/useScraper.ts",
+      "client/src/utils/clearBrowserSiteData.ts"
+    ],
+    "client/src/components/MaintenanceServerPathsCard.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/hooks/useConfig.ts",
+      "client/src/utils/personaSetupWizardStorage.ts"
+    ],
+    "client/src/components/MqttSettings.tsx": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/onboarding/ConfigSetupWizard.tsx": [
+      "client/src/utils/appUrlState.ts"
+    ],
+    "client/src/components/onboarding/GettingStartedInvestmentPanel.tsx": [
+      "client/src/constants/eodhdUrls.ts",
+      "client/src/hooks/useInvestments.ts"
+    ],
+    "client/src/components/onboarding/GettingStartedResumeBanner.tsx": [
+      "client/src/contexts/GettingStartedContext.tsx"
+    ],
+    "client/src/components/onboarding/GettingStartedWizard.tsx": [
+      "client/src/components/onboarding/GettingStartedInvestmentPanel.tsx",
+      "client/src/contexts/GettingStartedContext.tsx",
+      "client/src/hooks/useGettingStartedState.ts",
+      "client/src/utils/appUrlState.ts"
+    ],
+    "client/src/components/onboarding/OnboardingResumeBanner.tsx": [
+      "client/src/contexts/OnboardingContext.tsx"
+    ],
+    "client/src/components/onboarding/OnboardingWizard.tsx": [
+      "client/src/contexts/OnboardingContext.tsx",
+      "client/src/hooks/useAppLock.ts",
+      "client/src/hooks/useConfig.ts",
+      "client/src/hooks/useOnboardingState.ts",
+      "client/src/lib/api.ts",
+      "client/src/utils/personaSetupWizardStorage.ts"
+    ],
+    "client/src/components/onboarding/PersonaOnboardingWizard.tsx": [
+      "client/src/components/persona/PersonaAlignmentForm.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/lib/api.ts",
+      "client/src/utils/personaSetupWizardStorage.ts"
+    ],
+    "client/src/components/OneZeroLongTermTokenHelper.tsx": [
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/persona/PersonaAlignmentForm.tsx": [],
+    "client/src/components/persona/PersonaAlignmentSettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/persona/PersonaAlignmentForm.tsx",
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/PostScrapeSettings.tsx": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/ProfileManager.tsx": [
+      "client/src/components/EditProfileModal.tsx",
+      "client/src/hooks/useProfiles.ts",
+      "client/src/hooks/useProviders.ts"
+    ],
+    "client/src/components/ResultsExplorer.tsx": [
+      "client/src/components/ScrapeResultPanel.tsx",
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/ScheduleEditor.tsx": [],
+    "client/src/components/scheduler/schedulerSections.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/ProfileManager.tsx",
+      "client/src/components/ScheduleEditor.tsx",
+      "client/src/components/scheduler/schedulerSettingsModel.tsx"
+    ],
+    "client/src/components/scheduler/schedulerSettingsModel.tsx": [
+      "client/src/components/ScheduleEditor.tsx",
+      "client/src/hooks/useProfiles.ts",
+      "client/src/hooks/useProviders.ts",
+      "client/src/hooks/useScraper.ts"
+    ],
+    "client/src/components/SchedulerSettings.tsx": [
+      "client/src/components/scheduler/schedulerSections.tsx"
+    ],
+    "client/src/components/scrape/ScrapeWorkspace.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/ImportModal.tsx",
+      "client/src/components/SchedulerSettings.tsx",
+      "client/src/components/ScrapeProgress.tsx",
+      "client/src/components/ScraperForm.tsx",
+      "client/src/components/ScrapeSettings.tsx"
+    ],
+    "client/src/components/ScrapeLogViewer.tsx": [
+      "client/src/components/ScrapeResultPanel.tsx",
+      "client/src/lib/api.ts",
+      "client/src/utils/appUrlState.ts"
+    ],
+    "client/src/components/ScrapeProgress.tsx": [
+      "client/src/contexts/ServerActivityContext.tsx",
+      "client/src/hooks/useSocket.ts"
+    ],
+    "client/src/components/ScrapeResultPanel.tsx": [
+      "client/src/components/TransactionTable.tsx",
+      "client/src/hooks/useScraper.ts",
+      "client/src/utils/appUrlState.ts",
+      "client/src/utils/logger.ts"
+    ],
+    "client/src/components/ScraperForm.tsx": [
+      "client/src/components/OneZeroLongTermTokenHelper.tsx",
+      "client/src/components/ProfileManager.tsx",
+      "client/src/demo/isDemo.ts",
+      "client/src/demo/sampleData.ts",
+      "client/src/hooks/useAppLock.ts",
+      "client/src/hooks/useProfiles.ts",
+      "client/src/hooks/useProviders.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/ScrapeSettings.tsx": [
+      "client/src/components/CollapsibleCard.tsx",
+      "client/src/components/config/ConfigStatusBanner.tsx",
+      "client/src/components/config/fraudDetectionSync.ts",
+      "client/src/components/config/sections/ScraperCredentialsCard.tsx",
+      "client/src/components/ToggleSwitch.tsx",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/SeverityThresholdBar.tsx": [],
+    "client/src/components/TelegramSettings.tsx": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/components/ToggleSwitch.tsx": [],
+    "client/src/components/TopBarActivityIndicators.tsx": [
+      "client/src/contexts/ServerActivityContext.tsx"
+    ],
+    "client/src/components/TopBarServerStatus.tsx": [
+      "client/src/hooks/useServerHealth.ts"
+    ],
+    "client/src/components/TransactionModal.tsx": [
+      "client/src/hooks/useDashboardConfig.ts",
+      "client/src/hooks/useInvestments.ts",
+      "client/src/hooks/useProviders.ts",
+      "client/src/hooks/useScraper.ts",
+      "client/src/hooks/useUnifiedData.ts",
+      "client/src/utils/categoryIcons.tsx",
+      "client/src/utils/transactionUtils.ts"
+    ],
+    "client/src/components/TransactionReviewModal.tsx": [
+      "client/src/components/TransactionTable.tsx"
+    ],
+    "client/src/components/TransactionTable.tsx": [
+      "client/src/components/TransactionModal.tsx",
+      "client/src/hooks/useDashboardConfig.ts",
+      "client/src/hooks/useProviders.ts",
+      "client/src/hooks/useScraper.ts",
+      "client/src/utils/categoryIcons.tsx",
+      "client/src/utils/formatters.ts",
+      "client/src/utils/transactionSearch.ts",
+      "client/src/utils/transactionUtils.ts"
+    ],
+    "client/src/components/UserGuideModal.tsx": [
+      "client/src/utils/publicBase.ts"
+    ],
+    "client/src/config/feedbackGoogleForm.ts": [],
+    "client/src/constants/eodhdUrls.ts": [],
+    "client/src/contexts/GettingStartedContext.tsx": [
+      "client/src/hooks/useGettingStartedState.ts"
+    ],
+    "client/src/contexts/OnboardingContext.tsx": [
+      "client/src/hooks/useOnboardingState.ts"
+    ],
+    "client/src/contexts/ServerActivityContext.tsx": [
+      "client/src/demo/isDemo.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/demo/browser.ts": [
+      "client/src/demo/handlers.ts"
+    ],
+    "client/src/demo/chatDemoData.ts": [],
+    "client/src/demo/handlers.ts": [
+      "client/src/demo/chatDemoData.ts",
+      "client/src/demo/investmentDemoData.ts",
+      "client/src/demo/sampleData.ts"
+    ],
+    "client/src/demo/investmentDemoData.ts": [],
+    "client/src/demo/isDemo.ts": [],
+    "client/src/demo/sampleData.ts": [],
+    "client/src/hooks/useAnalytics.ts": [],
+    "client/src/hooks/useAppLock.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useConfig.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useDashboardConfig.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useFinancialSummary.ts": [
+      "client/src/utils/subscriptionUtils.ts",
+      "client/src/utils/transactionUtils.ts"
+    ],
+    "client/src/hooks/useGettingStartedState.ts": [
+      "client/src/demo/isDemo.ts"
+    ],
+    "client/src/hooks/useInitialCollapsedOnMobile.ts": [],
+    "client/src/hooks/useInvestments.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useOnboardingState.ts": [
+      "client/src/demo/isDemo.ts"
+    ],
+    "client/src/hooks/usePersonaSetupWizardVisibility.ts": [
+      "client/src/contexts/OnboardingContext.tsx",
+      "client/src/demo/isDemo.ts",
+      "client/src/hooks/useConfig.ts",
+      "client/src/utils/geminiKeyConfigured.ts",
+      "client/src/utils/personaSetupWizardStorage.ts"
+    ],
+    "client/src/hooks/useProfiles.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useProviders.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useScraper.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useServerHealth.ts": [
+      "client/src/demo/isDemo.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/hooks/useSocket.ts": [
+      "client/src/demo/isDemo.ts",
+      "client/src/lib/api.ts",
+      "client/src/utils/publicBase.ts"
+    ],
+    "client/src/hooks/useUnifiedDashboardCharts.ts": [
+      "client/src/hooks/useDashboardConfig.ts"
+    ],
+    "client/src/hooks/useUnifiedData.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/i18n.ts": [
+      "client/src/locales/scrape-en.json",
+      "client/src/locales/scrape-he.json"
+    ],
+    "client/src/index.css": [],
+    "client/src/lib/api.ts": [
+      "client/src/utils/publicBase.ts"
+    ],
+    "client/src/lib/communityInsightRulesDefaults.ts": [],
+    "client/src/lib/communityInsightRulesSettings.ts": [],
+    "client/src/lib/insightRuleShareNote.ts": [
+      "client/src/lib/insightRuleSummaryText.ts"
+    ],
+    "client/src/lib/insightRuleSummaryText.ts": [],
+    "client/src/locales/en.json": [],
+    "client/src/locales/en/ai_chat.json": [],
+    "client/src/locales/en/ai_errors.json": [],
+    "client/src/locales/en/ai_logs.json": [],
+    "client/src/locales/en/ai_memory.json": [],
+    "client/src/locales/en/ai_settings.json": [],
+    "client/src/locales/en/analyst.json": [],
+    "client/src/locales/en/analytics.json": [],
+    "client/src/locales/en/app_lock.json": [],
+    "client/src/locales/en/budget_exports.json": [],
+    "client/src/locales/en/categorization.json": [],
+    "client/src/locales/en/category_settings.json": [],
+    "client/src/locales/en/common.json": [],
+    "client/src/locales/en/config_setup_wizard.json": [],
+    "client/src/locales/en/config_sidebar.json": [],
+    "client/src/locales/en/config_tabs.json": [],
+    "client/src/locales/en/config_validation.json": [],
+    "client/src/locales/en/dashboard.json": [],
+    "client/src/locales/en/env.json": [],
+    "client/src/locales/en/explorer.json": [],
+    "client/src/locales/en/export.json": [],
+    "client/src/locales/en/feedback.json": [],
+    "client/src/locales/en/fraud_settings.json": [],
+    "client/src/locales/en/gemini_card.json": [],
+    "client/src/locales/en/getting_started.json": [],
+    "client/src/locales/en/google_settings.json": [],
+    "client/src/locales/en/google_sheets.json": [],
+    "client/src/locales/en/help.json": [],
+    "client/src/locales/en/insight_rules.json": [],
+    "client/src/locales/en/investment_settings.json": [],
+    "client/src/locales/en/maintenance.json": [],
+    "client/src/locales/en/mqtt.json": [],
+    "client/src/locales/en/onboarding.json": [],
+    "client/src/locales/en/onezero.json": [],
+    "client/src/locales/en/post_scrape.json": [],
+    "client/src/locales/en/profiles.json": [],
+    "client/src/locales/en/report.json": [],
+    "client/src/locales/en/scheduler.json": [],
+    "client/src/locales/en/table.json": [],
+    "client/src/locales/en/telegram.json": [],
+    "client/src/locales/en/transaction_modal.json": [],
+    "client/src/locales/en/transaction_review.json": [],
+    "client/src/locales/en/transaction.json": [],
+    "client/src/locales/en/transactions.json": [],
+    "client/src/locales/en/unified_ai.json": [],
+    "client/src/locales/he.json": [],
+    "client/src/locales/he/ai_chat.json": [],
+    "client/src/locales/he/ai_errors.json": [],
+    "client/src/locales/he/ai_logs.json": [],
+    "client/src/locales/he/ai_memory.json": [],
+    "client/src/locales/he/ai_settings.json": [],
+    "client/src/locales/he/analyst.json": [],
+    "client/src/locales/he/analytics.json": [],
+    "client/src/locales/he/app_lock.json": [],
+    "client/src/locales/he/budget_exports.json": [],
+    "client/src/locales/he/categorization.json": [],
+    "client/src/locales/he/category_settings.json": [],
+    "client/src/locales/he/common.json": [],
+    "client/src/locales/he/config_setup_wizard.json": [],
+    "client/src/locales/he/config_sidebar.json": [],
+    "client/src/locales/he/config_tabs.json": [],
+    "client/src/locales/he/config_validation.json": [],
+    "client/src/locales/he/dashboard.json": [],
+    "client/src/locales/he/env.json": [],
+    "client/src/locales/he/explorer.json": [],
+    "client/src/locales/he/export.json": [],
+    "client/src/locales/he/feedback.json": [],
+    "client/src/locales/he/fraud_settings.json": [],
+    "client/src/locales/he/gemini_card.json": [],
+    "client/src/locales/he/getting_started.json": [],
+    "client/src/locales/he/google_settings.json": [],
+    "client/src/locales/he/google_sheets.json": [],
+    "client/src/locales/he/help.json": [],
+    "client/src/locales/he/insight_rules.json": [],
+    "client/src/locales/he/investment_settings.json": [],
+    "client/src/locales/he/maintenance.json": [],
+    "client/src/locales/he/mqtt.json": [],
+    "client/src/locales/he/onboarding.json": [],
+    "client/src/locales/he/onezero.json": [],
+    "client/src/locales/he/post_scrape.json": [],
+    "client/src/locales/he/profiles.json": [],
+    "client/src/locales/he/report.json": [],
+    "client/src/locales/he/scheduler.json": [],
+    "client/src/locales/he/table.json": [],
+    "client/src/locales/he/telegram.json": [],
+    "client/src/locales/he/transaction_modal.json": [],
+    "client/src/locales/he/transaction_review.json": [],
+    "client/src/locales/he/transaction.json": [],
+    "client/src/locales/he/transactions.json": [],
+    "client/src/locales/he/unified_ai.json": [],
+    "client/src/locales/README.md": [],
+    "client/src/locales/scrape-en.json": [],
+    "client/src/locales/scrape-he.json": [],
+    "client/src/main.tsx": [
+      "client/src/App.tsx",
+      "client/src/components/AppBlockerGate.tsx",
+      "client/src/contexts/GettingStartedContext.tsx",
+      "client/src/contexts/OnboardingContext.tsx",
+      "client/src/contexts/ServerActivityContext.tsx",
+      "client/src/demo/isDemo.ts",
+      "client/src/i18n.ts",
+      "client/src/index.css",
+      "client/src/providers/QueryProvider.tsx",
+      "client/src/utils/publicBase.ts"
+    ],
+    "client/src/pages/ImportProfilePage.tsx": [
+      "client/src/components/ImportProfileBuilder.tsx",
+      "client/src/lib/api.ts",
+      "client/src/utils/pendingTabularImportProfile.ts"
+    ],
+    "client/src/providers/QueryProvider.tsx": [],
+    "client/src/utils/aiErrorMapper.ts": [],
+    "client/src/utils/appUrlState.ts": [],
+    "client/src/utils/categoryIcons.tsx": [],
+    "client/src/utils/clearBrowserSiteData.ts": [],
+    "client/src/utils/customChartSeries.ts": [],
+    "client/src/utils/feedbackForm.ts": [
+      "client/src/config/feedbackGoogleForm.ts",
+      "client/src/lib/api.ts"
+    ],
+    "client/src/utils/formatters.ts": [],
+    "client/src/utils/geminiKeyConfigured.ts": [],
+    "client/src/utils/githubRelease.ts": [],
+    "client/src/utils/installationKind.ts": [],
+    "client/src/utils/logger.ts": [
+      "client/src/lib/api.ts"
+    ],
+    "client/src/utils/pendingTabularImportProfile.ts": [],
+    "client/src/utils/personaSetupWizardStorage.ts": [],
+    "client/src/utils/publicBase.ts": [],
+    "client/src/utils/subscriptionUtils.ts": [
+      "client/src/utils/transactionUtils.ts"
+    ],
+    "client/src/utils/transactionChartForm.ts": [],
+    "client/src/utils/transactionSearch.ts": [],
+    "client/src/utils/transactionUtils.ts": [],
+    "client/src/vite-env.d.ts": [],
+    "client/tailwind.config.js": [],
+    "client/tsconfig.json": [],
+    "client/tsconfig.node.json": [],
+    "client/vite.config.ts": [],
+    "data/config/exclusion_filters.json": [],
+    "DEPLOYMENT.md": [],
+    "desktop-electron/appBlocker.js": [],
+    "desktop-electron/blockerPage.html": [],
+    "desktop-electron/blockerPreload.js": [],
+    "desktop-electron/main.js": [
+      "desktop-electron/appBlocker.js"
+    ],
+    "desktop-electron/package.json": [],
+    "desktop-electron/preload.js": [],
+    "desktop-electron/scripts/clean-electron-dist.cjs": [],
+    "desktop-electron/secrets/community-submit.env.example": [],
+    "docker-compose.yml": [],
+    "docker-entrypoint.sh": [],
+    "Dockerfile": [],
+    "Dockerfile.app": [],
+    "docs/system_design_document.md": [],
+    "docs/TELEGRAM_BOT_GUIDE.md": [],
+    "financial-overview.json.example": [],
+    "package.json": [],
+    "packaging/macos/financial-overview.defaults.json": [],
+    "packaging/macos/launch-FinancialOverview.sh": [],
+    "packaging/macos/open-browser.sh": [],
+    "packaging/macos/package.sh": [],
+    "packaging/macos/README_MACOS.txt": [],
+    "packaging/windows/FinancialOverview.iss": [],
+    "packaging/windows/launch-FinancialOverview.cmd": [],
+    "packaging/windows/launch-FinancialOverview.ps1": [],
+    "packaging/windows/open-browser.cmd": [],
+    "packaging/windows/open-browser.ps1": [],
+    "packaging/windows/package.ps1": [],
+    "packaging/windows/README.md": [],
+    "patches/israeli-bank-scrapers+6.7.1.patch": [],
+    "README.md": [],
+    "run.sh": [],
+    "runtime-settings.example.json": [],
+    "scripts/bump-version.mjs": [],
+    "scripts/ensure-rollup-native.mjs": [],
+    "scripts/inline-telegram-guide-into-guide.mjs": [],
+    "scripts/kill-port.ps1": [],
+    "scripts/restart.ps1": [],
+    "scripts/start.ps1": [],
+    "scripts/stop.ps1": [],
+    "server/nodemon.json": [],
+    "server/package.json": [],
+    "server/scripts/copy-build-assets.mjs": [],
+    "server/scripts/test-write.txt": [],
+    "server/src/assets/help/functions_list.md": [],
+    "server/src/assets/help/user_manual.md": [],
+    "server/src/config/communityInsightRulesProxyDefaults.ts": [],
+    "server/src/constants/eodhdQuote.ts": [],
+    "server/src/constants/investments.ts": [],
+    "server/src/constants/marketData.ts": [
+      "server/src/constants/investments.ts",
+      "server/src/services/dbService.ts"
+    ],
+    "server/src/controllers/helpAssistantController.ts": [
+      "server/src/utils/aiLogger.ts",
+      "server/src/utils/helpManualText.ts"
+    ],
+    "server/src/index.ts": [
+      "server/src/routes/schedulerRoutes.ts",
+      "server/src/runtimeEnv.ts",
+      "server/src/services/aiMemoryRetention.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/appLockService.ts",
+      "server/src/services/filterService.ts",
+      "server/src/services/importService.ts",
+      "server/src/services/postScrapeService.ts",
+      "server/src/services/profileService.ts",
+      "server/src/services/schedulerService.ts",
+      "server/src/services/schedulerUnlockCoordinator.ts",
+      "server/src/services/scraperService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/utils/geminiRateLimitCapture.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/masking.ts",
+      "server/src/utils/pdfNodePolyfill.ts"
+    ],
+    "server/src/middleware/blockerAuthMiddleware.ts": [
+      "server/src/services/appBlockerService.ts"
+    ],
+    "server/src/routes/aiLogRoutes.ts": [
+      "server/src/services/scraperService.ts",
+      "server/src/utils/aiLogger.ts"
+    ],
+    "server/src/routes/aiRoutes.ts": [
+      "server/src/services/aiMemoryRetention.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/analystPrivacyMode.ts",
+      "server/src/services/analystUnifiedChat.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/insightRulesService.ts",
+      "server/src/services/sqlAnalyticCardService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/services/telegramBotService.ts",
+      "server/src/services/unifiedAiChatMemory.ts",
+      "server/src/utils/aiModelHighDemand.ts"
+    ],
+    "server/src/routes/appLockRoutes.ts": [
+      "server/src/services/appBlockerService.ts",
+      "server/src/services/appLockService.ts",
+      "server/src/services/profileService.ts",
+      "server/src/services/schedulerUnlockCoordinator.ts"
+    ],
+    "server/src/routes/authRoutes.ts": [
+      "server/src/services/googleAuthService.ts"
+    ],
+    "server/src/routes/budgetExportRoutes.ts": [
+      "server/src/services/budgetExport/budgetExportSecretsService.ts",
+      "server/src/services/budgetExport/ynabAuth.ts",
+      "server/src/services/budgetExport/ynabOAuthStateStore.ts",
+      "server/src/services/storageService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/communityInsightRulesRateLimit.ts": [],
+    "server/src/routes/communityInsightRulesRoutes.ts": [
+      "server/src/config/communityInsightRulesProxyDefaults.ts",
+      "server/src/routes/communityInsightRulesRateLimit.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/configRoutes.ts": [
+      "server/src/services/configService.ts"
+    ],
+    "server/src/routes/fraudRoutes.ts": [
+      "server/src/services/dbService.ts",
+      "server/src/services/fraudDetectionService.ts",
+      "server/src/utils/fraudAlertPreview.ts"
+    ],
+    "server/src/routes/helpRoutes.ts": [
+      "server/src/controllers/helpAssistantController.ts"
+    ],
+    "server/src/routes/insightRulesRoutes.ts": [
+      "server/src/services/aiService.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/insightRulesService.ts",
+      "server/src/services/storageService.ts"
+    ],
+    "server/src/routes/investmentRoutes.ts": [
+      "server/src/constants/eodhdQuote.ts",
+      "server/src/constants/investments.ts",
+      "server/src/constants/marketData.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/investmentPortfolioService.ts",
+      "server/src/services/investmentPriceHistoryService.ts",
+      "server/src/services/investmentSymbolSearch.ts",
+      "server/src/services/portfolioEodValueHistoryService.ts",
+      "server/src/services/portfolioSnapshotScheduler.ts"
+    ],
+    "server/src/routes/logRoutes.ts": [
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/mqttRoutes.ts": [
+      "server/src/services/haMqttCoordinator.ts",
+      "server/src/services/mqttClientService.ts",
+      "server/src/services/mqttCommandService.ts",
+      "server/src/services/notifications/mqttNotifier.ts",
+      "server/src/services/notifications/notificationService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/notificationRoutes.ts": [
+      "server/src/services/notifications/notificationService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/postScrapeRoutes.ts": [
+      "server/src/services/postScrapeService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/profileRoutes.ts": [
+      "server/src/services/appLockService.ts",
+      "server/src/services/profileService.ts"
+    ],
+    "server/src/routes/reportRoutes.ts": [
+      "server/src/services/aiService.ts",
+      "server/src/services/configService.ts",
+      "server/src/services/financialPdfReportService.ts",
+      "server/src/services/schedulerService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/schedulerRoutes.ts": [
+      "server/src/services/appLockService.ts",
+      "server/src/services/schedulerService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/routes/scrapeLogRoutes.ts": [
+      "server/src/utils/scrapeRunLogger.ts"
+    ],
+    "server/src/routes/scrapeRoutes.ts": [
+      "server/src/constants/marketData.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/backupService.ts",
+      "server/src/services/filterService.ts",
+      "server/src/services/importService.ts",
+      "server/src/services/notifications/notificationService.ts",
+      "server/src/services/portfolioSnapshotScheduler.ts",
+      "server/src/services/schedulerService.ts",
+      "server/src/services/scraperService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/utils/importMultipartParams.ts",
+      "server/src/utils/scrapeRunLogger.ts"
+    ],
+    "server/src/routes/sheetsRoutes.ts": [
+      "server/src/services/googleAuthService.ts",
+      "server/src/services/sheetsService.ts",
+      "server/src/services/storageService.ts"
+    ],
+    "server/src/routes/telegramRoutes.ts": [
+      "server/src/services/notifications/notificationService.ts",
+      "server/src/services/notifications/telegramNotifier.ts",
+      "server/src/services/telegramBotService.ts",
+      "server/src/utils/externalServiceLog.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/safeTelegramBotFileUrl.ts"
+    ],
+    "server/src/runtimeEnv.ts": [],
+    "server/src/services/aiMemoryRetention.ts": [
+      "server/src/services/dbService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/aiService.ts": [
+      "server/src/services/analystPrivacyMode.ts",
+      "server/src/services/analystSqlExecutor.ts",
+      "server/src/services/analystSqlSchema.ts",
+      "server/src/services/analystSqlTemplate.ts",
+      "server/src/services/dbService.ts",
+      "server/src/utils/aiLogger.ts",
+      "server/src/utils/geminiRateLimitCapture.ts",
+      "server/src/utils/geminiRetryableError.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/masking.ts"
+    ],
+    "server/src/services/analystPrivacyMode.ts": [
+      "server/src/services/aiService.ts"
+    ],
+    "server/src/services/analystSqlExecutor.test.ts": [
+      "server/src/services/analystSqlExecutor.ts",
+      "server/src/services/analystSqlHybrid.ts",
+      "server/src/services/analystSqlTemplate.ts"
+    ],
+    "server/src/services/analystSqlExecutor.ts": [],
+    "server/src/services/analystSqlHybrid.test.ts": [
+      "server/src/services/analystSqlHybrid.ts"
+    ],
+    "server/src/services/analystSqlHybrid.ts": [
+      "server/src/services/analystSqlExecutor.ts"
+    ],
+    "server/src/services/analystSqlSchema.ts": [],
+    "server/src/services/analystSqlTemplate.ts": [
+      "server/src/services/analystSqlExecutor.ts"
+    ],
+    "server/src/services/analystUnifiedChat.ts": [
+      "server/src/services/aiService.ts",
+      "server/src/services/analystPrivacyMode.ts",
+      "server/src/services/analystSqlHybrid.ts",
+      "server/src/services/unifiedAiChatMemory.ts"
+    ],
+    "server/src/services/appBlockerService.ts": [
+      "server/src/services/appLockService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/appLockService.ts": [],
+    "server/src/services/backupService.ts": [
+      "server/src/constants/investments.ts",
+      "server/src/constants/marketData.ts",
+      "server/src/runtimeEnv.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/googleAuthService.ts"
+    ],
+    "server/src/services/budgetExport/accountKey.ts": [],
+    "server/src/services/budgetExport/actualExport.ts": [
+      "server/src/services/budgetExport/accountKey.ts"
+    ],
+    "server/src/services/budgetExport/budgetExport.test.ts": [
+      "server/src/services/budgetExport/accountKey.ts",
+      "server/src/services/budgetExport/filterTransactions.ts"
+    ],
+    "server/src/services/budgetExport/budgetExportSecretsService.ts": [],
+    "server/src/services/budgetExport/filterTransactions.ts": [],
+    "server/src/services/budgetExport/fireflyExport.ts": [
+      "server/src/services/budgetExport/accountKey.ts"
+    ],
+    "server/src/services/budgetExport/lunchMoneyExport.ts": [
+      "server/src/services/budgetExport/accountKey.ts"
+    ],
+    "server/src/services/budgetExport/runBudgetExports.ts": [
+      "server/src/services/budgetExport/actualExport.ts",
+      "server/src/services/budgetExport/budgetExportSecretsService.ts",
+      "server/src/services/budgetExport/filterTransactions.ts",
+      "server/src/services/budgetExport/fireflyExport.ts",
+      "server/src/services/budgetExport/lunchMoneyExport.ts",
+      "server/src/services/budgetExport/ynabExport.ts",
+      "server/src/utils/scrapeRunLogger.ts"
+    ],
+    "server/src/services/budgetExport/ynabAuth.ts": [
+      "server/src/services/budgetExport/budgetExportSecretsService.ts"
+    ],
+    "server/src/services/budgetExport/ynabExport.ts": [
+      "server/src/services/budgetExport/accountKey.ts",
+      "server/src/services/budgetExport/ynabAuth.ts"
+    ],
+    "server/src/services/budgetExport/ynabOAuthStateStore.ts": [],
+    "server/src/services/categoryPieImageService.ts": [],
+    "server/src/services/configService.ts": [
+      "server/src/runtimeEnv.ts"
+    ],
+    "server/src/services/dbService.ts": [
+      "server/src/utils/aiMemoryNormalize.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/eodhdClient.ts": [
+      "server/src/utils/externalServiceLog.ts"
+    ],
+    "server/src/services/eodhdSymbolResolver.ts": [],
+    "server/src/services/filterService.ts": [],
+    "server/src/services/financialPdfReportService.ts": [
+      "server/src/constants/investments.ts",
+      "server/src/constants/marketData.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/configService.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/insightRulesService.ts",
+      "server/src/services/investmentPortfolioService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/utils/financialPdfCharts.ts",
+      "server/src/utils/financialPdfFonts.ts",
+      "server/src/utils/puppeteerPdf.ts"
+    ],
+    "server/src/services/fraudDetectionService.ts": [],
+    "server/src/services/googleAuthService.ts": [
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/haMqttCoordinator.ts": [
+      "server/src/services/haMqttDiscoveryService.ts",
+      "server/src/services/haMqttStateService.ts",
+      "server/src/services/mqttClientService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/haMqttDiscoveryService.ts": [
+      "server/src/services/mqttClientService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/haMqttStateService.ts": [
+      "server/src/services/appLockService.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/insightRulesService.ts",
+      "server/src/services/mqttClientService.ts",
+      "server/src/services/mqttSchedulerRegistry.ts",
+      "server/src/services/postScrapeService.ts",
+      "server/src/services/scraperService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/importService.isracard.pdf.test.ts": [
+      "server/src/services/importService.ts"
+    ],
+    "server/src/services/importService.isracard.test.ts": [
+      "server/src/services/importService.ts"
+    ],
+    "server/src/services/importService.ts": [
+      "server/src/services/aiService.ts",
+      "server/src/services/tabularImportParse.ts"
+    ],
+    "server/src/services/insightRulesService.ts": [
+      "server/src/services/dbService.ts"
+    ],
+    "server/src/services/investmentMarketDataService.ts": [
+      "server/src/constants/eodhdQuote.ts",
+      "server/src/constants/marketData.ts",
+      "server/src/services/eodhdClient.ts",
+      "server/src/services/eodhdSymbolResolver.ts",
+      "server/src/services/yahooChartClose.ts",
+      "server/src/services/yahooSymbolResolver.ts",
+      "server/src/utils/externalServiceLog.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/yahooHttpTrace.ts",
+      "server/src/utils/yahooRequestQueue.ts"
+    ],
+    "server/src/services/investmentPortfolioService.ts": [
+      "server/src/constants/investments.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/investmentMarketDataService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/investmentPriceHistoryService.ts": [
+      "server/src/constants/marketData.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/eodhdClient.ts",
+      "server/src/services/eodhdSymbolResolver.ts"
+    ],
+    "server/src/services/investmentSymbolSearch.ts": [
+      "server/src/constants/marketData.ts",
+      "server/src/services/eodhdClient.ts",
+      "server/src/services/yahooSymbolSearch.ts"
+    ],
+    "server/src/services/mqttClientService.ts": [
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/mqttCommandService.ts": [
+      "server/src/runtimeEnv.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/analystUnifiedChat.ts",
+      "server/src/services/appLockService.ts",
+      "server/src/services/categoryPieImageService.ts",
+      "server/src/services/configService.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/financialPdfReportService.ts",
+      "server/src/services/haMqttStateService.ts",
+      "server/src/services/insightRulesService.ts",
+      "server/src/services/mqttClientService.ts",
+      "server/src/services/mqttSchedulerRegistry.ts",
+      "server/src/services/postScrapeService.ts",
+      "server/src/services/profileService.ts",
+      "server/src/services/scraperService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/services/telegramBotService.ts",
+      "server/src/services/unifiedAiChatMemory.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/mqttHaDefaults.test.ts": [],
+    "server/src/services/mqttSchedulerRegistry.ts": [
+      "server/src/services/schedulerService.ts"
+    ],
+    "server/src/services/notifications/baseNotifier.ts": [
+      "server/src/services/notifications/formatter.ts",
+      "server/src/services/notifications/types.ts"
+    ],
+    "server/src/services/notifications/consoleNotifier.ts": [
+      "server/src/services/notifications/baseNotifier.ts",
+      "server/src/services/notifications/types.ts"
+    ],
+    "server/src/services/notifications/formatter.ts": [
+      "server/src/services/notifications/types.ts"
+    ],
+    "server/src/services/notifications/index.ts": [],
+    "server/src/services/notifications/mqttNotifier.ts": [
+      "server/src/services/mqttClientService.ts",
+      "server/src/services/notifications/baseNotifier.ts",
+      "server/src/services/notifications/formatter.ts",
+      "server/src/services/notifications/types.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/notifications/notificationService.ts": [
+      "server/src/services/notifications/baseNotifier.ts",
+      "server/src/services/notifications/consoleNotifier.ts",
+      "server/src/services/notifications/types.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/notifications/telegramNotifier.ts": [
+      "server/src/services/notifications/baseNotifier.ts",
+      "server/src/services/notifications/formatter.ts",
+      "server/src/services/notifications/types.ts",
+      "server/src/utils/externalServiceLog.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/telegramTextSplit.ts"
+    ],
+    "server/src/services/notifications/types.ts": [],
+    "server/src/services/oneZeroOtpSessionStore.ts": [],
+    "server/src/services/portfolioEodValueHistoryService.ts": [
+      "server/src/constants/marketData.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/investmentMarketDataService.ts",
+      "server/src/services/investmentPriceHistoryService.ts"
+    ],
+    "server/src/services/portfolioSnapshotScheduler.ts": [
+      "server/src/constants/investments.ts",
+      "server/src/constants/marketData.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/investmentPortfolioService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/postScrapeService.ts": [
+      "server/src/services/aiService.ts",
+      "server/src/services/budgetExport/runBudgetExports.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/fraudDetectionService.ts",
+      "server/src/services/insightRulesService.ts",
+      "server/src/services/notifications/index.ts",
+      "server/src/services/storageService.ts",
+      "server/src/services/telegramBotService.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/scrapeRunLogger.ts"
+    ],
+    "server/src/services/profileService.ts": [
+      "server/src/services/appLockService.ts"
+    ],
+    "server/src/services/schedulerService.ts": [
+      "server/src/runtimeEnv.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/appLockService.ts",
+      "server/src/services/backupService.ts",
+      "server/src/services/configService.ts",
+      "server/src/services/financialPdfReportService.ts",
+      "server/src/services/mqttClientService.ts",
+      "server/src/services/postScrapeService.ts",
+      "server/src/services/profileService.ts",
+      "server/src/services/scraperService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/services/telegramBotService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/schedulerUnlockCoordinator.ts": [
+      "server/src/services/schedulerService.ts"
+    ],
+    "server/src/services/scraperService.ts": [
+      "server/src/services/appLockService.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/haMqttStateService.ts",
+      "server/src/services/oneZeroOtpSessionStore.ts",
+      "server/src/services/postScrapeService.ts",
+      "server/src/services/profileService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/scrapeRunLogger.ts"
+    ],
+    "server/src/services/sheetsService.ts": [
+      "server/src/services/googleAuthService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/sqlAnalyticCardService.ts": [
+      "server/src/services/analystSqlExecutor.ts",
+      "server/src/services/dbService.ts"
+    ],
+    "server/src/services/storageService.ts": [
+      "server/src/constants/investments.ts",
+      "server/src/constants/marketData.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/dbService.ts",
+      "server/src/services/insightRulesService.ts",
+      "server/src/services/investmentMarketDataService.ts",
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/services/tabularImportParse.test.ts": [
+      "server/src/services/tabularImportParse.ts"
+    ],
+    "server/src/services/tabularImportParse.ts": [],
+    "server/src/services/telegramBotService.ts": [
+      "server/src/runtimeEnv.ts",
+      "server/src/services/aiService.ts",
+      "server/src/services/analystUnifiedChat.ts",
+      "server/src/services/appLockService.ts",
+      "server/src/services/categoryPieImageService.ts",
+      "server/src/services/configService.ts",
+      "server/src/services/financialPdfReportService.ts",
+      "server/src/services/notifications/index.ts",
+      "server/src/services/notifications/telegramNotifier.ts",
+      "server/src/services/oneZeroOtpSessionStore.ts",
+      "server/src/services/postScrapeService.ts",
+      "server/src/services/profileService.ts",
+      "server/src/services/schedulerUnlockCoordinator.ts",
+      "server/src/services/scraperService.ts",
+      "server/src/services/storageService.ts",
+      "server/src/services/unifiedAiChatMemory.ts",
+      "server/src/utils/externalServiceLog.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/safeTelegramBotFileUrl.ts",
+      "server/src/utils/telegramTextSplit.ts"
+    ],
+    "server/src/services/unifiedAiChatMemory.ts": [
+      "server/src/services/aiService.ts",
+      "server/src/services/dbService.ts",
+      "server/src/utils/aiMemoryNormalize.ts"
+    ],
+    "server/src/services/yahooChartClose.ts": [
+      "server/src/utils/externalServiceLog.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/yahooHttpTrace.ts",
+      "server/src/utils/yahooRequestQueue.ts"
+    ],
+    "server/src/services/yahooSymbolResolver.ts": [],
+    "server/src/services/yahooSymbolSearch.ts": [
+      "server/src/utils/externalServiceLog.ts",
+      "server/src/utils/logger.ts",
+      "server/src/utils/yahooHttpTrace.ts",
+      "server/src/utils/yahooRequestQueue.ts"
+    ],
+    "server/src/utils/aiLogger.ts": [
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/utils/aiMemoryNormalize.ts": [],
+    "server/src/utils/aiModelHighDemand.ts": [],
+    "server/src/utils/externalServiceLog.ts": [
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/utils/financialPdfCharts.ts": [],
+    "server/src/utils/financialPdfFonts.ts": [],
+    "server/src/utils/fraudAlertPreview.ts": [],
+    "server/src/utils/geminiRateLimitCapture.ts": [],
+    "server/src/utils/geminiRetryableError.ts": [
+      "server/src/utils/aiModelHighDemand.ts"
+    ],
+    "server/src/utils/helpManualText.ts": [],
+    "server/src/utils/importMultipartParams.ts": [],
+    "server/src/utils/logger.ts": [
+      "server/src/utils/masking.ts"
+    ],
+    "server/src/utils/masking.ts": [],
+    "server/src/utils/pdfNodePolyfill.ts": [],
+    "server/src/utils/puppeteerPdf.ts": [],
+    "server/src/utils/safeTelegramBotFileUrl.ts": [],
+    "server/src/utils/scrapeRunLogger.ts": [
+      "server/src/utils/logger.ts"
+    ],
+    "server/src/utils/telegramTextSplit.ts": [],
+    "server/src/utils/yahooHttpTrace.ts": [
+      "server/src/utils/logger.ts",
+      "server/src/utils/masking.ts",
+      "server/src/utils/yahooRequestQueue.ts"
+    ],
+    "server/src/utils/yahooRequestQueue.ts": [],
+    "server/tsconfig.json": [],
+    "shared/package.json": [],
+    "shared/scheduler.ts": [],
+    "shared/src/accountExclusion.ts": [],
+    "shared/src/aiAnalystQuota.ts": [],
+    "shared/src/analytics/categoryColors.ts": [],
+    "shared/src/analytics/categoryExpenseSlices.ts": [
+      "shared/src/analytics/categoryColors.ts",
+      "shared/src/expenseCategory.ts",
+      "shared/src/isInternalTransfer.ts",
+      "shared/src/isTransactionIgnored.ts",
+      "shared/src/loanCategory.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/analytics/categoryParentGroup.ts": [],
+    "shared/src/analytics/monthlyNetProjection.ts": [],
+    "shared/src/analytics/unifiedAnalytics.ts": [
+      "shared/src/analytics/categoryColors.ts",
+      "shared/src/analytics/categoryParentGroup.ts",
+      "shared/src/expenseCategory.ts",
+      "shared/src/isInternalTransfer.ts",
+      "shared/src/isTransactionIgnored.ts",
+      "shared/src/loanCategory.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/analytics/userChartSeries.ts": [
+      "shared/src/expenseCategory.ts",
+      "shared/src/isInternalTransfer.ts",
+      "shared/src/isTransactionIgnored.ts",
+      "shared/src/loanCategory.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/backupScopes.test.ts": [
+      "shared/src/backupScopes.ts"
+    ],
+    "shared/src/backupScopes.ts": [],
+    "shared/src/categoryMeta.ts": [
+      "shared/src/txnReview.ts"
+    ],
+    "shared/src/communityInsightRules.test.ts": [
+      "shared/src/communityInsightRules.ts"
+    ],
+    "shared/src/communityInsightRules.ts": [
+      "shared/src/insightRuleExportMask.ts",
+      "shared/src/insightRules.ts"
+    ],
+    "shared/src/expenseCategory.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/financial/anomalyI18n.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/financial/digestMetrics.ts": [
+      "shared/src/expenseCategory.ts",
+      "shared/src/financial/financialPace.ts",
+      "shared/src/financial/recurring.ts",
+      "shared/src/financial/variableForecast.ts",
+      "shared/src/isInternalTransfer.ts",
+      "shared/src/isTransactionIgnored.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/financial/financialPace.ts": [
+      "shared/src/expenseCategory.ts",
+      "shared/src/isInternalTransfer.ts",
+      "shared/src/isTransactionIgnored.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/financial/recurring.ts": [
+      "shared/src/expenseCategory.ts",
+      "shared/src/isInternalTransfer.ts",
+      "shared/src/isTransactionIgnored.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/financial/variableForecast.ts": [],
+    "shared/src/financialReportMonth.ts": [],
+    "shared/src/index.ts": [],
+    "shared/src/insightRuleBuilder.test.ts": [
+      "shared/src/insightRuleBuilder.ts"
+    ],
+    "shared/src/insightRuleBuilder.ts": [
+      "shared/src/insightRules.ts"
+    ],
+    "shared/src/insightRuleExportMask.test.ts": [
+      "shared/src/insightRuleExportMask.ts",
+      "shared/src/insightRules.ts"
+    ],
+    "shared/src/insightRuleExportMask.ts": [
+      "shared/src/insightRules.ts"
+    ],
+    "shared/src/insightRuleImportTuning.test.ts": [
+      "shared/src/insightRuleImportTuning.ts",
+      "shared/src/insightRules.ts"
+    ],
+    "shared/src/insightRuleImportTuning.ts": [
+      "shared/src/insightRules.ts"
+    ],
+    "shared/src/insightRules.test.ts": [
+      "shared/src/insightRules.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/insightRules.ts": [
+      "shared/src/expenseCategory.ts",
+      "shared/src/financial/anomalyI18n.ts",
+      "shared/src/insightRuleExportMask.ts",
+      "shared/src/isTransactionIgnored.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/isInternalTransfer.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/isTransactionIgnored.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/loanCategory.ts": [],
+    "shared/src/monthlyNetProjection.test.ts": [
+      "shared/src/analytics/monthlyNetProjection.ts"
+    ],
+    "shared/src/mqttHaDefaults.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/profileCredentials.ts": [
+      "shared/src/providers.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/providers.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/schedulerSchedule.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/sqlAnalyticCard.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/tabularCells.ts": [
+      "shared/src/tabularImportProfile.ts"
+    ],
+    "shared/src/tabularImportProfile.ts": [],
+    "shared/src/tabularLedgerEngine.ts": [
+      "shared/src/tabularCells.ts",
+      "shared/src/tabularImportProfile.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/tabularSimpleEngine.ts": [
+      "shared/src/tabularCells.ts",
+      "shared/src/tabularImportProfile.ts",
+      "shared/src/tabularLedgerEngine.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/transactionExport.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/transactionId.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/src/txnReview.ts": [
+      "shared/src/expenseCategory.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/types.ts": [],
+    "shared/src/uniqueAccountsFromTransactions.ts": [
+      "shared/src/providers.ts",
+      "shared/src/types.ts"
+    ],
+    "shared/src/userPersona.ts": [
+      "shared/src/types.ts"
+    ],
+    "shared/tsconfig.json": []
+  }
+}

@@ -1,0 +1,51 @@
+{
+    "transaction": {
+        "investment": {
+            "mark_label": "Investment-related",
+            "mark_help": "Tag this transaction for your own reference (does not create a portfolio line by itself).",
+            "create_title": "Portfolio from transaction",
+            "create_hint": "Creates a portfolio line from this transaction’s amount. If the charge is in ₪ but you leave “Tel Aviv” variants off, the row is stored in US$ using USD/ILS on the transaction date (Frankfurter/Yahoo) for quantity and cost per share.",
+            "symbol_placeholder": "Symbol (e.g. VTI)",
+            "quantity": "Quantity (shares)",
+            "submit": "Create portfolio line",
+            "already_linked": "A portfolio line is already linked to this transaction.",
+            "created": "Portfolio line created.",
+            "create_failed": "Could not create portfolio line",
+            "badge": "Investment",
+            "yahoo_ta_help": "Yahoo Tel Aviv symbol variants (TA.* / *.TA) for price history.",
+            "auto_qty_hint": "Leave quantity empty to estimate shares from cost and historical price on that date. ILS→US$ uses the FX rate on that date when the row is in USD.",
+            "auto_qty_placeholder": "Auto",
+            "feature_disabled_hint": "Investments are turned off in Configuration → Investments. Enable them there to edit portfolio actions."
+        },
+        "fields": {
+            "id": "Transaction ID",
+            "externalId": "External ID",
+            "voucherNumber": "Voucher number",
+            "sourceRef": "Source reference",
+            "date": "Date",
+            "processedDate": "Processed date",
+            "description": "Description",
+            "memo": "Memo",
+            "amount": "Amount (ILS)",
+            "originalAmount": "Original amount",
+            "originalCurrency": "Original currency",
+            "chargedAmount": "Charged amount",
+            "chargedCurrency": "Charge currency",
+            "status": "Status",
+            "type": "Type (e.g. normal, installments)",
+            "installments": "Installments (plan)",
+            "category": "Category",
+            "categoryUserSet": "Category locked by user",
+            "provider": "Provider",
+            "accountNumber": "Account number",
+            "txnType": "Movement type (expense / income / …)",
+            "isIgnored": "Ignored flag",
+            "isInternalTransfer": "Internal transfer",
+            "isSubscription": "Subscription flag",
+            "subscriptionInterval": "Subscription interval",
+            "excludeFromSubscriptions": "Exclude from subscriptions",
+            "isInvestment": "Investment-related",
+            "investmentId": "Linked portfolio row id"
+        }
+    }
+}

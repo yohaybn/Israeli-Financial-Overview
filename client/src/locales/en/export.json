@@ -1,0 +1,13 @@
+{
+    "export": {
+        "headers": {
+            "date": "Date",
+            "description": "Description",
+            "amount": "Amount",
+            "currency": "Currency",
+            "category": "Category",
+            "status": "Status",
+            "memo": "Memo"
+        }
+    }
+}

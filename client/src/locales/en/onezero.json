@@ -1,0 +1,15 @@
+{
+    "onezero": {
+        "otp": {
+            "section_title": "Long-term OTP token",
+            "section_hint": "Receive an SMS code and exchange it for a token used for automated logins. Unlock the app first.",
+            "send_sms": "Send SMS code",
+            "phone_hint": "Use international format with + (e.g. +972…).",
+            "otp_label": "SMS code",
+            "verify": "Verify and fill token",
+            "token_filled": "Token filled in the field below.",
+            "locked": "Unlock the app to generate a token.",
+            "idle_hint": "Enter your phone number above, then tap Send SMS code."
+        }
+    }
+}

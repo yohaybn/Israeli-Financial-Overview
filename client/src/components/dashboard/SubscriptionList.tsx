@@ -203,7 +203,7 @@ export function SubscriptionList({
 
                     <div className="max-h-[560px] overflow-y-auto pe-2 custom-scrollbar">
                         {sortedVisible.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {sortedVisible.map(({ sub, key }) => {
                                     const anchorMonth = selectedMonth || new Date().toISOString().slice(0, 7);
                                     const { months: payMonths, amounts: payAmounts, ratios: payRatios } =

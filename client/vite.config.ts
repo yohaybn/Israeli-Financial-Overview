@@ -37,7 +37,7 @@ function readBackendPort(): string {
             // try next path
         }
     }
-    return '3001'
+    return '3000'
 }
 
 export default defineConfig(({ mode }) => {

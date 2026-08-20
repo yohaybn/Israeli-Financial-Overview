@@ -1,0 +1,12 @@
+{
+    "ai_chat": {
+        "view_ai_logs": "View AI Logs ←",
+        "greeting": "Hello! I am your AI financial analyst. I can help answer questions about your spending habits, trends, or anomalies. What would you like to know?",
+        "error": "Sorry — I hit an error while analyzing your data. Please try again.",
+        "memory_saved": "Memory: +{{facts}} fact(s), {{factsReplaced}} fact(s) updated, +{{insights}} insight(s), +{{alerts}} alert(s) saved",
+        "super_privacy_note": "Answer computed locally from SQL (no transaction data was sent to the AI).",
+        "hybrid_fallback_note": "Local SQL could not answer: {{reason}} Full analyst with transaction data was used.",
+        "hybrid_fallback_default_reason": "This question needs full transaction context.",
+        "fallback_used": "This reply used your fallback model ({{model}}) after a temporary rate limit or overload on the primary model."
+    }
+}

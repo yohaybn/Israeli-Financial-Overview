@@ -69,9 +69,29 @@ export const api = axios.create({
     },
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
     config.baseURL = getApiRoot();
+    if (typeof window !== 'undefined') {
+        let token = null;
+        if (window.electronDesktop?.getSessionToken) {
+            try {
+                token = await window.electronDesktop.getSessionToken();
+            } catch (e) { /* ignore */ }
+        } else {
+            token = localStorage.getItem('app_session_token');
+        }
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    }
     return config;
+});
+
+api.interceptors.response.use(undefined, (error) => {
+    if (error.response?.status === 401 && error.response?.data?.error === 'session_expired') {
+        window.dispatchEvent(new CustomEvent('app-session-expired'));
+    }
+    return Promise.reject(error);
 });
 
 export const apiClient = api;

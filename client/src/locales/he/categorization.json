@@ -1,0 +1,9 @@
+{
+    "categorization": {
+        "banner_title": "המיון החכם נכשל",
+        "banner_detail": "{{error}} הוחלו קטגוריות שנשמרו בזיכרון במידת האפשר.",
+        "retry": "ניסיון מיון מחדש",
+        "open_ai_settings": "פתיחת הגדרות AI",
+        "dismiss": "סגירה"
+    }
+}

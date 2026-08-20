@@ -1,0 +1,12 @@
+{
+    "transaction_review": {
+        "banner_title": "New transactions need a memo or category",
+        "banner_detail": "{{count}} new (Transfers or Other). Open the dashboard to add a memo or pick a category.",
+        "banner_open_table": "Click to open the full list in a table.",
+        "modal_title": "Transactions to review",
+        "modal_subtitle": "Add a memo or choose a category for each row. Changes save to your unified data.",
+        "modal_empty": "No rows to show. Try refreshing the page if data just finished loading.",
+        "open_dashboard": "Open dashboard",
+        "dismiss": "Dismiss"
+    }
+}

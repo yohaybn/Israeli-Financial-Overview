@@ -1,0 +1,51 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions — uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+#
+# --- From .gitignore (uncomment to exclude) ---
+
+# .env
+# runtime-settings.json
+# financial-overview.json
+# data/config/runtime-settings.json
+# .DS_Store
+# .agent
+# *.xlsx
+# *.xls
+# server/data/
+# git_files*.txt
+# client/dist/
+# client/dev-dist/
+# server/dist/
+# data/app.db
+# data/app.db-shm
+# data/app.db-wal
+# .idea/.gitignore
+# .idea/israeli-financial-overview.iml
+# .idea/misc.xml
+# .idea/modules.xml
+# .idea/vcs.xml
+# favicon_extractor/download_favicons.js
+# favicon_extractor/package-lock.json
+# favicon_extractor/package.json
+# client/.env.local
+# desktop-electron/secrets/community-submit.env
+# secrets/community-submit.env
+# docs/
+# gas/
+# data/
+
+# --- Detected directories (uncomment to exclude) ---
+
+# docs/
+# scripts/
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap

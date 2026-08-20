@@ -36,15 +36,12 @@ import { mqttClientService } from './mqttClientService.js';
 
 /** Resolve each use so `process.env.DATA_DIR` updates (Maintenance) are not stuck on the import-time cwd. */
 function schedulerDataDir(): string {
-    return path.resolve(process.env.DATA_DIR || './data');
+    return path.resolve(process.env.DATA_DIR || './data', 'config');
 }
 
 function schedulerConfigPath(): string {
     return path.join(schedulerDataDir(), 'scheduler_config.json');
 }
-
-/** Pre-fix location when DATA_DIR was unset (scheduler used `server/data` while DB used `./data`). */
-const LEGACY_SCHEDULER_CONFIG_PATH = path.join(PROJECT_ROOT, 'server', 'data', 'scheduler_config.json');
 
 type SchedulerConfigStored = SchedulerConfig & {
     backupSchedule?: BackupScheduleConfig;
@@ -76,8 +73,8 @@ export class SchedulerService {
     }
 
     private loadConfig(): SchedulerConfigStored {
-        this.migrateLegacySchedulerConfigIfNeeded();
         const cfgPath = schedulerConfigPath();
+        console.log('Loading scheduler config from', cfgPath);
         try {
             if (fs.existsSync(cfgPath)) {
                 const stored = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
@@ -111,31 +108,14 @@ export class SchedulerService {
         }) as SchedulerConfigStored;
     }
 
-    /** Copy from old `server/data` path so settings survive after fixing DATA_DIR resolution. */
-    private migrateLegacySchedulerConfigIfNeeded(): void {
-        const cfgPath = schedulerConfigPath();
-        const dataDir = schedulerDataDir();
-        if (fs.existsSync(cfgPath) || !fs.existsSync(LEGACY_SCHEDULER_CONFIG_PATH)) {
-            return;
-        }
-        try {
-            fs.ensureDirSync(dataDir);
-            fs.copyFileSync(LEGACY_SCHEDULER_CONFIG_PATH, cfgPath);
-            logger.info('Migrated scheduler_config.json from legacy server/data to DATA_DIR', {
-                DATA_DIR: dataDir,
-                from: LEGACY_SCHEDULER_CONFIG_PATH
-            });
-        } catch (error) {
-            logger.warn('Could not migrate legacy scheduler_config.json', { error });
-        }
-    }
-
+   
     private saveConfig() {
         try {
             const dataDir = schedulerDataDir();
             const cfgPath = schedulerConfigPath();
             fs.ensureDirSync(dataDir);
             fs.writeFileSync(cfgPath, JSON.stringify(this.config, null, 2));
+            console.log('Scheduler config saved to', cfgPath);
         } catch (error) {
             logger.error('Failed to save scheduler config', { error });
         }

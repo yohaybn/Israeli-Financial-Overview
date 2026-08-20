@@ -1,0 +1,7 @@
+{
+    "config_validation": {
+        "required": "This field is required",
+        "min_value": "Minimum value is {{min}}",
+        "max_value": "Maximum value is {{max}}"
+    }
+}

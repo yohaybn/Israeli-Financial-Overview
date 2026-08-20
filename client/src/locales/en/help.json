@@ -1,0 +1,9 @@
+{
+    "help": {
+        "title": "App Assistant",
+        "empty_state": "Ask me anything about how to use the app!",
+        "thinking": "Thinking...",
+        "input_placeholder": "Ask a question...",
+        "open_button": "App Assistant"
+    }
+}

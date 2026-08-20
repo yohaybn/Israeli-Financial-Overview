@@ -80,6 +80,26 @@ function bodyFromText(text: string): unknown {
     }
 }
 
+function yahooDefaultHeaders(): Record<string, string> {
+    return {
+        'User-Agent':
+            process.env.YAHOO_USER_AGENT ||
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+        Accept: 'application/json, text/plain, */*',
+        'Accept-Language': process.env.YAHOO_ACCEPT_LANGUAGE || 'en-US,en;q=0.9',
+        Connection: 'keep-alive',
+    };
+}
+
+function mergeYahooHeaders(initHeaders: HeadersInit | undefined): Headers {
+    const out = new Headers(yahooDefaultHeaders());
+    if (initHeaders) {
+        const incoming = new Headers(initHeaders);
+        incoming.forEach((value, key) => out.set(key, value));
+    }
+    return out;
+}
+
 function logYahooTraceLine(
     operation: string,
     outcome: 'ok' | 'error' | 'http_error',
@@ -103,8 +123,13 @@ function createYahooLoggingFetchInner(
     baseFetch: typeof globalThis.fetch = globalThis.fetch.bind(globalThis) as typeof fetch
 ): typeof fetch {
     return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const enrichedInit: RequestInit = {
+            ...(init ?? {}),
+            headers: mergeYahooHeaders(init?.headers),
+        };
+
         if (!isYahooHttpTraceEnabled()) {
-            const res = await baseFetch(input, init);
+            const res = await baseFetch(input, enrichedInit);
             if (res.status === 429) noteYahooHttp429();
             return res;
         }
@@ -122,11 +147,11 @@ function createYahooLoggingFetchInner(
             (input instanceof Request ? input.method : undefined) ||
             'GET'
         ).toUpperCase();
-        const outgoingHeaders = normalizeOutgoingHeaders(init?.headers);
+        const outgoingHeaders = normalizeOutgoingHeaders(enrichedInit.headers);
 
         const t0 = Date.now();
         try {
-            const res = await baseFetch(input, init);
+            const res = await baseFetch(input, enrichedInit);
             const durationMs = Date.now() - t0;
             let data: unknown;
             try {

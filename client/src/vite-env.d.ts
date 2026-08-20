@@ -6,6 +6,8 @@ declare global {
             getCloseToTray: () => Promise<boolean>;
             setCloseToTray: (value: boolean) => Promise<boolean>;
             onCloseToTrayChanged: (listener: (value: boolean) => void) => () => void;
+            getSessionToken?: () => Promise<string | null>;
+            onSessionExpired?: (listener: () => void) => () => void;
         };
     }
 }

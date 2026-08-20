@@ -42,9 +42,18 @@ jobs:
           VITE_APP_BUILD_VERSION: ${{ github.ref_name }}@${{ github.sha }}
         run: npm run build -w client -- --base /${{ github.event.repository.name }}/
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
+      - name: Verify client build output 
+        run: |
+          echo "Repo root: $(pwd)"
+          echo "Client directory listing:"
+          ls -la client || true
+          echo "Client dist listing:"
+          ls -la client/dist || true
+
+      # FIX: Changed from upload-artifact to upload-pages-artifact
+      - name: Upload artifact (GitHub Pages) 
+        uses: actions/upload-pages-artifact@v3 
+        with: 
           path: client/dist
 
   deploy:
