@@ -27,7 +27,7 @@
         "express": "^4.21.2",
         "fs-extra": "^11.3.0",
         "googleapis": "^171.4.0",
-        "israeli-bank-scrapers": "^6.7.1",
+        "israeli-bank-scrapers": "^6.9.0",
         "mqtt": "^5.15.1",
         "multer": "^2.0.2",
         "node-cron": "^4.2.1",
