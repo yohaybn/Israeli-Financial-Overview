@@ -1,5 +1,5 @@
 # --- Build Stage ---
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /usr/src/app
 
@@ -62,7 +62,7 @@ RUN npm install --no-save --os=linux --cpu=x64 --libc=glibc sharp -w server
 
 
 # --- Production Stage ---
-FROM node:20-slim
+FROM node:22-slim
 
 # Install system dependencies and Chromium
 RUN apt-get update && apt-get install -y \
