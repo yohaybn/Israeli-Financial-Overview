@@ -35,3 +35,6 @@ secrets/community-submit.env
 docs/
 gas/
 data/
+test-results/
+test-report.md
+playwright-report/

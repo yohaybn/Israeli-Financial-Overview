@@ -239,14 +239,14 @@ export class ScraperService {
         }
 
         // Ensure required Docker/Linux arguments for Puppeteer
-        const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox','--window-size=1920,1080'];
+        const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1920,1080'];
         const combinedArgs = request.options.args
             ? [...new Set([...defaultArgs, ...request.options.args])]
             : defaultArgs;
 
         // Fetch global configuration
         const globalConfig = await this.storageService.getGlobalScrapeConfig();
-        
+
         // Merge global options with request overrides
         const mergedOptions = {
             ...globalConfig.scraperOptions,
@@ -281,10 +281,10 @@ export class ScraperService {
                 const txns = await this.dbService.getAllTransactions();
                 // Filter transactions for this profile if possible, or just find the latest overall for this company
                 const profileTxns = txns.filter(t => t.accountNumber && txns.some(ot => ot.id === t.id)); // This is a bit weak, let's refine
-                
+
                 // Better: find latest date for this provider/company in the DB
                 const latestDate = await this.dbService.getLatestTransactionDate(request.companyId);
-                
+
                 if (latestDate) {
                     const nextDay = new Date(latestDate);
                     nextDay.setDate(nextDay.getDate() + 1);
@@ -483,10 +483,10 @@ export class ScraperService {
                             nRes.status === 'fulfilled'
                                 ? { key: 'scrape-notification', status: 'ok' }
                                 : {
-                                      key: 'scrape-notification',
-                                      status: 'failed',
-                                      detail: String(nRes.reason),
-                                  };
+                                    key: 'scrape-notification',
+                                    status: 'failed',
+                                    detail: String(nRes.reason),
+                                };
                         if (nRes.status === 'rejected') {
                             this.emitLog(`Scrape notification failed: ${String(nRes.reason)}`);
                         }
@@ -580,7 +580,7 @@ export class ScraperService {
                 }
             } else {
                 // Notify configured channels about the critical error
-                postScrapeService.sendScrapeNotification(errorResult, request).catch(() => {});
+                postScrapeService.sendScrapeNotification(errorResult, request).catch(() => { });
             }
 
             return errorResult;
@@ -608,7 +608,7 @@ export class ScraperService {
                 error: 'Phone number must be a full international number starting with + (e.g. +972...).',
             };
         }
-
+        serverLogger.info(`Triggering One Zero OTP for phone number ${trimmed} (profileId=${profileId || 'none'})`);
         const executablePath = this.getExecutablePath();
         const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
         const globalConfig = await this.storageService.getGlobalScrapeConfig();
@@ -629,18 +629,83 @@ export class ScraperService {
         }
 
         const scraper = createScraper(libOptions as any);
-        const triggerResult = await scraper.triggerTwoFactorAuth(trimmed);
-        if (!triggerResult.success) {
-            const err = triggerResult as { errorMessage?: string };
+
+        // The library's fetchPost sends bare Node fetch without mobile headers,
+        // causing OneZero's WAF to return an HTML error page.
+        // We call the Identity API directly with proper mobile headers,
+        // then inject otpContext into the scraper so getLongTermTwoFactorToken works.
+        const IDENTITY_SERVER_URL = 'https://identity.tfd-bank.com/v1';
+        const MOBILE_HEADERS: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'OneZero/3 CFNetwork/1568.200.51 Darwin/24.1.0',
+            'x-client-id': 'mobile',
+            'x-os': 'iOS',
+        };
+
+        try {
+            // Step 1: fetch device token
+            serverLogger.info('One Zero OTP: fetching device token');
+            const deviceTokenRes = await fetch(`${IDENTITY_SERVER_URL}/devices/token`, {
+                method: 'POST',
+                headers: MOBILE_HEADERS,
+                body: JSON.stringify({ extClientId: 'mobile', os: 'iOS' }),
+            });
+            const deviceTokenText = await deviceTokenRes.text();
+            let deviceTokenJson: any;
+            try {
+                deviceTokenJson = JSON.parse(deviceTokenText);
+            } catch {
+                serverLogger.error(`One Zero OTP: device token response is not JSON (status ${deviceTokenRes.status}): ${deviceTokenText.slice(0, 200)}`);
+                return {
+                    success: false,
+                    error: `OneZero identity server returned a non-JSON response (status ${deviceTokenRes.status}). The server may be temporarily unavailable or blocking automated requests.`,
+                };
+            }
+            const deviceToken = deviceTokenJson?.resultData?.deviceToken;
+            if (!deviceToken) {
+                serverLogger.error(`One Zero OTP: missing deviceToken in response: ${JSON.stringify(deviceTokenJson)}`);
+                return { success: false, error: 'Failed to obtain device token from OneZero.' };
+            }
+
+            // Step 2: request OTP SMS
+            serverLogger.info(`One Zero OTP: sending SMS to ${trimmed}`);
+            const otpPrepareRes = await fetch(`${IDENTITY_SERVER_URL}/otp/prepare`, {
+                method: 'POST',
+                headers: MOBILE_HEADERS,
+                body: JSON.stringify({ factorValue: trimmed, deviceToken, otpChannel: 'SMS_OTP' }),
+            });
+            const otpPrepareText = await otpPrepareRes.text();
+            let otpPrepareJson: any;
+            try {
+                otpPrepareJson = JSON.parse(otpPrepareText);
+            } catch {
+                serverLogger.error(`One Zero OTP: OTP prepare response is not JSON (status ${otpPrepareRes.status}): ${otpPrepareText.slice(0, 200)}`);
+                return {
+                    success: false,
+                    error: `OneZero OTP prepare failed: server returned a non-JSON response (status ${otpPrepareRes.status}).`,
+                };
+            }
+            const otpContext = otpPrepareJson?.resultData?.otpContext;
+            if (!otpContext) {
+                serverLogger.error(`One Zero OTP: missing otpContext in response: ${JSON.stringify(otpPrepareJson)}`);
+                return { success: false, error: 'Failed to obtain OTP context from OneZero. Check phone number.' };
+            }
+
+            // Inject otpContext into the scraper instance so getLongTermTwoFactorToken works
+            (scraper as any).otpContext = otpContext;
+
+            serverLogger.info('One Zero OTP trigger succeeded');
+            const pid = typeof profileId === 'string' && profileId.trim() !== '' ? profileId.trim() : undefined;
+            const sessionId = registerOneZeroOtpSession(scraper, pid);
+            return { success: true, sessionId };
+        } catch (err: any) {
+            serverLogger.error(`One Zero OTP trigger error: ${err?.message || String(err)}`);
             return {
                 success: false,
-                error: err.errorMessage || 'Failed to send OTP SMS',
+                error: err?.message || 'Unexpected error during One Zero OTP trigger.',
             };
         }
-        const pid =
-            typeof profileId === 'string' && profileId.trim() !== '' ? profileId.trim() : undefined;
-        const sessionId = registerOneZeroOtpSession(scraper, pid);
-        return { success: true, sessionId };
     }
 
     /**

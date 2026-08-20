@@ -1,5 +1,8 @@
 # Startup Script for Financial Overview
 
+$ProjectRoot = Resolve-Path "$PSScriptRoot\.."
+Set-Location $ProjectRoot
+
 Write-Host "Starting Financial Overview..." -ForegroundColor Cyan
 
 # Check for node_modules
