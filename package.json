@@ -8,7 +8,7 @@
         "desktop-electron"
     ],
     "scripts": {
-        "postinstall": "node scripts/ensure-rollup-native.mjs",
+        "postinstall": "node scripts/ensure-rollup-native.mjs && npx patch-package",
         "setup": "npm install && npm run build -w shared",
         "server": "npm run dev -w server",
         "client": "npm run dev -w client",
@@ -41,6 +41,8 @@
     },
     "overrides": {
         "@rollup/plugin-terser": "1.0.0",
-        "serialize-javascript": "7.0.5"
+        "serialize-javascript": "7.0.5",
+        "extract-zip": "2.0.1",
+        "esbuild": "0.28.2"
     }
 }
