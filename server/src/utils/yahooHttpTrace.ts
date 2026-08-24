@@ -1,6 +1,18 @@
 import { serverLogger } from './logger.js';
 import { maskSensitiveData } from './masking.js';
-import { enqueueYahooWork, getYahooRequestPriority, noteYahooHttp429 } from './yahooRequestQueue.js';
+import {
+    enqueueYahooWork,
+    getYahooRequestPriority,
+    noteYahooHttp429,
+    yahooBackoffRemainingMs,
+} from './yahooRequestQueue.js';
+
+/** Cap on how long a single in-flight request will wait to retry after a 429. */
+const YAHOO_429_RETRY_MAX_WAIT_MS = 120_000;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
+}
 
 /**
  * When enabled (default), logs each Yahoo HTTP exchange with `outgoing` / `incoming`
@@ -208,6 +220,8 @@ function createYahooLoggingFetchInner(
 
 /**
  * Wraps `fetch` for `new YahooFinance({ fetch })` — queued (stock before aux), traced, 429-aware.
+ * On HTTP 429 the request is retried once after the shared backoff window so a single
+ * rate-limit hit doesn't fail the caller outright.
  */
 export function createYahooLoggingFetch(
     baseFetch: typeof globalThis.fetch = globalThis.fetch.bind(globalThis) as typeof fetch
@@ -215,7 +229,16 @@ export function createYahooLoggingFetch(
     const inner = createYahooLoggingFetchInner(baseFetch);
     return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const priority = getYahooRequestPriority();
-        return enqueueYahooWork(priority, () => inner(input, init));
+        let res = await enqueueYahooWork(priority, () => inner(input, init));
+        if (res.status === 429) {
+            // noteYahooHttp429() already armed the backoff inside `inner`; wait it out once.
+            const remaining = yahooBackoffRemainingMs(priority);
+            if (remaining > 0 && remaining <= YAHOO_429_RETRY_MAX_WAIT_MS) {
+                await sleep(remaining);
+                res = await enqueueYahooWork(priority, () => inner(input, init));
+            }
+        }
+        return res;
     };
 }
 

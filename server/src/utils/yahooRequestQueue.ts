@@ -95,11 +95,18 @@ export function isYahooCircuitOpen(): boolean {
     return circuitRemainingMs() > 0;
 }
 
-async function waitBackoff(priority: YahooRequestPriority): Promise<void> {
+function waitBackoff(priority: YahooRequestPriority): Promise<void> {
     const remaining = backoffUntilMs - Date.now();
-    if (remaining <= 0) return;
+    if (remaining <= 0) return Promise.resolve();
     const factor = priority === 'stock' ? 0.2 : 1;
-    await sleep(Math.ceil(remaining * factor));
+    return sleep(Math.ceil(remaining * factor));
+}
+
+/** Milliseconds until the current 429 backoff clears for the given priority (0 when clear). */
+export function yahooBackoffRemainingMs(priority: YahooRequestPriority): number {
+    const remaining = backoffUntilMs - Date.now();
+    if (remaining <= 0) return 0;
+    return Math.ceil(remaining * (priority === 'stock' ? 0.2 : 1));
 }
 
 function dequeueNext(): QueueJob<unknown> | undefined {
