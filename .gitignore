@@ -38,3 +38,4 @@ data/
 test-results/
 test-report.md
 playwright-report/
+.understand-anything/tmp/

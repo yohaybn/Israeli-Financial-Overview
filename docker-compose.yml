@@ -4,7 +4,8 @@ services:
     pull_policy: always
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      # Host port configurable via .env (APP_PORT, default 3000); container always listens on 3000.
+      - "${APP_PORT:-3000}:3000"
     volumes:
       # Map local data directory to container /data directory
       # This will persist settings, results, and logs

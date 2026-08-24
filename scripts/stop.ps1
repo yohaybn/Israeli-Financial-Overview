@@ -2,29 +2,26 @@
 
 Write-Host "Stopping Financial Overview..." -ForegroundColor Cyan
 
-# Kill process on port 3000 (Client/Server)
-$Conn3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
-$Process3000 = ($Conn3000 | Where-Object { $_.State -eq 'Listen' } | Select-Object -First 1) ?? ($Conn3000 | Where-Object { $_.OwningProcess -gt 0 } | Select-Object -First 1)
-if ($Process3000 -and $Process3000.OwningProcess -gt 0) {
-    Write-Host "Killing process $($Process3000.OwningProcess) on port 3000..." -ForegroundColor Yellow
-    Stop-Process -Id $Process3000.OwningProcess -Force -ErrorAction SilentlyContinue
-    Write-Host "Successfully killed process on port 3000." -ForegroundColor Green
-}
-else {
-    Write-Host "No process found on port 3000." -ForegroundColor Yellow
+# Ports from single source of truth: scripts/ports.mjs (env -> data/config/runtime-settings.json -> defaults)
+$portsRaw = node "$PSScriptRoot\ports.mjs"
+$ServerPort, $ClientPort = ($portsRaw -split '\s+') | ForEach-Object { [int]$_ }
+Write-Host "Using ports: server=$ServerPort client=$ClientPort" -ForegroundColor DarkGray
+
+function Stop-Port([int]$Port, [string]$Label) {
+    $Conn = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+    $Proc = ($Conn | Where-Object { $_.State -eq 'Listen' } | Select-Object -First 1) ?? ($Conn | Where-Object { $_.OwningProcess -gt 0 } | Select-Object -First 1)
+    if ($Proc -and $Proc.OwningProcess -gt 0) {
+        Write-Host "Killing process $($Proc.OwningProcess) on port $Port ($Label)..." -ForegroundColor Yellow
+        Stop-Process -Id $Proc.OwningProcess -Force -ErrorAction SilentlyContinue
+        Write-Host "Successfully killed process on port $Port." -ForegroundColor Green
+    }
+    else {
+        Write-Host "No process found on port $Port." -ForegroundColor Yellow
+    }
 }
 
-# Kill process on port 5173 (Vite client dev server)
-$Conn5173 = Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue
-$Process5173 = ($Conn5173 | Where-Object { $_.State -eq 'Listen' } | Select-Object -First 1) ?? ($Conn5173 | Where-Object { $_.OwningProcess -gt 0 } | Select-Object -First 1)
-if ($Process5173 -and $Process5173.OwningProcess -gt 0) {
-    Write-Host "Killing process $($Process5173.OwningProcess) on port 5173..." -ForegroundColor Yellow
-    Stop-Process -Id $Process5173.OwningProcess -Force -ErrorAction SilentlyContinue
-    Write-Host "Successfully killed process on port 5173." -ForegroundColor Green
-}
-else {
-    Write-Host "No process found on port 5173." -ForegroundColor Yellow
-}
+Stop-Port $ServerPort "server"
+Stop-Port $ClientPort "client (Vite dev server)"
 
 # Kill any remaining Node processes (fallback)
 $NodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue

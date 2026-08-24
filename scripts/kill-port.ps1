@@ -1,6 +1,12 @@
 param (
-    [int]$Port = 3000
+    [int]$Port = 0
 )
+
+# Default to the configured server port (single source of truth: scripts/ports.mjs)
+if ($Port -eq 0) {
+    $portsRaw = node "$PSScriptRoot\ports.mjs"
+    $Port = [int](($portsRaw -split '\s+')[0])
+}
 
 $Process = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($Process) {

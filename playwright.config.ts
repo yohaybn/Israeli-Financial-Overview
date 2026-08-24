@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { resolvePorts } from './scripts/ports.mjs';
 
-const PORT = process.env.CLIENT_PORT || process.env.VITE_PORT || '5173';
+// Ports come from the single source of truth (env -> data/config/runtime-settings.json -> defaults)
+const { clientPort } = resolvePorts();
+const PORT = String(clientPort);
 const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({

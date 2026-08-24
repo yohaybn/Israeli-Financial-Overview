@@ -22,27 +22,20 @@ function readClientPackageVersion(): string {
     }
 }
 
-function readBackendPort(): string {
-    if (process.env.PORT) return process.env.PORT
-    const candidates = [
-        path.resolve(__dirname, '..', 'data', 'config', 'runtime-settings.json'),
-        path.resolve(__dirname, '..', 'runtime-settings.json')
-    ]
-    for (const p of candidates) {
-        try {
-            const raw = fs.readFileSync(p, 'utf8')
-            const j = JSON.parse(raw) as { PORT?: string }
-            if (j.PORT) return String(j.PORT)
-        } catch {
-            // try next path
-        }
+function readPorts(): { targetPort: number; clientPort: number } {
+    // Single source of truth: scripts/ports.mjs (env -> data/config/runtime-settings.json -> defaults)
+    try {
+        const { resolvePorts } = require('../scripts/ports.mjs')
+        const { serverPort, clientPort } = resolvePorts()
+        return { targetPort: serverPort, clientPort }
+    } catch {
+        return { targetPort: 3000, clientPort: 5173 }
     }
-    return '3000'
 }
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, __dirname, '')
-    const targetPort = readBackendPort()
+    const { targetPort, clientPort } = readPorts()
     const isDemo = env.VITE_DEMO === 'true' || process.env.VITE_DEMO === 'true'
     const baseFromEnv = env.VITE_BASE || env.GITHUB_PAGES_BASE || process.env.VITE_BASE || process.env.GITHUB_PAGES_BASE
     const base = baseFromEnv ? normalizeBase(baseFromEnv) : '/'
@@ -127,7 +120,7 @@ export default defineConfig(({ mode }) => {
             include: ['@app/shared'],
         },
         server: {
-            port: 5173,
+            port: clientPort,
             host: '127.0.0.1',
             proxy: {
                 '/api': {
