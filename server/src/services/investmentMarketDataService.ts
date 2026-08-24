@@ -15,10 +15,10 @@ import { fetchYahooCloseOnDate } from './yahooChartClose.js';
 import { useEodhdPrimaryQuotes, getEodhdApiToken } from '../constants/marketData.js';
 import { parseEodhdQuoteMode, type EodhdQuoteMode } from '../constants/eodhdQuote.js';
 
-// yahoo-finance2 accepts `fetch` at runtime; bundled typings for 2.14 omit it.
-const yahooFinance = new YahooFinance({
-    fetch: createYahooLoggingFetch(),
-} as unknown as ConstructorParameters<typeof YahooFinance>[0]);
+// yahoo-finance2 v2 exports a ready-made singleton (not a class).
+// A custom fetch is injected via `_env.fetch` instead of constructor options.
+const yahooFinance = YahooFinance;
+yahooFinance._env.fetch = createYahooLoggingFetch() as typeof yahooFinance._env.fetch;
 
 let usdIlsCache: { value: number; at: number } | null = null;
 /** Fresh-enough FX for display; Yahoo is easy to 429 if polled too often. */
