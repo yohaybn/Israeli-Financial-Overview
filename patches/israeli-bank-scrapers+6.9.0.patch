@@ -1,0 +1,180 @@
+diff --git a/node_modules/israeli-bank-scrapers/lib/helpers/mobile-fetch.js b/node_modules/israeli-bank-scrapers/lib/helpers/mobile-fetch.js
+new file mode 100644
+index 0000000..b380bdb
+--- /dev/null
++++ b/node_modules/israeli-bank-scrapers/lib/helpers/mobile-fetch.js
+@@ -0,0 +1,99 @@
++'use strict';
++
++Object.defineProperty(exports, '__esModule', { value: true });
++
++exports.mobileFetchPost = mobileFetchPost;
++exports.mobileFetchGraphql = mobileFetchGraphql;
++
++var _undici = require('undici');
++
++/**
++ * Android OkHttp 4.x TLS cipher suite order.
++ * Node.js's built-in fetch uses a different TLS fingerprint (JA3) that Cloudflare
++ * bot-management blocks on some Israeli bank APIs (e.g. One Zero / tfd-bank.com).
++ * Using undici with this cipher order produces a fingerprint that matches the
++ * mobile apps these APIs were designed for.
++ */
++const ANDROID_CIPHERS = [
++  'TLS_AES_128_GCM_SHA256',
++  'TLS_AES_256_GCM_SHA384',
++  'TLS_CHACHA20_POLY1305_SHA256',
++  'ECDHE-ECDSA-AES128-GCM-SHA256',
++  'ECDHE-RSA-AES128-GCM-SHA256',
++  'ECDHE-ECDSA-AES256-GCM-SHA384',
++  'ECDHE-RSA-AES256-GCM-SHA384',
++  'ECDHE-ECDSA-CHACHA20-POLY1305',
++  'ECDHE-RSA-CHACHA20-POLY1305',
++  'ECDHE-RSA-AES128-SHA',
++  'ECDHE-RSA-AES256-SHA',
++  'AES128-GCM-SHA256',
++  'AES256-GCM-SHA384',
++  'AES128-SHA',
++  'AES256-SHA'
++].join(':');
++
++const ANDROID_SIGALGS = [
++  'ecdsa_secp256r1_sha256',
++  'rsa_pss_rsae_sha256',
++  'rsa_pkcs1_sha256',
++  'ecdsa_secp384r1_sha384',
++  'rsa_pss_rsae_sha384',
++  'rsa_pkcs1_sha384',
++  'rsa_pss_rsae_sha512',
++  'rsa_pkcs1_sha512'
++].join(':');
++
++const mobileAgent = new _undici.Agent({
++  connect: {
++    ciphers: ANDROID_CIPHERS,
++    sigalgs: ANDROID_SIGALGS,
++    minVersion: 'TLSv1.2',
++    maxVersion: 'TLSv1.3'
++  }
++});
++
++const MOBILE_HEADERS = {
++  'User-Agent': 'okhttp/4.10.0',
++  'Accept-Encoding': 'gzip',
++  Connection: 'Keep-Alive'
++};
++
++async function mobileFetchPost(url, data, extraHeaders = {}) {
++  const response = await (0, _undici.fetch)(url, {
++    method: 'POST',
++    headers: {
++      Accept: 'application/json',
++      'Content-Type': 'application/json',
++      ...MOBILE_HEADERS,
++      ...extraHeaders
++    },
++    body: JSON.stringify(data),
++    dispatcher: mobileAgent
++  });
++
++  const text = await response.text();
++
++  if (!response.ok) {
++    throw new Error(`POST ${url} returned ${response.status} ${response.statusText}; content-type=${response.headers.get('content-type') || 'unknown'}`);
++  }
++
++  try {
++    return JSON.parse(text);
++  } catch (e) {
++    throw new Error(`POST ${url} returned non-JSON response; content-type=${response.headers.get('content-type') || 'unknown'}`);
++  }
++}
++
++async function mobileFetchGraphql(url, query, variables = {}, extraHeaders = {}) {
++  const result = await mobileFetchPost(url, {
++    operationName: null,
++    query,
++    variables
++  }, extraHeaders);
++
++  if (result.errors && result.errors.length) {
++    throw new Error(result.errors[0].message);
++  }
++
++  return result.data;
++}
+diff --git a/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js b/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js
+index 1bf8d21..52d4dae 100644
+--- a/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js
++++ b/node_modules/israeli-bank-scrapers/lib/scrapers/one-zero.js
+@@ -7,6 +7,7 @@ exports.default = void 0;
+ var _moment = _interopRequireDefault(require("moment/moment"));
+ var _debug = require("../helpers/debug");
+ var _fetch = require("../helpers/fetch");
++var _mobileFetch = require("../helpers/mobile-fetch");
+ var _transactions = require("../helpers/transactions");
+ var _transactions2 = require("../transactions");
+ var _baseScraper = require("./base-scraper");
+@@ -23,7 +24,7 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+       return (0, _errors.createGenericError)('A full international phone number starting with + and a three digit country code is required');
+     }
+     debug('Fetching device token');
+-    const deviceTokenResponse = await (0, _fetch.fetchPost)(`${IDENTITY_SERVER_URL}/devices/token`, {
++    const deviceTokenResponse = await (0, _mobileFetch.mobileFetchPost)(`${IDENTITY_SERVER_URL}/devices/token`, {
+       extClientId: 'mobile',
+       os: 'Android'
+     });
+@@ -33,7 +34,7 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+       }
+     } = deviceTokenResponse;
+     debug(`Sending OTP to phone number ${phoneNumber}`);
+-    const otpPrepareResponse = await (0, _fetch.fetchPost)(`${IDENTITY_SERVER_URL}/otp/prepare`, {
++    const otpPrepareResponse = await (0, _mobileFetch.mobileFetchPost)(`${IDENTITY_SERVER_URL}/otp/prepare`, {
+       factorValue: phoneNumber,
+       deviceToken,
+       otpChannel: 'SMS_OTP'
+@@ -53,7 +54,7 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+       return (0, _errors.createGenericError)('triggerOtp was not called before calling getPermenantOtpToken()');
+     }
+     debug('Requesting OTP token');
+-    const otpVerifyResponse = await (0, _fetch.fetchPost)(`${IDENTITY_SERVER_URL}/otp/verify`, {
++    const otpVerifyResponse = await (0, _mobileFetch.mobileFetchPost)(`${IDENTITY_SERVER_URL}/otp/verify`, {
+       otpContext: this.otpContext,
+       otpCode
+     });
+@@ -108,7 +109,7 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+       return otpTokenResult;
+     }
+     debug('Requesting id token');
+-    const getIdTokenResponse = await (0, _fetch.fetchPost)(`${IDENTITY_SERVER_URL}/getIdToken`, {
++    const getIdTokenResponse = await (0, _mobileFetch.mobileFetchPost)(`${IDENTITY_SERVER_URL}/getIdToken`, {
+       otpSmsToken: otpTokenResult.longTermTwoFactorAuthToken,
+       email: credentials.email,
+       pass: credentials.password,
+@@ -120,7 +121,7 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+       }
+     } = getIdTokenResponse;
+     debug('Requesting session token');
+-    const getSessionTokenResponse = await (0, _fetch.fetchPost)(`${IDENTITY_SERVER_URL}/sessions/token`, {
++    const getSessionTokenResponse = await (0, _mobileFetch.mobileFetchPost)(`${IDENTITY_SERVER_URL}/sessions/token`, {
+       idToken,
+       pass: credentials.password
+     });
+@@ -147,7 +148,7 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+           movements: newMovements,
+           pagination
+         }
+-      } = await (0, _fetch.fetchGraphql)(GRAPHQL_API_URL, _oneZeroQueries.GET_MOVEMENTS, {
++      } = await (0, _mobileFetch.mobileFetchGraphql)(GRAPHQL_API_URL, _oneZeroQueries.GET_MOVEMENTS, {
+         portfolioId: portfolio.portfolioId,
+         accountId: account.accountId,
+         language: 'HEBREW',
+@@ -229,7 +230,7 @@ class OneZeroScraper extends _baseScraper.BaseScraper {
+     const startDate = this.options.startDate || defaultStartMoment.toDate();
+     const startMoment = _moment.default.max(defaultStartMoment, (0, _moment.default)(startDate));
+     debug('Fetching account list');
+-    const result = await (0, _fetch.fetchGraphql)(GRAPHQL_API_URL, _oneZeroQueries.GET_CUSTOMER, {}, {
++    const result = await (0, _mobileFetch.mobileFetchGraphql)(GRAPHQL_API_URL, _oneZeroQueries.GET_CUSTOMER, {}, {
+       authorization: `Bearer ${this.accessToken}`
+     });
+     const portfolios = result.customer.flatMap(customer => customer.portfolios || []);
