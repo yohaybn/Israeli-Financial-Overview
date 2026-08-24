@@ -231,7 +231,7 @@ export function CategoryDetailsModal({
                                                 return m;
                                             }
                                         }}
-                                        formatter={(value: number | undefined) => [value ? formatCurrency(value) : '', t('dashboard.spent')]}
+                                        formatter={(value: unknown) => [Number(value) ? formatCurrency(Number(value)) : '', t('dashboard.spent')]}
                                         labelStyle={{ color: '#374151', fontWeight: 'bold' }}
                                         contentStyle={{ borderRadius: '0.75rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
                                     />

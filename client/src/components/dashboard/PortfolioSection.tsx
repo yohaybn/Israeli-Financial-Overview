@@ -393,10 +393,10 @@ export function PortfolioSection({
                                         tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
                                     />
                                     <Tooltip
-                                        formatter={(value: number | undefined, name, item) => {
+                                        formatter={(value: unknown, name, item) => {
                                             const dataKey = String(item?.dataKey ?? '');
                                             const displayName = stockLineNameById[dataKey]?.tooltipLabel || String(name);
-                                            if (!Number.isFinite(value)) return ['—', String(name)];
+                                            if (!Number.isFinite(Number(value))) return ['—', String(name)];
                                             return [`${Number(value).toFixed(2)}%`, displayName];
                                         }}
                                         labelFormatter={(l) => l}
@@ -443,11 +443,11 @@ export function PortfolioSection({
                                             ))}
                                         </Pie>
                                         <Tooltip
-                                            formatter={(value: number | undefined, _name, item) => {
+                                            formatter={(value: unknown, _name, item) => {
                                                 const payload = item?.payload as { percent?: number; label?: string } | undefined;
                                                 const pct = payload?.percent ?? 0;
                                                 const stockDisplay = payload?.label?.trim() || t('dashboard.portfolio.symbol');
-                                                return [`${formatIls(value, locale)} (${pct.toFixed(1)}%)`, stockDisplay];
+                                                return [`${formatIls(Number(value), locale)} (${pct.toFixed(1)}%)`, stockDisplay];
                                             }}
                                         />
                                     </PieChart>

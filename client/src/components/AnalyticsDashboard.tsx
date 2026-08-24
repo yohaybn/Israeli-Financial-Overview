@@ -520,7 +520,7 @@ export function AnalyticsDashboard({
                                         </Pie>
                                         <Tooltip
                                             contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
-                                            formatter={(value: number | string | undefined, _name, item) => {
+                                            formatter={(value: unknown, _name, item) => {
                                                 const n = Number(value ?? 0);
                                                 const payload = item?.payload as { label?: string } | undefined;
                                                 const pct =
