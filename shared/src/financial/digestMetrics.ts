@@ -8,7 +8,7 @@ import {
     detectAnomalies,
     computeBudgetHealth
 } from './financialPace.js';
-import { computeTxnBaselineVariableForecast } from './variableForecast.js';
+import { computeCategoryVariableForecast } from './variableForecast.js';
 
 export interface FinancialDigestSnapshot {
     month: string;
@@ -156,28 +156,17 @@ export function computeFinancialDigestSnapshot(
             i => i.type === 'bill' && expenseCategoryKey(i.category) === name
         );
         const upcomingForCategory = categoryUpcomingBills.reduce((sum, i) => sum + i.amount, 0);
-        let categoryVariableForecast = 0;
-
-        if (isCurrentMonth) {
-            if (baseline && !baseline.isFixed) {
-                const N =
-                    baseline.avgMonthlyTxnCount ??
-                    baseline.expectedMonthlyTxnCount ??
-                    0;
-                const avgTxnValue = baseline.avgTxnValue || 0;
-                const currentTxns = categoryTxns.get(name)?.length || 0;
-                categoryVariableForecast = computeTxnBaselineVariableForecast({
-                    expectedMonthlyTxnCount: N,
-                    avgTxnValue,
-                    currentMonthTxnCount: currentTxns,
-                    daysInMonth,
-                    remainingDays,
-                }).amount;
-            } else if (!baseline && spent > 0) {
-                const forecastRate = spent / Math.max(1, daysPassed);
-                categoryVariableForecast = forecastRate * remainingDays;
-            }
-        }
+        // Shared with the dashboard hook (useFinancialSummary) so both compute
+        // the same forecast, including the early-month extrapolation guard.
+        const categoryVariableForecast = computeCategoryVariableForecast({
+            baseline,
+            isCurrentMonth,
+            spent,
+            currentMonthTxnCount: categoryTxns.get(name)?.length || 0,
+            daysPassed,
+            daysInMonth,
+            remainingDays,
+        }).amount;
 
         variableSpendForecast += Math.max(0, categoryVariableForecast - upcomingForCategory);
     }

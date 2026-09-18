@@ -116,7 +116,8 @@ export {
 export type { DetectAnomaliesOptions } from './financial/financialPace.js';
 export { computeFinancialDigestSnapshot } from './financial/digestMetrics.js';
 export type { FinancialDigestSnapshot } from './financial/digestMetrics.js';
-export { computeTxnBaselineVariableForecast } from './financial/variableForecast.js';
+export { computeTxnBaselineVariableForecast, computeCategoryVariableForecast, MIN_DAYS_FOR_PACE_PROJECTION } from './financial/variableForecast.js';
+export type { CategoryVariableForecastParams, CategoryVariableForecastResult } from './financial/variableForecast.js';
 export { transactionsToCsv, transactionsToJson } from './transactionExport.js';
 export {
     formatBudgetHealthDigestLine,

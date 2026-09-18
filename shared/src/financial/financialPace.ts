@@ -10,6 +10,7 @@ import type {
 import { isInternalTransfer } from '../isInternalTransfer.js';
 import { isTransactionIgnored } from '../isTransactionIgnored.js';
 import { expenseCategoryKey } from '../expenseCategory.js';
+import { MIN_DAYS_FOR_PACE_PROJECTION } from './variableForecast.js';
 
 /** Dampen txn-pace ratio so one-off large bills do not swing velocity wildly. */
 export function clampTxnPaceRatio(ratio: number): number {
@@ -220,9 +221,12 @@ export function detectAnomalies(
             spendPaceRatio = (spent / expectedSpendToDate) / clampTxnPaceRatio(txnRatio);
         }
 
+        // Naive month-end projection is only meaningful after a few days of data;
+        // on day 1-2 a single purchase would otherwise trigger a false critical alert.
         const projectedMonthEnd =
             daysPassed > 0 ? (spent / daysPassed) * daysInMonth : spent;
         const isOutlierProjected =
+            daysPassed >= MIN_DAYS_FOR_PACE_PROJECTION &&
             projectedMonthEnd > baseline.avgMonthly + 2 * baseline.stdDev &&
             baseline.stdDev > 0 &&
             spent > 200;
