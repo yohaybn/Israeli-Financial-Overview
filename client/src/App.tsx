@@ -31,6 +31,7 @@ import { useSocket } from './hooks/useSocket';
 import { useUnifiedData } from './hooks/useUnifiedData';
 import { SchedulerSettingsProvider } from './components/SchedulerSettings';
 import { AppLockBanner } from './components/AppLockBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { PersonaOnboardingWizard } from './components/onboarding/PersonaOnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
@@ -350,7 +351,7 @@ function App() {
                         <div className="flex items-center justify-between gap-2 min-w-0 lg:contents">
                             <h1 className="text-lg sm:text-xl font-bold text-emerald-800 tracking-tight truncate min-w-0 flex-1 lg:flex-none lg:max-w-[min(100%,28rem)] lg:shrink-0 lg:order-1 flex items-center gap-2">
                                 <img
-                                    src="/pwa-192x192.png"
+                                    src={publicAssetUrl('pwa-192x192.png')}
                                     alt=""
                                     width={32}
                                     height={32}
@@ -623,7 +624,7 @@ function App() {
 
                 <div className="flex flex-1 overflow-hidden">
                     <div className="flex-1 overflow-hidden relative bg-white">
-                        <Suspense fallback={<ViewLoadingFallback />}>
+                        <ErrorBoundary name={`view:${view}`} key={view}>
                         {view === 'dashboard' && (
                             <div className="h-full overflow-y-auto p-4">
                                 <FinancialCommandCenter
@@ -688,7 +689,7 @@ function App() {
                                 />
                             </div>
                         )}
-                        </Suspense>
+                        </ErrorBoundary>
                     </div>
                 </div>
             </div>
