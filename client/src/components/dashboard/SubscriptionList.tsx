@@ -203,7 +203,7 @@ export function SubscriptionList({
 
                     <div>
                         {sortedVisible.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-4">
                                 {sortedVisible.map(({ sub, key }) => {
                                     const anchorMonth = selectedMonth || new Date().toISOString().slice(0, 7);
                                     const { months: payMonths, amounts: payAmounts, ratios: payRatios } =
@@ -294,8 +294,8 @@ export function SubscriptionList({
                                                         <CatIcon className="w-5 h-5" strokeWidth={1.75} />
                                                     </div>
                                                     <div className="min-w-0 flex-1 flex flex-col gap-2">
-                                                        <div className="flex items-start gap-2">
-                                                            <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-wrap items-start gap-2">
+                                                            <div className="min-w-0 flex-1 basis-40">
                                                                 <p
                                                                     dir="auto"
                                                                     className="text-sm font-black text-gray-900 tracking-tight leading-snug break-words line-clamp-3"
@@ -312,7 +312,7 @@ export function SubscriptionList({
                                                                             : t('dashboard.subscription_source_auto'))}
                                                                 </p>
                                                             </div>
-                                                            <div className="flex items-center gap-0.5 shrink-0 self-start">
+                                                            <div className="flex flex-wrap items-center justify-end gap-0.5 shrink-0 self-start max-w-full">
                                                                 <button
                                                                     type="button"
                                                                     title={t('dashboard.subscription_flag_aria')}

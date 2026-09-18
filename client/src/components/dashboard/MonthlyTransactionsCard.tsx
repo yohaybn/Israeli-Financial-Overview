@@ -80,9 +80,9 @@ export function MonthlyTransactionsCard({
                     <>
                         <div
                             dir="ltr"
-                            className="flex w-full items-baseline justify-between gap-3 min-w-0"
+                            className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 min-w-0"
                         >
-                            <span className={headerCurrency.className}>
+                            <span className={`${headerCurrency.className} min-w-0 truncate`} title={headerCurrency.value}>
                                 {headerCurrency.value}
                             </span>
                             <span className="text-xs text-gray-500 shrink-0">
