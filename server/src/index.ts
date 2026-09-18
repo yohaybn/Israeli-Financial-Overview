@@ -26,7 +26,9 @@ import { serverLogger } from './utils/logger.js';
 import { maskSensitiveData } from './utils/masking.js';
 import { runAiMemoryRetentionPrune } from './services/aiMemoryRetention.js';
 import { appLockService } from './services/appLockService.js';
-import { createCorsOriginChecker } from './utils/corsOrigin.js';
+ 
+import { apiNotFoundHandler, errorHandler } from './middleware/errorHandler.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -260,6 +262,11 @@ async function startServer() {
       res.sendFile(path.join(STATIC_PATH, 'index.html'));
     });
   }
+
+  // JSON 404 for unmatched /api/* routes, then one consistent error shape for
+  // everything the routes did not handle themselves (incl. body-parser errors).
+  app.use('/api', apiNotFoundHandler);
+  app.use(errorHandler);
 
   httpServer.on('error', (err: NodeJS.ErrnoException) => {
     serverLogger.error('HTTP server failed to bind or listen', {
