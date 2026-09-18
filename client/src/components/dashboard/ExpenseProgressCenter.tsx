@@ -190,7 +190,7 @@ export function ExpenseProgressCenter({
                         </div>
 
                         {sortedCategories.length > 0 && (
-                            <div className="rounded-2xl border border-gray-100 bg-white p-2 sm:p-2.5 max-h-[min(720px,70vh)] overflow-y-auto pr-0.5 custom-scrollbar">
+                            <div className="rounded-2xl border border-gray-100 bg-white p-2 sm:p-2.5">
                                 <div className="divide-y divide-gray-100">
                                     {sortedCategories.map((cat) => {
                                         const health = categoryHealth(cat);

@@ -201,7 +201,7 @@ export function SubscriptionList({
                         </div>
                     )}
 
-                    <div className="max-h-[560px] overflow-y-auto pe-2 custom-scrollbar">
+                    <div>
                         {sortedVisible.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {sortedVisible.map(({ sub, key }) => {
