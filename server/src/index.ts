@@ -26,7 +26,9 @@ import { serverLogger } from './utils/logger.js';
 import { maskSensitiveData } from './utils/masking.js';
 import { runAiMemoryRetentionPrune } from './services/aiMemoryRetention.js';
 import { appLockService } from './services/appLockService.js';
+ 
 import { apiNotFoundHandler, errorHandler } from './middleware/errorHandler.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,9 +99,20 @@ async function startServer() {
 
   // Create HTTP server and Socket.IO instance
   const httpServer = createServer(app);
+  // Self-hosted origin policy: allow same-origin/LAN/localhost, reject unknown
+  // public origins so a malicious site in the user's browser cannot call the API.
+  const isCorsOriginAllowed = createCorsOriginChecker();
+  const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
+    if (isCorsOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      serverLogger.warn('Blocked cross-origin request', { origin });
+      callback(null, false);
+    }
+  };
   const io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: corsOrigin,
       methods: ['GET', 'POST'],
     },
   });
@@ -130,7 +143,7 @@ async function startServer() {
     next();
   });
 
-  app.use(cors());
+  app.use(cors({ origin: corsOrigin }));
   app.use(express.json());
   app.use(blockerAuthMiddleware);
 
