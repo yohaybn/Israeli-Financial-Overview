@@ -322,16 +322,16 @@ export function PortfolioSection({
 
                 {summary && (
                     <div className="mb-4 rounded-3xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 shadow-sm">
-                        <div className="flex flex-wrap items-end justify-between gap-3">
-                            <div className={isHebrew ? 'text-right' : ''}>
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,150px),1fr))] items-end gap-3">
+                            <div className={`min-w-0 ${isHebrew ? 'text-right' : ''}`}>
                                 <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">
                                     {t('dashboard.portfolio.total_value')}
                                 </div>
-                                <div className="text-3xl sm:text-[2rem] font-black text-gray-900 mt-1 leading-none">
+                                <div className="text-2xl sm:text-3xl font-black text-gray-900 mt-1 leading-none tabular-nums break-words">
                                     {formatIls(summary.totalMarketValueIls, locale)}
                                 </div>
                             </div>
-                            <div className={isHebrew ? 'text-left' : 'text-right'}>
+                            <div className={`min-w-0 ${isHebrew ? 'text-left' : 'text-right'}`}>
                                 <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                                     {t('dashboard.portfolio.total_pnl')}
                                 </div>
