@@ -33,6 +33,7 @@ import {
 } from '@app/shared';
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { buildCustomChartSeries } from '../../utils/customChartSeries';
+import { formatCompactIlsTick } from '../../utils/formatters';
 
 /** Matches built-in analytics Recharts tooltips (see AnalyticsDashboard). */
 export const ANALYTICS_CHART_TOOLTIP_STYLE = {
@@ -293,7 +294,7 @@ export function CustomChartCard({
                         tick={{ fontSize: 10, fill: '#9ca3af' }}
                         axisLine={false}
                         tickLine={false}
-                        tickFormatter={(v) => (spec.measure === 'count' ? String(v) : `${Math.round(Number(v) / 1000)}k`)}
+                        tickFormatter={(v) => (spec.measure === 'count' ? String(v) : formatCompactIlsTick(Number(v), i18n.language))}
                     />
                     <Tooltip
                         contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
@@ -335,7 +336,7 @@ export function CustomChartCard({
                         tick={{ fontSize: 10, fill: '#9ca3af' }}
                         axisLine={false}
                         tickLine={false}
-                        tickFormatter={(v) => (spec.measure === 'count' ? String(v) : `${Math.round(Number(v) / 1000)}k`)}
+                        tickFormatter={(v) => (spec.measure === 'count' ? String(v) : formatCompactIlsTick(Number(v), i18n.language))}
                     />
                     <Tooltip
                         contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
