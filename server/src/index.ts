@@ -33,7 +33,7 @@ import { apiNotFoundHandler, errorHandler } from './middleware/errorHandler.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function resolveStartupBrowserPath(): string | undefined {
+async function resolveStartupBrowserPath(): Promise<string | undefined> {
   const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
   if (envPath && fs.existsSync(envPath)) {
     return envPath;
@@ -47,7 +47,7 @@ function resolveStartupBrowserPath(): string | undefined {
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    puppeteer.executablePath(),
+    await puppeteer.executablePath(),
   ];
 
   for (const candidate of candidates) {
@@ -285,7 +285,7 @@ async function startServer() {
       serverLogger.info(`WebSocket ready on ws://${listenHost}:${port}`);
       serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
-      const browserPath = resolveStartupBrowserPath();
+      const browserPath = await resolveStartupBrowserPath();
       serverLogger.info(
         browserPath
           ? `Browser executable resolved at startup: ${browserPath}`

@@ -122,7 +122,7 @@ export class ScraperService {
         }
     }
 
-    private getExecutablePath(): string | undefined {
+    private async getExecutablePath(): Promise<string | undefined> {
         const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
         if (envPath && fs.existsSync(envPath)) {
             return envPath;
@@ -136,7 +136,7 @@ export class ScraperService {
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
             'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            puppeteer.executablePath(),
+            await puppeteer.executablePath(),
         ];
 
         for (const p of standardPaths) {
@@ -231,7 +231,7 @@ export class ScraperService {
             };
         }
 
-        const executablePath = this.getExecutablePath();
+        const executablePath = await this.getExecutablePath();
         if (!executablePath) {
             addLog('WARNING: No browser executable found. The scrape might fail if the library defaults cannot find one.');
         } else {
@@ -609,7 +609,7 @@ export class ScraperService {
             };
         }
         serverLogger.info(`Triggering One Zero OTP for phone number ${trimmed} (profileId=${profileId || 'none'})`);
-        const executablePath = this.getExecutablePath();
+        const executablePath = await this.getExecutablePath();
         const defaultArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
         const globalConfig = await this.storageService.getGlobalScrapeConfig();
         const timeout = globalConfig.scraperOptions?.timeout ?? 120000;
