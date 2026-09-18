@@ -1,13 +1,34 @@
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogViewer } from './components/LogViewer';
-import { ConfigurationPanel } from './components/ConfigurationPanel';
-import { ImportProfilePage } from './pages/ImportProfilePage';
-import { FinancialCommandCenter } from './components/dashboard/FinancialCommandCenter';
+// Route-level code splitting: each view (and the heavy deps behind it -
+// recharts, xlsx, markdown) loads only when first navigated to.
+const LogViewer = lazy(() =>
+    import('./components/LogViewer').then((m) => ({ default: m.LogViewer }))
+);
+const ConfigurationPanel = lazy(() =>
+    import('./components/ConfigurationPanel').then((m) => ({ default: m.ConfigurationPanel }))
+);
+const ImportProfilePage = lazy(() =>
+    import('./pages/ImportProfilePage').then((m) => ({ default: m.ImportProfilePage }))
+);
+const FinancialCommandCenter = lazy(() =>
+    import('./components/dashboard/FinancialCommandCenter').then((m) => ({ default: m.FinancialCommandCenter }))
+);
+const ScrapeWorkspace = lazy(() =>
+    import('./components/scrape/ScrapeWorkspace').then((m) => ({ default: m.ScrapeWorkspace }))
+);
+
+function ViewLoadingFallback(): React.ReactElement {
+    const { t } = useTranslation();
+    return (
+        <div className="flex h-full items-center justify-center p-8 text-gray-500" role="status">
+            {t('common.loading', 'טוען...')}
+        </div>
+    );
+}
 import { useScrapeResults, useUpdateTransactionCategory, useRecategorizeAll, useAISettings } from './hooks/useScraper';
 import { useSocket } from './hooks/useSocket';
 import { useUnifiedData } from './hooks/useUnifiedData';
-import { ScrapeWorkspace } from './components/scrape/ScrapeWorkspace';
 import { SchedulerSettingsProvider } from './components/SchedulerSettings';
 import { AppLockBanner } from './components/AppLockBanner';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
@@ -602,6 +623,7 @@ function App() {
 
                 <div className="flex flex-1 overflow-hidden">
                     <div className="flex-1 overflow-hidden relative bg-white">
+                        <Suspense fallback={<ViewLoadingFallback />}>
                         {view === 'dashboard' && (
                             <div className="h-full overflow-y-auto p-4">
                                 <FinancialCommandCenter
@@ -666,6 +688,7 @@ function App() {
                                 />
                             </div>
                         )}
+                        </Suspense>
                     </div>
                 </div>
             </div>
