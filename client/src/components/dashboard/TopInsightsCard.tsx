@@ -14,6 +14,20 @@ type TopInsight = {
     ruleId?: string;
 };
 
+export function normalizeInsightText(text: string): string {
+    return text.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+export function dedupeInsights(insights: TopInsight[]): TopInsight[] {
+    const seen = new Set<string>();
+    return insights.filter((item) => {
+        const key = normalizeInsightText(item.text);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
 function splitInsightText(text: string): { title: string; description: string } {
     const trimmed = text.trim();
     const nl = trimmed.indexOf('\n');
@@ -117,11 +131,13 @@ export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?:
         );
     }
 
-    if (!insights || insights.length === 0) {
+    const uniqueInsights = insights ? dedupeInsights(insights) : [];
+
+    if (uniqueInsights.length === 0) {
         return null;
     }
 
-    const count = insights.length;
+    const count = uniqueInsights.length;
 
     return (
         <div className="rounded-2xl border border-emerald-100/90 border-l-4 border-l-emerald-600 bg-emerald-50/90 shadow-sm overflow-hidden">
@@ -164,7 +180,7 @@ export function TopInsightsCard({ collapseAllSignal = 0 }: { collapseAllSignal?:
             {expanded && (
                 <div className="px-3.5 sm:px-4 pb-4 pt-0">
                     <div className="grid grid-cols-1 gap-3">
-                        {insights.map((item, idx) => {
+                        {uniqueInsights.map((item, idx) => {
                             const { title, description } = splitInsightText(item.text);
                             const palette = CARD_ICONS[idx % CARD_ICONS.length];
                             const showTitle = title.length > 0;
