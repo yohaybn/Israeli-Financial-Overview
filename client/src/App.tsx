@@ -10,6 +10,7 @@ import { useUnifiedData } from './hooks/useUnifiedData';
 import { ScrapeWorkspace } from './components/scrape/ScrapeWorkspace';
 import { SchedulerSettingsProvider } from './components/SchedulerSettings';
 import { AppLockBanner } from './components/AppLockBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { PersonaOnboardingWizard } from './components/onboarding/PersonaOnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
@@ -602,6 +603,7 @@ function App() {
 
                 <div className="flex flex-1 overflow-hidden">
                     <div className="flex-1 overflow-hidden relative bg-white">
+                        <ErrorBoundary name={`view:${view}`} key={view}>
                         {view === 'dashboard' && (
                             <div className="h-full overflow-y-auto p-4">
                                 <FinancialCommandCenter
@@ -666,6 +668,7 @@ function App() {
                                 />
                             </div>
                         )}
+                        </ErrorBoundary>
                     </div>
                 </div>
             </div>
