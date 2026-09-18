@@ -3,6 +3,7 @@ import './runtimeEnv.js';
 import './utils/geminiRateLimitCapture.js';
 import express from 'express';
 import cors from 'cors';
+import { createCorsOriginChecker } from './utils/corsOrigin.js';
 import path from 'path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'url';
@@ -280,7 +281,7 @@ async function startServer() {
   const listenHost = process.env.LISTEN_HOST || '0.0.0.0';
 
   try {
-    httpServer.listen(port, listenHost, () => {
+    httpServer.listen(port, listenHost, async () => {
       serverLogger.info(`Server running on http://${listenHost}:${port}`);
       serverLogger.info(`WebSocket ready on ws://${listenHost}:${port}`);
       serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
