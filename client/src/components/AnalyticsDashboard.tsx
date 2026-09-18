@@ -28,6 +28,7 @@ import {
 import { TREEMAP_SMALL_MERGED_ID, useAnalytics } from '../hooks/useAnalytics';
 import type { CategoryParentGroupKey } from '@app/shared';
 import { isInternalTransfer, isLoanCategory } from '../utils/transactionUtils';
+import { formatCompactIlsTick } from '../utils/formatters';
 import { ANALYTICS_CHART_TOOLTIP_STYLE, CustomChartCard } from './dashboard/UserCustomChartsSection';
 import { SqlAnalyticCard } from './dashboard/SqlAnalyticCardsSection';
 import { UnifiedChartModal } from './dashboard/UnifiedChartModal';
@@ -661,7 +662,8 @@ export function AnalyticsDashboard({
                                 tick={{ fontSize: 10, fill: '#9ca3af' }}
                                 axisLine={false}
                                 tickLine={false}
-                                tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`}
+                                minTickGap={24}
+                                tickFormatter={(v) => formatCompactIlsTick(Number(v), i18n.language)}
                             />
                             <YAxis
                                 yAxisId="right"
@@ -669,7 +671,13 @@ export function AnalyticsDashboard({
                                 tick={{ fontSize: 10, fill: '#64748b' }}
                                 axisLine={false}
                                 tickLine={false}
-                                tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`}
+                                minTickGap={24}
+                                tickCount={5}
+                                domain={[
+                                    (dataMin: number) => Math.min(0, Math.floor(dataMin * 1.1)),
+                                    (dataMax: number) => Math.max(0, Math.ceil(dataMax * 1.1)),
+                                ]}
+                                tickFormatter={(v) => formatCompactIlsTick(Number(v), i18n.language)}
                             />
                             <Tooltip
                                 contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
@@ -719,7 +727,7 @@ export function AnalyticsDashboard({
                         <BarChart data={analytics.byMonthDay}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={2} />
-                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
+                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => formatCompactIlsTick(Number(v), i18n.language)} />
                             <Tooltip contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE} formatter={(value) => formatCurrency(Number(value))} />
                             <Bar
                                 dataKey="value"
@@ -757,7 +765,7 @@ export function AnalyticsDashboard({
                                 tickLine={false}
                                 tickFormatter={(value) => getWeekdayLabel(Number(value))}
                             />
-                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `ILS ${Math.round(v / 1000)}k`} />
+                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => formatCompactIlsTick(Number(v), i18n.language)} />
                             <Tooltip
                                 contentStyle={ANALYTICS_CHART_TOOLTIP_STYLE}
                                 labelFormatter={(value) => getWeekdayLabel(Number(value))}
