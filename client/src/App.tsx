@@ -329,7 +329,7 @@ function App() {
                         <div className="flex items-center justify-between gap-2 min-w-0 lg:contents">
                             <h1 className="text-lg sm:text-xl font-bold text-emerald-800 tracking-tight truncate min-w-0 flex-1 lg:flex-none lg:max-w-[min(100%,28rem)] lg:shrink-0 lg:order-1 flex items-center gap-2">
                                 <img
-                                    src="/pwa-192x192.png"
+                                    src={publicAssetUrl('pwa-192x192.png')}
                                     alt=""
                                     width={32}
                                     height={32}
