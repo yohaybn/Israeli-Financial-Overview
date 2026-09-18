@@ -6,6 +6,7 @@ import { isInternalTransfer } from '../../utils/transactionUtils';
 import { getCategoryLucideIcon } from '../../utils/categoryIcons';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine, CartesianGrid } from 'recharts';
 import { format, subMonths, parseISO } from 'date-fns';
+import { Modal } from '../Modal';
 
 interface CategoryDetailsModalProps {
     categoryName: string;
@@ -116,12 +117,11 @@ export function CategoryDetailsModal({
     const handleZoomOut = () => setMonthsToShow(prev => Math.min(24, prev + 1));
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <Modal labelledBy="categorydetailsmodal-title" onClose={onClose} zIndex={50} overlayClassName="p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm" panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50 gap-4">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                        <h3 id="categorydetailsmodal-title" className="text-xl font-bold text-gray-900 flex items-center gap-3">
                             <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
                                 <HeaderCategoryIcon className="w-5 h-5" aria-hidden />
                             </div>
@@ -153,7 +153,6 @@ export function CategoryDetailsModal({
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                             </button>
                         </div>
-
                         <select 
                             className="bg-white border border-gray-200 text-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium shadow-sm transition-all text-sm sm:text-base"
                             value={selectedMonth}
@@ -170,12 +169,10 @@ export function CategoryDetailsModal({
                         </button>
                     </div>
                 </div>
-
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto flex flex-col">
                     {/* Top Section: Insights & Chart */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 bg-white border-b border-gray-100">
-                        
                         {/* Left: Insight Cards */}
                         <div className="flex flex-col gap-4">
                             <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
@@ -184,14 +181,12 @@ export function CategoryDetailsModal({
                                 </p>
                                 <p className="text-3xl font-black text-indigo-700">{formatCurrency(spentSoFar)}</p>
                             </div>
-                            
                             <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100 flex-1 flex flex-col justify-center">
                                 <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">{t('dashboard.projected_monthly')}</p>
                                 <p className="text-2xl font-black text-emerald-600">{formatCurrency(projectedSpend)}</p>
                                 <p className="text-[10px] text-emerald-600/70 mt-1.5 font-medium">{t('dashboard.based_on_avg')}: {formatCurrency(chartData.avg)}</p>
                             </div>
                         </div>
-
                         {/* Right: Bar Chart */}
                         <div className="lg:col-span-2 h-64 bg-gray-50/50 rounded-xl border border-gray-100 p-4">
                             <ResponsiveContainer width="100%" height="100%">
@@ -258,7 +253,6 @@ export function CategoryDetailsModal({
                             </ResponsiveContainer>
                         </div>
                     </div>
-
                     {/* Bottom: Transaction Detail Table */}
                     <div className="p-6 bg-gray-50/30 flex-1">
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-2">
@@ -277,7 +271,6 @@ export function CategoryDetailsModal({
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

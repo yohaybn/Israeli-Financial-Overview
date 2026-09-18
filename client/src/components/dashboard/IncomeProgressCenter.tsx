@@ -5,6 +5,7 @@ import { Wallet } from 'lucide-react';
 import { Transaction } from '@app/shared';
 import { TransactionTable } from '../TransactionTable';
 import { DashboardCardHeader, dashboardCardShellClass } from './DashboardCardChrome';
+import { Modal } from '../Modal';
 
 interface IncomeProgressCenterProps {
     alreadyReceived: number;
@@ -184,17 +185,10 @@ export function IncomeProgressCenter({
 
             {showViewAll &&
                 createPortal(
-                    <div
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm"
-                        onClick={() => setShowViewAll(false)}
-                    >
-                        <div
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
-                        >
+                    <Modal labelledBy="incomeprogresscenter-title" onClose={() => setShowViewAll(false)} zIndex={50} overlayClassName="p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
                             <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-[#F8F9FA]">
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900">{t('dashboard.income_streams')}</h3>
+                                    <h3 id="incomeprogresscenter-title" className="text-xl font-bold text-gray-900">{t('dashboard.income_streams')}</h3>
                                     <p className="text-sm text-gray-500 mt-0.5">{t('dashboard.total_projected')}: {formatCurrency(totalProjected)}</p>
                                 </div>
                                 <button
@@ -235,18 +229,16 @@ export function IncomeProgressCenter({
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    </div>,
+                    </Modal>,
                     document.body
                 )}
 
             {selectedKpi &&
                 createPortal(
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={() => setSelectedKpi(null)}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <Modal labelledBy="incomeprogresscenter-2-title" onClose={() => setSelectedKpi(null)} zIndex={50} overlayClassName="p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
                             <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                                    <h3 id="incomeprogresscenter-2-title" className="text-xl font-bold text-gray-900 flex items-center gap-3">
                                         <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center shadow-sm">
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -275,8 +267,7 @@ export function IncomeProgressCenter({
                                     <div className="text-center text-gray-400 py-10">{t('dashboard.no_transactions')}</div>
                                 )}
                             </div>
-                        </div>
-                    </div>,
+                    </Modal>,
                     document.body
                 )}
         </>

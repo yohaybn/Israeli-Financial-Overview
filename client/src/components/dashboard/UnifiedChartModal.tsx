@@ -39,6 +39,7 @@ import {
     SqlAnalyticCardChartBody,
     useChartFormatters,
 } from './SqlAnalyticCardsSection';
+import { Modal } from '../Modal';
 
 type ChartSource = 'transactions' | 'sql';
 type BuildMode = 'manual' | 'ai';
@@ -367,10 +368,9 @@ export function UnifiedChartModal({
             : (txnPreviewDef?.chartKind ?? 'bar');
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[92vh] overflow-y-auto border border-gray-100">
+        <Modal labelledBy="unifiedchartmodal-title" onClose={onClose} zIndex={60} overlayClassName="bg-black/50 backdrop-blur-sm p-4" panelClassName="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[92vh] overflow-y-auto border border-gray-100">
                 <div className="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-                    <h2 className="text-lg font-bold text-gray-900">
+                    <h2 id="unifiedchartmodal-title" className="text-lg font-bold text-gray-900">
                         {isEdit ? t('dashboard.unified_chart_edit_title') : t('dashboard.unified_chart_add_title')}
                     </h2>
                     <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg">
@@ -378,14 +378,12 @@ export function UnifiedChartModal({
                         ×
                     </button>
                 </div>
-
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
                     {!isEdit && atLimit && (
                         <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                             {t('dashboard.unified_chart_limit', { max: MAX_USER_CHARTS })}
                         </p>
                     )}
-
                     {!isEdit && (
                         <div className="space-y-2">
                             <p className="text-xs font-semibold text-gray-700">{t('dashboard.unified_chart_source')}</p>
@@ -411,7 +409,6 @@ export function UnifiedChartModal({
                             </div>
                         </div>
                     )}
-
                     <div className="space-y-2">
                         <p className="text-xs font-semibold text-gray-700">{t('dashboard.unified_chart_build_mode')}</p>
                         <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
@@ -435,7 +432,6 @@ export function UnifiedChartModal({
                             </button>
                         </div>
                     </div>
-
                     {buildMode === 'ai' && (
                         <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
                             <label className="block text-xs font-semibold text-indigo-900">
@@ -480,7 +476,6 @@ export function UnifiedChartModal({
                             )}
                         </div>
                     )}
-
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">
                             {t('dashboard.custom_charts_field_title')}
@@ -493,11 +488,9 @@ export function UnifiedChartModal({
                             maxLength={120}
                         />
                     </div>
-
                     {source === 'transactions' && (
                         <TransactionChartFields form={txnForm} onChange={setTxnForm} categoryOptions={categoryOptions} />
                     )}
-
                     {source === 'sql' && (
                         <div className="space-y-3">
                             <div>
@@ -618,7 +611,6 @@ export function UnifiedChartModal({
                             </button>
                         </div>
                     )}
-
                     <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-3">
                         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
                             {t('dashboard.sql_cards_preview_title')}
@@ -665,7 +657,6 @@ export function UnifiedChartModal({
                             />
                         )}
                     </div>
-
                     <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                         <button
                             type="button"
@@ -683,8 +674,7 @@ export function UnifiedChartModal({
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 }
 

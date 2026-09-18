@@ -8,6 +8,7 @@ import { TransactionModal } from '../TransactionModal';
 import { TransactionTable } from '../TransactionTable';
 import { getCategoryLucideIcon } from '../../utils/categoryIcons';
 import { DashboardCardHeader, dashboardCardShellClass } from './DashboardCardChrome';
+import { Modal } from '../Modal';
 
 interface SubscriptionListProps {
     subscriptions: Subscription[];
@@ -503,19 +504,14 @@ export function SubscriptionList({
 
             {selectedHistorySub &&
                 createPortal(
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
-                        <div
-                            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
-                            onClick={() => setSelectedHistorySub(null)}
-                        />
-                        <div className="relative w-full max-w-5xl bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 max-h-[90vh]">
+                    <Modal labelledBy="subscriptionlist-title" onClose={() => setSelectedHistorySub(null)} zIndex={110} overlayClassName="p-4 sm:p-6 overflow-hidden bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" panelClassName="relative w-full max-w-5xl bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 max-h-[90vh]">
                             <div className="p-8 bg-gradient-to-br from-emerald-600 to-teal-700 text-white relative">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/10">
                                         <CreditCard size={24} />
                                     </div>
                                     <div>
-                                        <h2 className="text-2xl font-black tracking-tight">{selectedHistorySub.description}</h2>
+                                        <h2 id="subscriptionlist-title" className="text-2xl font-black tracking-tight">{selectedHistorySub.description}</h2>
                                         <p className="text-xs font-bold uppercase tracking-widest opacity-80 mt-1">
                                             {t('transaction_modal.history')}
                                         </p>
@@ -553,8 +549,7 @@ export function SubscriptionList({
                                     {t('common.close')}
                                 </button>
                             </div>
-                        </div>
-                    </div>,
+                    </Modal>,
                     document.body
                 )}
 

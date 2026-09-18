@@ -92,6 +92,16 @@ export function CCPaymentDateSettings() {
         (row) => row.key !== 'investments' || investmentsFeatureOn
     );
 
+    // Anchored popover rather than a centered Modal: still closes on Escape.
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsOpen(false);
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [isOpen]);
+
     const popover =
         isOpen &&
         createPortal(

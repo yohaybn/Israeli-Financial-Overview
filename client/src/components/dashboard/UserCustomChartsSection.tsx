@@ -34,6 +34,7 @@ import {
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { buildCustomChartSeries } from '../../utils/customChartSeries';
 import { formatCompactIlsTick } from '../../utils/formatters';
+import { Modal } from '../Modal';
 
 /** Matches built-in analytics Recharts tooltips (see AnalyticsDashboard). */
 export const ANALYTICS_CHART_TOOLTIP_STYLE = {
@@ -515,12 +516,7 @@ export function CustomChartModal({ onClose, onSave, initial, atLimit, categoryOp
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div
-                className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-100"
-                role="dialog"
-                aria-labelledby="custom-chart-modal-title"
-            >
+        <Modal labelledBy="custom-chart-modal-title" onClose={onClose} zIndex={60} overlayClassName="bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200" panelClassName="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-100">
                 <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                     <h2 id="custom-chart-modal-title" className="text-lg font-bold text-gray-900">
                         {isEdit ? t('dashboard.custom_charts_edit_title') : t('dashboard.custom_charts_add_title')}
@@ -817,8 +813,7 @@ export function CustomChartModal({ onClose, onSave, initial, atLimit, categoryOp
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 }
 

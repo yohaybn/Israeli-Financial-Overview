@@ -27,6 +27,7 @@ import {
     type InvestmentRow,
 } from '../../hooks/useInvestments';
 import { api } from '../../lib/api';
+import { Modal } from '../Modal';
 
 function formatIls(n: number | null | undefined, locale: string): string {
     if (n == null || !Number.isFinite(n)) return '—';
@@ -744,11 +745,9 @@ export function PortfolioSection({
                     )}
                 </details>
                 {isCreateModalOpen && (
-                    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/40" onClick={() => setIsCreateModalOpen(false)} />
-                        <div className="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+                    <Modal labelledBy="portfoliosection-title" onClose={() => setIsCreateModalOpen(false)} zIndex={90} overlayClassName="p-4 bg-black/40" panelClassName="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
                             <div className="mb-4 flex items-center justify-between gap-3">
-                                <h4 className="text-lg font-bold text-gray-900">{t('dashboard.portfolio.add')}</h4>
+                                <h4 id="portfoliosection-title" className="text-lg font-bold text-gray-900">{t('dashboard.portfolio.add')}</h4>
                                 <button
                                     type="button"
                                     onClick={() => setIsCreateModalOpen(false)}
@@ -832,8 +831,7 @@ export function PortfolioSection({
                                     {t('dashboard.portfolio.add')}
                                 </button>
                             </div>
-                        </div>
-                    </div>
+                    </Modal>
                 )}
                 </div>
             )}

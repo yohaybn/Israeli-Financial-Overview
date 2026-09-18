@@ -12,6 +12,7 @@ import {
     mergeFraudDetectionConfig,
     subscribeFraudDetectionPatch,
 } from './config/fraudDetectionSync';
+import { Modal } from './Modal';
 
 interface ScrapeSettingsProps {
     isOpen?: boolean;
@@ -722,8 +723,8 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
     if (isInline) return content;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <Modal onClose={onClose} zIndex={100} overlayClassName="bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
             {content}
-        </div>
+        </Modal>
     );
 }

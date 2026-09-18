@@ -20,6 +20,7 @@ import {
     type TabularImportProfileV1,
     type TabularMappableTxnField,
 } from '@app/shared';
+import { Modal } from './Modal';
 
 type OptionalFieldRow = { id: string; field: TabularMappableTxnField; col: number };
 
@@ -1214,10 +1215,9 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave, variant = 'modal
     }
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-            <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-xl border border-gray-200 bg-white shadow-2xl">
+        <Modal labelledBy="importprofilebuilder-title" onClose={onClose} zIndex={60} overlayClassName="bg-black/60 p-4" panelClassName="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-xl border border-gray-200 bg-white shadow-2xl">
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 p-4">
-                    <h3 className="text-lg font-semibold text-gray-800">{t('explorer.import_profile_builder_title')}</h3>
+                    <h3 id="importprofilebuilder-title" className="text-lg font-semibold text-gray-800">{t('explorer.import_profile_builder_title')}</h3>
                     <button type="button" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600" aria-label={t('common.close')}>
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -1727,7 +1727,6 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave, variant = 'modal
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

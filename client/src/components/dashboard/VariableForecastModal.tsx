@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { CategoryBudgetItem } from '@app/shared';
 import { CategoryIcon } from '../../utils/categoryIcons';
+import { Modal } from '../Modal';
 
 interface VariableForecastModalProps {
     isOpen: boolean;
@@ -79,11 +80,10 @@ export function VariableForecastModal({
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <Modal labelledBy="variableforecastmodal-title" onClose={onClose} zIndex={60} overlayClassName="p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                        <h3 id="variableforecastmodal-title" className="text-xl font-bold text-gray-900 flex items-center gap-3">
                             <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center shadow-sm">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -195,8 +195,7 @@ export function VariableForecastModal({
                     </div>
                     <span className="text-2xl font-black text-gray-900 flex-shrink-0">{formatCurrency(totalExtraForecast)}</span>
                 </div>
-            </div>
-        </div>,
+        </Modal>,
         document.body
     );
 }
