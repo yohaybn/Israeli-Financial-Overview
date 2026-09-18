@@ -252,7 +252,7 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className={`bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300 ${isHebrew ? 'direction-rtl' : ''}`}>
+            <div className={`bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300`}>
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 flex justify-between items-start">
                     <div>
