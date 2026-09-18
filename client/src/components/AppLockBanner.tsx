@@ -3,6 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { useAppLockStatus, useUnlockApp, useLockApp, useSetupAppLock } from '../hooks/useAppLock';
 import { AlertTriangle, Lock, ShieldCheck } from 'lucide-react';
 
+const SNOOZE_STORAGE_KEY = 'app-lock-banner-snoozed';
+
+export function snoozeLockedBanner() {
+    sessionStorage.setItem(SNOOZE_STORAGE_KEY, '1');
+}
+
+export function clearLockedBannerSnooze() {
+    sessionStorage.removeItem(SNOOZE_STORAGE_KEY);
+}
+
 export function AppLockBanner() {
     const { t } = useTranslation();
     const { data: status, isLoading } = useAppLockStatus();
@@ -14,6 +24,9 @@ export function AppLockBanner() {
     const [setupConfirm, setSetupConfirm] = useState('');
     const [showSetup, setShowSetup] = useState(false);
     const [unlockedBannerDismissed, setUnlockedBannerDismissed] = useState(false);
+    const [lockedBannerSnoozed, setLockedBannerSnoozed] = useState(
+        () => sessionStorage.getItem(SNOOZE_STORAGE_KEY) === '1'
+    );
 
     const restricted = status?.restricted ?? true;
     const lockConfigured = status?.lockConfigured ?? false;
@@ -24,6 +37,12 @@ export function AppLockBanner() {
         const id = window.setTimeout(() => setUnlockedBannerDismissed(true), 5000);
         return () => clearTimeout(id);
     }, [restricted, lockConfigured]);
+
+    useEffect(() => {
+        if (restricted) return;
+        clearLockedBannerSnooze();
+        setLockedBannerSnoozed(false);
+    }, [restricted]);
 
     if (isLoading || !status) {
         return null;
@@ -52,7 +71,25 @@ export function AppLockBanner() {
 
     return (
         <div className="shrink-0 border-b border-amber-200/80">
-            {restricted && (
+            {restricted && lockedBannerSnoozed && (
+                <div className="bg-amber-50 border-b border-amber-200 px-4 py-1.5">
+                    <div className="container mx-auto max-w-[1600px] flex flex-wrap items-center gap-2 text-amber-900">
+                        <Lock className="w-4 h-4 shrink-0" />
+                        <span className="text-xs font-bold flex-1">{t('app_lock.snoozed_title')}</span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                clearLockedBannerSnooze();
+                                setLockedBannerSnoozed(false);
+                            }}
+                            className="text-xs font-black text-amber-800 hover:underline"
+                        >
+                            {t('app_lock.unlock')}
+                        </button>
+                    </div>
+                </div>
+            )}
+            {restricted && !lockedBannerSnoozed && (
                 <div
                     role="alert"
                     className="bg-gradient-to-r from-amber-500 via-amber-500 to-orange-500 text-white px-4 py-4 shadow-lg"
@@ -90,6 +127,16 @@ export function AppLockBanner() {
                                 className="px-6 py-2.5 rounded-lg bg-white text-amber-700 font-black text-sm shadow-md hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 {isUnlocking ? t('common.loading') : t('app_lock.unlock')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    snoozeLockedBanner();
+                                    setLockedBannerSnoozed(true);
+                                }}
+                                className="px-3 py-2.5 rounded-lg text-amber-50 text-sm font-bold hover:bg-white/10 underline underline-offset-2"
+                            >
+                                {t('app_lock.later')}
                             </button>
                             {unlockError && (
                                 <span className="text-xs font-bold text-amber-100 w-full sm:w-auto">
