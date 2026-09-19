@@ -17,6 +17,8 @@ import {
     type BackupSnapshotSummaryDto
 } from '../hooks/useScraper';
 import { CollapsibleCard } from './CollapsibleCard';
+import { ConfirmDangerDialog } from './ConfirmDangerDialog';
+import { DangerButton, DangerZone } from './DangerZone';
 import { MaintenanceServerPathsCard } from './MaintenanceServerPathsCard';
 import { DesktopAppSettings } from './DesktopAppSettings';
 import { GitHubUpdateCheck } from './GitHubUpdateCheck';
@@ -68,6 +70,14 @@ export function MaintenancePanel() {
         (BackupSnapshotSummaryDto & { fileName: string }) | null
     >(null);
     const [uploadParseError, setUploadParseError] = useState<string | null>(null);
+
+    /** Destructive action waiting on dialog confirmation (replaces window.confirm). */
+    const [dangerRequest, setDangerRequest] = useState<
+        | { kind: 'reload' }
+        | { kind: 'factory-reset' }
+        | { kind: 'restore'; source: 'local' | 'drive' | 'upload' }
+        | null
+    >(null);
 
     const localSummaryQuery = useLocalBackupSummary(
         restoreFocus === 'local' && selectedLocalBackup ? selectedLocalBackup : null
@@ -166,27 +176,21 @@ export function MaintenancePanel() {
         reader.readAsText(file);
     };
 
-    const handleReload = () => {
-        if (window.confirm(t('maintenance.confirm_reload'))) {
-            reloadDb(undefined, {
-                onSuccess: () => {
-                    alert(t('maintenance.reload_success'));
-                },
-                onError: (err: any) => {
-                    const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
-                    alert(t('maintenance.reload_failed', { error: errorMsg }));
-                }
-            });
-        }
+    const executeReload = () => {
+        setDangerRequest(null);
+        reloadDb(undefined, {
+            onSuccess: () => {
+                alert(t('maintenance.reload_success'));
+            },
+            onError: (err: any) => {
+                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                alert(t('maintenance.reload_failed', { error: errorMsg }));
+            }
+        });
     };
 
-    const handleReset = () => {
-        if (!window.confirm(t('maintenance.confirm_reset_factory_step1'))) {
-            return;
-        }
-        if (!window.confirm(t('maintenance.confirm_factory_reset'))) {
-            return;
-        }
+    const executeReset = () => {
+        setDangerRequest(null);
         resetAll(undefined, {
             onSuccess: () => {
                 clearBrowserSiteData();
@@ -225,25 +229,27 @@ export function MaintenancePanel() {
         );
     };
 
-    const runRestoreConfirm = (kind: 'local' | 'drive' | 'upload') => {
+    const restoreConfirmKey = (kind: 'local' | 'drive' | 'upload') => {
+        const fullRestore = (restoreScopes?.length ?? 0) > 0 && restoreScopes?.length === restoreUniverse.length;
+        return kind === 'local'
+            ? fullRestore
+                ? 'backup_confirm_restore_local'
+                : 'backup_confirm_restore_partial_local'
+            : kind === 'drive'
+              ? fullRestore
+                  ? 'backup_confirm_restore_drive'
+                  : 'backup_confirm_restore_partial_drive'
+              : fullRestore
+                ? 'backup_confirm_restore_upload'
+                : 'backup_confirm_restore_partial_upload';
+    };
+
+    const requestRestore = (kind: 'local' | 'drive' | 'upload') => {
         if (!restoreScopes?.length || !restoreUniverse.length) {
             alert(t('maintenance.backup_scope_none_error'));
-            return false;
+            return;
         }
-        const fullRestore = restoreScopes.length === restoreUniverse.length;
-        const confirmKey =
-            kind === 'local'
-                ? fullRestore
-                    ? 'backup_confirm_restore_local'
-                    : 'backup_confirm_restore_partial_local'
-                : kind === 'drive'
-                  ? fullRestore
-                      ? 'backup_confirm_restore_drive'
-                      : 'backup_confirm_restore_partial_drive'
-                  : fullRestore
-                    ? 'backup_confirm_restore_upload'
-                    : 'backup_confirm_restore_partial_upload';
-        return window.confirm(t(confirmKey));
+        setDangerRequest({ kind: 'restore', source: kind });
     };
 
     const handleRestoreLocalBackup = () => {
@@ -255,10 +261,11 @@ export function MaintenancePanel() {
             alert(t('maintenance.backup_restore_need_summary'));
             return;
         }
-        if (!runRestoreConfirm('local')) {
-            return;
-        }
+        requestRestore('local');
+    };
 
+    const executeRestoreLocalBackup = () => {
+        setDangerRequest(null);
         restoreLocalBackup(
             { filename: selectedLocalBackup, scopes: scopesToApiPayload(restoreScopes, restoreUniverse) },
             {
@@ -301,10 +308,11 @@ export function MaintenancePanel() {
             alert(t('maintenance.backup_restore_need_summary'));
             return;
         }
-        if (!runRestoreConfirm('drive')) {
-            return;
-        }
+        requestRestore('drive');
+    };
 
+    const executeRestoreDriveBackup = () => {
+        setDangerRequest(null);
         restoreDriveBackup(
             { fileId: selectedDriveBackupId, scopes: scopesToApiPayload(restoreScopes, restoreUniverse) },
             {
@@ -333,10 +341,12 @@ export function MaintenancePanel() {
             alert(t('maintenance.backup_restore_need_summary'));
             return;
         }
-        if (!runRestoreConfirm('upload')) {
-            return;
-        }
+        requestRestore('upload');
+    };
 
+    const executeRestoreUploadedBackup = () => {
+        setDangerRequest(null);
+        if (!uploadFile) return;
         restoreUploadedBackup(
             { file: uploadFile, scopes: scopesToApiPayload(restoreScopes, restoreUniverse) },
             {
@@ -415,6 +425,45 @@ export function MaintenancePanel() {
     const canRestore =
         restoreUniverse.length > 0 && (restoreScopes?.length ?? 0) > 0 && !uploadParseError;
 
+    const dangerDialog = (() => {
+        if (!dangerRequest) return null;
+        if (dangerRequest.kind === 'reload') {
+            return {
+                title: t('maintenance.reload_title'),
+                description: t('maintenance.confirm_reload'),
+                confirmLabel: t('maintenance.reload_button'),
+                onConfirm: executeReload,
+            };
+        }
+        if (dangerRequest.kind === 'factory-reset') {
+            return {
+                title: t('table.reset_all'),
+                description: t('maintenance.confirm_factory_reset'),
+                confirmLabel: t('common.reset_to_defaults'),
+                onConfirm: executeReset,
+            };
+        }
+        const source = dangerRequest.source;
+        const confirmLabelKey =
+            source === 'local'
+                ? 'maintenance.backup_restore_local_button'
+                : source === 'drive'
+                  ? 'maintenance.backup_restore_drive_button'
+                  : 'maintenance.backup_restore_upload_button';
+        const onConfirm =
+            source === 'local'
+                ? executeRestoreLocalBackup
+                : source === 'drive'
+                  ? executeRestoreDriveBackup
+                  : executeRestoreUploadedBackup;
+        return {
+            title: t('maintenance.backup_restore_section_title'),
+            description: t(restoreConfirmKey(source)),
+            confirmLabel: t(confirmLabelKey),
+            onConfirm,
+        };
+    })();
+
     return (
         <div className="space-y-6">
             <div>
@@ -465,8 +514,6 @@ export function MaintenancePanel() {
                             {isCreatingBackup ? t('common.loading') : t('maintenance.backup_create_drive_button')}
                         </button>
                     </div>
-
-                    <p className="text-sm font-bold text-blue-900">{t('maintenance.backup_restore_section_title')}</p>
 
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="bg-white rounded-xl border border-blue-100 p-4">
@@ -521,94 +568,91 @@ export function MaintenancePanel() {
                         />
                     </div>
 
-                    <div className="space-y-2">{summaryBlock}</div>
+                    <DangerZone
+                        title={t('maintenance.backup_restore_section_title')}
+                        description={t('maintenance.backup_restore_danger_hint')}
+                    >
+                        <div className="space-y-2">{summaryBlock}</div>
 
-                    {restoreUniverse.length > 0 ? (
-                        <BackupScopePicker
-                            scopeIds={restoreUniverse}
-                            selected={restoreScopes}
-                            onChange={setRestoreScopes}
-                            labelKey="maintenance.backup_scope_restore_label"
-                        />
-                    ) : null}
+                        {restoreUniverse.length > 0 ? (
+                            <BackupScopePicker
+                                scopeIds={restoreUniverse}
+                                selected={restoreScopes}
+                                onChange={setRestoreScopes}
+                                labelKey="maintenance.backup_scope_restore_label"
+                            />
+                        ) : null}
 
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            onClick={handleRestoreLocalBackup}
-                            disabled={
-                                isRestoringLocal ||
-                                !canRestore ||
-                                restoreFocus !== 'local' ||
-                                !selectedLocalBackup ||
-                                !localSummaryQuery.data
-                            }
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            {isRestoringLocal ? t('common.loading') : t('maintenance.backup_restore_local_button')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleRestoreDriveBackup}
-                            disabled={
-                                isRestoringDrive ||
-                                !canRestore ||
-                                restoreFocus !== 'drive' ||
-                                !selectedDriveBackupId ||
-                                !driveSummaryQuery.data
-                            }
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            {isRestoringDrive ? t('common.loading') : t('maintenance.backup_restore_drive_button')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleRestoreUploadedBackup}
-                            disabled={
-                                isRestoringUpload ||
-                                !canRestore ||
-                                restoreFocus !== 'upload' ||
-                                !uploadFile ||
-                                !uploadSnapshotSummary
-                            }
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            {isRestoringUpload ? t('common.loading') : t('maintenance.backup_restore_upload_button')}
-                        </button>
-                    </div>
+                        <div className="flex flex-wrap gap-2">
+                            <DangerButton
+                                onClick={handleRestoreLocalBackup}
+                                isPending={isRestoringLocal}
+                                disabled={
+                                    !canRestore ||
+                                    restoreFocus !== 'local' ||
+                                    !selectedLocalBackup ||
+                                    !localSummaryQuery.data
+                                }
+                            >
+                                {isRestoringLocal ? t('common.loading') : t('maintenance.backup_restore_local_button')}
+                            </DangerButton>
+                            <DangerButton
+                                onClick={handleRestoreDriveBackup}
+                                isPending={isRestoringDrive}
+                                disabled={
+                                    !canRestore ||
+                                    restoreFocus !== 'drive' ||
+                                    !selectedDriveBackupId ||
+                                    !driveSummaryQuery.data
+                                }
+                            >
+                                {isRestoringDrive ? t('common.loading') : t('maintenance.backup_restore_drive_button')}
+                            </DangerButton>
+                            <DangerButton
+                                onClick={handleRestoreUploadedBackup}
+                                isPending={isRestoringUpload}
+                                disabled={
+                                    !canRestore ||
+                                    restoreFocus !== 'upload' ||
+                                    !uploadFile ||
+                                    !uploadSnapshotSummary
+                                }
+                            >
+                                {isRestoringUpload ? t('common.loading') : t('maintenance.backup_restore_upload_button')}
+                            </DangerButton>
+                        </div>
+                    </DangerZone>
                 </div>
             </CollapsibleCard>
 
             {!fullBlockerEnabled && (
                 <CollapsibleCard title={t('maintenance.reload_title')} subtitle={t('maintenance.reload_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
-                    <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
-                        <button
-                            type="button"
-                            onClick={handleReload}
-                            disabled={isPending}
-                            className="px-6 py-2.5 bg-white text-amber-700 border border-amber-300 rounded-2xl text-sm font-bold hover:bg-amber-100 transition-all disabled:opacity-50"
-                        >
+                    <DangerZone>
+                        <DangerButton onClick={() => setDangerRequest({ kind: 'reload' })} isPending={isPending}>
                             {isPending ? t('common.loading') : t('maintenance.reload_button')}
-                        </button>
-                    </div>
+                        </DangerButton>
+                    </DangerZone>
                 </CollapsibleCard>
             )}
 
             {!fullBlockerEnabled && (
                 <CollapsibleCard title={t('table.reset_all')} subtitle={t('table.reset_all_desc')} defaultOpen bodyClassName="px-6 pb-6 pt-0">
-                    <div className="p-5 bg-red-50 rounded-2xl border border-red-100 space-y-4">
-                        <p className="text-sm text-red-900 leading-relaxed whitespace-pre-line">{t('maintenance.reset_factory_backup_hint')}</p>
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            disabled={isResetting}
-                            className="px-6 py-2.5 bg-white text-red-700 border border-red-300 rounded-2xl text-sm font-bold hover:bg-red-100 transition-all disabled:opacity-50"
-                        >
+                    <DangerZone description={t('maintenance.reset_factory_backup_hint')}>
+                        <DangerButton onClick={() => setDangerRequest({ kind: 'factory-reset' })} isPending={isResetting}>
                             {isResetting ? t('common.loading') : t('common.reset_to_defaults')}
-                        </button>
-                    </div>
+                        </DangerButton>
+                    </DangerZone>
                 </CollapsibleCard>
             )}
+
+            <ConfirmDangerDialog
+                open={dangerRequest !== null}
+                title={dangerDialog?.title ?? ''}
+                description={dangerDialog?.description ?? ''}
+                confirmLabel={dangerDialog?.confirmLabel ?? ''}
+                onConfirm={dangerDialog?.onConfirm ?? (() => {})}
+                onCancel={() => setDangerRequest(null)}
+            />
         </div>
     );
 }

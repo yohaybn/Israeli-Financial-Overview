@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { CategoryIcon } from '../utils/categoryIcons';
 import { CategoryMetaBoard } from './CategoryMetaBoard';
 import { CollapsibleCard } from './CollapsibleCard';
+import { ConfirmDangerDialog } from './ConfirmDangerDialog';
+import { DangerButton, DangerZone } from './DangerZone';
 import { useAISettings, useUpdateAISettings, useRecategorizeAll } from '../hooks/useScraper';
 
 interface CategorySettingsProps {
@@ -18,6 +20,7 @@ export function CategorySettings({ showAdvanced = true }: CategorySettingsProps)
     const [localSettings, setLocalSettings] = useState<any>(null);
     const [newCategory, setNewCategory] = useState('');
     const [forceRecat, setForceRecat] = useState(false);
+    const [confirmRecatOpen, setConfirmRecatOpen] = useState(false);
 
     useEffect(() => {
         if (settings) setLocalSettings(settings);
@@ -60,28 +63,27 @@ export function CategorySettings({ showAdvanced = true }: CategorySettingsProps)
         });
     };
 
-    const handleRecategorizeAll = () => {
-        if (window.confirm(t('ai_settings.recategorize_all_desc'))) {
-            recategorizeAll(forceRecat, {
-                onSuccess: (data) => {
-                    if (data.error) {
-                        if (
-                            forceRecat &&
-                            (data.error.includes('GEMINI_API_KEY') || data.error.includes('not configured'))
-                        ) {
-                            alert(t('ai_settings.recategorize_force_requires_ai'));
-                        } else {
-                            alert(t('ai_settings.recategorize_ai_failed', { error: data.error, count: data.count }));
-                        }
+    const runRecategorizeAll = () => {
+        setConfirmRecatOpen(false);
+        recategorizeAll(forceRecat, {
+            onSuccess: (data) => {
+                if (data.error) {
+                    if (
+                        forceRecat &&
+                        (data.error.includes('GEMINI_API_KEY') || data.error.includes('not configured'))
+                    ) {
+                        alert(t('ai_settings.recategorize_force_requires_ai'));
                     } else {
-                        alert(t('ai_settings.recategorize_success', { count: data.count }));
+                        alert(t('ai_settings.recategorize_ai_failed', { error: data.error, count: data.count }));
                     }
-                },
-                onError: (err: any) => {
-                    alert(t('common.error_with_message', { error: err.message || t('common.unknown_error') }));
-                },
-            });
-        }
+                } else {
+                    alert(t('ai_settings.recategorize_success', { count: data.count }));
+                }
+            },
+            onError: (err: any) => {
+                alert(t('common.error_with_message', { error: err.message || t('common.unknown_error') }));
+            },
+        });
     };
 
     return (
@@ -189,7 +191,7 @@ export function CategorySettings({ showAdvanced = true }: CategorySettingsProps)
                 defaultOpen
                 bodyClassName="px-6 pb-6 pt-0"
             >
-                <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100 space-y-4">
+                <DangerZone>
                     {showAdvanced && (
                         <label className="flex items-center gap-3 cursor-pointer group">
                             <div className="relative">
@@ -200,40 +202,38 @@ export function CategorySettings({ showAdvanced = true }: CategorySettingsProps)
                                     className="sr-only"
                                 />
                                 <div
-                                    className={`w-10 h-6 rounded-full transition-colors ${forceRecat ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                                    className={`w-10 h-6 rounded-full transition-colors ${forceRecat ? 'bg-red-600' : 'bg-gray-300'}`}
                                 />
                                 <div
                                     className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${forceRecat ? 'translate-x-4' : 'translate-x-0'}`}
                                 />
                             </div>
-                            <span className="text-sm font-medium text-indigo-900">{t('ai_settings.force_recategorize')}</span>
+                            <span className="text-sm font-medium text-red-900">{t('ai_settings.force_recategorize')}</span>
                         </label>
                     )}
 
-                    <button
-                        type="button"
-                        onClick={handleRecategorizeAll}
-                        disabled={isRecategorizing}
-                        className="w-full py-3 bg-white text-indigo-600 border-2 border-indigo-200 hover:border-indigo-600 rounded-xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                    <DangerButton
+                        fullWidth
+                        isPending={isRecategorizing}
+                        onClick={() => setConfirmRecatOpen(true)}
                     >
-                        {isRecategorizing ? (
-                            <>
-                                <svg className="animate-spin h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path
-                                        className="opacity-75"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    />
-                                </svg>
-                                {t('explorer.categorizing')}
-                            </>
-                        ) : (
-                            t('ai_settings.recategorize_button')
-                        )}
-                    </button>
-                </div>
+                        {isRecategorizing ? t('explorer.categorizing') : t('ai_settings.recategorize_button')}
+                    </DangerButton>
+                </DangerZone>
             </CollapsibleCard>
+
+            <ConfirmDangerDialog
+                open={confirmRecatOpen}
+                title={t('ai_settings.recategorize_all')}
+                description={
+                    forceRecat
+                        ? t('ai_settings.recategorize_confirm_force_desc')
+                        : t('ai_settings.recategorize_confirm_desc')
+                }
+                confirmLabel={t('ai_settings.recategorize_button')}
+                onConfirm={runRecategorizeAll}
+                onCancel={() => setConfirmRecatOpen(false)}
+            />
         </div>
     );
 }
