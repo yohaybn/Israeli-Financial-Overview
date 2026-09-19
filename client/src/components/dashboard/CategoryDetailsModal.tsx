@@ -6,6 +6,7 @@ import { isInternalTransfer } from '../../utils/transactionUtils';
 import { getCategoryLucideIcon } from '../../utils/categoryIcons';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine, CartesianGrid } from 'recharts';
 import { format, subMonths, parseISO } from 'date-fns';
+import { enUS, he } from 'date-fns/locale';
 import { Modal } from '../Modal';
 
 interface CategoryDetailsModalProps {
@@ -28,6 +29,7 @@ export function CategoryDetailsModal({
     onClose
 }: CategoryDetailsModalProps) {
     const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === 'he' ? he : enUS;
     const HeaderCategoryIcon = getCategoryLucideIcon(categoryName);
     const [selectedMonth, setSelectedMonth] = useState(initialMonth);
     const [monthsToShow, setMonthsToShow] = useState(7);
@@ -160,7 +162,7 @@ export function CategoryDetailsModal({
                         >
                             {availableMonths.map(m => (
                                 <option key={m} value={m}>
-                                    {format(parseISO(`${m}-01`), 'MMMM yyyy')}
+                                    {format(parseISO(`${m}-01`), 'MMMM yyyy', { locale: dateLocale })}
                                 </option>
                             ))}
                         </select>
@@ -221,7 +223,7 @@ export function CategoryDetailsModal({
                                         labelFormatter={(m) => {
                                             try {
                                                 const date = parseISO(`${m}-01`);
-                                                return format(date, 'MMMM yyyy');
+                                                return format(date, 'MMMM yyyy', { locale: dateLocale });
                                             } catch (e) {
                                                 return m;
                                             }
@@ -256,7 +258,7 @@ export function CategoryDetailsModal({
                     {/* Bottom: Transaction Detail Table */}
                     <div className="p-6 bg-gray-50/30 flex-1">
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-2">
-                            {t('dashboard.transactions_for', { label: format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy') })}
+                            {t('dashboard.transactions_for', { label: format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy', { locale: dateLocale }) })}
                         </h4>
                         {currentMonthTxns.length > 0 ? (
                             <TransactionTable

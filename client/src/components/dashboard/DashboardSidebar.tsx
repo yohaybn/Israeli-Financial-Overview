@@ -5,6 +5,7 @@ import { Transaction } from '@app/shared';
 import { TransactionModal } from '../TransactionModal';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
+import { enUS, he } from 'date-fns/locale';
 import { CategoryIcon } from '../../utils/categoryIcons';
 import { transactionMatchesSearchQuery } from '../../utils/transactionSearch';
 
@@ -14,6 +15,7 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
     const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === 'he' ? he : enUS;
     const { data: transactions = [], isLoading } = useUnifiedData();
     const [search, setSearch] = useState('');
     const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
@@ -90,7 +92,7 @@ export function DashboardSidebar({ selectedMonth }: DashboardSidebarProps) {
                         {Object.entries(groupedTransactions).map(([date, txns]) => (
                             <div key={date} className="space-y-2">
                                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter px-1">
-                                    {format(new Date(date), 'MMM dd, yyyy')}
+                                    {format(new Date(date), 'MMM dd, yyyy', { locale: dateLocale })}
                                 </h4>
                                 <div className="space-y-1.5">
                                     {txns.map(txn => (
