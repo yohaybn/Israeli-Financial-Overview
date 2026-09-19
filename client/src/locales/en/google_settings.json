@@ -30,6 +30,12 @@
         "test": "Test",
         "testing": "Testing...",
         "test_success": "Google Drive connection successful",
-        "test_failed": "Connection test failed"
+        "test_failed": "Connection test failed",
+        "status_connected": "Connected to Google Drive",
+        "status_not_connected": "Not connected",
+        "status_not_connected_desc": "Enter your Google Cloud credentials below, then test the connection.",
+        "status_checking": "Checking connection…",
+        "status_failed": "Connection failed",
+        "status_failed_desc": "The saved credentials could not connect. Re-check the credentials and test again."
     }
 }

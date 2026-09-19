@@ -154,6 +154,12 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
 
     const onSave = () => saveMutation.mutate(form);
 
+    /**
+     * Connection-first: before MQTT is set up (never enabled), show only the
+     * fields needed to reach a broker. Once enabled, the full settings unfold.
+     */
+    const isSetUp = Boolean(config?.enabled);
+
     if (isLoading && !config) {
         return (
             <div className="p-6 text-sm text-gray-500">{t('common.loading')}</div>
@@ -206,43 +212,47 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
             </div>
 
             <div className="grid gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <label className="flex items-center gap-2">
-                    <input
-                        type="checkbox"
-                        checked={!!form.enableHaDiscovery}
-                        onChange={(e) => updateField('enableHaDiscovery', e.target.checked)}
-                        className="rounded border-gray-300"
-                    />
-                    <span className="text-sm font-semibold text-gray-800">{t('mqtt.enable_ha_discovery')}</span>
-                </label>
-                {form.enableHaDiscovery && !form.commandSecret?.trim() && (
-                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('mqtt.ha_discovery_secret_warning')}</p>
-                )}
+                {isSetUp && (
+                    <>
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={!!form.enableHaDiscovery}
+                                onChange={(e) => updateField('enableHaDiscovery', e.target.checked)}
+                                className="rounded border-gray-300"
+                            />
+                            <span className="text-sm font-semibold text-gray-800">{t('mqtt.enable_ha_discovery')}</span>
+                        </label>
+                        {form.enableHaDiscovery && !form.commandSecret?.trim() && (
+                            <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('mqtt.ha_discovery_secret_warning')}</p>
+                        )}
 
-                <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
-                        <span className="text-xs font-bold text-gray-600">{t('mqtt.device_id')}</span>
-                        <input
-                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
-                            value={form.deviceId || ''}
-                            onChange={(e) => updateField('deviceId', e.target.value)}
-                        />
-                    </label>
-                    <label className="block">
-                        <span className="text-xs font-bold text-gray-600">{t('mqtt.state_topic_prefix')}</span>
-                        <input
-                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
-                            value={form.stateTopicPrefix || ''}
-                            onChange={(e) => updateField('stateTopicPrefix', e.target.value)}
-                        />
-                    </label>
-                </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <label className="block">
+                                <span className="text-xs font-bold text-gray-600">{t('mqtt.device_id')}</span>
+                                <input
+                                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                                    value={form.deviceId || ''}
+                                    onChange={(e) => updateField('deviceId', e.target.value)}
+                                />
+                            </label>
+                            <label className="block">
+                                <span className="text-xs font-bold text-gray-600">{t('mqtt.state_topic_prefix')}</span>
+                                <input
+                                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                                    value={form.stateTopicPrefix || ''}
+                                    onChange={(e) => updateField('stateTopicPrefix', e.target.value)}
+                                />
+                            </label>
+                        </div>
 
-                {haPresets?.exampleScrapePayload && (
-                    <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
-                        <div className="text-xs font-bold text-gray-500 mb-1">{t('mqtt.example_scrape_payload')}</div>
-                        <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap break-all">{haPresets.exampleScrapePayload}</pre>
-                    </div>
+                        {haPresets?.exampleScrapePayload && (
+                            <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
+                                <div className="text-xs font-bold text-gray-500 mb-1">{t('mqtt.example_scrape_payload')}</div>
+                                <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap break-all">{haPresets.exampleScrapePayload}</pre>
+                            </div>
+                        )}
+                    </>
                 )}
 
                 <label className="flex items-center gap-2">
@@ -289,17 +299,20 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     </label>
                 </div>
 
-                <label className="block">
-                    <span className="text-xs font-bold text-gray-600">{t('mqtt.notify_topic')}</span>
-                    <input
-                        className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
-                        placeholder={MQTT_FORM_DEFAULTS.topic}
-                        value={form.topic || ''}
-                        onChange={(e) => updateField('topic', e.target.value)}
-                    />
-                    <p className="mt-1 text-xs text-gray-500">{t('mqtt.notify_topic_hint')}</p>
-                </label>
+                {isSetUp && (
+                    <label className="block">
+                        <span className="text-xs font-bold text-gray-600">{t('mqtt.notify_topic')}</span>
+                        <input
+                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                            placeholder={MQTT_FORM_DEFAULTS.topic}
+                            value={form.topic || ''}
+                            onChange={(e) => updateField('topic', e.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-gray-500">{t('mqtt.notify_topic_hint')}</p>
+                    </label>
+                )}
 
+                {isSetUp && (
                 <div className="border-t border-gray-100 pt-3 space-y-3">
                     <div className="text-xs font-bold text-gray-500 uppercase">{t('mqtt.commands_section')}</div>
                     <label className="block">
@@ -335,6 +348,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                         <p className="mt-1 text-xs text-gray-500">{t('mqtt.command_secret_hint')}</p>
                     </label>
                 </div>
+                )}
 
                 <label className="block">
                     <span className="text-xs font-bold text-gray-600">{t('mqtt.client_id')}</span>
@@ -378,6 +392,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     <span className="text-sm text-gray-700">{t('mqtt.reject_unauthorized')}</span>
                 </label>
 
+                {isSetUp && (
                 <div className="border-t border-gray-100 pt-3 space-y-2">
                     <div className="text-xs font-bold text-gray-500 uppercase">{t('mqtt.lwt_section')}</div>
                     <label className="block">
@@ -399,6 +414,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                         />
                     </label>
                 </div>
+                )}
 
                 <div className="flex flex-wrap gap-2 pt-2">
                     <button
@@ -409,6 +425,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     >
                         {t('common.save')}
                     </button>
+                    {isSetUp && (
                     <button
                         type="button"
                         onClick={() => testMutation.mutate()}
@@ -418,6 +435,7 @@ export function MqttSettings({ isInline }: MqttSettingsProps) {
                     >
                         {t('mqtt.test_publish')}
                     </button>
+                    )}
                 </div>
             </div>
         </div>

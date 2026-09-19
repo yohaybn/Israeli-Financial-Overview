@@ -30,6 +30,12 @@
         "test": "בדיקת חיבור",
         "testing": "בודק...",
         "test_success": "החיבור ל-Google Drive עובד מעולה!",
-        "test_failed": "בדיקת החיבור נכשלה"
+        "test_failed": "בדיקת החיבור נכשלה",
+        "status_connected": "מחובר ל-Google Drive",
+        "status_not_connected": "לא מחובר",
+        "status_not_connected_desc": "הזינו את פרטי Google Cloud למטה ואז בדקו את החיבור.",
+        "status_checking": "בודק חיבור…",
+        "status_failed": "החיבור נכשל",
+        "status_failed_desc": "הפרטים השמורים לא הצליחו להתחבר. בדקו את הפרטים ונסו שוב."
     }
 }
