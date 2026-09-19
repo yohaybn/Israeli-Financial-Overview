@@ -8,6 +8,12 @@
         "show_advanced": "Show advanced",
         "hide_advanced": "Hide advanced",
         "show_extra_sections": "Show more settings",
-        "hide_extra_sections": "Hide more settings"
+        "hide_extra_sections": "Hide more settings",
+        "groups": {
+            "ai_categorization": "AI & categorization",
+            "automation_reports": "Automation & reports",
+            "connections": "Connections",
+            "data_maintenance": "Data & maintenance"
+        }
     }
 }
