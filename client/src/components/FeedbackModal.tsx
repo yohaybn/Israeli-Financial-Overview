@@ -9,6 +9,7 @@ import {
     getFeedbackFormBaseUrl,
 } from '../utils/feedbackForm';
 import { getInstallationKindLabel } from '../utils/installationKind';
+import { Modal } from './Modal';
 
 interface FeedbackModalProps {
     isOpen: boolean;
@@ -83,16 +84,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     const versionLabel = getAppBuildVersion();
 
     return (
-        <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="feedback-modal-title"
-            onClick={(e) => {
-                if (e.target === e.currentTarget) handleClose();
-            }}
-        >
-            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-200">
+        <Modal onClose={handleClose} labelledBy="feedback-modal-title" zIndex={100} overlayClassName="p-4 bg-black/40" panelClassName="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-200">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <h2 id="feedback-modal-title" className="text-lg font-semibold text-gray-900">
                         {t('feedback.modal_title')}
@@ -106,10 +98,8 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-
                 <div className="px-4 py-4 space-y-4 text-sm text-gray-700">
                     <p className="text-gray-600">{t('feedback.modal_intro')}</p>
-
                     <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 space-y-1">
                         <div className="flex justify-between gap-2">
                             <span className="text-gray-500">{t('feedback.installation_label')}</span>
@@ -120,7 +110,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                             <span className="font-medium text-gray-800 text-end break-all">{versionLabel}</span>
                         </div>
                     </div>
-
                     {demo ? (
                         <p className="text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                             {t('feedback.demo_no_logs')}
@@ -148,11 +137,9 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                             </label>
                         </>
                     )}
-
                     {error ? (
                         <p className="text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
                     ) : null}
-
                     {copyText ? (
                         <div className="space-y-2">
                             <p className="text-xs text-gray-600">{t('feedback.copy_hint')}</p>
@@ -171,7 +158,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                             </button>
                         </div>
                     ) : null}
-
                     <div className="flex flex-wrap gap-2 pt-2">
                         <button
                             type="button"
@@ -191,7 +177,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

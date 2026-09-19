@@ -6,6 +6,7 @@ import { useImportPreview, useImportCommit, useImportProfilesList, fetchImportPr
 import { useUnifiedData } from '../hooks/useUnifiedData';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { PENDING_TABULAR_IMPORT_PROFILE_JSON_KEY } from '../utils/pendingTabularImportProfile';
+import { Modal } from './Modal';
 
 interface ImportModalProps {
     isOpen?: boolean;
@@ -977,13 +978,8 @@ export function ImportModal({ isOpen = true, onClose, onSuccess, onOpenImportPro
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div
-                className={`relative bg-white shadow-2xl w-full ${aiReview ? 'max-w-5xl' : 'max-w-xl'} max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-gray-200/80`}
-                dir={i18n.dir()}
-            >
+        <Modal onClose={onClose} zIndex={50} overlayClassName="p-4 bg-black/50 backdrop-blur-sm" panelClassName={`relative bg-white shadow-2xl w-full ${aiReview ? 'max-w-5xl' : 'max-w-xl'} max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-gray-200/80`}>
                 {panelInner}
-            </div>
-        </div>
+        </Modal>
     );
 }

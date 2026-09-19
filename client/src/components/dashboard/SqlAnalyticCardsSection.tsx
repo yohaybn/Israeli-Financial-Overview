@@ -27,6 +27,7 @@ import {
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { api } from '../../lib/api';
 import { ANALYTICS_CHART_TOOLTIP_STYLE } from './UserCustomChartsSection';
+import { Modal } from '../Modal';
 
 const PIE_COLORS = [
     '#6366f1',
@@ -396,19 +397,16 @@ export function SqlAnalyticCardAiModal({ initial, onClose, onSave, atLimit }: Sq
     const pieMultiSeries = Boolean(displayCard && displayCard.valueColumns.length > 1 && displayCard.chartKind === 'pie');
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal>
-            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">
+        <Modal labelledBy="sqlanalyticcardssection-title" onClose={onClose} zIndex={50} overlayClassName="p-4 bg-black/40" panelClassName="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+                <h2 id="sqlanalyticcardssection-title" className="text-lg font-bold text-gray-900 mb-1">
                     {isEdit ? t('dashboard.sql_cards_edit_title') : t('dashboard.sql_cards_add_title')}
                 </h2>
                 <p className="text-xs text-gray-500 mb-4">{t('dashboard.sql_cards_modal_hint')}</p>
-
                 {!isEdit && atLimit ? (
                     <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
                         {t('dashboard.sql_cards_limit', { max: MAX_SQL_ANALYTIC_CARDS })}
                     </p>
                 ) : null}
-
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
                         <label className="block text-xs font-semibold text-indigo-900">
@@ -432,7 +430,6 @@ export function SqlAnalyticCardAiModal({ initial, onClose, onSave, atLimit }: Sq
                                 : t('dashboard.sql_cards_generate')}
                         </button>
                     </div>
-
                     {displayCard ? (
                         <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/80 p-3">
                             <div>
@@ -441,7 +438,6 @@ export function SqlAnalyticCardAiModal({ initial, onClose, onSave, atLimit }: Sq
                                     <p className="text-xs text-gray-500 mt-0.5">{displayCard.description}</p>
                                 ) : null}
                             </div>
-
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                                     {t('dashboard.sql_cards_chart_type_label')}
@@ -475,7 +471,6 @@ export function SqlAnalyticCardAiModal({ initial, onClose, onSave, atLimit }: Sq
                                     </p>
                                 ) : null}
                             </div>
-
                             <div className="rounded-lg border border-white bg-white p-2 shadow-inner min-h-[260px]">
                                 <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
                                     {t('dashboard.sql_cards_preview_title')}
@@ -499,7 +494,6 @@ export function SqlAnalyticCardAiModal({ initial, onClose, onSave, atLimit }: Sq
                                     formatValue={formatValue}
                                 />
                             </div>
-
                             <details className="text-xs">
                                 <summary className="cursor-pointer text-violet-700 font-medium">
                                     {t('dashboard.sql_cards_view_sql')}
@@ -510,7 +504,6 @@ export function SqlAnalyticCardAiModal({ initial, onClose, onSave, atLimit }: Sq
                             </details>
                         </div>
                     ) : null}
-
                     <div className="flex justify-end gap-2 pt-2">
                         <button
                             type="button"
@@ -528,8 +521,7 @@ export function SqlAnalyticCardAiModal({ initial, onClose, onSave, atLimit }: Sq
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 }
 

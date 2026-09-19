@@ -7,6 +7,7 @@ import { TransactionTable } from '../TransactionTable';
 import { VariableForecastModal } from './VariableForecastModal';
 import { CategoryIcon } from '../../utils/categoryIcons';
 import { DashboardCardHeader, dashboardCardShellClass } from './DashboardCardChrome';
+import { Modal } from '../Modal';
 
 interface ExpenseProgressCenterProps {
     alreadySpent: number;
@@ -244,11 +245,10 @@ export function ExpenseProgressCenter({
             </div>
             {selectedKpi &&
                 createPortal(
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" onClick={() => setSelectedKpi(null)}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <Modal labelledBy="expenseprogresscenter-title" onClose={() => setSelectedKpi(null)} zIndex={50} overlayClassName="p-4 sm:p-6 bg-gray-900/50 backdrop-blur-sm" panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
                             <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                                    <h3 id="expenseprogresscenter-title" className="text-xl font-bold text-gray-900 flex items-center gap-3">
                                         <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -277,8 +277,7 @@ export function ExpenseProgressCenter({
                                     <div className="text-center text-gray-400 py-10">{t('dashboard.no_transactions')}</div>
                                 )}
                             </div>
-                        </div>
-                    </div>,
+                    </Modal>,
                     document.body
                 )}
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useGoogleSettings, useUpdateGoogleSettings } from '../hooks/useScraper';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiRoot, getGoogleOAuthCallbackUrl } from '../lib/api';
+import { Modal } from './Modal';
 
 interface GoogleSettingsProps {
     isOpen?: boolean;
@@ -436,9 +437,9 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] backdrop-blur-sm animate-in fade-in duration-200">
+        <Modal onClose={onClose} zIndex={100} overlayClassName="bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             {notificationToast}
             {content}
-        </div>
+        </Modal>
     );
 }

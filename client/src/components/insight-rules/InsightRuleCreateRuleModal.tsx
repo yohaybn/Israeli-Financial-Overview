@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { InsightRuleForm } from './InsightRuleForm';
 import type { InsightRuleFormCreateSeed } from './insightRuleFormTypes';
+import { Modal } from '../Modal';
 
 export function InsightRuleCreateRuleModal({
     open,
@@ -23,13 +24,7 @@ export function InsightRuleCreateRuleModal({
     if (!open) return null;
 
     return (
-        <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="insight-rule-create-modal-title"
-        >
-            <div className="max-h-[92vh] w-full max-w-3xl flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+        <Modal labelledBy="insight-rule-create-modal-title" onClose={onClose} zIndex={80} overlayClassName="bg-black/40 p-4" panelClassName="max-h-[92vh] w-full max-w-3xl flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                 <div className="flex shrink-0 items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
                     <div>
                         <h2 id="insight-rule-create-modal-title" className="text-lg font-semibold text-gray-900">
@@ -58,7 +53,6 @@ export function InsightRuleCreateRuleModal({
                         onInvalidate={onInvalidate}
                     />
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

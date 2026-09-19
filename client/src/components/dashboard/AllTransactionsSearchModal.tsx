@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Transaction } from '@app/shared';
 import { TransactionTable } from '../TransactionTable';
+import { Modal } from '../Modal';
 
 interface AllTransactionsSearchModalProps {
     transactions: Transaction[];
@@ -18,18 +19,7 @@ export function AllTransactionsSearchModal({
     const { t } = useTranslation();
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm"
-            onClick={onClose}
-            role="presentation"
-        >
-            <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="all-txns-search-title"
-            >
+        <Modal labelledBy="all-txns-search-title" onClose={onClose} zIndex={50} overlayClassName="p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm" panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50 shrink-0">
                     <div>
                         <h3 id="all-txns-search-title" className="text-xl font-bold text-gray-900">
@@ -50,7 +40,6 @@ export function AllTransactionsSearchModal({
                         </svg>
                     </button>
                 </div>
-
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30 min-h-0">
                     {transactions.length > 0 ? (
                         <TransactionTable
@@ -64,7 +53,6 @@ export function AllTransactionsSearchModal({
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }
