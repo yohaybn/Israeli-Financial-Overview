@@ -177,7 +177,7 @@ export function CategoryDetailsModal({
                         <div className="flex flex-col gap-4">
                             <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
                                 <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">
-                                    {t('dashboard.spending_for')} {format(parseISO(`${selectedMonth}-01`), 'MM/yy')}
+                                    {t('dashboard.spending_for', { label: format(parseISO(`${selectedMonth}-01`), 'MM/yy') })}
                                 </p>
                                 <p className="text-3xl font-black text-indigo-700">{formatCurrency(spentSoFar)}</p>
                             </div>
@@ -256,7 +256,7 @@ export function CategoryDetailsModal({
                     {/* Bottom: Transaction Detail Table */}
                     <div className="p-6 bg-gray-50/30 flex-1">
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-2">
-                            {t('dashboard.transactions_for')} {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}
+                            {t('dashboard.transactions_for', { label: format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy') })}
                         </h4>
                         {currentMonthTxns.length > 0 ? (
                             <TransactionTable
