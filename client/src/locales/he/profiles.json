@@ -16,6 +16,7 @@
         "password_unchanged_placeholder": "השאירו ריק כדי לשמור על הערך השמור",
         "options_section": "הגדרות סריקה",
         "edit_load_failed": "לא ניתן לטעון את הפרופיל.",
-        "update_failed": "עדכון הפרופיל נכשל: {{error}}"
+        "update_failed": "עדכון הפרופיל נכשל: {{error}}",
+        "delete_profile_title": "מחיקת פרופיל"
     }
 }

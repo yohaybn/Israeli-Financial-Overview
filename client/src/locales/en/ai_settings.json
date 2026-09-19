@@ -188,6 +188,8 @@
                     "detailed_analysis": "Detailed analysis"
                 }
             }
-        }
+        },
+        "recategorize_confirm_desc": "Run AI categorization on transactions currently in the default category? User-locked descriptions stay as they are.",
+        "recategorize_confirm_force_desc": "Force recategorization re-categorizes every non-locked description and overwrites existing categories where the model picks a specific label. This cannot be undone."
     }
 }

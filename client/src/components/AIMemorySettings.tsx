@@ -6,6 +6,8 @@ import { useAISettings, useUpdateAISettings } from '../hooks/useScraper';
 
 import { AI_TOP_INSIGHTS_QUERY_KEY } from './dashboard/TopInsightsCard';
 import { CollapsibleCard } from './CollapsibleCard';
+import { ConfirmDangerDialog } from './ConfirmDangerDialog';
+import { DangerButton } from './DangerZone';
 
 type AiFact = { id: string; text: string; createdAt: string; updatedAt: string };
 type AiInsight = { id: string; text: string; score: number; createdAt: string };
@@ -29,6 +31,9 @@ export function AIMemorySettings({
     const skipEditBlurSave = useRef(false);
     const [draftInsightDays, setDraftInsightDays] = useState('');
     const [draftAlertDays, setDraftAlertDays] = useState('');
+
+    /** Memory section whose clear-all is waiting on dialog confirmation. */
+    const [clearSection, setClearSection] = useState<'facts' | 'insights' | 'alerts' | null>(null);
 
     useEffect(() => {
         if (!aiSettings) return;
@@ -136,6 +141,19 @@ export function AIMemorySettings({
         },
     });
 
+    const clearSectionConfig = {
+        facts: { headingKey: 'ai_memory.facts_heading', clear: clearFacts },
+        insights: { headingKey: 'ai_memory.insights_heading', clear: clearInsights },
+        alerts: { headingKey: 'ai_memory.alerts_heading', clear: clearAlerts },
+    } as const;
+    const activeClear = clearSection ? clearSectionConfig[clearSection] : null;
+
+    const confirmClearSection = () => {
+        if (!activeClear) return;
+        activeClear.clear.mutate();
+        setClearSection(null);
+    };
+
     const persistRetention = (insightDays: number, alertDays: number) => {
         if (!aiSettings) return;
         updateAISettings(
@@ -231,18 +249,14 @@ export function AIMemorySettings({
                 bodyClassName="px-6 pb-6 pt-0"
             >
                 <div className="flex justify-end mb-3">
-                    <button
-                        type="button"
-                        disabled={loadingFacts || !facts?.length || clearFacts.isPending}
-                        onClick={() => {
-                            if (window.confirm(t('ai_memory.clear_all_confirm', { section: t('ai_memory.facts_heading') }))) {
-                                clearFacts.mutate();
-                            }
-                        }}
-                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-40"
+                    <DangerButton
+                        size="sm"
+                        disabled={loadingFacts || !facts?.length}
+                        isPending={clearFacts.isPending}
+                        onClick={() => setClearSection('facts')}
                     >
                         {t('ai_memory.clear_all')}
-                    </button>
+                    </DangerButton>
                 </div>
 
                 <div className="flex gap-2 mb-4">
@@ -343,18 +357,14 @@ export function AIMemorySettings({
                 bodyClassName="px-6 pb-6 pt-0"
             >
                 <div className="flex justify-end mb-3">
-                    <button
-                        type="button"
-                        disabled={loadingInsights || !insights?.length || clearInsights.isPending}
-                        onClick={() => {
-                            if (window.confirm(t('ai_memory.clear_all_confirm', { section: t('ai_memory.insights_heading') }))) {
-                                clearInsights.mutate();
-                            }
-                        }}
-                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-40"
+                    <DangerButton
+                        size="sm"
+                        disabled={loadingInsights || !insights?.length}
+                        isPending={clearInsights.isPending}
+                        onClick={() => setClearSection('insights')}
                     >
                         {t('ai_memory.clear_all')}
-                    </button>
+                    </DangerButton>
                 </div>
 
                 {loadingInsights ? (
@@ -403,18 +413,14 @@ export function AIMemorySettings({
                 bodyClassName="px-6 pb-6 pt-0"
             >
                 <div className="flex justify-end mb-3">
-                    <button
-                        type="button"
-                        disabled={loadingAlerts || !alerts?.length || clearAlerts.isPending}
-                        onClick={() => {
-                            if (window.confirm(t('ai_memory.clear_all_confirm', { section: t('ai_memory.alerts_heading') }))) {
-                                clearAlerts.mutate();
-                            }
-                        }}
-                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-40"
+                    <DangerButton
+                        size="sm"
+                        disabled={loadingAlerts || !alerts?.length}
+                        isPending={clearAlerts.isPending}
+                        onClick={() => setClearSection('alerts')}
                     >
                         {t('ai_memory.clear_all')}
-                    </button>
+                    </DangerButton>
                 </div>
 
                 {loadingAlerts ? (
@@ -453,6 +459,19 @@ export function AIMemorySettings({
                     <p className="text-sm text-gray-400 italic">{t('ai_memory.no_alerts_memory')}</p>
                 )}
             </CollapsibleCard>
+
+            <ConfirmDangerDialog
+                open={clearSection !== null}
+                title={t('ai_memory.clear_all')}
+                description={
+                    activeClear
+                        ? t('ai_memory.clear_all_confirm', { section: t(activeClear.headingKey) })
+                        : ''
+                }
+                confirmLabel={t('ai_memory.clear_all')}
+                onConfirm={confirmClearSection}
+                onCancel={() => setClearSection(null)}
+            />
         </div>
     );
 }

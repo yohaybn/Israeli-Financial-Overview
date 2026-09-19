@@ -28,7 +28,6 @@
         "reload_success": "Database reloaded successfully!",
         "reset_success": "All changes have been reset to defaults",
         "reset_factory_backup_hint": "Create a backup first (use “Create Local Backup” or “Backup to Google Drive” above). Download or store it outside this app if you need it later.\n\nContinuing will permanently delete everything in the data folder on the server and then clear cookies and site data in this browser.",
-        "confirm_reset_factory_step1": "Have you created a backup if you need one? Click OK to continue to the final confirmation.",
         "confirm_factory_reset": "This permanently deletes ALL data in the server data folder: transactions, scrape results, bank profiles, AI memory and rules, app lock, OAuth and API settings, Telegram/Google config, local backup files, and logs. This browser tab will clear site storage and reload. This cannot be undone. Continue?",
         "reset_factory_success": "Server data was wiped and this site’s storage was cleared. Reloading the page…",
         "reload_failed": "Reload failed: {{error}}",
@@ -87,6 +86,7 @@
         "backup_restore_need_summary": "Load a backup first (see above).",
         "backup_select_upload_first": "Choose a backup file first.",
         "backup_restore_section_title": "Restore from backup",
-        "backup_restore_upload_button": "Restore from uploaded file"
+        "backup_restore_upload_button": "Restore from uploaded file",
+        "backup_restore_danger_hint": "Restoring overwrites current data with the backup contents. Create a fresh backup first if you might need the current state."
     }
 }

@@ -5,6 +5,7 @@ import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { Profile, ScraperOptions } from '@app/shared';
 import { Landmark, CreditCard, Smartphone, Tag, Plus, Trash2, ShieldCheck, Pencil } from 'lucide-react';
 import { EditProfileModal } from './EditProfileModal';
+import { ConfirmDangerDialog } from './ConfirmDangerDialog';
 
 interface ProfileManagerProps {
     currentCompanyId: string;
@@ -72,6 +73,7 @@ export function ProfileManager({
     const [newProfileName, setNewProfileName] = useState('');
     const [showSaveInput, setShowSaveInput] = useState(false);
     const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     const getProviderName = (companyId: string): string =>
         getProviderDisplayName(companyId, providers, i18n.language);
@@ -104,14 +106,18 @@ export function ProfileManager({
 
     const handleDeleteProfile = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm(t('profiles.confirm_delete'))) {
-            deleteProfile(id, {
-                onError: (err: any) => {
-                    const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
-                    alert(t('profiles.delete_failed', { error: errorMsg }));
-                }
-            });
-        }
+        setDeleteTargetId(id);
+    };
+
+    const confirmDeleteProfile = () => {
+        if (!deleteTargetId) return;
+        deleteProfile(deleteTargetId, {
+            onError: (err: any) => {
+                const errorMsg = err?.response?.data?.error || err.message || t('common.unknown_error');
+                alert(t('profiles.delete_failed', { error: errorMsg }));
+            }
+        });
+        setDeleteTargetId(null);
     };
 
     const handleEditProfile = (id: string, e: React.MouseEvent) => {
@@ -132,6 +138,15 @@ export function ProfileManager({
                     restricted={restrictNewProfile}
                 />
             )}
+            <ConfirmDangerDialog
+                open={deleteTargetId !== null}
+                title={t('profiles.delete_profile_title')}
+                description={t('profiles.confirm_delete')}
+                confirmLabel={t('common.delete')}
+                isPending={isDeleting}
+                onConfirm={confirmDeleteProfile}
+                onCancel={() => setDeleteTargetId(null)}
+            />
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-700">{t('profiles.title')}</h3>
                 <div className="flex gap-2">
