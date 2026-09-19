@@ -94,6 +94,7 @@
         "profile_placeholder_aria": "Profile",
         "main_navigation_aria": "Main navigation",
         "error_occurred": "An error occurred. Please try again.",
-        "unsaved_config_confirm": "You have unsaved configuration changes. Are you sure you want to leave?"
+        "unsaved_config_confirm": "You have unsaved configuration changes. Are you sure you want to leave?",
+        "demo_banner_short": "Demo mode: sample data only"
     }
 }

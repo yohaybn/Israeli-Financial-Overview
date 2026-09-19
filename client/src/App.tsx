@@ -31,6 +31,7 @@ import { useSocket } from './hooks/useSocket';
 import { useUnifiedData } from './hooks/useUnifiedData';
 import { SchedulerSettingsProvider } from './components/SchedulerSettings';
 import { AppLockBanner } from './components/AppLockBanner';
+import { DemoBanner } from './components/DemoBanner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { PersonaOnboardingWizard } from './components/onboarding/PersonaOnboardingWizard';
@@ -515,14 +516,7 @@ function App() {
                     </div>
                 </header>
 
-                {isDemoMode() && (
-                    <div
-                        className="shrink-0 bg-violet-50 border-b border-violet-200 text-violet-950 text-center text-sm py-2 px-4"
-                        role="status"
-                    >
-                        {t('common.demo_banner')}
-                    </div>
-                )}
+                {isDemoMode() && <DemoBanner />}
 
                 <AppLockBanner />
 
