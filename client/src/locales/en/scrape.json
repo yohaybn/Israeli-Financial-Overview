@@ -25,7 +25,7 @@
         "additional_info": "Additional Info",
         "include_raw": "Include Raw data",
         "combine_installments": "Combine Installments",
-        "timeout": "Timeout (ms)",
+        "timeout": "Timeout",
         "navigation_retries": "Retry Count",
         "future_months": "Future Months to Scrape",
         "excluded_accounts": "Excluded account numbers",
@@ -52,7 +52,8 @@
             "save_failed": "Failed to save settings",
             "unavailable": "Unable to load configuration"
         },
-        "config_desc": "Global scraper behavior and defaults"
+        "config_desc": "Global scraper behavior and defaults",
+        "timeout_hint": "{{seconds}} seconds (stored in milliseconds)."
     },
     "scrape_logs": {
         "title": "Scrape logs",
