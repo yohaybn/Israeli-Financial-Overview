@@ -9,8 +9,7 @@ import {
     KeyRound,
     Lock,
     MessageCircle,
-    Sparkles,
-    X
+    Sparkles
 } from 'lucide-react';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useAppLockStatus, useSetupAppLock } from '../../hooks/useAppLock';
@@ -18,6 +17,7 @@ import { useUpdateEnvConfig, useRestartServer } from '../../hooks/useConfig';
 import { getApiRoot } from '../../lib/api';
 import { markPersonaSetupPendingAfterRestart } from '../../utils/personaSetupWizardStorage';
 import type { OnboardingStepId } from '../../hooks/useOnboardingState';
+import { WizardShell } from './WizardShell';
 
 export function OnboardingWizard() {
     const { t } = useTranslation();
@@ -55,8 +55,6 @@ export function OnboardingWizard() {
             setTelegramToken(tok);
         }
     }, [telegramConfig]);
-
-    const progressLabel = `${Math.max(1, flow.indexOf(stepId) + 1)} / ${flow.length}`;
 
     const handleContinueLater = () => {
         continueLater();
@@ -192,46 +190,125 @@ export function OnboardingWizard() {
     };
 
     return (
-        <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="onboarding-title"
+        <WizardShell
+            titleId="onboarding-title"
+            badge={t('onboarding.badge')}
+            stepIndex={flow.indexOf(stepId)}
+            stepCount={flow.length}
+            onClose={handleContinueLater}
+            closeLabel={t('onboarding.continue_later')}
+            icon={iconForStep(stepId)}
+            title={stepTitle(stepId)}
+            body={stepBody(stepId)}
+            error={saveError}
+            footer={<>
+                    <div className="flex gap-2">
+                        {stepId !== 'welcome' && (
+                            <button
+                                type="button"
+                                onClick={goBack}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-white"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                {t('onboarding.back')}
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-end">
+                        {stepId === 'welcome' && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={skipEntireSetup}
+                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
+                                >
+                                    {t('onboarding.skip_all')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setStepId('lock')}
+                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700"
+                                >
+                                    {t('onboarding.get_started')}
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                        {stepId === 'lock' && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setStepId('gemini')}
+                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
+                                >
+                                    {t('onboarding.skip_step')}
+                                </button>
+                                {lockStatus?.lockConfigured ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setStepId('gemini')}
+                                        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black"
+                                    >
+                                        {t('onboarding.next')}
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                ) : null}
+                            </>
+                        )}
+                        {stepId === 'telegram' && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setStepId('done')}
+                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
+                                >
+                                    {t('onboarding.skip_step')}
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isSavingTelegram}
+                                    onClick={() => void handleTelegramStepContinue()}
+                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    {isSavingTelegram ? t('common.loading') : t('onboarding.next')}
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                        {stepId === 'gemini' && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setStepId('telegram')}
+                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
+                                >
+                                    {t('onboarding.skip_step')}
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isSavingEnv}
+                                    onClick={applyGeminiAndAdvance}
+                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black disabled:opacity-50"
+                                >
+                                    {isSavingEnv ? t('common.loading') : t('onboarding.next')}
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                        {stepId === 'done' && (
+                            <button
+                                type="button"
+                                onClick={complete}
+                                className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-700"
+                            >
+                                <CheckCircle2 className="w-4 h-4" />
+                                {t('onboarding.finish')}
+                            </button>
+                        )}
+                    </div>
+            </>}
+            footerHint={t('onboarding.footer_hint')}
         >
-            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col">
-                <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">
-                            {t('onboarding.badge')}
-                        </span>
-                        <span className="text-xs font-bold text-slate-500 truncate">{progressLabel}</span>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={handleContinueLater}
-                        className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                        title={t('onboarding.continue_later')}
-                        aria-label={t('onboarding.continue_later')}
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="p-6 space-y-5">
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">{iconForStep(stepId)}</div>
-                        <div className="min-w-0 flex-1">
-                            <h2 id="onboarding-title" className="text-xl font-black text-slate-900 leading-tight">
-                                {stepTitle(stepId)}
-                            </h2>
-                            <p className="text-sm text-slate-600 mt-2 leading-relaxed whitespace-pre-line">{stepBody(stepId)}</p>
-                        </div>
-                    </div>
-
-                    {saveError && (
-                        <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{saveError}</div>
-                    )}
-
                     {stepId === 'welcome' && (
                         <div className="space-y-4">
                             <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 flex gap-2 text-sm text-slate-600">
@@ -376,117 +453,6 @@ export function OnboardingWizard() {
                             )}
                         </div>
                     )}
-                </div>
-
-                <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap items-center gap-2 justify-between bg-slate-50/80 rounded-b-2xl shrink-0">
-                    <div className="flex gap-2">
-                        {stepId !== 'welcome' && (
-                            <button
-                                type="button"
-                                onClick={goBack}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-white"
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                {t('onboarding.back')}
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex flex-wrap gap-2 justify-end">
-                        {stepId === 'welcome' && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={skipEntireSetup}
-                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
-                                >
-                                    {t('onboarding.skip_all')}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setStepId('lock')}
-                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700"
-                                >
-                                    {t('onboarding.get_started')}
-                                    <ArrowRight className="w-4 h-4" />
-                                </button>
-                            </>
-                        )}
-                        {stepId === 'lock' && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => setStepId('gemini')}
-                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
-                                >
-                                    {t('onboarding.skip_step')}
-                                </button>
-                                {lockStatus?.lockConfigured ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setStepId('gemini')}
-                                        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black"
-                                    >
-                                        {t('onboarding.next')}
-                                        <ArrowRight className="w-4 h-4" />
-                                    </button>
-                                ) : null}
-                            </>
-                        )}
-                        {stepId === 'telegram' && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => setStepId('done')}
-                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
-                                >
-                                    {t('onboarding.skip_step')}
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={isSavingTelegram}
-                                    onClick={() => void handleTelegramStepContinue()}
-                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 disabled:opacity-50"
-                                >
-                                    {isSavingTelegram ? t('common.loading') : t('onboarding.next')}
-                                    <ArrowRight className="w-4 h-4" />
-                                </button>
-                            </>
-                        )}
-                        {stepId === 'gemini' && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => setStepId('telegram')}
-                                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100"
-                                >
-                                    {t('onboarding.skip_step')}
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={isSavingEnv}
-                                    onClick={applyGeminiAndAdvance}
-                                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-black disabled:opacity-50"
-                                >
-                                    {isSavingEnv ? t('common.loading') : t('onboarding.next')}
-                                    <ArrowRight className="w-4 h-4" />
-                                </button>
-                            </>
-                        )}
-                        {stepId === 'done' && (
-                            <button
-                                type="button"
-                                onClick={complete}
-                                className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-700"
-                            >
-                                <CheckCircle2 className="w-4 h-4" />
-                                {t('onboarding.finish')}
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                <p className="px-6 pb-4 text-center text-[11px] text-slate-400">{t('onboarding.footer_hint')}</p>
-            </div>
-        </div>
+        </WizardShell>
     );
 }
