@@ -25,7 +25,7 @@
         "additional_info": "מידע נוסף",
         "include_raw": "כלול נתונים גולמיים",
         "combine_installments": "אחד תשלומים",
-        "timeout": "פסק זמן (ms)",
+        "timeout": "פסק זמן",
         "navigation_retries": "מספר ניסיונות",
         "future_months": "חודשים עתידיים לסריקה",
         "excluded_accounts": "מספרי חשבונות להחרגה",
@@ -52,7 +52,8 @@
             "save_failed": "נכשלה שמירת ההגדרות",
             "unavailable": "לא ניתן לטעון תצורה"
         },
-        "config_desc": "התנהגות ברירת מחדל של הסורק"
+        "config_desc": "התנהגות ברירת מחדל של הסורק",
+        "timeout_hint": "{{seconds}} שניות (נשמר באלפיות שנייה)."
     },
     "scrape_logs": {
         "title": "יומן סריקות",
