@@ -15,6 +15,13 @@ import { BudgetExportSettings } from './BudgetExportSettings';
 import { InvestmentSettings } from './InvestmentSettings';
 import { FinancialReportSettings } from './FinancialReportSettings';
 import { AuxiliarySchedulerSections } from './SchedulerSettings';
+import {
+    ADVANCED_MODE_KEY,
+    BASIC_ONBOARDING_TABS,
+    requiresAdvancedMode,
+    visibleConfigTabs,
+} from './config/configMode';
+import { visibleConfigGroups } from './config/configGroups';
 
 export interface ConfigurationPanelProps {
     activeTab: ConfigTabId;
@@ -40,18 +47,7 @@ const CONFIG_SECTIONS: { id: ConfigTabId }[] = [
     { id: 'maintenance' },
 ];
 
-const ADVANCED_VISIBILITY_KEY = 'config-advanced-visibility-v1';
-const BASIC_ONBOARDING_TABS: ConfigTabId[] = ['ai', 'scrape', 'categories', 'financial-report'];
-const ADVANCED_SIDEBAR_TABS: ConfigTabId[] = [
-    'insight-rules',
-    'scheduler',
-    'sheets',
-    'budget-exports',
-    'investments',
-    'telegram',
-    'mqtt',
-    'maintenance',
-];
+
 
 export function ConfigurationPanel({
     activeTab,
@@ -61,56 +57,61 @@ export function ConfigurationPanel({
     onOpenInsightRuleConsumed,
 }: ConfigurationPanelProps) {
     const { t } = useTranslation();
-    const [advancedVisibleByTab, setAdvancedVisibleByTab] = useState<Partial<Record<ConfigTabId, boolean>>>(() => {
+    const [advancedMode, setAdvancedMode] = useState(() => {
         try {
-            const raw = localStorage.getItem(ADVANCED_VISIBILITY_KEY);
-            if (!raw) return {};
-            const parsed = JSON.parse(raw) as Partial<Record<ConfigTabId, boolean>>;
-            return parsed && typeof parsed === 'object' ? parsed : {};
+            return localStorage.getItem(ADVANCED_MODE_KEY) === 'true';
         } catch {
-            return {};
+            return false;
         }
     });
 
     const sectionLabel = (id: ConfigTabId) => t(`config_tabs.${id}`);
-    const isBasicScopeTab = useMemo(() => BASIC_ONBOARDING_TABS.includes(activeTab), [activeTab]);
-    const showAdvancedForActiveTab = Boolean(advancedVisibleByTab[activeTab]);
-    const [showAdvancedSidebarTabs, setShowAdvancedSidebarTabs] = useState(false);
-    const isAdvancedSidebarTabActive = useMemo(() => ADVANCED_SIDEBAR_TABS.includes(activeTab), [activeTab]);
+    const isAdvancedSidebarTabActive = useMemo(() => requiresAdvancedMode(activeTab), [activeTab]);
     const visibleConfigSections = useMemo(() => {
-        const shouldShowAdvanced = showAdvancedSidebarTabs || isAdvancedSidebarTabActive;
-        return CONFIG_SECTIONS.filter(
-            ({ id }) => !ADVANCED_SIDEBAR_TABS.includes(id) || shouldShowAdvanced
+        const visibleTabs = visibleConfigTabs(
+            CONFIG_SECTIONS.map(({ id }) => id),
+            advancedMode
         );
-    }, [showAdvancedSidebarTabs, isAdvancedSidebarTabActive]);
+        return CONFIG_SECTIONS.filter(({ id }) => visibleTabs.includes(id));
+    }, [advancedMode]);
+    const visibleGroups = useMemo(
+        () => visibleConfigGroups(visibleConfigSections.map(({ id }) => id)),
+        [visibleConfigSections]
+    );
+
+    useEffect(() => {
+        if (isAdvancedSidebarTabActive && !advancedMode) {
+            setAdvancedMode(true);
+        }
+    }, [advancedMode, isAdvancedSidebarTabActive]);
 
     useEffect(() => {
         try {
-            localStorage.setItem(ADVANCED_VISIBILITY_KEY, JSON.stringify(advancedVisibleByTab));
+            localStorage.setItem(ADVANCED_MODE_KEY, String(advancedMode));
         } catch {
             // Ignore storage errors in private mode.
         }
-    }, [advancedVisibleByTab]);
+    }, [advancedMode]);
 
     useEffect(() => {
         const onOpenAdvanced = (event: Event) => {
             const custom = event as CustomEvent<{ tab?: ConfigTabId }>;
             const tab = custom.detail?.tab;
             if (!tab || !BASIC_ONBOARDING_TABS.includes(tab)) return;
-            setAdvancedVisibleByTab((prev) => ({ ...prev, [tab]: true }));
+            setAdvancedMode(true);
             onTabChange(tab);
         };
         window.addEventListener('configuration-open-advanced', onOpenAdvanced as EventListener);
         return () => window.removeEventListener('configuration-open-advanced', onOpenAdvanced as EventListener);
     }, [onTabChange]);
 
-    const toggleAdvancedForActiveTab = () => {
-        setAdvancedVisibleByTab((prev) => ({ ...prev, [activeTab]: !prev[activeTab] }));
+    const toggleAdvancedMode = () => {
+        setAdvancedMode((current) => !current);
     };
 
     const renderPanelBody = () => (
         <>
-            {activeTab === 'ai' && <AISettings isInline={true} showAdvanced={showAdvancedForActiveTab} />}
+            {activeTab === 'ai' && <AISettings isInline={true} showAdvanced={advancedMode} />}
             {activeTab === 'insight-rules' && (
                 <div className="space-y-6">
                     <div>
@@ -125,18 +126,18 @@ export function ConfigurationPanel({
                     />
                 </div>
             )}
-            {activeTab === 'categories' && <CategorySettings showAdvanced={showAdvancedForActiveTab} />}
+            {activeTab === 'categories' && <CategorySettings showAdvanced={advancedMode} />}
             {activeTab === 'scheduler' && <AuxiliarySchedulerSections isInline />}
-            {activeTab === 'financial-report' && <FinancialReportSettings showAdvanced={showAdvancedForActiveTab} />}
+            {activeTab === 'financial-report' && <FinancialReportSettings showAdvanced={advancedMode} />}
             {activeTab === 'scrape' && (
                 <div className="space-y-10">
                     <ScrapeSettings
                         isInline={true}
                         onOpenBudgetExports={onOpenBudgetExports}
-                        showAdvanced={showAdvancedForActiveTab}
+                        showAdvanced={advancedMode}
                     />
                     <div id="fraud-alerts-section">
-                        <FraudSettings isInline={true} showAdvanced={showAdvancedForActiveTab} />
+                        <FraudSettings isInline={true} showAdvanced={advancedMode} />
                     </div>
                 </div>
             )}
@@ -159,7 +160,7 @@ export function ConfigurationPanel({
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-full min-h-0 bg-gray-50" data-testid="configuration-panel">
+        <div className="flex flex-col md:flex-row min-h-full bg-gray-50" data-testid="configuration-panel">
             {/* Mobile: single section picker — avoids a second horizontal tab strip */}
             <div className="md:hidden shrink-0 border-b border-gray-200 bg-white px-4 py-3">
                 <label htmlFor="config-section-select" className="mb-1.5 block text-xs font-medium text-gray-500">
@@ -172,88 +173,78 @@ export function ConfigurationPanel({
                     className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     aria-label={t('config_sidebar.nav_aria')}
                 >
-                    {visibleConfigSections.map(({ id }) => (
-                        <option key={id} value={id}>
-                            {sectionLabel(id)}
-                        </option>
+                    {visibleGroups.map((group) => (
+                        <optgroup key={group.id} label={t(`config_sidebar.groups.${group.id}`)}>
+                            {group.tabs.map((id) => (
+                                <option key={id} value={id}>
+                                    {sectionLabel(id)}
+                                </option>
+                            ))}
+                        </optgroup>
                     ))}
                 </select>
-                {!isAdvancedSidebarTabActive && (
-                    <button
-                        type="button"
-                        onClick={() => setShowAdvancedSidebarTabs((prev) => !prev)}
-                        className="mt-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                        {showAdvancedSidebarTabs ? t('config_sidebar.hide_extra_sections') : t('config_sidebar.show_extra_sections')}
-                    </button>
-                )}
             </div>
 
             {/* Desktop: vertical sidebar */}
-            <aside className="hidden md:flex w-56 shrink-0 flex-col border-e border-gray-200 bg-white">
+            <aside className="hidden md:flex w-56 shrink-0 self-start sticky top-0 max-h-screen flex-col border-e border-gray-200 bg-white">
                 <nav
                     className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3"
                     aria-label={t('config_sidebar.nav_aria')}
                 >
-                    {visibleConfigSections.map(({ id }) => {
-                        const active = activeTab === id;
-                        return (
-                            <button
-                                key={id}
-                                type="button"
-                                onClick={() => onTabChange(id)}
-                                aria-current={active ? 'page' : undefined}
-                                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-start text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
-                                    active
-                                        ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/80'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                            >
-                                <span className="min-w-0">{sectionLabel(id)}</span>
-                            </button>
-                        );
-                    })}
+                    {visibleGroups.map((group) => (
+                        <div key={group.id} className="mb-3 last:mb-0">
+                            <p className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                                {t(`config_sidebar.groups.${group.id}`)}
+                            </p>
+                            <div className="space-y-0.5">
+                                {group.tabs.map((id) => {
+                                    const active = activeTab === id;
+                                    return (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => onTabChange(id)}
+                                            aria-current={active ? 'page' : undefined}
+                                            className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-start text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
+                                                active
+                                                    ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/80'
+                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <span className="min-w-0">{sectionLabel(id)}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </nav>
-                {!isAdvancedSidebarTabActive && (
-                    <div className="border-t border-gray-100 p-3">
-                        <button
-                            type="button"
-                            onClick={() => setShowAdvancedSidebarTabs((prev) => !prev)}
-                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                        >
-                            {showAdvancedSidebarTabs
-                                ? t('config_sidebar.hide_extra_sections')
-                                : t('config_sidebar.show_extra_sections')}
-                        </button>
-                    </div>
-                )}
+
             </aside>
 
             <main
-                className="flex-1 min-h-0 min-w-0 overflow-y-auto p-4 sm:p-6"
+                className="flex-1 min-w-0 p-4 sm:p-6"
                 onInputCapture={markConfigurationDirty}
                 onChangeCapture={markConfigurationDirty}
             >
                 <div className="max-w-4xl mx-auto space-y-4">
-                    {isBasicScopeTab && (
-                        <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
+                    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
                             <div>
                                 <p className="text-sm font-semibold text-gray-800">{t('config_sidebar.mode_label')}</p>
                                 <p className="text-xs text-gray-500">
-                                    {showAdvancedForActiveTab
+                                    {advancedMode
                                         ? t('config_sidebar.mode_advanced_hint')
                                         : t('config_sidebar.mode_basic_hint')}
                                 </p>
                             </div>
                             <button
                                 type="button"
-                                onClick={toggleAdvancedForActiveTab}
+                                onClick={toggleAdvancedMode}
                                 className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                             >
-                                {showAdvancedForActiveTab ? t('config_sidebar.hide_advanced') : t('config_sidebar.show_advanced')}
+                                {advancedMode ? t('config_sidebar.hide_advanced') : t('config_sidebar.show_advanced')}
                             </button>
                         </div>
-                    )}
                     {renderPanelBody()}
                 </div>
             </main>
