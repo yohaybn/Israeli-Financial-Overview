@@ -1,0 +1,757 @@
+import React, { useCallback, useEffect, useState, useRef, useMemo, lazy, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
+// Route-level code splitting: each view (and the heavy deps behind it -
+// recharts, xlsx, markdown) loads only when first navigated to.
+const LogViewer = lazy(() =>
+    import('./components/LogViewer').then((m) => ({ default: m.LogViewer }))
+);
+const ConfigurationPanel = lazy(() =>
+    import('./components/ConfigurationPanel').then((m) => ({ default: m.ConfigurationPanel }))
+);
+const ImportProfilePage = lazy(() =>
+    import('./pages/ImportProfilePage').then((m) => ({ default: m.ImportProfilePage }))
+);
+const FinancialCommandCenter = lazy(() =>
+    import('./components/dashboard/FinancialCommandCenter').then((m) => ({ default: m.FinancialCommandCenter }))
+);
+const ScrapeWorkspace = lazy(() =>
+    import('./components/scrape/ScrapeWorkspace').then((m) => ({ default: m.ScrapeWorkspace }))
+);
+
+function ViewLoadingFallback(): React.ReactElement {
+    const { t } = useTranslation();
+    return (
+        <div className="flex h-full items-center justify-center p-8 text-gray-500" role="status">
+            {t('common.loading', 'טוען...')}
+        </div>
+    );
+}
+import { useScrapeResults, useUpdateTransactionCategory, useRecategorizeAll, useAISettings } from './hooks/useScraper';
+import { useSocket } from './hooks/useSocket';
+import { useUnifiedData } from './hooks/useUnifiedData';
+import { SchedulerSettingsProvider } from './components/SchedulerSettings';
+import { AppLockBanner } from './components/AppLockBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { PersonaOnboardingWizard } from './components/onboarding/PersonaOnboardingWizard';
+import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
+import { useOnboarding } from './contexts/OnboardingContext';
+import { useGettingStarted } from './contexts/GettingStartedContext';
+import { GettingStartedWizard } from './components/onboarding/GettingStartedWizard';
+import { GettingStartedResumeBanner } from './components/onboarding/GettingStartedResumeBanner';
+import { ConfigSetupWizard, shouldShowConfigSetupWizard } from './components/onboarding/ConfigSetupWizard';
+import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
+import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
+import { TopBarServerStatus } from './components/TopBarServerStatus';
+import { isDemoMode } from './demo/isDemo';
+import { Map as MapIcon, Bot, MessageSquare } from 'lucide-react';
+import { parseAppUrlState, pushAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
+import { UnifiedAiChatPanel, type AiPanelTab } from './components/chat/UnifiedAiChatPanel';
+import { FeedbackModal } from './components/FeedbackModal';
+import { TransactionReviewModal } from './components/TransactionReviewModal';
+import { usePersonaSetupWizardVisibility } from './hooks/usePersonaSetupWizardVisibility';
+import { transactionsForReviewItems, transactionNeedsReview, type TransactionReviewItem } from '@app/shared';
+import { useEnvConfig } from './hooks/useConfig';
+import { isGeminiApiKeyConfigured } from './utils/geminiKeyConfigured';
+import { publicAssetUrl } from './utils/publicBase';
+
+function consumeSessionConfigTab(): string | null {
+    try {
+        const raw = sessionStorage.getItem('configOpenTab');
+        if (raw) sessionStorage.removeItem('configOpenTab');
+        return raw;
+    } catch {
+        return null;
+    }
+}
+
+function App() {
+    const { t, i18n } = useTranslation();
+    const onboarding = useOnboarding();
+    const gettingStarted = useGettingStarted();
+    const { showPersonaSetupWizard } = usePersonaSetupWizardVisibility();
+
+    const navigateGettingStarted = useCallback((patch: Partial<AppUrlState>) => {
+        setNav((prev) => ({ ...prev, ...patch }));
+    }, []);
+
+    const showGettingStartedWizard =
+        !isDemoMode() &&
+        onboarding.completed &&
+        !onboarding.showModal &&
+        !showPersonaSetupWizard &&
+        gettingStarted.showModal;
+    const [nav, setNav] = useState<AppUrlState>(() =>
+        parseAppUrlState(window.location.search, consumeSessionConfigTab())
+    );
+    const urlHadViewAtMount = useRef(new URLSearchParams(window.location.search).has('view')).current;
+    const { view, configTab, logType, logEntryId, resultFile, insightRuleId } = nav;
+    const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
+
+    const { data: scrapeResults, isLoading: isLoadingScrape } = useScrapeResults();
+    const { data: unifiedTransactions, isLoading: isLoadingUnified } = useUnifiedData();
+    const { data: aiSettings } = useAISettings();
+    const { data: envConfig } = useEnvConfig();
+    const showAppAssistant = isGeminiApiKeyConfigured(envConfig?.GEMINI_API_KEY);
+    const [transactionReviewModalOpen, setTransactionReviewModalOpen] = useState(false);
+    const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+    const [hasCheckedData, setHasCheckedData] = useState(false);
+    const [aiPanelOpen, setAiPanelOpen] = useState(false);
+    const [aiPanelTab, setAiPanelTab] = useState<AiPanelTab>('analyst');
+    const [isConfigDirty, setIsConfigDirty] = useState(false);
+    const [showConfigWizard, setShowConfigWizard] = useState(() => shouldShowConfigSetupWizard());
+    const hasSyncedUrlRef = useRef(false);
+    const popstateSyncRef = useRef(false);
+
+    useEffect(() => {
+        if (!hasSyncedUrlRef.current) {
+            replaceAppUrlState(nav);
+            hasSyncedUrlRef.current = true;
+            return;
+        }
+        if (popstateSyncRef.current) {
+            popstateSyncRef.current = false;
+            replaceAppUrlState(nav);
+            return;
+        }
+        pushAppUrlState(nav);
+    }, [nav]);
+
+    useEffect(() => {
+        const onPop = () => {
+            popstateSyncRef.current = true;
+            setNav(parseAppUrlState(window.location.search, null));
+        };
+        window.addEventListener('popstate', onPop);
+        return () => window.removeEventListener('popstate', onPop);
+    }, []);
+
+    useEffect(() => {
+        const onDirty = () => setIsConfigDirty(true);
+        const onSaved = () => setIsConfigDirty(false);
+        window.addEventListener('configuration-dirty', onDirty);
+        window.addEventListener('configuration-saved', onSaved);
+        return () => {
+            window.removeEventListener('configuration-dirty', onDirty);
+            window.removeEventListener('configuration-saved', onSaved);
+        };
+    }, []);
+
+    const confirmConfigLeave = useCallback(() => {
+        if (!isConfigDirty) return true;
+        return window.confirm(t('common.unsaved_config_confirm'));
+    }, [isConfigDirty, t]);
+
+    useEffect(() => {
+        const onOpenFraud = () => {
+            setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'scrape' }));
+            window.setTimeout(() => {
+                document.getElementById('fraud-alerts-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+        };
+        window.addEventListener('open-fraud-settings', onOpenFraud);
+        return () => window.removeEventListener('open-fraud-settings', onOpenFraud);
+    }, []);
+
+    useEffect(() => {
+        const onOpenInsightRule = (e: Event) => {
+            const id = (e as CustomEvent<{ ruleId: string }>).detail?.ruleId?.trim();
+            if (!id) return;
+            setNav((prev) => ({
+                ...prev,
+                view: 'configuration',
+                configTab: 'insight-rules',
+                insightRuleId: id,
+            }));
+        };
+        window.addEventListener('open-insight-rule-settings', onOpenInsightRule);
+        return () => window.removeEventListener('open-insight-rule-settings', onOpenInsightRule);
+    }, []);
+
+    useEffect(() => {
+        const onOpenFinancialReport = () => {
+            setNav((prev) => ({ ...prev, view: 'configuration', configTab: 'financial-report' }));
+        };
+        window.addEventListener('open-financial-report-settings', onOpenFinancialReport);
+        return () => window.removeEventListener('open-financial-report-settings', onOpenFinancialReport);
+    }, []);
+
+    useEffect(() => {
+        setNav((prev) => {
+            if (!prev.insightRuleId) return prev;
+            if (prev.view === 'configuration' && prev.configTab === 'insight-rules') return prev;
+            return { ...prev, insightRuleId: null };
+        });
+    }, [nav.view, nav.configTab]);
+
+    // Default to scrape view if no data exists (unless URL already specified a view)
+    useEffect(() => {
+        if (!hasCheckedData && !isLoadingScrape && !isLoadingUnified && scrapeResults && unifiedTransactions) {
+            const noData = scrapeResults.length === 0 && unifiedTransactions.length === 0;
+            if (noData && !urlHadViewAtMount) {
+                setNav((prev) => ({ ...prev, view: 'scrape' }));
+            }
+            setHasCheckedData(true);
+        }
+    }, [scrapeResults, unifiedTransactions, isLoadingScrape, isLoadingUnified, hasCheckedData, urlHadViewAtMount]);
+
+    useEffect(() => {
+        document.title = t('common.title');
+    }, [t, i18n.language]);
+
+    useEffect(() => {
+        const onOpenFeedback = () => setFeedbackModalOpen(true);
+        window.addEventListener('open-feedback-modal', onOpenFeedback);
+        return () => window.removeEventListener('open-feedback-modal', onOpenFeedback);
+    }, []);
+
+    useEffect(() => {
+        const onOpenAiLogs = () => {
+            setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: null }));
+        };
+        window.addEventListener('open-ai-logs', onOpenAiLogs);
+        return () => window.removeEventListener('open-ai-logs', onOpenAiLogs);
+    }, []);
+
+    useEffect(() => {
+        const onOpenAiLogEntry = (e: Event) => {
+            const id = (e as CustomEvent<{ id: string }>).detail?.id?.trim();
+            if (!id) return;
+            setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: id }));
+        };
+        window.addEventListener('open-ai-log-entry', onOpenAiLogEntry);
+        return () => window.removeEventListener('open-ai-log-entry', onOpenAiLogEntry);
+    }, []);
+
+    useEffect(() => {
+        const onOpenAnalyst = () => {
+            setAiPanelTab('analyst');
+            setAiPanelOpen(true);
+        };
+        window.addEventListener('open-ai-analyst-chat', onOpenAnalyst);
+        return () => window.removeEventListener('open-ai-analyst-chat', onOpenAnalyst);
+    }, []);
+
+    useEffect(() => {
+        const onToggleHelp = (e: Event) => {
+            const ce = e as CustomEvent<{ open?: boolean }>;
+            if (ce.detail?.open) {
+                setAiPanelTab('help');
+                setAiPanelOpen(true);
+            }
+        };
+        window.addEventListener('toggle-help-widget', onToggleHelp as EventListener);
+        return () => window.removeEventListener('toggle-help-widget', onToggleHelp as EventListener);
+    }, []);
+
+    const handleInsightRuleOpenConsumed = useCallback(() => {
+        setNav((prev) => ({ ...prev, insightRuleId: null }));
+    }, []);
+
+    const setView = (next: AppUrlState['view']) => {
+        if (nav.view === 'configuration' && next !== 'configuration' && !confirmConfigLeave()) return;
+        if (nav.view !== next && next === 'configuration') {
+            setIsConfigDirty(false);
+        }
+        setNav((prev) => ({
+            ...prev,
+            view: next,
+            logEntryId: next === 'logs' ? prev.logEntryId : null,
+            insightRuleId: next === 'configuration' ? prev.insightRuleId : null,
+        }));
+    };
+    const setConfigTab = useCallback(
+        (tab: AppUrlState['configTab']) => {
+            if (tab !== configTab && !confirmConfigLeave()) return;
+            setIsConfigDirty(false);
+            if (showConfigWizard) setShowConfigWizard(false);
+            setNav((prev) => ({
+                ...prev,
+                view: 'configuration',
+                configTab: tab,
+                insightRuleId: tab === 'insight-rules' ? prev.insightRuleId : null,
+            }));
+        },
+        [configTab, confirmConfigLeave, showConfigWizard]
+    );
+
+    const { mutate: updateCategory } = useUpdateTransactionCategory();
+    const { categorizationFailure, clearCategorizationFailure, transactionReviewAlert, clearTransactionReviewAlert } =
+        useSocket();
+    const { mutate: recategorizeAll, isPending: isRecategorizingCat } = useRecategorizeAll();
+
+    const handleUpdateCategory = (transactionId: string, category: string) => {
+        updateCategory({ transactionId, category });
+    };
+
+    const toggleLanguage = () => {
+        const newLng = i18n.language === 'he' ? 'en' : 'he';
+        i18n.changeLanguage(newLng);
+    };
+
+    const handleNavigateToAILogs = () => {
+        setNav((prev) => ({ ...prev, view: 'logs', logType: 'ai', logEntryId: null }));
+    };
+
+    const pendingTransactionReview = useMemo(() => {
+        if (!transactionReviewAlert?.items?.length) {
+            return { count: 0, items: [] as TransactionReviewItem[] };
+        }
+        const byId = new Map((unifiedTransactions ?? []).map((t) => [t.id, t]));
+        const opts = { transfers: true, uncategorized: true };
+        const items = transactionReviewAlert.items.filter((it) => {
+            const txn = byId.get(it.id);
+            const merged = {
+                category: txn?.category ?? it.category,
+                memo: txn?.memo,
+            };
+            return transactionNeedsReview(merged, opts) !== null;
+        });
+        return { count: items.length, items };
+    }, [transactionReviewAlert, unifiedTransactions]);
+
+    const reviewModalTransactions = useMemo(() => {
+        if (!pendingTransactionReview.items.length) return [];
+        return transactionsForReviewItems(pendingTransactionReview.items, unifiedTransactions ?? []);
+    }, [pendingTransactionReview.items, unifiedTransactions]);
+
+    useEffect(() => {
+        if (!transactionReviewAlert?.items?.length) return;
+        if (pendingTransactionReview.count > 0) return;
+        clearTransactionReviewAlert();
+    }, [transactionReviewAlert, pendingTransactionReview.count, clearTransactionReviewAlert]);
+
+    const openAiSettingsTab = () => {
+        setConfigTab('ai');
+    };
+
+    const handleResultFileChange = useCallback((filename: string | null) => {
+        setNav((prev) => ({ ...prev, resultFile: filename }));
+    }, []);
+
+    const handleViewInLogs = useCallback((logId: string, filename?: string | null) => {
+        setNav((prev) => ({
+            ...prev,
+            view: 'logs',
+            logType: 'scrape',
+            logEntryId: logId,
+            resultFile: filename ?? prev.resultFile,
+        }));
+    }, []);
+
+    return (
+        <SchedulerSettingsProvider>
+        <>
+            <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+                <header className="bg-white border-b border-gray-200/80 shadow-sm z-10 w-full">
+                    <div className="container mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3 xl:gap-4 min-w-0">
+                        <div className="flex items-center justify-between gap-2 min-w-0 lg:contents">
+                            <h1 className="text-lg sm:text-xl font-bold text-emerald-800 tracking-tight truncate min-w-0 flex-1 lg:flex-none lg:max-w-[min(100%,28rem)] lg:shrink-0 lg:order-1 flex items-center gap-2">
+                                <img
+                                    src={publicAssetUrl('pwa-192x192.png')}
+                                    alt=""
+                                    width={32}
+                                    height={32}
+                                    className="h-8 w-8 shrink-0 rounded-lg object-cover shadow-sm border border-emerald-100/80"
+                                    decoding="async"
+                                />
+                                <span className="truncate">{t('common.title')}</span>
+                            </h1>
+                            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0 lg:order-3">
+                                <TopBarServerStatus />
+                                <TopBarActivityIndicators />
+                                {view === 'dashboard' && <DashboardAlertsDropdown selectedMonth={selectedMonth} />}
+
+                                <div className="flex items-center gap-0.5 border-s border-gray-200 ps-1.5 ms-0.5">
+                                    <button
+                                        type="button"
+                                        onClick={toggleLanguage}
+                                        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                        aria-label={t('common.language_toggle_aria')}
+                                        title={i18n.language === 'he' ? t('common.english') : t('common.hebrew')}
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={1.75}
+                                                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                            />
+                                        </svg>
+                                    </button>
+                                    {showAppAssistant && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                window.dispatchEvent(
+                                                    new CustomEvent('toggle-help-widget', { detail: { open: true } })
+                                                );
+                                            }}
+                                            className="h-9 w-9 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-800 hover:bg-blue-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                            title={t('help.open_button', 'App Assistant')}
+                                            aria-label={t('help.open_button', 'App Assistant')}
+                                        >
+                                            <Bot className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => window.open(publicAssetUrl('GUIDE.html'), '_blank')}
+                                        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                        title={t('common.help_docs', 'Help Docs')}
+                                        aria-label={t('common.help_docs', 'Help Docs')}
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={1.75}
+                                                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                            />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFeedbackModalOpen(true)}
+                                        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-amber-800 hover:bg-amber-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                                        title={t('feedback.open_button')}
+                                        aria-label={t('feedback.open_aria')}
+                                    >
+                                        <MessageSquare className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                    </button>
+                                    {onboarding.completed && !isDemoMode() ? (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (window.confirm(t('onboarding.rerun_confirm'))) {
+                                                        onboarding.restartWizard();
+                                                    }
+                                                }}
+                                                className="h-9 w-9 inline-flex items-center justify-center rounded-full text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                title={t('onboarding.rerun_wizard')}
+                                                aria-label={t('onboarding.rerun_wizard')}
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={1.75}
+                                                        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            {gettingStarted.completed && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (window.confirm(t('getting_started.rerun_confirm'))) {
+                                                            gettingStarted.restartTour();
+                                                        }
+                                                    }}
+                                                    className="h-9 w-9 inline-flex items-center justify-center rounded-full text-teal-600 hover:text-teal-800 hover:bg-teal-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                                                    title={t('getting_started.rerun_tour')}
+                                                    aria-label={t('getting_started.rerun_tour')}
+                                                >
+                                                    <MapIcon className="w-5 h-5" strokeWidth={1.75} aria-hidden />
+                                                </button>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setView('configuration')}
+                                            className="h-9 w-9 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                            title={t('common.configuration')}
+                                            aria-label={t('common.open_configuration_aria')}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={1.75}
+                                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                                />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <nav
+                            className="flex flex-nowrap overflow-x-auto scrollbar-none items-stretch gap-0.5 sm:gap-3 min-w-0 w-full justify-start sm:justify-center lg:justify-center lg:flex-1 lg:order-2 -mx-1 px-1 lg:mx-0 lg:px-0"
+                            role="tablist"
+                            aria-label={t('common.main_navigation_aria')}
+                        >
+                            {(
+                                [
+                                    ['dashboard', t('common.dashboard')] as const,
+                                    ['scrape', t('common.scrape')] as const,
+                                    ['logs', t('common.logs')] as const,
+                                    ['configuration', t('common.configuration')] as const,
+                                ] as const
+                            ).map(([key, label]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={view === key}
+                                    onClick={() => setView(key)}
+                                    className={`shrink-0 px-2 sm:px-3 py-2 text-sm transition-colors border-b-2 -mb-px focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-t ${
+                                        view === key
+                                            ? 'font-semibold text-emerald-800 border-emerald-600'
+                                            : 'font-medium text-gray-500 border-transparent hover:text-gray-800'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+                </header>
+
+                {isDemoMode() && (
+                    <div
+                        className="shrink-0 bg-violet-50 border-b border-violet-200 text-violet-950 text-center text-sm py-2 px-4"
+                        role="status"
+                    >
+                        {t('common.demo_banner')}
+                    </div>
+                )}
+
+                <AppLockBanner />
+
+                {onboarding.showResumeBanner && <OnboardingResumeBanner />}
+
+                {gettingStarted.showResumeBanner && <GettingStartedResumeBanner />}
+
+                {transactionReviewAlert && pendingTransactionReview.count > 0 && (
+                    <div
+                        className="shrink-0 bg-sky-50 border-b border-sky-200 px-4 py-3 text-sky-950 flex flex-wrap items-center gap-3 justify-between"
+                        role="alert"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setTransactionReviewModalOpen(true)}
+                            className="min-w-0 flex-1 text-start rounded-lg -m-1 p-1 hover:bg-sky-100/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sky-50 transition-colors"
+                        >
+                            <p className="font-semibold text-sm">{t('transaction_review.banner_title')}</p>
+                            <p className="text-sm text-sky-900/90 break-words">
+                                {t('transaction_review.banner_detail', { count: pendingTransactionReview.count })}
+                            </p>
+                            <p className="text-xs text-sky-800/80 mt-1">{t('transaction_review.banner_open_table')}</p>
+                        </button>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    window.dispatchEvent(new CustomEvent('dashboard-focus-transactions'));
+                                    setView('dashboard');
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium"
+                            >
+                                {t('transaction_review.open_dashboard')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={clearTransactionReviewAlert}
+                                className="px-3 py-1.5 text-sm text-sky-900/80 hover:underline"
+                            >
+                                {t('transaction_review.dismiss')}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {categorizationFailure && (
+                    <div
+                        className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-3 text-amber-950 flex flex-wrap items-center gap-3 justify-between"
+                        role="alert"
+                    >
+                        <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-sm">{t('categorization.banner_title')}</p>
+                            <p className="text-sm text-amber-900/90 break-words">
+                                {t('categorization.banner_detail', { error: categorizationFailure.error })}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                disabled={isRecategorizingCat}
+                                onClick={() =>
+                                    recategorizeAll(false, {
+                                        onSuccess: (data) => {
+                                            clearCategorizationFailure();
+                                            if (data.error) {
+                                                window.alert(t('ai_settings.recategorize_ai_failed', { error: data.error, count: data.count }));
+                                            }
+                                        },
+                                        onError: (err: unknown) => {
+                                            window.alert(
+                                                t('common.error_with_message', {
+                                                    error: err instanceof Error ? err.message : t('common.unknown_error'),
+                                                })
+                                            );
+                                        },
+                                    })
+                                }
+                                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium disabled:opacity-50"
+                            >
+                                {isRecategorizingCat ? t('common.loading') : t('categorization.retry')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={openAiSettingsTab}
+                                className="px-3 py-1.5 rounded-lg border border-amber-300 text-sm font-medium hover:bg-amber-100"
+                            >
+                                {t('categorization.open_ai_settings')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={clearCategorizationFailure}
+                                className="px-3 py-1.5 text-sm text-amber-900/80 hover:underline"
+                            >
+                                {t('categorization.dismiss')}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-hidden relative bg-white">
+                        <ErrorBoundary name={`view:${view}`} key={view}>
+                        <Suspense fallback={<ViewLoadingFallback />}>
+                        {view === 'dashboard' && (
+                            <div className="h-full overflow-y-auto p-4">
+                                <FinancialCommandCenter
+                                    selectedMonth={selectedMonth}
+                                    onMonthChange={setSelectedMonth}
+                                    onUpdateCategory={handleUpdateCategory}
+                                />
+                            </div>
+                        )}
+                        {view === 'scrape' && (
+                            <div className="h-full overflow-y-auto">
+                                <ScrapeWorkspace
+                                    onOpenImportProfile={() => setView('importProfile')}
+                                    onViewInLogs={handleViewInLogs}
+                                />
+                            </div>
+                        )}
+                        {view === 'importProfile' && (
+                            <div className="h-full overflow-y-auto">
+                                <ImportProfilePage
+                                    onBack={() => setView('scrape')}
+                                    onSaved={() => {
+                                        setNav((prev) => ({ ...prev, view: 'scrape' }));
+                                    }}
+                                />
+                            </div>
+                        )}
+                        {view === 'configuration' && (
+                            <div className="h-full overflow-y-auto">
+                                <div className="min-h-full py-4">
+                                    {showConfigWizard && (
+                                        <ConfigSetupWizard
+                                            activeTab={configTab}
+                                            onNavigate={(tab) => {
+                                                setConfigTab(tab);
+                                            }}
+                                        />
+                                    )}
+                                    <ConfigurationPanel
+                                        activeTab={configTab}
+                                        onTabChange={(tab) => {
+                                            setConfigTab(tab);
+                                        }}
+                                        onOpenBudgetExports={() =>
+                                            setConfigTab('budget-exports')
+                                        }
+                                        openInsightRuleId={insightRuleId}
+                                        onOpenInsightRuleConsumed={handleInsightRuleOpenConsumed}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        {view === 'logs' && (
+                            <div className="h-full">
+                                <LogViewer
+                                    logType={logType}
+                                    onLogTypeChange={(t) => setNav((prev) => ({ ...prev, logType: t, logEntryId: null, resultFile: null }))}
+                                    logEntryId={logEntryId}
+                                    onLogEntryIdChange={(id) => setNav((prev) => ({ ...prev, logEntryId: id }))}
+                                    resultFile={resultFile}
+                                    onResultFileChange={handleResultFileChange}
+                                />
+                            </div>
+                        )}
+                        </Suspense>
+                        </ErrorBoundary>
+                    </div>
+                </div>
+            </div>
+
+            {onboarding.showModal && <OnboardingWizard />}
+
+            {showPersonaSetupWizard && <PersonaOnboardingWizard />}
+
+            {showGettingStartedWizard && <GettingStartedWizard onNavigate={navigateGettingStarted} />}
+
+            <FeedbackModal isOpen={feedbackModalOpen} onClose={() => setFeedbackModalOpen(false)} />
+
+            {showAppAssistant && (
+                <>
+                    <UnifiedAiChatPanel
+                        isOpen={aiPanelOpen}
+                        onClose={() => setAiPanelOpen(false)}
+                        activeTab={aiPanelTab}
+                        onTabChange={setAiPanelTab}
+                        scope="all"
+                        contextMonth={selectedMonth}
+                        onNavigateToLogs={handleNavigateToAILogs}
+                    />
+
+                    {!aiPanelOpen && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setAiPanelTab('analyst');
+                                setAiPanelOpen(true);
+                            }}
+                            className="fixed bottom-6 [inset-inline-end:1.5rem] p-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all z-[100] group"
+                            title={t('dashboard.open_ai_chat')}
+                            aria-label={t('dashboard.open_ai_chat')}
+                        >
+                            <span className="absolute inset-0 bg-white/20 rounded-full animate-ping opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                                />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 8h.01" />
+                            </svg>
+                        </button>
+                    )}
+                </>
+            )}
+
+            <TransactionReviewModal
+                isOpen={transactionReviewModalOpen}
+                onClose={() => setTransactionReviewModalOpen(false)}
+                transactions={reviewModalTransactions}
+                categories={aiSettings?.categories}
+                onUpdateCategory={handleUpdateCategory}
+            />
+        </>
+        </SchedulerSettingsProvider>
+    );
+}
+
+export default App;
