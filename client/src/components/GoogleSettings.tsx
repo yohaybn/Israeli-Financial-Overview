@@ -50,7 +50,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
     });
 
     // Fetch root folders
-    const { data: folders, isLoading: isFoldersLoading } = useQuery({
+    const { data: folders, isLoading: isFoldersLoading, isError: isFoldersError, isSuccess: isFoldersSuccess } = useQuery({
         queryKey: ['googleFolders'],
         queryFn: async () => {
             const res = await fetch(`${getApiRoot()}/sheets/drive-folders`);
@@ -130,6 +130,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
         },
         onSuccess: () => {
             setTestError(null);
+            queryClient.invalidateQueries({ queryKey: ['googleFolders'] });
             showNotification('success', t('google_settings.test_success'));
         },
         onError: (err: any) => {
@@ -203,6 +204,20 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
 
     if (!isInline && !isOpen) return null;
 
+    /**
+     * Connection-first: credentials are the setup step. The Drive folder
+     * browser and folder config only unfold once the connection actually
+     * works, so a fresh screen shows status + credentials + test CTA only.
+     */
+    const hasSavedCredentials = Boolean(settings?.clientId && settings?.clientSecret);
+    const connectionState = !hasSavedCredentials
+        ? 'not-connected'
+        : isFoldersSuccess
+          ? 'connected'
+          : isFoldersError
+            ? 'failed'
+            : 'checking';
+
     const isLoading = isFoldersLoading || isFolderContentsLoading;
     const displayFolders = currentBrowsingFolderId ? folderContents?.folders : folders;
 
@@ -225,6 +240,44 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
             )}
 
             <div className={`space-y-6 ${isInline ? '' : 'p-6 overflow-y-auto'}`}>
+                <div
+                    className={`p-4 rounded-2xl border flex items-start gap-3 ${
+                        connectionState === 'connected'
+                            ? 'bg-emerald-50/80 border-emerald-200'
+                            : connectionState === 'failed'
+                              ? 'bg-red-50 border-red-200'
+                              : 'bg-slate-50 border-slate-200'
+                    }`}
+                >
+                    <span
+                        className={`mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${
+                            connectionState === 'connected'
+                                ? 'bg-emerald-500'
+                                : connectionState === 'failed'
+                                  ? 'bg-red-500'
+                                  : 'bg-slate-400'
+                        }`}
+                        aria-hidden
+                    />
+                    <div>
+                        <p className="font-bold text-gray-900 text-sm">
+                            {connectionState === 'connected'
+                                ? t('google_settings.status_connected')
+                                : connectionState === 'failed'
+                                  ? t('google_settings.status_failed')
+                                  : connectionState === 'checking'
+                                    ? t('google_settings.status_checking')
+                                    : t('google_settings.status_not_connected')}
+                        </p>
+                        {connectionState === 'not-connected' && (
+                            <p className="text-sm text-gray-600 mt-0.5">{t('google_settings.status_not_connected_desc')}</p>
+                        )}
+                        {connectionState === 'failed' && (
+                            <p className="text-sm text-red-800 mt-0.5">{t('google_settings.status_failed_desc')}</p>
+                        )}
+                    </div>
+                </div>
+
                 <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'}`}>
                     <p className="text-sm text-gray-500 italic pb-2 border-b border-gray-100">
                     {t('google_settings.description_prefix')}{' '}
@@ -269,6 +322,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                     </div>
                 </section>
 
+                {connectionState === 'connected' && (
                 <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'} bg-gradient-to-br from-blue-50 to-cyan-50`}>
                     <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
                         <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -343,8 +397,9 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                         )}
                     </div>
                 </section>
+                )}
 
-                {selectedFolderId && (
+                {hasSavedCredentials && selectedFolderId && (
                     <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'}`}>
                         <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-200">
                         <div className="flex items-center gap-2 text-sm text-green-700">
@@ -367,6 +422,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                     </section>
                 )}
 
+                {hasSavedCredentials && (
                 <section className={`${isInline ? 'bg-white rounded-2xl p-6 shadow-sm border border-gray-100' : 'bg-gray-50 rounded-2xl p-5 border border-gray-100'}`}>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                     <p className="text-[10px] text-gray-600 font-mono">
@@ -374,6 +430,7 @@ export function GoogleSettings({ isOpen, onClose, isInline }: GoogleSettingsProp
                     </p>
                     </div>
                 </section>
+                )}
                 </div>
 
             <div className={`shrink-0 ${isInline ? 'sticky bottom-0 bg-gray-50/80 backdrop-blur-sm pt-4 pb-4 border-t border-gray-200 -mx-6 px-6 z-10' : 'p-6 bg-gray-50 border-t border-gray-100'}`}>

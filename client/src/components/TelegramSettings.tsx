@@ -113,6 +113,13 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
         status?.hasToken || (typeof config?.botToken === 'string' && config.botToken.startsWith('***'))
     );
 
+    /**
+     * Connection-first: on a fresh screen (no token saved or typed, bot not
+     * running) show only the status card and the token field. Everything else
+     * unfolds once there is a token to work with.
+     */
+    const showSetupOnly = !status?.isActive && !hasSavedToken && !botToken.trim();
+
     const {
         data: botInfo,
         isLoading: isLoadingBotInfo,
@@ -608,7 +615,9 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-                    <div className="lg:col-span-4 space-y-6">
+                    <div className={`${showSetupOnly ? 'lg:col-span-12' : 'lg:col-span-4'} space-y-6`}>
+                        {!showSetupOnly && (
+                        <>
                         <div>
                             <label className="block text-sm font-bold text-gray-800 mb-3">{t('telegram.bot_language')}</label>
                             <div className="flex flex-wrap gap-2">
@@ -649,6 +658,8 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                                 {t('telegram.token_security_line2')}
                             </p>
                         </div>
+                        </>
+                        )}
 
                         {!status?.isActive && (
                             <div className="space-y-4">
@@ -711,6 +722,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                         )}
                     </div>
 
+                    {!showSetupOnly && (
                     <div className="lg:col-span-8 space-y-4">
                         <div>
                             <h3 className="text-base font-bold text-gray-900">{t('telegram.users_management')}</h3>
@@ -876,6 +888,7 @@ export function TelegramSettings({ isOpen, onClose, isInline }: TelegramSettings
                             </button>
                         )}
                     </div>
+                    )}
                 </div>
             </div>
         </div>
