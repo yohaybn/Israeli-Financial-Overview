@@ -7,6 +7,7 @@ import { useProfile, useUpdateProfile } from '../hooks/useProfiles';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import { ProviderIcon } from './ProfileManager';
 import { OneZeroLongTermTokenHelper } from './OneZeroLongTermTokenHelper';
+import { Modal } from './Modal';
 
 export interface EditProfileModalProps {
     profileId: string;
@@ -78,16 +79,7 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
     };
 
     return (
-        <div
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
-            onClick={(ev) => ev.target === ev.currentTarget && !isPending && onClose()}
-        >
-            <div
-                role="dialog"
-                aria-modal="true"
-                className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
-                onClick={(e) => e.stopPropagation()}
-            >
+        <Modal labelledBy="editprofilemodal-title" onClose={() => { if (!isPending) onClose(); }} zIndex={60} overlayClassName="p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" panelClassName="bg-white rounded-xl shadow-xl border border-gray-200 max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100">
                     <div className="flex items-center gap-2 min-w-0">
                         {profile && (
@@ -95,7 +87,7 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                 <ProviderIcon companyId={profile.companyId} />
                             </div>
                         )}
-                        <h2 className="text-lg font-semibold text-gray-900 truncate">
+                        <h2 id="editprofilemodal-title" className="text-lg font-semibold text-gray-900 truncate">
                             {t('profiles.edit_title')}
                         </h2>
                     </div>
@@ -109,7 +101,6 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-
                 <div className="p-4">
                     {isLoading && (
                         <p className="text-sm text-gray-500">{t('profiles.loading')}</p>
@@ -132,7 +123,6 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                 />
                             </div>
-
                             <div>
                                 <span className="block text-sm font-medium text-gray-700">
                                     {t('scraper.provider')}
@@ -141,7 +131,6 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                     {getProviderDisplayName(profile.companyId, providers, i18n.language)}
                                 </p>
                             </div>
-
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {provider.credentialFields.map((field) => (
                                     <div key={field.name} className={field.type === 'password' ? 'sm:col-span-2' : ''}>
@@ -178,7 +167,6 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                     </div>
                                 ))}
                             </div>
-
                             {profile.companyId === 'oneZero' && (
                                 <OneZeroLongTermTokenHelper
                                     profileId={profile.id}
@@ -193,7 +181,6 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                     disabled={restricted || isPending}
                                 />
                             )}
-
                             <div className="border-t border-gray-100 pt-4 space-y-3">
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                                     {t('profiles.options_section')}
@@ -280,7 +267,6 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                                     <p className="mt-1 text-xs text-gray-500">{t('scraper.excluded_accounts_hint')}</p>
                                 </div>
                             </div>
-
                             <div className="flex justify-end gap-2 pt-2">
                                 <button
                                     type="button"
@@ -301,7 +287,6 @@ export function EditProfileModal({ profileId, onClose, restricted }: EditProfile
                         </form>
                     )}
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

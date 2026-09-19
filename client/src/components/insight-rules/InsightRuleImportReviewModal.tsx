@@ -5,6 +5,7 @@ import {
     type InsightRuleImportTuningSlot,
     type InsightRulesExportDocument,
 } from '@app/shared';
+import { Modal } from '../Modal';
 
 export function InsightRuleImportReviewModal({
     doc,
@@ -40,13 +41,7 @@ export function InsightRuleImportReviewModal({
     }, [doc.rules, slotsByRule]);
 
     return (
-        <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="import-review-title"
-        >
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+        <Modal labelledBy="import-review-title" onClose={onClose} zIndex={80} overlayClassName="bg-black/40 p-4" panelClassName="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
                 <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
                     <div>
                         <h2 id="import-review-title" className="text-lg font-semibold text-gray-900">
@@ -124,7 +119,6 @@ export function InsightRuleImportReviewModal({
                         {busy ? t('common.loading') : t('insight_rules.import_review_confirm')}
                     </button>
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

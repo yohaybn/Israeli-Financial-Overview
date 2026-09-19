@@ -1,0 +1,10 @@
+{
+    "errors": {
+        "boundary": {
+            "title": "Something went wrong",
+            "description": "Part of the screen crashed. You can try again, or reload the page if the problem persists.",
+            "retry": "Try again",
+            "reload": "Reload page"
+        }
+    }
+}

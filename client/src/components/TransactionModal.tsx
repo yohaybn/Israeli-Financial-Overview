@@ -38,6 +38,7 @@ import { SubscriptionInterval } from '@app/shared';
 import { CategoryIcon } from '../utils/categoryIcons';
 import { useUnifiedData } from '../hooks/useUnifiedData';
 import { useInvestmentAppSettings } from '../hooks/useInvestments';
+import { Modal } from './Modal';
 
 interface TransactionModalProps {
     transaction: Transaction | null;
@@ -354,13 +355,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
         i18n.exists(`transaction.fields.${key}`) ? t(`transaction.fields.${key}`) : String(key);
 
     return createPortal(
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
-            <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
-                onClick={onClose}
-            />
-
-            <div className="relative w-full max-w-2xl bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 max-h-[90vh]">
+        <Modal labelledBy="transactionmodal-title" onClose={onClose} zIndex={120} overlayClassName="p-4 sm:p-6 overflow-hidden bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" panelClassName="relative w-full max-w-2xl bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 max-h-[90vh]">
                 <div
                     className={clsx(
                         'p-8 text-white relative flex justify-between items-start gap-4 min-w-0 transition-colors duration-500',
@@ -410,7 +405,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                                 </span>
                             )}
                         </div>
-                        <h2
+                        <h2 id="transactionmodal-title"
                             className="text-2xl sm:text-3xl font-black leading-none tracking-tight drop-shadow-sm min-w-0 truncate"
                             title={txn.description}
                         >
@@ -795,8 +790,7 @@ export function TransactionModal({ transaction, isOpen, onClose, categories = []
                         {t('common.close')}
                     </button>
                 </div>
-            </div>
-        </div>,
+        </Modal>,
         document.body
     );
 }

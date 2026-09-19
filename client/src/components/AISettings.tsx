@@ -12,6 +12,7 @@ import { useUnifiedData } from '../hooks/useUnifiedData';
 import { LLMProviderCard } from './config/sections/LLMProviderCard';
 import { PromptEngineeringCard } from './config/sections/PromptEngineeringCard';
 import { ConfigStatusBanner } from './config/ConfigStatusBanner';
+import { Modal } from './Modal';
 
 interface AISettingsProps {
     isOpen?: boolean;
@@ -279,8 +280,8 @@ export function AISettings({ isOpen, onClose, isInline, showAdvanced = true }: A
     if (isInline) return content;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <Modal onClose={onClose} zIndex={50} overlayClassName="bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             {content}
-        </div>
+        </Modal>
     );
 }

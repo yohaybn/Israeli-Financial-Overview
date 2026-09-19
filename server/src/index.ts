@@ -3,6 +3,7 @@ import './runtimeEnv.js';
 import './utils/geminiRateLimitCapture.js';
 import express from 'express';
 import cors from 'cors';
+import { createCorsOriginChecker } from './utils/corsOrigin.js';
 import path from 'path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'url';
@@ -26,11 +27,14 @@ import { serverLogger } from './utils/logger.js';
 import { maskSensitiveData } from './utils/masking.js';
 import { runAiMemoryRetentionPrune } from './services/aiMemoryRetention.js';
 import { appLockService } from './services/appLockService.js';
+ 
+import { apiNotFoundHandler, errorHandler } from './middleware/errorHandler.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function resolveStartupBrowserPath(): string | undefined {
+async function resolveStartupBrowserPath(): Promise<string | undefined> {
   const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
   if (envPath && fs.existsSync(envPath)) {
     return envPath;
@@ -44,7 +48,7 @@ function resolveStartupBrowserPath(): string | undefined {
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    puppeteer.executablePath(),
+    await puppeteer.executablePath(),
   ];
 
   for (const candidate of candidates) {
@@ -96,9 +100,20 @@ async function startServer() {
 
   // Create HTTP server and Socket.IO instance
   const httpServer = createServer(app);
+  // Self-hosted origin policy: allow same-origin/LAN/localhost, reject unknown
+  // public origins so a malicious site in the user's browser cannot call the API.
+  const isCorsOriginAllowed = createCorsOriginChecker();
+  const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
+    if (isCorsOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      serverLogger.warn('Blocked cross-origin request', { origin });
+      callback(null, false);
+    }
+  };
   const io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: corsOrigin,
       methods: ['GET', 'POST'],
     },
   });
@@ -129,7 +144,7 @@ async function startServer() {
     next();
   });
 
-  app.use(cors());
+  app.use(cors({ origin: corsOrigin }));
   app.use(express.json());
   app.use(blockerAuthMiddleware);
 
@@ -249,6 +264,11 @@ async function startServer() {
     });
   }
 
+  // JSON 404 for unmatched /api/* routes, then one consistent error shape for
+  // everything the routes did not handle themselves (incl. body-parser errors).
+  app.use('/api', apiNotFoundHandler);
+  app.use(errorHandler);
+
   httpServer.on('error', (err: NodeJS.ErrnoException) => {
     serverLogger.error('HTTP server failed to bind or listen', {
       message: err.message,
@@ -261,12 +281,12 @@ async function startServer() {
   const listenHost = process.env.LISTEN_HOST || '0.0.0.0';
 
   try {
-    httpServer.listen(port, listenHost, () => {
+    httpServer.listen(port, listenHost, async () => {
       serverLogger.info(`Server running on http://${listenHost}:${port}`);
       serverLogger.info(`WebSocket ready on ws://${listenHost}:${port}`);
       serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       serverLogger.info(`Data Directory: ${process.env.DATA_DIR || './data'}`);
-      const browserPath = resolveStartupBrowserPath();
+      const browserPath = await resolveStartupBrowserPath();
       serverLogger.info(
         browserPath
           ? `Browser executable resolved at startup: ${browserPath}`

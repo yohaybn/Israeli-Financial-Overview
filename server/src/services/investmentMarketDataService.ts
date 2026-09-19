@@ -18,7 +18,9 @@ import { parseEodhdQuoteMode, type EodhdQuoteMode } from '../constants/eodhdQuot
 // yahoo-finance2 v2 exports a ready-made singleton (not a class).
 // A custom fetch is injected via `_env.fetch` instead of constructor options.
 const yahooFinance = YahooFinance;
-yahooFinance._env.fetch = createYahooLoggingFetch() as typeof yahooFinance._env.fetch;
+// yahoo-finance2 2.14.2 no longer exposes `_env` in the public types (`_env: {}`),
+// but the runtime singleton still reads `_env.fetch` - inject via a structural type.
+(yahooFinance as unknown as { _env: { fetch: typeof fetch } })._env.fetch = createYahooLoggingFetch();
 
 let usdIlsCache: { value: number; at: number } | null = null;
 /** Fresh-enough FX for display; Yahoo is easy to 429 if polled too often. */

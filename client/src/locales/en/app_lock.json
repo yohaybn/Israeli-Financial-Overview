@@ -11,6 +11,8 @@
         "enable_lock": "Set app password",
         "new_password": "New password (min 8 characters)",
         "confirm_password": "Confirm password",
-        "save_password": "Save & enable lock"
+        "save_password": "Save & enable lock",
+        "later": "Later",
+        "snoozed_title": "Application locked - scraping and saving profiles are disabled"
     }
 }

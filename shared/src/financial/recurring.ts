@@ -190,14 +190,30 @@ export function detectRecurring(
             const avgAmount = cluster.amounts.reduce((a, b) => a + b, 0) / cluster.amounts.length;
 
             const days = cluster.dates.map(d => d.getDate());
+            // Day-of-month is cyclic: a charge landing on the 31st one month and
+            // on the 1st-2nd the next is the same recurring item, not far-apart days.
+            const DAY_CYCLE = 31;
+            const circularDayDistance = (a: number, b: number) => {
+                const diff = Math.abs(a - b) % DAY_CYCLE;
+                return Math.min(diff, DAY_CYCLE - diff);
+            };
             let bestClusterSize = 0;
             let bestClusterMean = 0;
 
             for (const day of days) {
-                const closeDays = days.filter(d => Math.abs(d - day) <= 3);
+                const closeDays = days.filter(d => circularDayDistance(d, day) <= 3);
                 if (closeDays.length > bestClusterSize) {
                     bestClusterSize = closeDays.length;
-                    bestClusterMean = closeDays.reduce((a, b) => a + b, 0) / closeDays.length;
+                    // Unwrap around the center before averaging (e.g. {31, 1, 2} -> {31, 32, 33}).
+                    const unwrapped = closeDays.map(d => {
+                        let dd = d;
+                        while (dd - day > DAY_CYCLE / 2) dd -= DAY_CYCLE;
+                        while (day - dd > DAY_CYCLE / 2) dd += DAY_CYCLE;
+                        return dd;
+                    });
+                    const rawMean = unwrapped.reduce((a, b) => a + b, 0) / unwrapped.length;
+                    // Wrap back into 1..31.
+                    bestClusterMean = ((Math.round(rawMean) - 1 + DAY_CYCLE) % DAY_CYCLE) + 1;
                 }
             }
 

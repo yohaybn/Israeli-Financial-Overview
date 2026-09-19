@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { publicAssetUrl } from '../utils/publicBase';
+import { Modal } from './Modal';
 
 interface UserGuideModalProps {
     isOpen: boolean;
@@ -251,12 +252,11 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
     const content = isHebrew ? guides.he : guides.en;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className={`bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300 ${isHebrew ? 'direction-rtl' : ''}`}>
+        <Modal labelledBy="userguidemodal-title" onClose={onClose} zIndex={50} overlayClassName="bg-black bg-opacity-50 p-4" panelClassName="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 flex justify-between items-start">
                     <div>
-                        <h2 className="text-3xl font-black text-white mb-1">{content.title}</h2>
+                        <h2 id="userguidemodal-title" className="text-3xl font-black text-white mb-1">{content.title}</h2>
                         <p className="text-blue-100 text-sm">{content.subtitle}</p>
                     </div>
                     <button
@@ -336,7 +336,6 @@ export function UserGuideModal({ isOpen, onClose }: UserGuideModalProps) {
                         {isHebrew ? 'סגור' : 'Close'}
                     </button>
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 }

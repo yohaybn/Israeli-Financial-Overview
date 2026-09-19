@@ -3,6 +3,7 @@ import { UpcomingItem, Transaction, FinancialSummary } from '@app/shared';
 import { useState } from 'react';
 import { TransactionModal } from '../TransactionModal';
 import { CategoryIcon } from '../../utils/categoryIcons';
+import { Modal } from '../Modal';
 
 interface UpcomingFixedListProps {
     items: UpcomingItem[];
@@ -270,17 +271,12 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
 
             {/* History Modal */}
             {selectedHistory && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-                    <div
-                        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
-                        onClick={() => setSelectedHistory(null)}
-                    />
-                    <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 fade-in duration-300">
+                <Modal labelledBy="upcomingfixedlist-title" onClose={() => setSelectedHistory(null)} zIndex={100} overlayClassName="p-4 sm:p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" panelClassName="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
                         {/* Modal Header */}
                         <div className={`p-6 text-white flex justify-between items-start ${selectedHistory.type === 'bill' ? 'bg-gradient-to-r from-red-500 to-pink-600' : 'bg-gradient-to-r from-emerald-500 to-teal-600'
                             }`}>
                             <div>
-                                <h3 className="text-xl font-bold mb-1">{selectedHistory.description}</h3>
+                                <h3 id="upcomingfixedlist-title" className="text-xl font-bold mb-1">{selectedHistory.description}</h3>
                                 <p className="text-white/80 text-sm">
                                     {t('dashboard.history_of')}
                                 </p>
@@ -352,8 +348,7 @@ export function UpcomingFixedList({ items, summary }: UpcomingFixedListProps) {
                                 {t('common.close')}
                             </button>
                         </div>
-                    </div>
-                </div>
+                </Modal>
             )}
 
             {/* Transaction Detail Modal */}

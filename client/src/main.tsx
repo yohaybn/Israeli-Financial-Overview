@@ -10,6 +10,7 @@ import { ServerActivityProvider } from './contexts/ServerActivityContext';
 import { isDemoMode } from './demo/isDemo';
 import { getResolvedPublicBase, isIngressRelativeBase } from './utils/publicBase';
 import { AppBlockerGate } from './components/AppBlockerGate';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 /**
  * One-time PWA service-worker kill switch for HA Ingress.
@@ -55,6 +56,7 @@ async function bootstrap() {
 
     ReactDOM.createRoot(document.getElementById('root')!).render(
         <React.StrictMode>
+            <ErrorBoundary name="root">
             <QueryProvider>
                 <OnboardingProvider>
                     <GettingStartedProvider>
@@ -66,6 +68,7 @@ async function bootstrap() {
                     </GettingStartedProvider>
                 </OnboardingProvider>
             </QueryProvider>
+            </ErrorBoundary>
         </React.StrictMode>
     );
 }

@@ -27,6 +27,7 @@ import {
     type InvestmentRow,
 } from '../../hooks/useInvestments';
 import { api } from '../../lib/api';
+import { Modal } from '../Modal';
 
 function formatIls(n: number | null | undefined, locale: string): string {
     if (n == null || !Number.isFinite(n)) return '—';
@@ -322,16 +323,16 @@ export function PortfolioSection({
 
                 {summary && (
                     <div className="mb-4 rounded-3xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 shadow-sm">
-                        <div className="flex flex-wrap items-end justify-between gap-3">
-                            <div className={isHebrew ? 'text-right' : ''}>
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,150px),1fr))] items-end gap-3">
+                            <div className={`min-w-0 ${isHebrew ? 'text-right' : ''}`}>
                                 <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-700/80">
                                     {t('dashboard.portfolio.total_value')}
                                 </div>
-                                <div className="text-3xl sm:text-[2rem] font-black text-gray-900 mt-1 leading-none">
+                                <div className="text-2xl sm:text-3xl font-black text-gray-900 mt-1 leading-none tabular-nums break-words">
                                     {formatIls(summary.totalMarketValueIls, locale)}
                                 </div>
                             </div>
-                            <div className={isHebrew ? 'text-left' : 'text-right'}>
+                            <div className={`min-w-0 ${isHebrew ? 'text-left' : 'text-right'}`}>
                                 <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                                     {t('dashboard.portfolio.total_pnl')}
                                 </div>
@@ -744,11 +745,9 @@ export function PortfolioSection({
                     )}
                 </details>
                 {isCreateModalOpen && (
-                    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/40" onClick={() => setIsCreateModalOpen(false)} />
-                        <div className="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+                    <Modal labelledBy="portfoliosection-title" onClose={() => setIsCreateModalOpen(false)} zIndex={90} overlayClassName="p-4 bg-black/40" panelClassName="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
                             <div className="mb-4 flex items-center justify-between gap-3">
-                                <h4 className="text-lg font-bold text-gray-900">{t('dashboard.portfolio.add')}</h4>
+                                <h4 id="portfoliosection-title" className="text-lg font-bold text-gray-900">{t('dashboard.portfolio.add')}</h4>
                                 <button
                                     type="button"
                                     onClick={() => setIsCreateModalOpen(false)}
@@ -832,8 +831,7 @@ export function PortfolioSection({
                                     {t('dashboard.portfolio.add')}
                                 </button>
                             </div>
-                        </div>
-                    </div>
+                    </Modal>
                 )}
                 </div>
             )}

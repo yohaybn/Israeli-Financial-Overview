@@ -10,7 +10,7 @@ import {
     detectAnomalies,
     isTransactionIgnored,
     expenseCategoryKey,
-    computeTxnBaselineVariableForecast
+    computeCategoryVariableForecast
 } from '@app/shared';
 
 import { isInternalTransfer } from '../utils/transactionUtils';
@@ -194,35 +194,23 @@ export function useFinancialSummary(
             let forecastRate = 0;
             let forecastMethod: 'historical_avg' | 'extrapolation' | 'transaction_count' | undefined;
 
-            // Variable Spend Forecasting
+            // Variable Spend Forecasting (shared with the Telegram digest via @app/shared)
             let forecastEffectiveTxnCount: number | undefined;
-            if (isCurrentMonth) {
-                if (baseline && !baseline.isFixed) {
-                    const N =
-                        baseline.avgMonthlyTxnCount ??
-                        baseline.expectedMonthlyTxnCount ??
-                        0;
-                    const avgTxnValue = baseline.avgTxnValue || 0;
-                    const currentTxns = categoryTxns.get(name)?.length || 0;
-
-                    const { amount, forecastTxnCount } = computeTxnBaselineVariableForecast({
-                        expectedMonthlyTxnCount: N,
-                        avgTxnValue,
-                        currentMonthTxnCount: currentTxns,
-                        daysInMonth,
-                        remainingDays,
-                    });
-                    categoryVariableForecast = amount;
-                    if (N >= 1) {
-                        forecastEffectiveTxnCount = Math.round(forecastTxnCount * 100) / 100;
-                        forecastRate = 0; // Daily rate is no longer the main driver
-                        forecastMethod = 'transaction_count';
-                    }
-                } else if (!baseline && spent > 0) {
-                    // If no baseline but we have spend, do a naive extrapolation
-                    forecastRate = spent / Math.max(1, daysPassed);
-                    categoryVariableForecast = forecastRate * remainingDays;
-                    forecastMethod = 'extrapolation';
+            {
+                const vf = computeCategoryVariableForecast({
+                    baseline,
+                    isCurrentMonth,
+                    spent,
+                    currentMonthTxnCount: categoryTxns.get(name)?.length || 0,
+                    daysPassed,
+                    daysInMonth,
+                    remainingDays,
+                });
+                categoryVariableForecast = vf.amount;
+                forecastRate = vf.rate;
+                forecastMethod = vf.method;
+                if (vf.method === 'transaction_count' && vf.forecastTxnCount != null) {
+                    forecastEffectiveTxnCount = Math.round(vf.forecastTxnCount * 100) / 100;
                 }
             }
 
