@@ -13,6 +13,7 @@
         "confirm_password": "Confirm password",
         "save_password": "Save & enable lock",
         "later": "Later",
-        "snoozed_title": "Application locked - scraping and saving profiles are disabled"
+        "snoozed_title": "Application locked - scraping and saving profiles are disabled",
+        "not_configured_hint_short": "Protect bank logins with an app password"
     }
 }

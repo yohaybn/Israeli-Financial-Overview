@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppLockStatus, useUnlockApp, useLockApp, useSetupAppLock } from '../hooks/useAppLock';
-import { AlertTriangle, Lock, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Lock, ShieldCheck } from 'lucide-react';
+import { useCollapsibleBanner } from '../hooks/useCollapsibleBanner';
 
 const SNOOZE_STORAGE_KEY = 'app-lock-banner-snoozed';
 
@@ -23,6 +24,7 @@ export function AppLockBanner() {
     const [setupPassword, setSetupPassword] = useState('');
     const [setupConfirm, setSetupConfirm] = useState('');
     const [showSetup, setShowSetup] = useState(false);
+    const setupHint = useCollapsibleBanner('app-lock-setup-hint-seen');
     const [unlockedBannerDismissed, setUnlockedBannerDismissed] = useState(false);
     const [lockedBannerSnoozed, setLockedBannerSnoozed] = useState(
         () => sessionStorage.getItem(SNOOZE_STORAGE_KEY) === '1'
@@ -168,10 +170,34 @@ export function AppLockBanner() {
                 </div>
             )}
 
-            {!lockConfigured && (
+            {!lockConfigured && setupHint.collapsed && (
+                <div className="bg-slate-100 border-b border-slate-200 px-4 py-1">
+                    <div className="container mx-auto max-w-[1600px] flex items-center gap-2 text-xs text-slate-600">
+                        <Lock className="w-3.5 h-3.5 shrink-0" />
+                        <span className="flex-1 truncate">{t('app_lock.not_configured_hint_short')}</span>
+                        <button
+                            type="button"
+                            onClick={setupHint.expand}
+                            aria-label={t('common.expand_section')}
+                            className="shrink-0 text-slate-500 hover:text-slate-800"
+                        >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                </div>
+            )}
+            {!lockConfigured && !setupHint.collapsed && (
                 <div className="bg-slate-100 border-b border-slate-200 px-4 py-2">
                     <div className="container mx-auto max-w-[1600px] flex flex-wrap items-center gap-3">
                         <p className="text-xs text-slate-600 flex-1">{t('app_lock.not_configured_hint')}</p>
+                        <button
+                            type="button"
+                            onClick={setupHint.collapse}
+                            aria-label={t('common.collapse_section')}
+                            className="shrink-0 text-slate-400 hover:text-slate-700"
+                        >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
                         <button
                             type="button"
                             onClick={() => setShowSetup((s) => !s)}

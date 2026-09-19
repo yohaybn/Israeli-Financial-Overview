@@ -94,6 +94,7 @@
         "profile_placeholder_aria": "פרופיל",
         "main_navigation_aria": "ניווט ראשי",
         "error_occurred": "אירעה תקלה. אנא נסו שוב.",
-        "unsaved_config_confirm": "יש שינויים שלא נשמרו בהגדרות. בטוחים שרוצים לצאת?"
+        "unsaved_config_confirm": "יש שינויים שלא נשמרו בהגדרות. בטוחים שרוצים לצאת?",
+        "demo_banner_short": "מצב הדגמה: נתוני דוגמה בלבד"
     }
 }
