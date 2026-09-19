@@ -654,8 +654,8 @@ function App() {
                             </div>
                         )}
                         {view === 'configuration' && (
-                            <div className="h-full">
-                                <div className="h-full overflow-y-auto py-4">
+                            <div className="h-full overflow-y-auto">
+                                <div className="min-h-full py-4">
                                     {showConfigWizard && (
                                         <ConfigSetupWizard
                                             activeTab={configTab}
