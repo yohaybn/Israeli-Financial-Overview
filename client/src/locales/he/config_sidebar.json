@@ -8,6 +8,12 @@
         "show_advanced": "הצג מתקדם",
         "hide_advanced": "הסתר מתקדם",
         "show_extra_sections": "הצג עוד הגדרות",
-        "hide_extra_sections": "הסתר עוד הגדרות"
+        "hide_extra_sections": "הסתר עוד הגדרות",
+        "groups": {
+            "ai_categorization": "AI וסיווג",
+            "automation_reports": "אוטומציה ודוחות",
+            "connections": "חיבורים",
+            "data_maintenance": "נתונים ותחזוקה"
+        }
     }
 }
