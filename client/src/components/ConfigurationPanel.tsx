@@ -21,6 +21,7 @@ import {
     requiresAdvancedMode,
     visibleConfigTabs,
 } from './config/configMode';
+import { visibleConfigGroups } from './config/configGroups';
 
 export interface ConfigurationPanelProps {
     activeTab: ConfigTabId;
@@ -73,6 +74,10 @@ export function ConfigurationPanel({
         );
         return CONFIG_SECTIONS.filter(({ id }) => visibleTabs.includes(id));
     }, [advancedMode]);
+    const visibleGroups = useMemo(
+        () => visibleConfigGroups(visibleConfigSections.map(({ id }) => id)),
+        [visibleConfigSections]
+    );
 
     useEffect(() => {
         if (isAdvancedSidebarTabActive && !advancedMode) {
@@ -168,10 +173,14 @@ export function ConfigurationPanel({
                     className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     aria-label={t('config_sidebar.nav_aria')}
                 >
-                    {visibleConfigSections.map(({ id }) => (
-                        <option key={id} value={id}>
-                            {sectionLabel(id)}
-                        </option>
+                    {visibleGroups.map((group) => (
+                        <optgroup key={group.id} label={t(`config_sidebar.groups.${group.id}`)}>
+                            {group.tabs.map((id) => (
+                                <option key={id} value={id}>
+                                    {sectionLabel(id)}
+                                </option>
+                            ))}
+                        </optgroup>
                     ))}
                 </select>
             </div>
@@ -182,24 +191,33 @@ export function ConfigurationPanel({
                     className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3"
                     aria-label={t('config_sidebar.nav_aria')}
                 >
-                    {visibleConfigSections.map(({ id }) => {
-                        const active = activeTab === id;
-                        return (
-                            <button
-                                key={id}
-                                type="button"
-                                onClick={() => onTabChange(id)}
-                                aria-current={active ? 'page' : undefined}
-                                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-start text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
-                                    active
-                                        ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/80'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                            >
-                                <span className="min-w-0">{sectionLabel(id)}</span>
-                            </button>
-                        );
-                    })}
+                    {visibleGroups.map((group) => (
+                        <div key={group.id} className="mb-3 last:mb-0">
+                            <p className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                                {t(`config_sidebar.groups.${group.id}`)}
+                            </p>
+                            <div className="space-y-0.5">
+                                {group.tabs.map((id) => {
+                                    const active = activeTab === id;
+                                    return (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => onTabChange(id)}
+                                            aria-current={active ? 'page' : undefined}
+                                            className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-start text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
+                                                active
+                                                    ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/80'
+                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <span className="min-w-0">{sectionLabel(id)}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </nav>
 
             </aside>
