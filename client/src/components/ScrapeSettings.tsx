@@ -208,29 +208,28 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
                                 onToggle={(key, value) => updateOption(key, value)}
                             />
 
-                            <label className="flex items-center gap-3 p-3 bg-blue-50/50 rounded-xl cursor-pointer hover:bg-blue-100/50 transition-colors border border-blue-100/50">
-                                <input
-                                    type="checkbox"
-                                    checked={config.scraperOptions.ignorePendingTransactions !== false}
-                                    onChange={(e) => updateOption('ignorePendingTransactions', e.target.checked)}
-                                    className="w-5 h-5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <div>
-                                    <span className="block text-sm font-bold text-blue-900">{t('post_scrape.ignore_pending')}</span>
-                                    <span className="text-xs text-blue-700 opacity-80">{t('post_scrape.ignore_pending_desc')}</span>
-                                </div>
-                            </label>
+                            <ToggleSwitch
+                                checked={config.scraperOptions.ignorePendingTransactions !== false}
+                                onChange={(checked) => updateOption('ignorePendingTransactions', checked)}
+                                label={t('post_scrape.ignore_pending')}
+                                description={t('post_scrape.ignore_pending_desc')}
+                                className="border-blue-100/50 bg-blue-50/50"
+                            />
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.timeout')} (ms)</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('scraper.timeout')}</label>
                                 <input
                                     type="number"
                                     value={config.scraperOptions.timeout ?? 120000}
                                     onChange={(e) => updateValidatedIntegerOption('timeout', e.target.value, 1000, 600000)}
                                     className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                                    aria-describedby="scrape-timeout-hint"
                                 />
+                                <p id="scrape-timeout-hint" className="mt-1 text-xs text-gray-500">
+                                    {t('scraper.timeout_hint', { seconds: Math.round((config.scraperOptions.timeout ?? 120000) / 1000) })}
+                                </p>
                                 {fieldErrors.timeout && <p className="text-rose-500 text-xs mt-1">{fieldErrors.timeout}</p>}
                             </div>
 
@@ -727,4 +726,4 @@ export function ScrapeSettings({ isOpen, onClose, isInline, onOpenBudgetExports,
             {content}
         </Modal>
     );
-}
+        }
