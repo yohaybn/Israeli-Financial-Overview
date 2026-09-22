@@ -343,20 +343,23 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
             {t('ai_logs.include_errors')}
           </label>
 
-          <details className="relative">
-            <summary className="cursor-pointer list-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-              {t('ai_logs.more_actions')}
-            </summary>
-            <div className="absolute end-0 z-30 mt-2 w-64 rounded-lg border border-red-200 bg-white p-3 shadow-xl">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-700">{t('ai_logs.danger_zone')}</p>
-              <button onClick={() => clearOldLogs(30)} className="mb-2 w-full rounded-lg border border-amber-300 px-3 py-2 text-start text-sm text-amber-800 hover:bg-amber-50">
-                {t('ai_logs.clear_old_logs')}
-              </button>
-              <button onClick={() => clearAllLogs()} className="w-full rounded-lg border border-red-300 px-3 py-2 text-start text-sm text-red-700 hover:bg-red-50">
-                {t('ai_logs.clear_all')}
-              </button>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-gray-600">{t('ai_logs.retention_notice')}</p>
+            <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => clearOldLogs(30)}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm"
+            >
+              {t('ai_logs.clear_old_logs')}
+            </button>
+            <button
+              onClick={() => clearAllLogs()}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+            >
+              {t('ai_logs.clear_all')}
+            </button>
             </div>
-          </details>
+          </div>
         </div>
 
         <div className="w-full sm:w-auto sm:ml-auto text-sm text-gray-600 text-center sm:text-right">
@@ -517,6 +520,9 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                   <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
                   <h3 className="text-base font-bold text-gray-900">{t('ai_logs.request_info')}</h3>
                 </div>
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="note">
+                  {t('ai_logs.sensitive_warning')}
+                </div>
                 <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-gray-200">
                     <div className="bg-white p-3">
@@ -539,7 +545,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                   </div>
                   <div className="p-4 space-y-4">
                     {selectedLog.requestInfo.systemPrompt && (
-                      <details className="group" open>
+                      <details className="group">
                         <summary className="flex items-center justify-between cursor-pointer list-none py-2 px-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                           <span className="text-sm font-semibold text-gray-700">{t('ai_logs.system_prompt')}</span>
                           <svg className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -551,7 +557,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                         </div>
                       </details>
                     )}
-                    <details className="group" open>
+                    <details className="group">
                       <summary className="flex items-center justify-between cursor-pointer list-none py-2 px-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                         <span className="text-sm font-semibold text-gray-700">{t('ai_logs.raw_request')}</span>
                         <svg className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -578,7 +584,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                   </div>
                   <div className="p-4">
                     {selectedLog.responseInfo.success && selectedLog.responseInfo.rawOutput ? (
-                      <details className="group" open>
+                      <details className="group">
                         <summary className="flex items-center justify-between cursor-pointer list-none py-2 px-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                           <span className="text-sm font-semibold text-gray-700">{t('ai_logs.raw_response')}</span>
                           <svg className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

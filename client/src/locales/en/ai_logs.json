@@ -64,7 +64,7 @@
         "no_output": "No output available",
         "fetch_failed": "Could not load AI logs.",
         "clear_failed": "Could not clear AI logs.",
-        "more_actions": "More actions",
-        "danger_zone": "Danger zone"
+        "sensitive_warning": "Raw prompts, requests, and responses can contain private financial data. Expand only what you need.",
+        "retention_notice": "AI logs are kept until you clear them; use “Clear Old Logs” to retain only the last 30 days."
     }
 }
