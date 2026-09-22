@@ -43,6 +43,7 @@
         "@rollup/plugin-terser": "1.0.0",
         "serialize-javascript": "7.0.5",
         "extract-zip": "2.0.1",
-        "esbuild": "0.28.2"
+        "esbuild": "0.28.2",
+        "js-yaml": "4.3.2"
     }
 }
