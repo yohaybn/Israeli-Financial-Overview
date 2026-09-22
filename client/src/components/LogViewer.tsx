@@ -153,11 +153,12 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
                     <div className="space-y-1">
                         {logsData?.lines?.split('\n').map((line: string, i: number) => {
                             if (!line.trim()) return null;
-                            const colorClass = line.includes('ERROR')
+                            const normalizedLine = line.toUpperCase();
+                            const colorClass = normalizedLine.includes('ERROR')
                                 ? 'text-red-600'
-                                : line.includes('WARN')
+                                : normalizedLine.includes('WARN')
                                   ? 'text-amber-700'
-                                  : line.includes('DEBUG')
+                                  : normalizedLine.includes('DEBUG')
                                     ? 'text-gray-500'
                                     : 'text-gray-800';
                             return (
