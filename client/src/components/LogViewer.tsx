@@ -48,7 +48,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
     const [lines, setLines] = useState(100);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const { data: logsData, isLoading } = useLogs(
+    const { data: logsData, isLoading, error: logsError, refetch: refetchLogs } = useLogs(
         logType === 'ai' || logType === 'scrape' ? 'server' : logType,
         lines,
         {
@@ -56,9 +56,9 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
         }
     );
 
-    const { data: currentLevel } = useLogLevel();
-    const { mutate: updateLevel } = useUpdateLogLevel();
-    const { mutate: clearLogs, isPending: isClearing } = useClearLogs();
+    const { data: currentLevel, error: levelError, refetch: refetchLevel } = useLogLevel();
+    const { mutate: updateLevel, error: updateLevelError, reset: resetUpdateLevelError } = useUpdateLogLevel();
+    const { mutate: clearLogs, isPending: isClearing, error: clearError, reset: resetClearError } = useClearLogs();
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -104,7 +104,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
                         <span className="text-xs text-gray-500">{t('common.level')}</span>
                         <select
                             value={currentLevel}
-                            onChange={(e) => updateLevel(e.target.value)}
+                            onChange={(e) => { resetUpdateLevelError(); updateLevel(e.target.value); }}
                             className="bg-transparent border-none text-gray-800 text-xs py-0 px-1 focus:ring-0 cursor-pointer outline-none"
                         >
                             <option value="debug">{t('common.debug')}</option>
@@ -129,6 +129,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
                     <button
                         onClick={() => {
                             if (confirm(t('common.clear_logs_confirm', { type: t(`common.${logType}`) }))) {
+                                resetClearError();
                                 clearLogs(logType);
                             }
                         }}
@@ -140,11 +141,27 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
                 </div>
             </div>
 
+            {(levelError || updateLevelError || clearError) && (
+                <div role="alert" className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                    <span>{t(levelError ? 'common.log_level_failed' : 'common.log_action_failed')}</span>
+                    <button type="button" onClick={() => { resetUpdateLevelError(); resetClearError(); if (levelError) void refetchLevel(); }} className="font-medium underline">
+                        {t('common.retry')}
+                    </button>
+                </div>
+            )}
+
             <div
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar min-h-0 bg-gray-50 font-mono text-sm text-left selection:bg-blue-200/60"
             >
-                {isLoading ? (
+                {logsError ? (
+                    <div role="alert" className="flex flex-col items-center justify-center h-full gap-3 text-red-700">
+                        <span>{t('common.log_fetch_failed')}</span>
+                        <button type="button" onClick={() => void refetchLogs()} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium">
+                            {t('common.retry')}
+                        </button>
+                    </div>
+                ) : isLoading ? (
                     <div className="flex items-center justify-center h-full gap-3 text-gray-500">
                         <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                         <span>{t('common.loading_logs')}</span>
@@ -153,11 +170,12 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
                     <div className="space-y-1">
                         {logsData?.lines?.split('\n').map((line: string, i: number) => {
                             if (!line.trim()) return null;
-                            const colorClass = line.includes('ERROR')
+                            const normalizedLine = line.toUpperCase();
+                            const colorClass = normalizedLine.includes('ERROR')
                                 ? 'text-red-600'
-                                : line.includes('WARN')
+                                : normalizedLine.includes('WARN')
                                   ? 'text-amber-700'
-                                  : line.includes('DEBUG')
+                                  : normalizedLine.includes('DEBUG')
                                     ? 'text-gray-500'
                                     : 'text-gray-800';
                             return (

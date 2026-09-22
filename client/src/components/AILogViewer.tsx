@@ -57,6 +57,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
   const [logs, setLogs] = useState<AILogEntry[]>([]);
   const [stats, setStats] = useState<AILogsStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<AILogEntry | null>(null);
   const [filter, setFilter] = useState({ model: '', provider: '', includeErrors: true });
   const [pagination, setPagination] = useState({ offset: 0, limit: 50, total: 0 });
@@ -66,6 +67,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const params = new URLSearchParams({
         limit: pagination.limit.toString(),
         offset: pagination.offset.toString(),
@@ -81,10 +83,11 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
       }
     } catch (error) {
       console.error('Failed to fetch AI logs:', error);
+      setErrorMessage(t('ai_logs.fetch_failed'));
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit, pagination.offset, filter]);
+  }, [pagination.limit, pagination.offset, filter, t]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -94,8 +97,9 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
+      setErrorMessage(t('ai_logs.fetch_failed'));
     }
-  }, []);
+  }, [t]);
 
   const clearOldLogs = useCallback(async (daysToRetain: number = 30) => {
     if (!confirm(t('ai_logs.confirm_clear', { days: daysToRetain }))) return;
@@ -107,6 +111,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
       }
     } catch (error) {
       console.error('Failed to clear logs:', error);
+      setErrorMessage(t('ai_logs.clear_failed'));
     }
   }, [fetchLogs, fetchStats, t]);
 
@@ -120,6 +125,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
       }
     } catch (error) {
       console.error('Failed to clear AI logs:', error);
+      setErrorMessage(t('ai_logs.clear_failed'));
     }
   }, [fetchLogs, fetchStats, t]);
 
@@ -227,6 +233,13 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
               {t('ai_logs.scrape_running')}
             </span>
           )}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => { void fetchLogs(); void fetchStats(); }} className="font-medium underline">{t('common.retry')}</button>
         </div>
       )}
 
