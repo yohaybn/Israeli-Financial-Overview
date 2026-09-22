@@ -426,30 +426,60 @@ export async function getAILogsStats(): Promise<{
   }
 }
 
+export function partitionAILogLinesForRetention(
+  content: string,
+  cutoffTime: number
+): { retainedLines: string[]; deletedLogs: AILogEntry[] } {
+  const retainedLines: string[] = [];
+  const deletedLogs: AILogEntry[] = [];
+
+  for (const line of content.split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const log = JSON.parse(line) as AILogEntry;
+      const logTime = new Date(log.timestamp).getTime();
+      if (Number.isFinite(logTime) && logTime < cutoffTime) {
+        deletedLogs.push(log);
+      } else {
+        retainedLines.push(line);
+      }
+    } catch {
+      // Never discard a malformed line during retention cleanup.
+      retainedLines.push(line);
+    }
+  }
+
+  return { retainedLines, deletedLogs };
+}
+
 /**
- * Clear old AI logs (retain last N days)
+ * Clear old AI logs (retain last N days) from both the JSON files and the
+ * newline-delimited index that powers the UI.
  */
 export async function clearOldAILogs(daysToRetain: number = 30): Promise<void> {
   try {
-    const { logs } = await getAILogs({ limit: 100000 });
+    await ensureLogsDirectory();
+    const content = await fs.readFile(AI_LOG_FILE, 'utf-8').catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return '';
+      throw error;
+    });
     const cutoffTime = Date.now() - daysToRetain * 24 * 60 * 60 * 1000;
+    const { retainedLines, deletedLogs } = partitionAILogLinesForRetention(content, cutoffTime);
 
-    let deletedCount = 0;
-
-    for (const log of logs) {
-      const logTime = new Date(log.timestamp).getTime();
-      if (logTime < cutoffTime) {
-        const jsonFileName = path.join(AI_LOG_JSON_DIR, `${log.id}.json`);
-        await fs.remove(jsonFileName).catch(() => { });
-        deletedCount++;
-      }
+    for (const log of deletedLogs) {
+      await fs.remove(path.join(AI_LOG_JSON_DIR, `${log.id}.json`));
     }
 
-    if (deletedCount > 0) {
-      serverLogger.info(`Cleared ${deletedCount} AI logs older than ${daysToRetain} days`);
+    if (deletedLogs.length > 0) {
+      const temporaryFile = `${AI_LOG_FILE}.tmp`;
+      const retainedContent = retainedLines.length > 0 ? `${retainedLines.join('\n')}\n` : '';
+      await fs.writeFile(temporaryFile, retainedContent, 'utf-8');
+      await fs.rename(temporaryFile, AI_LOG_FILE);
+      serverLogger.info(`Cleared ${deletedLogs.length} AI logs older than ${daysToRetain} days`);
     }
   } catch (error) {
     serverLogger.error('Failed to clear old AI logs:', { error });
+    throw error;
   }
 }
 
