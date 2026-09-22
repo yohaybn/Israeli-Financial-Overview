@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Transaction,
@@ -13,18 +13,32 @@ import { useAISettings, useFinancialReportSettings } from '../../hooks/useScrape
 import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 import { ExpenseProgressCenter } from './ExpenseProgressCenter';
 import { IncomeProgressCenter } from './IncomeProgressCenter';
-import { AnalyticsDashboard, AnalyticsDayFilter } from '../AnalyticsDashboard';
+import type { AnalyticsDayFilter } from '../AnalyticsDashboard';
 import { CCPaymentDateSettings } from './CCPaymentDateSettings';
-import { CategoryDetailsModal } from './CategoryDetailsModal';
+
 import { SubscriptionList } from './SubscriptionList';
 import { MonthlyTransactionsCard } from './MonthlyTransactionsCard';
 import { DayTransactionsModal } from './DayTransactionsModal';
 import { AllTransactionsSearchModal } from './AllTransactionsSearchModal';
 import { getInitialCollapsedOnMobile } from '../../hooks/useInitialCollapsedOnMobile';
 import { TopInsightsCard } from './TopInsightsCard';
-import { PortfolioSection } from './PortfolioSection';
+
 import { useInvestmentAppSettings } from '../../hooks/useInvestments';
 import { ChevronsUp } from 'lucide-react';
+
+const AnalyticsDashboard = lazy(() =>
+    import('../AnalyticsDashboard').then((m) => ({ default: m.AnalyticsDashboard }))
+);
+const CategoryDetailsModal = lazy(() =>
+    import('./CategoryDetailsModal').then((m) => ({ default: m.CategoryDetailsModal }))
+);
+const PortfolioSection = lazy(() =>
+    import('./PortfolioSection').then((m) => ({ default: m.PortfolioSection }))
+);
+
+function DashboardSectionFallback() {
+    return <div className="min-h-24 animate-pulse rounded-2xl bg-gray-100" aria-hidden="true" />;
+}
 function shiftMonth(ym: string, delta: number): string {
     const d = new Date(ym + '-01');
     d.setMonth(d.getMonth() + delta);
@@ -469,10 +483,12 @@ export function FinancialCommandCenter({
 
                         {investmentsActive ? (
                             <div className="animate-fade-in-up" style={{ animationDelay: '210ms' }}>
-                                <PortfolioSection
-                                    collapseAllSignal={collapseAllSignal}
-                                    defaultCollapsed={cardsCollapsedOnMobile}
-                                />
+                                <Suspense fallback={<DashboardSectionFallback />}>
+                                    <PortfolioSection
+                                        collapseAllSignal={collapseAllSignal}
+                                        defaultCollapsed={cardsCollapsedOnMobile}
+                                    />
+                                </Suspense>
                             </div>
                         ) : null}
                     </aside>
@@ -582,6 +598,7 @@ export function FinancialCommandCenter({
                                     {t('dashboard.detailed_analytics')}
                                 </h3>
                             </div>
+                            <Suspense fallback={<DashboardSectionFallback />}>
                             <AnalyticsDashboard
                                 transactions={monthTransactions}
                                 allTransactions={transactions}
@@ -593,6 +610,7 @@ export function FinancialCommandCenter({
                                 categoryMeta={aiSettings?.categoryMeta}
                                 chartDefaultSingleMonth={selectedMonth}
                             />
+                            </Suspense>
                         </div>
                     ) : null}
                 </div>
@@ -601,6 +619,7 @@ export function FinancialCommandCenter({
 
             {/* Category Details Modal */}
             {selectedCategoryForModal && (
+                <Suspense fallback={null}>
                 <CategoryDetailsModal
                     categoryName={selectedCategoryForModal!}
                     transactions={transactions}
@@ -610,6 +629,7 @@ export function FinancialCommandCenter({
                     customCCKeywords={config.customCCKeywords}
                     onClose={() => setSelectedCategoryForModal(null)}
                 />
+                </Suspense>
             )}
 
             {analyticsDayFilter && (
