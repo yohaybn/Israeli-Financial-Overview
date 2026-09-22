@@ -94,6 +94,7 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
   const { t, i18n } = useTranslation();
   const [logs, setLogs] = useState<ScrapeRunLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selected, setSelected] = useState<ScrapeRunLogEntry | null>(null);
   const [activeResultFile, setActiveResultFile] = useState<string | null>(initialResultFile ?? null);
   const [pagination, setPagination] = useState({ offset: 0, limit: 50, total: 0 });
@@ -111,6 +112,7 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const params = new URLSearchParams({
         limit: pagination.limit.toString(),
         offset: pagination.offset.toString(),
@@ -122,10 +124,11 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
       }
     } catch (e) {
       console.error('Failed to fetch scrape logs:', e);
+      setErrorMessage(t('scrape_logs.fetch_failed'));
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit, pagination.offset]);
+  }, [pagination.limit, pagination.offset, t]);
 
   useEffect(() => {
     void fetchLogs();
@@ -193,6 +196,7 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
       void fetchLogs();
     } catch (e) {
       console.error(e);
+      setErrorMessage(t('scrape_logs.clear_failed'));
     }
   };
 
@@ -203,6 +207,7 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
       void fetchLogs();
     } catch (e) {
       console.error(e);
+      setErrorMessage(t('scrape_logs.clear_failed'));
     }
   };
 
@@ -252,7 +257,12 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
         </div>
       </div>
 
-      {loading ? (
+      {errorMessage ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => void fetchLogs()} className="font-medium underline">{t('common.retry')}</button>
+        </div>
+      ) : loading ? (
         <div className="text-gray-500">{t('scrape_logs.loading')}</div>
       ) : logs.length === 0 ? (
         <div className="text-gray-500">{t('scrape_logs.no_logs')}</div>

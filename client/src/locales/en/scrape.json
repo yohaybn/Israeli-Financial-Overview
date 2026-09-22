@@ -79,7 +79,9 @@
         "link_ai_logs": "AI query logs",
         "open_result_file": "Open result JSON",
         "ai_calls_for_step": "AI logs:",
-        "result_transactions": "Transactions"
+        "result_transactions": "Transactions",
+        "fetch_failed": "Could not load scrape logs.",
+        "clear_failed": "Could not clear scrape logs."
     },
     "scrape_progress": {
         "title": "Live Progress",

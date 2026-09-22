@@ -95,6 +95,9 @@
         "main_navigation_aria": "ניווט ראשי",
         "error_occurred": "אירעה תקלה. אנא נסו שוב.",
         "unsaved_config_confirm": "יש שינויים שלא נשמרו בהגדרות. בטוחים שרוצים לצאת?",
-        "demo_banner_short": "מצב הדגמה: נתוני דוגמה בלבד"
+        "demo_banner_short": "מצב הדגמה: נתוני דוגמה בלבד",
+        "log_fetch_failed": "לא ניתן לטעון את היומנים.",
+        "log_level_failed": "לא ניתן לטעון את רמת היומן.",
+        "log_action_failed": "השינוי ביומן נכשל."
     }
 }
