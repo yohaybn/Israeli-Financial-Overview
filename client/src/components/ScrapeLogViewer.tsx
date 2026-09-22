@@ -240,20 +240,14 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
           >
             {t('scrape_logs.refresh')}
           </button>
-          <button
-            type="button"
-            onClick={() => void clearOld(30)}
-            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
-          >
-            {t('scrape_logs.clear_old')}
-          </button>
-          <button
-            type="button"
-            onClick={() => void clearAll()}
-            className="px-3 py-1.5 text-sm rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
-          >
-            {t('scrape_logs.clear_all')}
-          </button>
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100">{t('scrape_logs.more_actions')}</summary>
+            <div className="absolute end-0 z-30 mt-2 w-64 rounded-lg border border-red-200 bg-white p-3 shadow-xl">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-700">{t('scrape_logs.danger_zone')}</p>
+              <button type="button" onClick={() => void clearOld(30)} className="mb-2 w-full rounded-lg border border-amber-300 px-3 py-2 text-start text-sm text-amber-800 hover:bg-amber-50">{t('scrape_logs.clear_old')}</button>
+              <button type="button" onClick={() => void clearAll()} className="w-full rounded-lg border border-red-300 px-3 py-2 text-start text-sm text-red-700 hover:bg-red-50">{t('scrape_logs.clear_all')}</button>
+            </div>
+          </details>
         </div>
       </div>
 

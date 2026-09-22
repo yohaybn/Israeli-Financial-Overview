@@ -63,6 +63,8 @@
         "confirm_clear": "Clear logs older than {{days}} days?",
         "no_output": "No output available",
         "fetch_failed": "Could not load AI logs.",
-        "clear_failed": "Could not clear AI logs."
+        "clear_failed": "Could not clear AI logs.",
+        "more_actions": "More actions",
+        "danger_zone": "Danger zone"
     }
 }

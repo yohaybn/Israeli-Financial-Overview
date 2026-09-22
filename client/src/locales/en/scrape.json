@@ -81,7 +81,9 @@
         "ai_calls_for_step": "AI logs:",
         "result_transactions": "Transactions",
         "fetch_failed": "Could not load scrape logs.",
-        "clear_failed": "Could not clear scrape logs."
+        "clear_failed": "Could not clear scrape logs.",
+        "more_actions": "More actions",
+        "danger_zone": "Danger zone"
     },
     "scrape_progress": {
         "title": "Live Progress",
