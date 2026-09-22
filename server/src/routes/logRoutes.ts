@@ -2,6 +2,7 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs-extra';
 import { serverLogger, clientErrorLogger, getLogLevel, setLogLevel } from '../utils/logger.js';
+import { tailFile } from '../utils/tailFile.js';
 
 export const logRoutes = Router();
 
@@ -33,16 +34,13 @@ logRoutes.get('/', async (req, res) => {
             });
         }
 
-        const content = await fs.readFile(filePath, 'utf-8');
-        const lines = content.split('\n').filter(line => line.trim() !== '');
-
-        // Return the last N lines
-        const lastLines = lines.slice(-linesCount).join('\n');
+        const tail = await tailFile(filePath, Math.min(Math.max(linesCount, 1), 1000));
 
         res.json({
             type,
-            lines: lastLines,
-            totalLines: lines.length
+            lines: tail.lines.join('\n'),
+            totalLines: tail.lines.length,
+            truncated: tail.truncated
         });
     } catch (error) {
         serverLogger.error('Error fetching logs:', error);
