@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { CloudUpload, Eye, FlaskConical, Save, Trash2 } from 'lucide-react';
-import * as xlsx from '@e965/xlsx';
+import type { WorkBook } from '@e965/xlsx';
 import type { Transaction } from '@app/shared';
 import { useProviders, getProviderDisplayName } from '../hooks/useProviders';
 import {
@@ -123,8 +123,8 @@ function tryInferIsraeliCardLedgerMapping(rows: any[][]): {
     return null;
 }
 
-function applyWorkbookSheetInference(
-    wb: xlsx.WorkBook,
+async function applyWorkbookSheetInference(
+    wb: WorkBook,
     sheet: string,
     setters: {
         setHeaderRowOneBased: (n: number) => void;
@@ -138,7 +138,8 @@ function applyWorkbookSheetInference(
 ) {
     const sh = wb.Sheets[sheet];
     if (!sh) return;
-    const r = xlsx.utils.sheet_to_json(sh, { header: 1, raw: false }) as any[][];
+    const { utils } = await import('@e965/xlsx');
+    const r = utils.sheet_to_json(sh, { header: 1, raw: false }) as any[][];
     const inferred = tryInferIsraeliCardLedgerMapping(r);
     if (inferred) {
         setters.setHeaderRowOneBased(inferred.headerRowIndex0 + 1);
@@ -184,7 +185,7 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave, variant = 'modal
     const { t, i18n } = useTranslation();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
-    const [workbook, setWorkbook] = useState<xlsx.WorkBook | null>(null);
+    const [workbook, setWorkbook] = useState<WorkBook | null>(null);
     const [sheetName, setSheetName] = useState('');
     const [headerRowOneBased, setHeaderRowOneBased] = useState(1);
     const [dateCol, setDateCol] = useState(0);
@@ -263,14 +264,15 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave, variant = 'modal
             return;
         }
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const wb = xlsx.read(data, { type: 'array' });
+                const { read } = await import('@e965/xlsx');
+                const wb = read(data, { type: 'array' });
                 setWorkbook(wb);
                 const first = wb.SheetNames[0] || '';
                 setSheetName(first);
-                applyWorkbookSheetInference(wb, first, {
+                await applyWorkbookSheetInference(wb, first, {
                     setHeaderRowOneBased,
                     setDateCol,
                     setDescCol,
@@ -286,10 +288,10 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave, variant = 'modal
         reader.readAsArrayBuffer(file);
     }, [t]);
 
-    const onSheetPick = useCallback((name: string) => {
+    const onSheetPick = useCallback(async (name: string) => {
         setSheetName(name);
         if (!workbook) return;
-        applyWorkbookSheetInference(workbook, name, {
+        await applyWorkbookSheetInference(workbook, name, {
             setHeaderRowOneBased,
             setDateCol,
             setDescCol,
@@ -300,13 +302,17 @@ export function ImportProfileBuilder({ isOpen, onClose, onSave, variant = 'modal
         });
     }, [workbook]);
 
-    const rows = useMemo(() => {
-        if (!workbook || !sheetName) return [] as any[][];
-        const sheet = workbook.Sheets[sheetName];
-        if (!sheet) return [];
-        // `raw: false` = formatted values like Excel UI. Default raw:true uses cell.v (often negative for charges)
-        // while the sheet shows positive amounts — mapped preview vs parse then disagree.
-        return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false }) as any[][];
+    const [rows, setRows] = useState<any[][]>([]);
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            if (!workbook || !sheetName) { setRows([]); return; }
+            const sheet = workbook.Sheets[sheetName];
+            if (!sheet) { setRows([]); return; }
+            const { utils } = await import('@e965/xlsx');
+            if (!cancelled) setRows(utils.sheet_to_json(sheet, { header: 1, raw: false }) as any[][]);
+        })();
+        return () => { cancelled = true; };
     }, [workbook, sheetName]);
 
     const maxCols = useMemo(() => {
