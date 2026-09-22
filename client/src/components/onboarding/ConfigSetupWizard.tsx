@@ -3,8 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ConfigTabId } from '../../utils/appUrlState';
-
-const STORAGE_KEY = 'config-setup-wizard-dismissed-v1';
+import { dismissConfigSetupWizard } from '../../utils/configSetupWizardState';
 
 const STEPS: { tab: ConfigTabId; titleKey: string; bodyKey: string }[] = [
     { tab: 'ai', titleKey: 'common.configuration', bodyKey: 'getting_started.step_6_body' },
@@ -16,14 +15,6 @@ const STEPS: { tab: ConfigTabId; titleKey: string; bodyKey: string }[] = [
 interface ConfigSetupWizardProps {
     activeTab: ConfigTabId;
     onNavigate: (tab: ConfigTabId) => void;
-}
-
-export function shouldShowConfigSetupWizard(): boolean {
-    try {
-        return localStorage.getItem(STORAGE_KEY) !== '1';
-    } catch {
-        return false;
-    }
 }
 
 export function ConfigSetupWizard({ activeTab, onNavigate }: ConfigSetupWizardProps) {
@@ -39,11 +30,7 @@ export function ConfigSetupWizard({ activeTab, onNavigate }: ConfigSetupWizardPr
     if (closed) return null;
 
     const dismiss = () => {
-        try {
-            localStorage.setItem(STORAGE_KEY, '1');
-        } catch {
-            // ignore
-        }
+        dismissConfigSetupWizard();
         setClosed(true);
     };
 

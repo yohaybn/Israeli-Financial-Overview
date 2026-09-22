@@ -17,6 +17,28 @@ const FinancialCommandCenter = lazy(() =>
 const ScrapeWorkspace = lazy(() =>
     import('./components/scrape/ScrapeWorkspace').then((m) => ({ default: m.ScrapeWorkspace }))
 );
+// Feature overlays stay out of the startup graph until they are actually needed.
+const OnboardingWizard = lazy(() =>
+    import('./components/onboarding/OnboardingWizard').then((m) => ({ default: m.OnboardingWizard }))
+);
+const PersonaOnboardingWizard = lazy(() =>
+    import('./components/onboarding/PersonaOnboardingWizard').then((m) => ({ default: m.PersonaOnboardingWizard }))
+);
+const GettingStartedWizard = lazy(() =>
+    import('./components/onboarding/GettingStartedWizard').then((m) => ({ default: m.GettingStartedWizard }))
+);
+const ConfigSetupWizard = lazy(() =>
+    import('./components/onboarding/ConfigSetupWizard').then((m) => ({ default: m.ConfigSetupWizard }))
+);
+const UnifiedAiChatPanel = lazy(() =>
+    import('./components/chat/UnifiedAiChatPanel').then((m) => ({ default: m.UnifiedAiChatPanel }))
+);
+const FeedbackModal = lazy(() =>
+    import('./components/FeedbackModal').then((m) => ({ default: m.FeedbackModal }))
+);
+const TransactionReviewModal = lazy(() =>
+    import('./components/TransactionReviewModal').then((m) => ({ default: m.TransactionReviewModal }))
+);
 
 function ViewLoadingFallback(): React.ReactElement {
     const { t } = useTranslation();
@@ -33,28 +55,23 @@ import { SchedulerSettingsProvider } from './components/SchedulerSettings';
 import { AppLockBanner } from './components/AppLockBanner';
 import { DemoBanner } from './components/DemoBanner';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
-import { PersonaOnboardingWizard } from './components/onboarding/PersonaOnboardingWizard';
 import { OnboardingResumeBanner } from './components/onboarding/OnboardingResumeBanner';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { useGettingStarted } from './contexts/GettingStartedContext';
-import { GettingStartedWizard } from './components/onboarding/GettingStartedWizard';
 import { GettingStartedResumeBanner } from './components/onboarding/GettingStartedResumeBanner';
-import { ConfigSetupWizard, shouldShowConfigSetupWizard } from './components/onboarding/ConfigSetupWizard';
 import { DashboardAlertsDropdown } from './components/dashboard/DashboardAlertsDropdown';
 import { TopBarActivityIndicators } from './components/TopBarActivityIndicators';
 import { TopBarServerStatus } from './components/TopBarServerStatus';
 import { isDemoMode } from './demo/isDemo';
 import { Map as MapIcon, Bot, MessageSquare } from 'lucide-react';
 import { parseAppUrlState, pushAppUrlState, replaceAppUrlState, type AppUrlState } from './utils/appUrlState';
-import { UnifiedAiChatPanel, type AiPanelTab } from './components/chat/UnifiedAiChatPanel';
-import { FeedbackModal } from './components/FeedbackModal';
-import { TransactionReviewModal } from './components/TransactionReviewModal';
 import { usePersonaSetupWizardVisibility } from './hooks/usePersonaSetupWizardVisibility';
 import { transactionsForReviewItems, transactionNeedsReview, type TransactionReviewItem } from '@app/shared';
 import { useEnvConfig } from './hooks/useConfig';
 import { isGeminiApiKeyConfigured } from './utils/geminiKeyConfigured';
 import { publicAssetUrl } from './utils/publicBase';
+import { shouldShowConfigSetupWizard } from './utils/configSetupWizardState';
+import type { AiPanelTab } from './components/chat/UnifiedAiChatPanel';
 
 function consumeSessionConfigTab(): string | null {
     try {
@@ -690,18 +707,20 @@ function App() {
                 </div>
             </div>
 
-            {onboarding.showModal && <OnboardingWizard />}
+            <Suspense fallback={null}>
+                {onboarding.showModal && <OnboardingWizard />}
 
-            {showPersonaSetupWizard && <PersonaOnboardingWizard />}
+                {showPersonaSetupWizard && <PersonaOnboardingWizard />}
 
-            {showGettingStartedWizard && <GettingStartedWizard onNavigate={navigateGettingStarted} />}
+                {showGettingStartedWizard && <GettingStartedWizard onNavigate={navigateGettingStarted} />}
 
-            <FeedbackModal isOpen={feedbackModalOpen} onClose={() => setFeedbackModalOpen(false)} />
+                {feedbackModalOpen && (
+                    <FeedbackModal isOpen onClose={() => setFeedbackModalOpen(false)} />
+                )}
 
-            {showAppAssistant && (
-                <>
+                {showAppAssistant && aiPanelOpen && (
                     <UnifiedAiChatPanel
-                        isOpen={aiPanelOpen}
+                        isOpen
                         onClose={() => setAiPanelOpen(false)}
                         activeTab={aiPanelTab}
                         onTabChange={setAiPanelTab}
@@ -709,6 +728,11 @@ function App() {
                         contextMonth={selectedMonth}
                         onNavigateToLogs={handleNavigateToAILogs}
                     />
+                )}
+            </Suspense>
+
+            {showAppAssistant && (
+                <>
 
                     {!aiPanelOpen && (
                         <button
@@ -736,13 +760,17 @@ function App() {
                 </>
             )}
 
-            <TransactionReviewModal
-                isOpen={transactionReviewModalOpen}
-                onClose={() => setTransactionReviewModalOpen(false)}
-                transactions={reviewModalTransactions}
-                categories={aiSettings?.categories}
-                onUpdateCategory={handleUpdateCategory}
-            />
+            {transactionReviewModalOpen && (
+                <Suspense fallback={null}>
+                    <TransactionReviewModal
+                        isOpen
+                        onClose={() => setTransactionReviewModalOpen(false)}
+                        transactions={reviewModalTransactions}
+                        categories={aiSettings?.categories}
+                        onUpdateCategory={handleUpdateCategory}
+                    />
+                </Suspense>
+            )}
         </>
         </SchedulerSettingsProvider>
     );
