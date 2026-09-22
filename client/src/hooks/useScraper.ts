@@ -787,15 +787,15 @@ export function useRunSchedulerNow() {
 }
 
 // Logs Hook
-export function useLogs(type: 'server' | 'error_log' | 'ai' = 'server', lines: number = 200, options: { enabled?: boolean } = {}) {
+export function useLogs(type: 'server' | 'error_log' | 'ai' = 'server', lines: number = 200, options: { enabled?: boolean; live?: boolean } = {}) {
     return useQuery({
         queryKey: ['logs', type, lines],
         queryFn: async () => {
             const { data } = await api.get<{ type: string; lines: string; totalLines: number }>(`/logs?type=${type}&lines=${lines}`);
             return data;
         },
-        refetchInterval: 5000, // Refresh every 5 seconds
-        ...options
+        refetchInterval: options.live === false ? false : 5000, // Refresh every 5 seconds while live
+        enabled: options.enabled
     });
 }
 

@@ -81,7 +81,9 @@
         "ai_calls_for_step": "יומן AI:",
         "result_transactions": "תנועות",
         "fetch_failed": "לא ניתן לטעון את יומני הסריקה.",
-        "clear_failed": "לא ניתן לנקות את יומני הסריקה."
+        "clear_failed": "לא ניתן לנקות את יומני הסריקה.",
+        "more_actions": "פעולות נוספות",
+        "danger_zone": "אזור סכנה"
     },
     "scrape_progress": {
         "title": "התקדמות בזמן אמת",

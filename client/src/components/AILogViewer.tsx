@@ -277,9 +277,9 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
 
       {/* Model Breakdown */}
       {stats && Object.keys(stats.modelBreakdown).length > 0 && (
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-left">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">{t('ai_logs.model_breakdown')}</h2>
-          <div className="overflow-x-auto custom-scrollbar -mx-4 sm:mx-0">
+        <details className="bg-white rounded-lg shadow p-4 sm:p-6 text-left">
+          <summary className="cursor-pointer text-lg sm:text-xl font-semibold text-gray-900">{t('ai_logs.model_breakdown')}</summary>
+          <div className="mt-4 overflow-x-auto custom-scrollbar -mx-4 sm:mx-0">
             <div className="inline-block min-w-full align-middle">
               <table dir="ltr" className="min-w-[600px] w-full text-sm text-left">
                 <thead className="bg-gray-100 border-b border-gray-200">
@@ -303,11 +303,11 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
               </table>
             </div>
           </div>
-        </div>
+        </details>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center">
+      <div className="sticky top-0 z-20 bg-white rounded-lg shadow p-4 flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center">
         <div className="flex flex-wrap gap-4 items-center w-full sm:w-auto">
           <select
             value={filter.model}
