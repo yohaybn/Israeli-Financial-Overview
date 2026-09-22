@@ -95,6 +95,9 @@
         "main_navigation_aria": "Main navigation",
         "error_occurred": "An error occurred. Please try again.",
         "unsaved_config_confirm": "You have unsaved configuration changes. Are you sure you want to leave?",
-        "demo_banner_short": "Demo mode: sample data only"
+        "demo_banner_short": "Demo mode: sample data only",
+        "log_fetch_failed": "Could not load logs.",
+        "log_level_failed": "Could not load the log level.",
+        "log_action_failed": "The log change failed."
     }
 }
