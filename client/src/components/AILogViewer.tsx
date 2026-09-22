@@ -364,7 +364,36 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
         </div>
       </div>
 
-      <div className={`bg-white rounded-lg shadow overflow-hidden ${loading ? 'opacity-50' : ''}`}>
+      <div className={`space-y-3 md:hidden ${loading ? 'opacity-50' : ''}`}>
+        {logs.length > 0 ? logs.map(log => (
+          <button
+            type="button"
+            key={log.id}
+            onClick={() => { setSelectedLog(log); onEntryIdChange?.(log.id); }}
+            className="w-full rounded-lg border border-gray-200 bg-white p-4 text-start shadow-sm"
+          >
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <span className="text-sm font-semibold text-gray-900">{log.model}</span>
+              <span className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${log.error ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                {log.error ? t('ai_logs.error') : t('ai_logs.success')}
+              </span>
+            </div>
+            <p className="line-clamp-2 text-sm text-gray-700">{truncateTableInput(tableInputLabel(log), 140)}</p>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500" dir="ltr">
+              <span>{formatDate(log.timestamp)}</span>
+              <span>{log.provider}</span>
+              <span>{formatTokens(log.metadata.totalTokens)} {t('ai_logs.tokens')}</span>
+              <span>{log.metadata.latencyMs}ms</span>
+            </div>
+          </button>
+        )) : (
+          <div className="rounded-lg bg-white px-4 py-8 text-center text-gray-500">
+            {loading ? t('ai_logs.loading') : t('ai_logs.no_logs')}
+          </div>
+        )}
+      </div>
+
+      <div className={`hidden overflow-hidden rounded-lg bg-white shadow md:block ${loading ? 'opacity-50' : ''}`}>
         <div className="overflow-x-auto custom-scrollbar">
           <div className="inline-block min-w-full align-middle">
             <table dir="ltr" className="min-w-[1000px] w-full text-sm text-left">
