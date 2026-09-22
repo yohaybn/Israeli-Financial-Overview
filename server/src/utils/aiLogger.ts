@@ -280,23 +280,12 @@ export async function logAIError(
  * Find a single AI log entry by id (linear scan of the log file).
  */
 export async function getAILogById(id: string): Promise<AILogEntry | null> {
-  if (!id?.trim()) return null;
+  if (!id?.trim() || path.basename(id) !== id) return null;
   try {
-    await ensureLogsDirectory();
-    const content = await fs.readFile(AI_LOG_FILE, 'utf-8');
-    for (const line of content.split('\n')) {
-      if (!line.trim()) continue;
-      try {
-        const log = JSON.parse(line) as AILogEntry;
-        if (log?.id === id) return log;
-      } catch {
-        /* skip bad line */
-      }
-    }
+    return await fs.readJson(path.join(AI_LOG_JSON_DIR, `${id}.json`)) as AILogEntry;
   } catch {
     return null;
   }
-  return null;
 }
 
 /**
@@ -311,46 +300,29 @@ export async function getAILogs(options?: {
 }): Promise<{ logs: AILogEntry[]; total: number }> {
   try {
     await ensureLogsDirectory();
-
-    const lines = await fs.readFile(AI_LOG_FILE, 'utf-8');
-    const allLogs: AILogEntry[] = lines
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return null;
-        }
-      })
-      .filter((log): log is AILogEntry => log !== null)
-      .reverse(); // Most recent first
-
-    let filtered = allLogs;
-
-    if (options?.model) {
-      filtered = filtered.filter(log => log.model === options.model);
-    }
-
-    if (options?.provider) {
-      filtered = filtered.filter(log => log.provider === options.provider);
-    }
-
-    if (options?.includeErrors === false) {
-      filtered = filtered.filter(log => !log.error);
-    }
-
-    const total = filtered.length;
+    const filenames = (await fs.readdir(AI_LOG_JSON_DIR))
+      .filter(name => name.endsWith('.json'))
+      .sort()
+      .reverse();
     const offset = options?.offset || 0;
     const limit = options?.limit || 100;
-
-    return {
-      logs: filtered.slice(offset, offset + limit),
-      total
-    };
+    const hasFilters = Boolean(options?.model || options?.provider || options?.includeErrors === false);
+    const candidates = hasFilters ? filenames : filenames.slice(offset, offset + limit);
+    const parsed = (await Promise.all(candidates.map(async name => {
+      try { return await fs.readJson(path.join(AI_LOG_JSON_DIR, name)) as AILogEntry; }
+      catch { return null; }
+    }))).filter((log): log is AILogEntry => log !== null);
+    const filtered = parsed.filter(log =>
+      (!options?.model || log.model === options.model) &&
+      (!options?.provider || log.provider === options.provider) &&
+      (options?.includeErrors !== false || !log.error)
+    );
+    return hasFilters
+      ? { logs: filtered.slice(offset, offset + limit), total: filtered.length }
+      : { logs: filtered, total: filenames.length };
   } catch (error) {
     serverLogger.error('Failed to retrieve AI logs:', { error });
-    return { logs: [], total: 0 };
+    throw error;
   }
 }
 
