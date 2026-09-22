@@ -343,23 +343,21 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
             {t('ai_logs.include_errors')}
           </label>
 
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-gray-600">{t('ai_logs.retention_notice')}</p>
-            <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => clearOldLogs(30)}
-              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm"
-            >
-              {t('ai_logs.clear_old_logs')}
-            </button>
-            <button
-              onClick={() => clearAllLogs()}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
-            >
-              {t('ai_logs.clear_all')}
-            </button>
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              {t('ai_logs.more_actions')}
+            </summary>
+            <div className="absolute end-0 z-30 mt-2 w-64 rounded-lg border border-red-200 bg-white p-3 shadow-xl">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-red-700">{t('ai_logs.danger_zone')}</p>
+              <p className="mb-3 text-xs text-gray-600">{t('ai_logs.retention_notice')}</p>
+              <button onClick={() => clearOldLogs(30)} className="mb-2 w-full rounded-lg border border-amber-300 px-3 py-2 text-start text-sm text-amber-800 hover:bg-amber-50">
+                {t('ai_logs.clear_old_logs')}
+              </button>
+              <button onClick={() => clearAllLogs()} className="w-full rounded-lg border border-red-300 px-3 py-2 text-start text-sm text-red-700 hover:bg-red-50">
+                {t('ai_logs.clear_all')}
+              </button>
             </div>
-          </div>
+          </details>
         </div>
 
         <div className="w-full sm:w-auto sm:ml-auto text-sm text-gray-600 text-center sm:text-right">
