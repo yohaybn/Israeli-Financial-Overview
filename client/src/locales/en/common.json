@@ -98,6 +98,8 @@
         "demo_banner_short": "Demo mode: sample data only",
         "log_fetch_failed": "Could not load logs.",
         "log_level_failed": "Could not load the log level.",
-        "log_action_failed": "The log change failed."
+        "log_action_failed": "The log change failed.",
+        "live_logs": "Live",
+        "logs_paused": "Paused"
     }
 }

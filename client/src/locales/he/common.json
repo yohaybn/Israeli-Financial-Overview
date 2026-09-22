@@ -98,6 +98,8 @@
         "demo_banner_short": "מצב הדגמה: נתוני דוגמה בלבד",
         "log_fetch_failed": "לא ניתן לטעון את היומנים.",
         "log_level_failed": "לא ניתן לטעון את רמת היומן.",
-        "log_action_failed": "השינוי ביומן נכשל."
+        "log_action_failed": "השינוי ביומן נכשל.",
+        "live_logs": "חי",
+        "logs_paused": "מושהה"
     }
 }
