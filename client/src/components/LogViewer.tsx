@@ -46,6 +46,8 @@ function LogTypeTabs({
 export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdChange, resultFile, onResultFileChange }: LogViewerProps) {
     const { t } = useTranslation();
     const [lines, setLines] = useState(100);
+    const [live, setLive] = useState(true);
+    const shouldAutoScrollRef = useRef(true);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const { data: logsData, isLoading, error: logsError, refetch: refetchLogs } = useLogs(
@@ -53,6 +55,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
         lines,
         {
             enabled: logType !== 'ai' && logType !== 'scrape',
+            live,
         }
     );
 
@@ -61,10 +64,16 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
     const { mutate: clearLogs, isPending: isClearing, error: clearError, reset: resetClearError } = useClearLogs();
 
     useEffect(() => {
-        if (scrollRef.current) {
+        if (scrollRef.current && shouldAutoScrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [logsData, logType]);
+
+    const handleLogScroll = () => {
+        const element = scrollRef.current;
+        if (!element) return;
+        shouldAutoScrollRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+    };
 
     if (logType === 'ai' || logType === 'scrape') {
         return (
@@ -113,6 +122,14 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
                             <option value="error">{t('common.error_level')}</option>
                         </select>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setLive(value => !value)}
+                        aria-pressed={live}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition ${live ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-white text-gray-600'}`}
+                    >
+                        {live ? t('common.live_logs') : t('common.logs_paused')}
+                    </button>
                     <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
                         <span className="text-xs text-gray-500">{t('common.lines')}</span>
                         <select
@@ -152,6 +169,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
 
             <div
                 ref={scrollRef}
+                onScroll={handleLogScroll}
                 dir="ltr"
                 className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar min-h-0 bg-gray-50 font-mono text-sm text-left selection:bg-blue-200/60"
             >
