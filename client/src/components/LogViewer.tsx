@@ -68,7 +68,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
 
     if (logType === 'ai' || logType === 'scrape') {
         return (
-            <div className="flex flex-col h-full bg-white" dir="ltr">
+            <div className="flex flex-col h-full bg-white">
                 <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50">
                     <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start flex-wrap">
                         <h2 className="text-lg font-bold text-gray-800">{t('common.logs')}</h2>
@@ -92,7 +92,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
     }
 
     return (
-        <div className="flex flex-col h-full bg-white" dir="ltr">
+        <div className="flex flex-col h-full bg-white">
             <div className="p-4 border-b border-gray-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gray-50">
                 <div className="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-start flex-wrap">
                     <h2 className="text-lg font-bold text-gray-800">{t('common.logs')}</h2>
@@ -152,6 +152,7 @@ export function LogViewer({ logType, onLogTypeChange, logEntryId, onLogEntryIdCh
 
             <div
                 ref={scrollRef}
+                dir="ltr"
                 className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar min-h-0 bg-gray-50 font-mono text-sm text-left selection:bg-blue-200/60"
             >
                 {logsError ? (

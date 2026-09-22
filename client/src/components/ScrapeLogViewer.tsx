@@ -227,7 +227,7 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
   const resultFileOptions = useMemo(() => (selected ? filenamesForLog(selected) : []), [selected]);
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 bg-gray-50 text-left" dir="ltr">
+    <div className="space-y-6 p-4 sm:p-6 bg-gray-50 text-start">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">{t('scrape_logs.title')}</h2>
@@ -270,7 +270,7 @@ export const ScrapeLogViewer: React.FC<ScrapeLogViewerProps> = ({
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
             <div className="max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <table className="min-w-full text-sm">
+              <table dir="ltr" className="min-w-full text-sm">
                 <thead className="bg-gray-100 text-gray-700 sticky top-0">
                   <tr>
                     <th className="text-left px-3 py-2 font-semibold">{t('scrape_logs.time')}</th>

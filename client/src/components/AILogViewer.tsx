@@ -199,7 +199,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 bg-gray-50 text-left" dir="ltr">
+    <div className="space-y-6 p-4 sm:p-6 bg-gray-50 text-start">
       {/* Header - only show if not embedded (e.g. if we ever mount this standalone) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-left sm:hidden">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('ai_logs.title')}</h1>
@@ -281,7 +281,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">{t('ai_logs.model_breakdown')}</h2>
           <div className="overflow-x-auto custom-scrollbar -mx-4 sm:mx-0">
             <div className="inline-block min-w-full align-middle">
-              <table className="min-w-[600px] w-full text-sm text-left">
+              <table dir="ltr" className="min-w-[600px] w-full text-sm text-left">
                 <thead className="bg-gray-100 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-2 whitespace-nowrap">{t('ai_logs.model')}</th>
@@ -367,7 +367,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
       <div className={`bg-white rounded-lg shadow overflow-hidden ${loading ? 'opacity-50' : ''}`}>
         <div className="overflow-x-auto custom-scrollbar">
           <div className="inline-block min-w-full align-middle">
-            <table className="min-w-[1000px] w-full text-sm text-left">
+            <table dir="ltr" className="min-w-[1000px] w-full text-sm text-left">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 whitespace-nowrap">{t('ai_logs.time')}</th>
@@ -518,7 +518,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                           </svg>
                         </summary>
                         <div className="mt-2 relative">
-                          <pre className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[300px] whitespace-pre-wrap">{formatJsonOrText(selectedLog.requestInfo.systemPrompt)}</pre>
+                          <pre dir="ltr" className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[300px] whitespace-pre-wrap">{formatJsonOrText(selectedLog.requestInfo.systemPrompt)}</pre>
                         </div>
                       </details>
                     )}
@@ -530,7 +530,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                         </svg>
                       </summary>
                       <div className="mt-2 relative">
-                        <pre className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[400px] whitespace-pre-wrap">{formatJsonOrText(rawRequestBody(selectedLog))}</pre>
+                        <pre dir="ltr" className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[400px] whitespace-pre-wrap">{formatJsonOrText(rawRequestBody(selectedLog))}</pre>
                       </div>
                     </details>
                   </div>
@@ -557,7 +557,7 @@ export const AILogViewer: React.FC<AILogViewerProps> = ({ initialEntryId, onEntr
                           </svg>
                         </summary>
                         <div className="mt-2 relative">
-                          <pre className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[500px] whitespace-pre-wrap">{formatJsonOrText(selectedLog.responseInfo.rawOutput)}</pre>
+                          <pre dir="ltr" className="text-xs font-mono bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto max-h-[500px] whitespace-pre-wrap">{formatJsonOrText(selectedLog.responseInfo.rawOutput)}</pre>
                         </div>
                       </details>
                     ) : (
