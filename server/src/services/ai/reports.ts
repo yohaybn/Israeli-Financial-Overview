@@ -51,6 +51,7 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'config', 'ai_settings.json');
 
 import { AiServiceCore } from './core.js';
+import { FinancialReportInsightNarrative, FinancialReportBilingualBlock, FinancialReportNarrative } from './types.js';
 
 export class AiReports {
     constructor(private core: AiServiceCore) {}

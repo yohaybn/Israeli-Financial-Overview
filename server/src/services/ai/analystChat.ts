@@ -51,6 +51,7 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'config', 'ai_settings.json');
 
 import { AiServiceCore } from './core.js';
+import { ANALYZE_TXN_CSV_COLUMN_HINT, AI_TXN_INLINE_MAX_ROWS, StructuredChatResult, AnalyzeDataOptions, AnalyzeDataResult, normalizeFactReplacements, normalizeScoredItems, SuperPrivacyChatOptions, SuperPrivacyChatResult } from './types.js';
 
 export class AiAnalystChat {
     constructor(private core: AiServiceCore) {}

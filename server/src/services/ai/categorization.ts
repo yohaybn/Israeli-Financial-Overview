@@ -51,6 +51,7 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'config', 'ai_settings.json');
 
 import { AiServiceCore } from './core.js';
+import { CategorizeTransactionsOptions, CategorizeTransactionsResult, AI_CATEGORIZATION_NO_API_KEY } from './types.js';
 
 export class AiCategorization {
     constructor(private core: AiServiceCore) {}

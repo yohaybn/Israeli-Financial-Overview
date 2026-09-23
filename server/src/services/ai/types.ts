@@ -163,13 +163,13 @@ export const AI_TXN_INLINE_MAX_ROWS = 100;
  * Injected into analyst prompts so the model does not misread CSV columns.
  * `originalAmount` often differs from the posted ILS figure for installment totals vs posted slice, or foreign-currency charges.
  */
-const ANALYZE_TXN_CSV_COLUMN_HINT =
+export const ANALYZE_TXN_CSV_COLUMN_HINT =
     'Transaction CSV semantics: `accountNumber` is the bank/card account identifier for that row. ' +
     '`amount` is the charged/posted amount in the account currency (usually ILS), taken from each row\'s charged amount when present (the bank\'s ILS debit/credit). ' +
     '`originalAmount` is the source figure when it differs from that posting: either the total for installment / multi-payment purchases (or the plan total as recorded by the bank), or the charge amount in the original foreign currency; use `originalCurrency` together with these columns.';
 
 /** Prefer model `chargedAmount` over `amount` (some exports omit `amount` but include charged ILS). */
-function canonicalAmountFromExtracted(t: { chargedAmount?: unknown; amount?: unknown }): number {
+export function canonicalAmountFromExtracted(t: { chargedAmount?: unknown; amount?: unknown }): number {
     for (const v of [t.chargedAmount, t.amount]) {
         if (v === null || v === undefined || v === '') continue;
         const n = typeof v === 'number' ? v : Number(v);

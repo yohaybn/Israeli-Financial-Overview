@@ -50,7 +50,7 @@ import { ANALYST_CHAT_TEMPLATE_FORMAT_RULES, fillAnalystResponseTemplate } from 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'config', 'ai_settings.json');
 
-import { AiSettings, DEFAULT_SETTINGS } from './types.js';
+import { AiSettings, AnalyzeDataOptions, DEFAULT_SETTINGS } from './types.js';
 
 /**
  * Shared AI infrastructure: Gemini client, AI settings lifecycle and prompt/format
